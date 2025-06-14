@@ -1,48 +1,97 @@
 /* MIT license
-Custom Obsidian UI
+Custom Obsidian Style
 Author: Lucas
 */
 
 /* @settings
-name: Custom Obsidian UI
+name: 额外自定义样式
 id: custom-obsidian-style
 settings:
 
 -
   id: nav-buttons-container-toggle
-  title: Custom Obsidian Style
-  description: toggle the display of the file navigation bar
+  title: 隐藏文件区域导航栏
   type: class-toggle
-
+-
+  id: workspace-tab-heaher-container-toggle
+  title: 隐藏Obsidan顶部标签栏
+  type: class-toggle
+-
+  id: custom-other
+  title: 其他元素
+  description: 除开界面以外的其他元素,可能和主题起冲突
+  type: heading
+  level: 1
+  collapsed: true  
 -
   id: custom-table-toggle
-  title: Custom Table Style
-  description: toggle the style of table
+  title: 表格宽度增加到页面等宽
+  type: class-toggle
+-
+  id: custom-table-first-wrap
+  title: 表格第一列禁止换行
+  type: class-toggle
+-
+  id: custom-code-area-wrap
+  title: 表格宽度增加到页面等宽
   type: class-toggle  
 */
 
-.custom-table-toggle:not(.customer-table){
-  .markdown-preview-view table {
-    border-collapse: collapse;
-    width: 100%;
-  }
 
-  .markdown-preview-view th,
-  .markdown-preview-view td {
-    border: 1px solid lightgray;
-    padding: 8px;
-    text-align: left;
-  }
-
-  .markdown-preview-view th {
-    background-color: lightgray !important;
-  }
-}
-
-.nav-buttons-container-toggle:not(.hidden){
+/* 隐藏文件区域导航栏 */
+.nav-buttons-container-toggle:not(.customer-hidden){
   .nav-buttons-container{
     display: none;
   }
 }
 
+/* 隐藏Obsidan顶部标签栏 */
+.workspace-tab-heaher-container-toggle:not(.customer-hidden){
+  .workspace-tab-header-container{
+    display: none;
+  }
+}
+
+/* 禁止代码块换行 */
+.custom-code-area-wrap:not(.customer-wrap){
+  code[class*="language-"]{
+    white-space: pre;
+    overflow-x: auto;
+  }
+}
+
+/* 表格第一列禁止换行 */
+.custom-table-first-wrap:not(.customer-wrap){
+  .markdown-preview-view td:first-child,
+  .markdown-preview-view th:first-child,
+  .markdown-source-view.mod-cm6 .cm-content td:first-child,
+  .markdown-source-view.mod-cm6 .cm-content th:first-child {
+    white-space: nowrap;
+  }
+}
+
+/* 表格宽度增加到页面等宽 */
+.custom-table-toggle:not(.customer-width){
+  .markdown-preview-view table,
+  .markdown-source-view.mod-cm6 .cm-content table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  .markdown-preview-view th,
+  .markdown-preview-view td,
+  .markdown-source-view.mod-cm6 .cm-content th,
+  .markdown-source-view.mod-cm6 .cm-content td {
+    border: 1px solid lightgray;
+    padding: 6px 6px;
+    padding: auto;
+    text-align: left;
+    font-size: 0.8rem;
+  }
+
+  .markdown-preview-view th,
+  .markdown-source-view.mod-cm6 .cm-content th {
+    background-color: #DDE0E7 !important;
+  }
+}
 
