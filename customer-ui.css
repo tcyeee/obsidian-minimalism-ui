@@ -15,6 +15,7 @@ settings:
 -
   id: workspace-tab-heaher-container-toggle
   title: 隐藏Obsidan顶部标签栏
+  description: 开启后,Obsidian无法通过鼠标拖动位置,慎重
   type: class-toggle
 -
   id: custom-other
@@ -33,7 +34,7 @@ settings:
   type: class-toggle
 -
   id: custom-code-area-wrap
-  title: 表格宽度增加到页面等宽
+  title: 代码块禁止换行
   type: class-toggle  
 */
 
