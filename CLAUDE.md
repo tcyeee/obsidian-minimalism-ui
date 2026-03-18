@@ -15,6 +15,7 @@
 obsidian-minimalism-ui/
 ├── main.ts          # 插件主逻辑（TypeScript 源码）
 ├── main.js          # 构建产物（由 esbuild 生成，需提交）
+
 ├── styles.css       # 插件样式（随插件自动加载）
 ├── manifest.json    # 插件元数据（id/name/version/minAppVersion）
 ├── versions.json    # 版本兼容性映射
