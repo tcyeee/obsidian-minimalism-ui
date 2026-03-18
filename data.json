@@ -1,0 +1,13 @@
+{
+  "enableMacStyle": false,
+  "hideTabBar": false,
+  "hideNavButtons": false,
+  "hideRightSidebar": false,
+  "showNoteTitle": true,
+  "showNoteTags": false,
+  "showNoteFrontmatter": true,
+  "showNoteCreated": true,
+  "showNoteModified": true,
+  "showNoteWordCount": true,
+  "showNoteLinks": true
+}
