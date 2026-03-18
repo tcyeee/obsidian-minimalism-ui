@@ -1,0 +1,11 @@
+{
+  "id": "obsidian-minimalism-ui",
+  "name": "Minimalism UI",
+  "version": "1.0.0",
+  "minAppVersion": "1.1.0",
+  "description": "将 Obsidian 改造为类 macOS 原生应用风格，左侧固定显示笔记状态信息，右侧专注笔记内容",
+  "author": "Lucas",
+  "authorUrl": "",
+  "fundingUrl": "",
+  "isDesktopOnly": true
+}

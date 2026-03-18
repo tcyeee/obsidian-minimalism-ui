@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output (keep main.js for Obsidian, but ignore source maps)
+*.js.map
+
+# TypeScript cache
+*.tsbuildinfo
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Env / secrets
+.env
+.env.local
+
+# npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
