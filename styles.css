@@ -1,0 +1,253 @@
+/* =============================================================================
+   Minimalism UI — Obsidian Plugin Styles
+   macOS 原生风格 · 左侧固定信息面板
+   ============================================================================= */
+
+/* ── Mac 风格全局样式 ──────────────────────────────────────────────────── */
+
+.minimalism-ui-mac-style {
+	/* 系统字体 */
+	--font-interface: -apple-system, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+	--font-text: -apple-system, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+	--font-monospace: "SF Mono", "Fira Code", "Fira Mono", Menlo, Courier, monospace;
+
+	/* 圆角 */
+	--radius-s: 6px;
+	--radius-m: 10px;
+	--radius-l: 14px;
+
+	/* 颜色语义 */
+	--color-accent: #007AFF;
+	--color-accent-hover: #0056CC;
+}
+
+/* 左侧边栏整体圆角+阴影 */
+.minimalism-ui-mac-style .workspace-split.mod-left-split {
+	border-radius: 0 var(--radius-l) var(--radius-l) 0;
+}
+
+/* 主编辑区圆角 */
+.minimalism-ui-mac-style .workspace-split.mod-root {
+	border-radius: var(--radius-m);
+	overflow: hidden;
+}
+
+/* ── 禁止拖拽左侧面板中的 minimalism view ────────────────────────────── */
+
+/* 隐藏我们的 view 上的拖拽手柄，防止被拖出左栏 */
+.workspace-leaf[data-type="minimalism-ui-note-info"] .view-header-title-container {
+	cursor: default;
+	pointer-events: none;
+}
+
+/* 禁用 view header 的拖拽区域 */
+.workspace-leaf[data-type="minimalism-ui-note-info"] .view-header {
+	-webkit-app-region: no-drag;
+}
+
+/* ── 隐藏顶部标签栏 ───────────────────────────────────────────────────── */
+
+.minimalism-ui-hide-tab-bar .workspace-tab-header-container {
+	display: none !important;
+}
+
+/* 隐藏标签栏时补偿高度 */
+.minimalism-ui-hide-tab-bar .workspace-tab-container-inner {
+	padding-top: 0 !important;
+}
+
+/* ── 隐藏文件区导航按钮 ───────────────────────────────────────────────── */
+
+.minimalism-ui-hide-nav-buttons .nav-buttons-container {
+	display: none !important;
+}
+
+/* ── 隐藏右侧边栏 ────────────────────────────────────────────────────── */
+
+.minimalism-ui-hide-right-sidebar .workspace-split.mod-right-split {
+	display: none !important;
+}
+
+/* ── 信息面板容器 ─────────────────────────────────────────────────────── */
+
+.minimalism-ui-view-container {
+	height: 100%;
+}
+
+.minimalism-ui-info-panel {
+	padding: 16px 14px;
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+	overflow-y: auto;
+	height: 100%;
+	box-sizing: border-box;
+}
+
+/* ── 空状态 ──────────────────────────────────────────────────────────── */
+
+.minimalism-ui-empty-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	opacity: 0.4;
+	gap: 8px;
+}
+
+.minimalism-ui-empty-icon {
+	font-size: 2rem;
+}
+
+.minimalism-ui-empty-state p {
+	font-size: 0.85rem;
+	margin: 0;
+}
+
+/* ── Section（每个信息块） ───────────────────────────────────────────── */
+
+.minimalism-ui-section {
+	padding: 10px 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.minimalism-ui-section:last-child {
+	border-bottom: none;
+}
+
+.minimalism-ui-label {
+	font-size: 0.7rem;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--text-muted);
+	margin-bottom: 5px;
+}
+
+.minimalism-ui-value {
+	font-size: 0.85rem;
+	color: var(--text-normal);
+	line-height: 1.5;
+	word-break: break-word;
+}
+
+/* 标题加大加粗 */
+.minimalism-ui-title {
+	font-size: 0.95rem;
+	font-weight: 600;
+	color: var(--text-normal);
+}
+
+/* 日期用等宽 */
+.minimalism-ui-date {
+	font-family: var(--font-monospace);
+	font-size: 0.8rem;
+}
+
+/* ── 标签 ────────────────────────────────────────────────────────────── */
+
+.minimalism-ui-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-top: 2px;
+}
+
+.minimalism-ui-tag {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 999px;
+	font-size: 0.75rem;
+	background: var(--tag-background);
+	color: var(--tag-color);
+	border: 1px solid var(--tag-border-color);
+}
+
+/* Mac 风格下标签使用 accent 色 */
+.minimalism-ui-mac-style .minimalism-ui-tag {
+	background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+	color: var(--color-accent);
+	border-color: color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+/* ── Frontmatter 属性 ────────────────────────────────────────────────── */
+
+.minimalism-ui-fm-row {
+	display: flex;
+	gap: 6px;
+	align-items: baseline;
+	padding: 2px 0;
+	font-size: 0.82rem;
+}
+
+.minimalism-ui-fm-key {
+	color: var(--text-muted);
+	flex-shrink: 0;
+	min-width: 0;
+}
+
+.minimalism-ui-fm-key::after {
+	content: ':';
+}
+
+.minimalism-ui-fm-value {
+	color: var(--text-normal);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* ── 字数统计 ────────────────────────────────────────────────────────── */
+
+.minimalism-ui-stat {
+	font-variant-numeric: tabular-nums;
+	font-weight: 600;
+	font-size: 0.88rem;
+}
+
+.minimalism-ui-stat-label {
+	font-size: 0.78rem;
+	color: var(--text-muted);
+}
+
+/* ── 链接统计 ────────────────────────────────────────────────────────── */
+
+.minimalism-ui-links {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+}
+
+.minimalism-ui-link-row {
+	display: flex;
+	align-items: center;
+	font-size: 0.82rem;
+}
+
+.minimalism-ui-link-icon {
+	font-size: 0.9rem;
+	opacity: 0.6;
+	margin-right: 2px;
+}
+
+/* ── 设置页描述 ──────────────────────────────────────────────────────── */
+
+.minimalism-ui-setting-desc {
+	color: var(--text-muted);
+	font-size: 0.85rem;
+	margin: 0 0 16px 0;
+	line-height: 1.5;
+}
+
+/* ── 深色模式适配 ─────────────────────────────────────────────────────── */
+
+.theme-dark .minimalism-ui-mac-style .minimalism-ui-info-panel {
+	background: transparent;
+}
+
+/* ── 响应式：左侧栏宽度 ──────────────────────────────────────────────── */
+
+.minimalism-ui-mac-style .workspace-split.mod-left-split {
+	min-width: 220px;
+}
