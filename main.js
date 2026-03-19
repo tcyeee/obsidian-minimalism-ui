@@ -39,13 +39,11 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
     super(...arguments);
     this.pinBlockHandler = null;
     this.detachPatches = /* @__PURE__ */ new Map();
-    this.sidebarWrapper = null;
   }
   async onload() {
     await this.loadSettings();
     this.applyBodyClasses();
     this.applyPinBlock();
-    this.app.workspace.onLayoutReady(() => this.applySidebarWrapper());
     this.addSettingTab(new MinimalismUISettingTab(this.app, this));
   }
   onunload() {
@@ -56,7 +54,6 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
       "minimalism-ui-disable-pin"
     );
     this.removePinBlockHandler();
-    this.removeSidebarWrapper();
   }
   applyBodyClasses() {
     const cls = document.body.classList;
@@ -104,38 +101,10 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
   }
-  applySidebarWrapper() {
-    var _a;
-    if (!this.settings.macSidebar) {
-      this.removeSidebarWrapper();
-      return;
-    }
-    if ((_a = this.sidebarWrapper) == null ? void 0 : _a.isConnected)
-      return;
-    const sidebar = document.querySelector(".workspace-split.mod-left-split");
-    if (!(sidebar == null ? void 0 : sidebar.parentElement))
-      return;
-    const wrapper = document.createElement("div");
-    wrapper.addClass("minimalism-ui-sidebar-wrapper");
-    sidebar.parentElement.insertBefore(wrapper, sidebar);
-    wrapper.appendChild(sidebar);
-    this.sidebarWrapper = wrapper;
-  }
-  removeSidebarWrapper() {
-    if (!this.sidebarWrapper)
-      return;
-    const sidebar = this.sidebarWrapper.firstElementChild;
-    if (sidebar && this.sidebarWrapper.parentElement) {
-      this.sidebarWrapper.parentElement.insertBefore(sidebar, this.sidebarWrapper);
-    }
-    this.sidebarWrapper.remove();
-    this.sidebarWrapper = null;
-  }
   async saveSettings() {
     await this.saveData(this.settings);
     this.applyBodyClasses();
     this.applyPinBlock();
-    this.applySidebarWrapper();
   }
 };
 var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {

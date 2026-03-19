@@ -1,6 +1,6 @@
 {
   "macSidebar": true,
-  "hideTabBar": false,
+  "hideTabBar": true,
   "hideNavButtons": true,
   "disablePinTab": true,
   "enablePinTab": true,

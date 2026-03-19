@@ -28,13 +28,11 @@ export default class MinimalismUIPlugin extends Plugin {
 	settings: MinimalismUISettings;
 	private pinBlockHandler: ((e: MouseEvent) => void) | null = null;
 	private detachPatches = new Map<WorkspaceLeaf, () => void>();
-	private sidebarWrapper: HTMLElement | null = null;
 
 	async onload() {
 		await this.loadSettings();
 		this.applyBodyClasses();
 		this.applyPinBlock();
-		this.app.workspace.onLayoutReady(() => this.applySidebarWrapper());
 		this.addSettingTab(new MinimalismUISettingTab(this.app, this));
 	}
 
@@ -46,7 +44,6 @@ export default class MinimalismUIPlugin extends Plugin {
 			'minimalism-ui-disable-pin',
 		);
 		this.removePinBlockHandler();
-		this.removeSidebarWrapper();
 	}
 
 	applyBodyClasses() {
@@ -100,38 +97,10 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
 
-	applySidebarWrapper() {
-		if (!this.settings.macSidebar) {
-			this.removeSidebarWrapper();
-			return;
-		}
-		if (this.sidebarWrapper?.isConnected) return;
-
-		const sidebar = document.querySelector('.workspace-split.mod-left-split') as HTMLElement;
-		if (!sidebar?.parentElement) return;
-
-		const wrapper = document.createElement('div');
-		wrapper.addClass('minimalism-ui-sidebar-wrapper');
-		sidebar.parentElement.insertBefore(wrapper, sidebar);
-		wrapper.appendChild(sidebar);
-		this.sidebarWrapper = wrapper;
-	}
-
-	private removeSidebarWrapper() {
-		if (!this.sidebarWrapper) return;
-		const sidebar = this.sidebarWrapper.firstElementChild as HTMLElement;
-		if (sidebar && this.sidebarWrapper.parentElement) {
-			this.sidebarWrapper.parentElement.insertBefore(sidebar, this.sidebarWrapper);
-		}
-		this.sidebarWrapper.remove();
-		this.sidebarWrapper = null;
-	}
-
 	async saveSettings() {
 		await this.saveData(this.settings);
 		this.applyBodyClasses();
 		this.applyPinBlock();
-		this.applySidebarWrapper();
 	}
 }
 
