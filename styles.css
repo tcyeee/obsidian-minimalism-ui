@@ -132,6 +132,11 @@
 	padding-top: 0 !important;
 }
 
+/* 隐藏标签栏时信息面板增加顶部间距 */
+.minimalism-ui-hide-tab-bar .workspace-leaf-content {
+	padding-top: 16px;
+}
+
 /* ── 隐藏文件区导航按钮 ───────────────────────────────────────────────── */
 
 .minimalism-ui-hide-nav-buttons .nav-buttons-container {
