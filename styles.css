@@ -43,6 +43,8 @@
 
 /* 包裹层：白色底板 + 阴影，overflow 默认 visible 不裁切阴影 */
 .minimalism-ui-sidebar-wrapper {
+	position: relative;
+	z-index: 10;
 	margin: 8px 0 8px 8px;
 	border-radius: 14px;
 	background: #ffffff;
@@ -57,7 +59,7 @@
 	box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5), 0 1px 6px rgba(0, 0, 0, 0.3);
 }
 
-/* 侧边栏本体：半透明灰色叠在白色底板上，负责内容裁切 */
+/* 侧边栏本体：半透明灰色叠在白色底板上，负责内容裁切 + 白色内阴影 */
 .minimalism-ui-sidebar-wrapper .workspace-split.mod-left-split {
 	border-radius: 14px !important;
 	border-right: none !important;
@@ -65,10 +67,16 @@
 	margin: 0 !important;
 	background: rgba(0, 0, 0, 0.04) !important;
 	height: 100% !important;
+	box-shadow:
+		inset 0 0 0 1px rgba(255, 255, 255, 0.9),
+		inset 0 1px 4px rgba(255, 255, 255, 0.6) !important;
 }
 
 .theme-dark .minimalism-ui-sidebar-wrapper .workspace-split.mod-left-split {
 	background: rgba(255, 255, 255, 0.05) !important;
+	box-shadow:
+		inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+		inset 0 1px 4px rgba(255, 255, 255, 0.04) !important;
 }
 
 /* 内容区透明，磨砂效果透出 */
@@ -107,7 +115,7 @@
 
 /* ── 隐藏顶部标签栏 ───────────────────────────────────────────────────── */
 
-.minimalism-ui-hide-tab-bar .workspace-tab-header-container {
+.minimalism-ui-hide-tab-bar .workspace-split.mod-left-split .workspace-tab-header-container {
 	display: none !important;
 }
 
@@ -319,4 +327,12 @@
 
 .minimalism-ui-mac-style .workspace-split.mod-left-split {
 	min-width: 220px;
+}
+
+/* ── macOS 交通灯按钮位置适配（侧边栏美化开启时） ───────────────────── */
+
+/* wrapper 的 margin 是 8px top / 8px left，交通灯同步右移+下移对齐 */
+.is-mac.minimalism-ui-mac-sidebar .titlebar-button-container.mod-left {
+	padding-left: 8px !important;
+	padding-top: 8px !important;
 }

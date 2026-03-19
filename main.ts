@@ -26,6 +26,7 @@ const DEFAULT_SETTINGS: MinimalismUISettings = {
 export default class MinimalismUIPlugin extends Plugin {
 	settings: MinimalismUISettings;
 	private pinBlockHandler: ((e: MouseEvent) => void) | null = null;
+	private originalCloseCallback: (() => void) | null = null;
 	private sidebarWrapper: HTMLElement | null = null;
 
 	async onload() {
@@ -57,15 +58,26 @@ export default class MinimalismUIPlugin extends Plugin {
 
 	applyPinBlock() {
 		this.removePinBlockHandler();
-		if (this.settings.disablePinTab) {
-			this.pinBlockHandler = (e: MouseEvent) => {
-				const target = e.target as Element;
-				if (target.closest('.workspace-tab-header.tappable')) {
-					e.stopImmediatePropagation();
-					e.preventDefault();
-				}
+		if (!this.settings.disablePinTab) return;
+
+		// 拦截右键菜单，防止 pin 操作
+		this.pinBlockHandler = (e: MouseEvent) => {
+			if ((e.target as Element).closest('.workspace-tab-header.tappable')) {
+				e.stopImmediatePropagation();
+				e.preventDefault();
+			}
+		};
+		document.addEventListener('contextmenu', this.pinBlockHandler, true);
+
+		// patch workspace:close 命令，阻止关闭左侧边栏中的窗口
+		const closeCmd = (this.app as any).commands?.commands?.['workspace:close'];
+		if (closeCmd?.callback) {
+			this.originalCloseCallback = closeCmd.callback;
+			closeCmd.callback = () => {
+				const leafEl = (this.app.workspace.activeLeaf as any)?.containerEl as HTMLElement | undefined;
+				if (leafEl?.closest('.workspace-split.mod-left-split')) return;
+				this.originalCloseCallback?.();
 			};
-			document.addEventListener('contextmenu', this.pinBlockHandler, true);
 		}
 	}
 
@@ -73,6 +85,11 @@ export default class MinimalismUIPlugin extends Plugin {
 		if (this.pinBlockHandler) {
 			document.removeEventListener('contextmenu', this.pinBlockHandler, true);
 			this.pinBlockHandler = null;
+		}
+		if (this.originalCloseCallback) {
+			const closeCmd = (this.app as any).commands?.commands?.['workspace:close'];
+			if (closeCmd) closeCmd.callback = this.originalCloseCallback;
+			this.originalCloseCallback = null;
 		}
 	}
 
