@@ -306,21 +306,25 @@ class MinimalismUISettingTab extends PluginSettingTab {
 		containerEl.createEl('h3', { text: '外观设置' });
 
 		new Setting(containerEl)
-			.setName('侧边栏美化')
+			.setName('极简侧边栏')
 			.setDesc('为左侧边栏应用磨砂玻璃背景、圆角高亮等 Finder 视觉效果')
 			.addToggle(t => t
 				.setValue(this.plugin.settings.macSidebar)
 				.onChange(async v => { this.plugin.settings.macSidebar = v; await this.plugin.saveSettings(); }));
 
 		new Setting(containerEl)
-			.setName('顶部 Tab 栏美化')
-			.setDesc('隐藏笔记区域顶部的标签栏，并限制同时只能打开一个笔记')
+			.setName('极简导航栏')
+			.setDesc('隐藏笔记区域顶部的标签栏，限制同时只能打开一个笔记，并禁用 Pin 功能')
 			.addToggle(t => t
 				.setValue(this.plugin.settings.disableNoteTabs)
-				.onChange(async v => { this.plugin.settings.disableNoteTabs = v; await this.plugin.saveSettings(); }));
+				.onChange(async v => {
+					this.plugin.settings.disableNoteTabs = v;
+					this.plugin.settings.disablePinTab = v;
+					await this.plugin.saveSettings();
+				}));
 
 		new Setting(containerEl)
-			.setName('信息栏美化')
+			.setName('极简信息栏')
 			.setDesc('隐藏左侧属性栏的操作按钮，以及 Outline、Backlinks 面板中的搜索框')
 			.addToggle(t => t
 				.setValue(this.plugin.settings.hideTabBar)
@@ -347,13 +351,6 @@ class MinimalismUISettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				});
 			});
-
-		new Setting(containerEl)
-			.setName('禁用 Pin 标签页功能')
-			.setDesc('开启后，点击标签页时不再触发 Pin（固定）功能，并隐藏 Pin 图标')
-			.addToggle(t => t
-				.setValue(this.plugin.settings.disablePinTab)
-				.onChange(async v => { this.plugin.settings.disablePinTab = v; await this.plugin.saveSettings(); }));
 
 	}
 }
