@@ -46,32 +46,12 @@
 	overflow: visible !important;
 }
 
-/* 侧边栏本体：悬浮圆角 + 阴影 + 白色内阴影
+/* 侧边栏本体：悬浮圆角 + 阴影
    position + z-index 确保 box-shadow 渲染在主编辑区之上而不被覆盖 */
 .minimalism-ui-mac-sidebar .workspace-split.mod-left-split {
+	background-color: #123342 !important;
 	position: relative !important;
 	z-index: 10 !important;
-	margin: 8px 0 8px 8px !important;
-	height: calc(100% - 16px) !important;
-	border-radius: 14px !important;
-	border-right: none !important;
-	overflow: hidden !important;
-	background: #ffffff !important;
-	box-shadow:
-		0 4px 24px rgba(0, 0, 0, 0.14),
-		0 1px 6px rgba(0, 0, 0, 0.08),
-		inset 0 1px 4px rgba(255, 255, 255, 0.6) !important;
-}
-
-/* 白色内阴影边框：用 ::after 叠在最上层，避免被子元素背景遮挡 */
-.minimalism-ui-mac-sidebar .workspace-split.mod-left-split::after {
-	content: '';
-	position: absolute;
-	inset: 0;
-	border-radius: 14px;
-	border: 1px solid rgba(255, 255, 255, 0.9);
-	pointer-events: none;
-	z-index: 9999;
 }
 
 /* 暗色模式 */
@@ -79,12 +59,12 @@
 	background: #1c1c1e !important;
 	box-shadow:
 		0 4px 24px rgba(0, 0, 0, 0.5),
-		0 1px 6px rgba(0, 0, 0, 0.3),
-		inset 0 1px 4px rgba(255, 255, 255, 0.04) !important;
+		0 1px 6px rgba(0, 0, 0, 0.3) !important;
 }
 
-.theme-dark.minimalism-ui-mac-sidebar .workspace-split.mod-left-split::after {
-	border-color: rgba(255, 255, 255, 0.08);
+/* 侧边栏字体浅色适配深色背景 */
+.minimalism-ui-mac-sidebar .workspace-split.mod-left-split * {
+	color: rgba(196, 196, 196, 0.88) !important;
 }
 
 /* 内容区背景透明，露出侧边栏底色 */
@@ -154,7 +134,7 @@
 	font-size: 0.8rem;
 	font-weight: 600;
 	letter-spacing: 0.06em;
-	color: var(--text-muted);
+	color: rgba(255, 255, 255, 0.88) !important;
 	padding: 12px 16px 6px;
 }
 
@@ -165,7 +145,7 @@
 	font-size: 0.8rem;
 	font-weight: 600;
 	letter-spacing: 0.06em;
-	color: var(--text-muted);
+	color: rgba(255, 255, 255, 0.88) !important;
 	padding: 12px 16px 6px;
 }
 
