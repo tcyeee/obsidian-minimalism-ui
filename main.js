@@ -38,6 +38,7 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
   constructor() {
     super(...arguments);
     this.pinBlockHandler = null;
+    this.originalCloseCallback = null;
     this.sidebarWrapper = null;
   }
   async onload() {
@@ -65,22 +66,40 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
     cls.toggle("minimalism-ui-disable-pin", this.settings.disablePinTab);
   }
   applyPinBlock() {
+    var _a, _b;
     this.removePinBlockHandler();
-    if (this.settings.disablePinTab) {
-      this.pinBlockHandler = (e) => {
-        const target = e.target;
-        if (target.closest(".workspace-tab-header.tappable")) {
-          e.stopImmediatePropagation();
-          e.preventDefault();
-        }
+    if (!this.settings.disablePinTab)
+      return;
+    this.pinBlockHandler = (e) => {
+      if (e.target.closest(".workspace-tab-header.tappable")) {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+      }
+    };
+    document.addEventListener("contextmenu", this.pinBlockHandler, true);
+    const closeCmd = (_b = (_a = this.app.commands) == null ? void 0 : _a.commands) == null ? void 0 : _b["workspace:close"];
+    if (closeCmd == null ? void 0 : closeCmd.callback) {
+      this.originalCloseCallback = closeCmd.callback;
+      closeCmd.callback = () => {
+        var _a2, _b2;
+        const leafEl = (_a2 = this.app.workspace.activeLeaf) == null ? void 0 : _a2.containerEl;
+        if (leafEl == null ? void 0 : leafEl.closest(".workspace-split.mod-left-split"))
+          return;
+        (_b2 = this.originalCloseCallback) == null ? void 0 : _b2.call(this);
       };
-      document.addEventListener("contextmenu", this.pinBlockHandler, true);
     }
   }
   removePinBlockHandler() {
+    var _a, _b;
     if (this.pinBlockHandler) {
       document.removeEventListener("contextmenu", this.pinBlockHandler, true);
       this.pinBlockHandler = null;
+    }
+    if (this.originalCloseCallback) {
+      const closeCmd = (_b = (_a = this.app.commands) == null ? void 0 : _a.commands) == null ? void 0 : _b["workspace:close"];
+      if (closeCmd)
+        closeCmd.callback = this.originalCloseCallback;
+      this.originalCloseCallback = null;
     }
   }
   async loadSettings() {
