@@ -39,6 +39,68 @@
 	overflow: hidden;
 }
 
+/* ── macOS Finder 侧边栏风格 ─────────────────────────────────────────── */
+
+/* 磨砂玻璃背景（亮色） */
+.minimalism-ui-mac-sidebar .workspace-split.mod-left-split {
+	background: rgba(246, 246, 246, 0.82) !important;
+	backdrop-filter: blur(24px) saturate(1.8) !important;
+	-webkit-backdrop-filter: blur(24px) saturate(1.8) !important;
+}
+
+/* 磨砂玻璃背景（暗色） */
+.theme-dark.minimalism-ui-mac-sidebar .workspace-split.mod-left-split {
+	background: rgba(28, 28, 30, 0.85) !important;
+	backdrop-filter: blur(24px) saturate(1.6) !important;
+	-webkit-backdrop-filter: blur(24px) saturate(1.6) !important;
+}
+
+/* 侧边栏内容区背景透明，让磨砂效果透出 */
+.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-leaf,
+.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-leaf-content,
+.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-files-container,
+.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-tab-header-container {
+	background: transparent !important;
+}
+
+/* 导航项 hover：Finder 圆角蓝色高亮 */
+.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title:hover,
+.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-folder-title:hover {
+	background: rgba(0, 122, 255, 0.1) !important;
+	border-radius: 6px !important;
+}
+
+/* 导航项 active/selected */
+.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active,
+.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active:hover {
+	background: rgba(0, 122, 255, 0.18) !important;
+	color: #007AFF !important;
+	border-radius: 6px !important;
+}
+
+/* 暗色模式 hover */
+.theme-dark.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title:hover,
+.theme-dark.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-folder-title:hover {
+	background: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* 暗色模式 active */
+.theme-dark.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active {
+	background: rgba(0, 122, 255, 0.25) !important;
+}
+
+/* 侧边栏文字略小、偏灰，贴近 Finder 风格 */
+.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title,
+.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-folder-title {
+	font-size: 0.88rem;
+	color: var(--text-normal);
+}
+
+/* 文件夹名称略加粗 */
+.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-folder-title-content {
+	font-weight: 500;
+}
+
 /* ── 隐藏顶部标签栏 ───────────────────────────────────────────────────── */
 
 .minimalism-ui-hide-tab-bar .workspace-tab-header-container {

@@ -8,14 +8,14 @@ import {
 // ─── Settings ────────────────────────────────────────────────────────────────
 
 export interface MinimalismUISettings {
-	enableMacStyle: boolean;
+	macSidebar: boolean;
 	hideTabBar: boolean;
 	hideNavButtons: boolean;
 	enablePinTab: boolean;
 }
 
 const DEFAULT_SETTINGS: MinimalismUISettings = {
-	enableMacStyle: true,
+	macSidebar: false,
 	hideTabBar: false,
 	hideNavButtons: false,
 	enablePinTab: false,
@@ -36,7 +36,7 @@ export default class MinimalismUIPlugin extends Plugin {
 
 	onunload() {
 		document.body.classList.remove(
-			'minimalism-ui-mac-style',
+			'minimalism-ui-mac-sidebar',
 			'minimalism-ui-hide-tab-bar',
 			'minimalism-ui-hide-nav-buttons',
 			'minimalism-ui-disable-pin',
@@ -46,7 +46,7 @@ export default class MinimalismUIPlugin extends Plugin {
 
 	applyBodyClasses() {
 		const cls = document.body.classList;
-		cls.toggle('minimalism-ui-mac-style', this.settings.enableMacStyle);
+		cls.toggle('minimalism-ui-mac-sidebar', this.settings.macSidebar);
 		cls.toggle('minimalism-ui-hide-tab-bar', this.settings.hideTabBar);
 		cls.toggle('minimalism-ui-hide-nav-buttons', this.settings.hideNavButtons);
 		cls.toggle('minimalism-ui-disable-pin', !this.settings.enablePinTab);
@@ -97,32 +97,25 @@ class MinimalismUISettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
-
-		containerEl.createEl('h2', { text: 'Minimalism UI' });
-		containerEl.createEl('p', {
-			text: '将 Obsidian 改造为类 macOS 原生应用风格。',
-			cls: 'minimalism-ui-setting-desc',
-		});
-
 		containerEl.createEl('h3', { text: '外观设置' });
 
 		new Setting(containerEl)
-			.setName('macOS 原生风格')
-			.setDesc('启用圆角、系统字体、毛玻璃等 macOS 视觉风格')
+			.setName('侧边栏美化')
+			.setDesc('为左侧边栏应用磨砂玻璃背景、圆角高亮等 Finder 视觉效果')
 			.addToggle(t => t
-				.setValue(this.plugin.settings.enableMacStyle)
-				.onChange(async v => { this.plugin.settings.enableMacStyle = v; await this.plugin.saveSettings(); }));
+				.setValue(this.plugin.settings.macSidebar)
+				.onChange(async v => { this.plugin.settings.macSidebar = v; await this.plugin.saveSettings(); }));
 
 		new Setting(containerEl)
-			.setName('隐藏顶部标签栏')
-			.setDesc('隐藏多标签页切换栏，界面更简洁')
+			.setName('隐藏属性Tab一级操作栏')
+			.setDesc('隐藏左侧任意属性栏(包括Files,Tags等)的标签栏操作图片按钮')
 			.addToggle(t => t
 				.setValue(this.plugin.settings.hideTabBar)
 				.onChange(async v => { this.plugin.settings.hideTabBar = v; await this.plugin.saveSettings(); }));
 
 		new Setting(containerEl)
-			.setName('隐藏文件区域导航按钮')
-			.setDesc('隐藏左侧文件栏上方的图标按钮')
+			.setName('隐藏属性Tab二级操作栏')
+			.setDesc('隐藏左侧任意属性栏(包括Files,Tags等)的二级操作图标按钮')
 			.addToggle(t => t
 				.setValue(this.plugin.settings.hideNavButtons)
 				.onChange(async v => { this.plugin.settings.hideNavButtons = v; await this.plugin.saveSettings(); }));
