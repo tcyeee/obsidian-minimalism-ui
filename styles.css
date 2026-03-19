@@ -132,10 +132,6 @@
 	padding-top: 0 !important;
 }
 
-/* 隐藏标签栏时信息面板增加顶部间距 */
-.minimalism-ui-hide-tab-bar .workspace-leaf-content {
-	padding-top: 16px;
-}
 
 /* ── 简化信息面板（隐藏二级操作按钮 + Outline / Backlinks 搜索框） ───── */
 
@@ -143,6 +139,48 @@
 .minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"] .nav-header,
 .minimalism-ui-simplify-panel .workspace-leaf-content[data-type="backlink"] .nav-header {
 	display: none !important;
+}
+
+/* ── 禁用笔记 Tab（隐藏笔记区域标签栏 + 自定义拖拽区） ──────────────── */
+
+.minimalism-ui-disable-note-tabs .workspace-split.mod-root .workspace-tab-header-container {
+	display: none !important;
+}
+
+.minimalism-ui-drag-bar {
+	-webkit-app-region: drag;
+	height: 35px !important;
+	min-height: 35px !important;
+	max-height: 35px !important;
+	flex-grow: 0 !important;
+	flex-shrink: 0 !important;
+	display: flex;
+	align-items: center;
+	padding: 0 14px;
+	user-select: none;
+}
+
+.minimalism-ui-drag-bar-title {
+	-webkit-app-region: no-drag;
+	pointer-events: none;
+	padding-left: 20px;
+	font-size: 0.75rem;
+	color: var(--text-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-weight: bold;
+	max-width: 50%;
+}
+
+/* status-bar 搬入拖拽区后重置定位，推到最右侧 */
+.minimalism-ui-drag-bar .status-bar {
+	position: static !important;
+	margin-left: auto;
+	background: transparent !important;
+	border: none !important;
+	padding: 0 !important;
+	-webkit-app-region: no-drag;
 }
 
 /* ── 禁用 Pin 功能时隐藏 Pin 图标 ─────────────────────────────────────── */
