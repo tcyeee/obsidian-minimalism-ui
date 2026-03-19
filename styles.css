@@ -146,7 +146,7 @@
 /* ── 信息栏美化：左侧边栏顶部内边距 ─────────────────────────────────── */
 
 .minimalism-ui-simplify-panel .workspace-split.mod-left-split .workspace-leaf-content {
-	padding-top: 30px;
+	padding-top: 35px;
 }
 
 /* ── 简化信息面板（隐藏二级操作按钮 + Outline / Backlinks 搜索框） ───── */
