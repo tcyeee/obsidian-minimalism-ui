@@ -136,7 +136,7 @@
 /* ── 信息栏美化：左侧边栏顶部内边距 ─────────────────────────────────── */
 
 .minimalism-ui-simplify-panel .workspace-split.mod-left-split .workspace-leaf-content {
-	padding-top: 16px;
+	padding-top: 25px;
 }
 
 /* ── 简化信息面板（隐藏二级操作按钮 + Outline / Backlinks 搜索框） ───── */
@@ -151,7 +151,7 @@
 .minimalism-ui-simplify-panel .workspace-leaf-content[data-type="file-properties"]::before {
 	content: 'PROPERTIES';
 	display: block;
-	font-size: 0.7rem;
+	font-size: 0.8rem;
 	font-weight: 600;
 	letter-spacing: 0.06em;
 	color: var(--text-muted);
@@ -162,7 +162,7 @@
 .minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"]::before {
 	content: 'OUTLINE';
 	display: block;
-	font-size: 0.7rem;
+	font-size: 0.8rem;
 	font-weight: 600;
 	letter-spacing: 0.06em;
 	color: var(--text-muted);
