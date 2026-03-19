@@ -67,6 +67,32 @@
 	color: rgba(196, 196, 196, 0.88) !important;
 }
 
+/* 隐藏 Properties 面板每条信息间的分割线 */
+.minimalism-ui-mac-sidebar .metadata-content .metadata-property-key,
+.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value {
+	border-bottom: none !important;
+}
+
+.minimalism-ui-mac-sidebar .metadata-content .metadata-property-key{
+	min-width: 50px !important;
+	width: 100px !important;
+}
+
+
+/* 属性栏分割线 */
+.minimalism-ui-mac-sidebar .workspace-leaf-resize-handle {
+	border: none !important;
+	border-top: 1px dashed rgba(255, 255, 255, 0.15) !important;
+	background: transparent !important;
+	background-color: #123342 !important;
+}
+
+/* 侧边栏底部 vault profile 背景色 */
+.minimalism-ui-mac-sidebar .workspace-sidedock-vault-profile {
+	background-color: #123342 !important;
+	border-top:none !important;
+}
+
 /* 内容区背景透明，露出侧边栏底色 */
 .minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-leaf,
 .minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-leaf-content,
@@ -116,7 +142,7 @@
 /* ── 信息栏美化：左侧边栏顶部内边距 ─────────────────────────────────── */
 
 .minimalism-ui-simplify-panel .workspace-split.mod-left-split .workspace-leaf-content {
-	padding-top: 25px;
+	padding-top: 30px;
 }
 
 /* ── 简化信息面板（隐藏二级操作按钮 + Outline / Backlinks 搜索框） ───── */
