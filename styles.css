@@ -78,6 +78,10 @@
 	width: 100px !important;
 }
 
+.minimalism-ui-mac-sidebar .metadata-content .multi-select-container {
+	font-size: 0.75rem !important;
+}
+
 
 /* 属性栏分割线 */
 .minimalism-ui-mac-sidebar .workspace-leaf-resize-handle {
