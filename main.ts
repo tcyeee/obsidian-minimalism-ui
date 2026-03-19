@@ -11,7 +11,6 @@ import {
 export interface MinimalismUISettings {
 	macSidebar: boolean;
 	hideTabBar: boolean;
-	hideNavButtons: boolean;
 	disablePinTab: boolean;
 	simplifyPanel: boolean;
 }
@@ -19,7 +18,6 @@ export interface MinimalismUISettings {
 const DEFAULT_SETTINGS: MinimalismUISettings = {
 	macSidebar: false,
 	hideTabBar: false,
-	hideNavButtons: false,
 	disablePinTab: true,
 	simplifyPanel: false,
 };
@@ -42,7 +40,6 @@ export default class MinimalismUIPlugin extends Plugin {
 		document.body.classList.remove(
 			'minimalism-ui-mac-sidebar',
 			'minimalism-ui-hide-tab-bar',
-			'minimalism-ui-hide-nav-buttons',
 			'minimalism-ui-disable-pin',
 			'minimalism-ui-simplify-panel',
 		);
@@ -53,7 +50,6 @@ export default class MinimalismUIPlugin extends Plugin {
 		const cls = document.body.classList;
 		cls.toggle('minimalism-ui-mac-sidebar', this.settings.macSidebar);
 		cls.toggle('minimalism-ui-hide-tab-bar', this.settings.hideTabBar);
-		cls.toggle('minimalism-ui-hide-nav-buttons', this.settings.hideNavButtons);
 		cls.toggle('minimalism-ui-disable-pin', this.settings.disablePinTab);
 		cls.toggle('minimalism-ui-simplify-panel', this.settings.simplifyPanel);
 	}
@@ -138,15 +134,8 @@ class MinimalismUISettingTab extends PluginSettingTab {
 				.onChange(async v => { this.plugin.settings.hideTabBar = v; await this.plugin.saveSettings(); }));
 
 		new Setting(containerEl)
-			.setName('隐藏属性Tab二级操作栏')
-			.setDesc('隐藏左侧任意属性栏(包括Files,Tags等)的二级操作图标按钮')
-			.addToggle(t => t
-				.setValue(this.plugin.settings.hideNavButtons)
-				.onChange(async v => { this.plugin.settings.hideNavButtons = v; await this.plugin.saveSettings(); }));
-
-		new Setting(containerEl)
 			.setName('简化信息面板')
-			.setDesc('隐藏 Outline 和 Backlinks 面板中的搜索框')
+			.setDesc('隐藏左侧属性栏的二级操作按钮，以及 Outline、Backlinks 面板中的搜索框')
 			.addToggle(t => t
 				.setValue(this.plugin.settings.simplifyPanel)
 				.onChange(async v => { this.plugin.settings.simplifyPanel = v; await this.plugin.saveSettings(); }));
