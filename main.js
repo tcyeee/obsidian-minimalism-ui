@@ -33,7 +33,30 @@ var DEFAULT_SETTINGS = {
   hideTabBar: false,
   disablePinTab: true,
   simplifyPanel: false,
-  disableNoteTabs: false
+  disableNoteTabs: false,
+  homePage: ""
+};
+var FileSuggest = class extends import_obsidian.AbstractInputSuggest {
+  constructor() {
+    super(...arguments);
+    this.onPickCb = null;
+  }
+  onPick(cb) {
+    this.onPickCb = cb;
+    return this;
+  }
+  getSuggestions(query) {
+    return this.app.vault.getMarkdownFiles().filter((f) => f.path.toLowerCase().includes(query.toLowerCase())).slice(0, 20);
+  }
+  renderSuggestion(file, el) {
+    el.setText(file.path);
+  }
+  selectSuggestion(file) {
+    var _a;
+    this.setValue(file.path);
+    (_a = this.onPickCb) == null ? void 0 : _a.call(this, file.path);
+    this.close();
+  }
 };
 var MinimalismUIPlugin = class extends import_obsidian.Plugin {
   constructor() {
@@ -43,15 +66,22 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
     this.tabLimitHandler = null;
     this.dragBar = null;
     this.dragBarTitleHandler = null;
+    this.dragBarLayoutHandler = null;
     this.statusBarOriginalParent = null;
     this.statusBarOriginalNextSibling = null;
+    this.homePageHandler = null;
+    this.isOpeningHomePage = false;
   }
   async onload() {
     await this.loadSettings();
     this.applyBodyClasses();
     this.applyPinBlock();
     this.applyTabLimit();
-    this.app.workspace.onLayoutReady(() => this.applyDragBar());
+    this.app.workspace.onLayoutReady(() => {
+      this.applyDragBar();
+      this.applyHomePage();
+      this.openHomePage();
+    });
     this.addSettingTab(new MinimalismUISettingTab(this.app, this));
   }
   onunload() {
@@ -65,6 +95,7 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
     this.removePinBlockHandler();
     this.removeTabLimitHandler();
     this.removeDragBar();
+    this.removeHomePageHandler();
   }
   applyBodyClasses() {
     const cls = document.body.classList;
@@ -127,6 +158,15 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
     updateTitle();
     this.dragBarTitleHandler = updateTitle;
     this.app.workspace.on("active-leaf-change", updateTitle);
+    this.dragBarLayoutHandler = () => {
+      if (!this.dragBar || this.dragBar.isConnected)
+        return;
+      const rootEl2 = this.app.workspace.rootSplit.containerEl;
+      const tabsEl2 = rootEl2.querySelector(".workspace-tabs");
+      if (tabsEl2)
+        tabsEl2.insertBefore(this.dragBar, tabsEl2.firstChild);
+    };
+    this.app.workspace.on("layout-change", this.dragBarLayoutHandler);
     const statusBar = document.querySelector(".status-bar");
     if (statusBar) {
       this.statusBarOriginalParent = statusBar.parentElement;
@@ -134,10 +174,41 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
       this.dragBar.appendChild(statusBar);
     }
   }
+  applyHomePage() {
+    this.removeHomePageHandler();
+    if (!this.settings.homePage)
+      return;
+    this.homePageHandler = (file) => {
+      if (!file)
+        this.openHomePage();
+    };
+    this.app.workspace.on("file-open", this.homePageHandler);
+  }
+  async openHomePage() {
+    if (this.isOpeningHomePage)
+      return;
+    const path = this.settings.homePage;
+    if (!path)
+      return;
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof import_obsidian.TFile))
+      return;
+    this.isOpeningHomePage = true;
+    try {
+      const leaf = this.app.workspace.getLeaf(false);
+      await leaf.openFile(file);
+    } finally {
+      this.isOpeningHomePage = false;
+    }
+  }
   removeDragBar() {
     if (this.dragBarTitleHandler) {
       this.app.workspace.off("active-leaf-change", this.dragBarTitleHandler);
       this.dragBarTitleHandler = null;
+    }
+    if (this.dragBarLayoutHandler) {
+      this.app.workspace.off("layout-change", this.dragBarLayoutHandler);
+      this.dragBarLayoutHandler = null;
     }
     if (this.statusBarOriginalParent) {
       const statusBar = document.querySelector(".status-bar");
@@ -160,6 +231,12 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
     if (this.tabLimitHandler) {
       this.app.workspace.off("layout-change", this.tabLimitHandler);
       this.tabLimitHandler = null;
+    }
+  }
+  removeHomePageHandler() {
+    if (this.homePageHandler) {
+      this.app.workspace.off("file-open", this.homePageHandler);
+      this.homePageHandler = null;
     }
   }
   patchSidebarLeafDetach() {
@@ -194,6 +271,7 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
     this.applyPinBlock();
     this.applyTabLimit();
     this.applyDragBar();
+    this.applyHomePage();
   }
 };
 var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {
@@ -209,19 +287,27 @@ var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {
       this.plugin.settings.macSidebar = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(containerEl).setName("\u9690\u85CF\u5C5E\u6027Tab\u4E00\u7EA7\u64CD\u4F5C\u680F").setDesc("\u9690\u85CF\u5DE6\u4FA7\u4EFB\u610F\u5C5E\u6027\u680F(\u5305\u62ECFiles,Tags\u7B49)\u7684\u6807\u7B7E\u680F\u64CD\u4F5C\u56FE\u7247\u6309\u94AE").addToggle((t) => t.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
-      this.plugin.settings.hideTabBar = v;
+    new import_obsidian.Setting(containerEl).setName("\u9876\u90E8 Tab \u680F\u7F8E\u5316").setDesc("\u9690\u85CF\u7B14\u8BB0\u533A\u57DF\u9876\u90E8\u7684\u6807\u7B7E\u680F\uFF0C\u5E76\u9650\u5236\u540C\u65F6\u53EA\u80FD\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0").addToggle((t) => t.setValue(this.plugin.settings.disableNoteTabs).onChange(async (v) => {
+      this.plugin.settings.disableNoteTabs = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(containerEl).setName("\u7B80\u5316\u4FE1\u606F\u9762\u677F").setDesc("\u9690\u85CF\u5DE6\u4FA7\u5C5E\u6027\u680F\u7684\u4E8C\u7EA7\u64CD\u4F5C\u6309\u94AE\uFF0C\u4EE5\u53CA Outline\u3001Backlinks \u9762\u677F\u4E2D\u7684\u641C\u7D22\u6846").addToggle((t) => t.setValue(this.plugin.settings.simplifyPanel).onChange(async (v) => {
+    new import_obsidian.Setting(containerEl).setName("\u4FE1\u606F\u680F\u7F8E\u5316").setDesc("\u9690\u85CF\u5DE6\u4FA7\u5C5E\u6027\u680F\u7684\u64CD\u4F5C\u6309\u94AE\uFF0C\u4EE5\u53CA Outline\u3001Backlinks \u9762\u677F\u4E2D\u7684\u641C\u7D22\u6846").addToggle((t) => t.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
+      this.plugin.settings.hideTabBar = v;
       this.plugin.settings.simplifyPanel = v;
       await this.plugin.saveSettings();
     }));
     containerEl.createEl("h3", { text: "\u4EA4\u4E92\u8BBE\u7F6E" });
-    new import_obsidian.Setting(containerEl).setName("\u7981\u7528\u7B14\u8BB0 Tab").setDesc("\u9690\u85CF\u7B14\u8BB0\u533A\u57DF\u9876\u90E8\u7684\u6807\u7B7E\u680F\uFF0C\u5E76\u9650\u5236\u540C\u65F6\u53EA\u80FD\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0").addToggle((t) => t.setValue(this.plugin.settings.disableNoteTabs).onChange(async (v) => {
-      this.plugin.settings.disableNoteTabs = v;
-      await this.plugin.saveSettings();
-    }));
+    new import_obsidian.Setting(containerEl).setName("\u7B14\u8BB0\u9996\u9875").setDesc("\u8BBE\u7F6E\u4E00\u4E2A\u7B14\u8BB0\u4F5C\u4E3A\u9996\u9875\u3002Obsidian \u542F\u52A8\u65F6\u81EA\u52A8\u6253\u5F00\uFF0C\u5173\u95ED\u6240\u6709\u6807\u7B7E\u540E\u81EA\u52A8\u8FD4\u56DE\u3002").addText((text) => {
+      text.setPlaceholder("\u8F93\u5165\u7B14\u8BB0\u8DEF\u5F84\uFF0C\u4F8B\u5982\uFF1Asrc/Home.md").setValue(this.plugin.settings.homePage);
+      new FileSuggest(this.app, text.inputEl).onPick(async (path) => {
+        this.plugin.settings.homePage = path;
+        await this.plugin.saveSettings();
+      });
+      text.inputEl.addEventListener("change", async () => {
+        this.plugin.settings.homePage = text.inputEl.value.trim();
+        await this.plugin.saveSettings();
+      });
+    });
     new import_obsidian.Setting(containerEl).setName("\u7981\u7528 Pin \u6807\u7B7E\u9875\u529F\u80FD").setDesc("\u5F00\u542F\u540E\uFF0C\u70B9\u51FB\u6807\u7B7E\u9875\u65F6\u4E0D\u518D\u89E6\u53D1 Pin\uFF08\u56FA\u5B9A\uFF09\u529F\u80FD\uFF0C\u5E76\u9690\u85CF Pin \u56FE\u6807").addToggle((t) => t.setValue(this.plugin.settings.disablePinTab).onChange(async (v) => {
       this.plugin.settings.disablePinTab = v;
       await this.plugin.saveSettings();
