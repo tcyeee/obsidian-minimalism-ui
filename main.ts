@@ -1,8 +1,10 @@
 import {
+	AbstractInputSuggest,
 	App,
 	Plugin,
 	PluginSettingTab,
 	Setting,
+	TFile,
 	WorkspaceLeaf,
 } from 'obsidian';
 
@@ -14,6 +16,7 @@ export interface MinimalismUISettings {
 	disablePinTab: boolean;
 	simplifyPanel: boolean;
 	disableNoteTabs: boolean;
+	homePage: string;
 }
 
 const DEFAULT_SETTINGS: MinimalismUISettings = {
@@ -22,7 +25,35 @@ const DEFAULT_SETTINGS: MinimalismUISettings = {
 	disablePinTab: true,
 	simplifyPanel: false,
 	disableNoteTabs: false,
+	homePage: '',
 };
+
+// ─── File Suggester ───────────────────────────────────────────────────────────
+
+class FileSuggest extends AbstractInputSuggest<TFile> {
+	private onPickCb: ((path: string) => void) | null = null;
+
+	onPick(cb: (path: string) => void): this {
+		this.onPickCb = cb;
+		return this;
+	}
+
+	getSuggestions(query: string): TFile[] {
+		return this.app.vault.getMarkdownFiles()
+			.filter(f => f.path.toLowerCase().includes(query.toLowerCase()))
+			.slice(0, 20);
+	}
+
+	renderSuggestion(file: TFile, el: HTMLElement) {
+		el.setText(file.path);
+	}
+
+	selectSuggestion(file: TFile) {
+		this.setValue(file.path);
+		this.onPickCb?.(file.path);
+		this.close();
+	}
+}
 
 // ─── Main Plugin ──────────────────────────────────────────────────────────────
 
@@ -33,15 +64,22 @@ export default class MinimalismUIPlugin extends Plugin {
 	private tabLimitHandler: (() => void) | null = null;
 	private dragBar: HTMLElement | null = null;
 	private dragBarTitleHandler: (() => void) | null = null;
+	private dragBarLayoutHandler: (() => void) | null = null;
 	private statusBarOriginalParent: HTMLElement | null = null;
 	private statusBarOriginalNextSibling: Element | null = null;
+	private homePageHandler: ((file: TFile | null) => void) | null = null;
+	private isOpeningHomePage = false;
 
 	async onload() {
 		await this.loadSettings();
 		this.applyBodyClasses();
 		this.applyPinBlock();
 		this.applyTabLimit();
-		this.app.workspace.onLayoutReady(() => this.applyDragBar());
+		this.app.workspace.onLayoutReady(() => {
+			this.applyDragBar();
+			this.applyHomePage();
+			this.openHomePage();
+		});
 		this.addSettingTab(new MinimalismUISettingTab(this.app, this));
 	}
 
@@ -56,6 +94,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.removePinBlockHandler();
 		this.removeTabLimitHandler();
 		this.removeDragBar();
+		this.removeHomePageHandler();
 	}
 
 	applyBodyClasses() {
@@ -130,6 +169,15 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.dragBarTitleHandler = updateTitle;
 		this.app.workspace.on('active-leaf-change', updateTitle);
 
+		// 布局变化时重新插入拖拽区（关闭 Tab 时 Obsidian 会重建 DOM）
+		this.dragBarLayoutHandler = () => {
+			if (!this.dragBar || this.dragBar.isConnected) return;
+			const rootEl2 = (this.app.workspace.rootSplit as any).containerEl as HTMLElement;
+			const tabsEl2 = rootEl2.querySelector('.workspace-tabs') as HTMLElement | null;
+			if (tabsEl2) tabsEl2.insertBefore(this.dragBar, tabsEl2.firstChild);
+		};
+		this.app.workspace.on('layout-change', this.dragBarLayoutHandler);
+
 		// 将 status-bar 搬入拖拽区右侧
 		const statusBar = document.querySelector('.status-bar') as HTMLElement | null;
 		if (statusBar) {
@@ -139,10 +187,39 @@ export default class MinimalismUIPlugin extends Plugin {
 		}
 	}
 
+	applyHomePage() {
+		this.removeHomePageHandler();
+		if (!this.settings.homePage) return;
+
+		this.homePageHandler = (file: TFile | null) => {
+			if (!file) this.openHomePage();
+		};
+		this.app.workspace.on('file-open', this.homePageHandler);
+	}
+
+	async openHomePage() {
+		if (this.isOpeningHomePage) return;
+		const path = this.settings.homePage;
+		if (!path) return;
+		const file = this.app.vault.getAbstractFileByPath(path);
+		if (!(file instanceof TFile)) return;
+		this.isOpeningHomePage = true;
+		try {
+			const leaf = this.app.workspace.getLeaf(false);
+			await leaf.openFile(file);
+		} finally {
+			this.isOpeningHomePage = false;
+		}
+	}
+
 	private removeDragBar() {
 		if (this.dragBarTitleHandler) {
 			this.app.workspace.off('active-leaf-change', this.dragBarTitleHandler);
 			this.dragBarTitleHandler = null;
+		}
+		if (this.dragBarLayoutHandler) {
+			this.app.workspace.off('layout-change', this.dragBarLayoutHandler);
+			this.dragBarLayoutHandler = null;
 		}
 		// 还原 status-bar 到原始位置
 		if (this.statusBarOriginalParent) {
@@ -167,6 +244,13 @@ export default class MinimalismUIPlugin extends Plugin {
 		if (this.tabLimitHandler) {
 			this.app.workspace.off('layout-change', this.tabLimitHandler);
 			this.tabLimitHandler = null;
+		}
+	}
+
+	private removeHomePageHandler() {
+		if (this.homePageHandler) {
+			this.app.workspace.off('file-open', this.homePageHandler);
+			this.homePageHandler = null;
 		}
 	}
 
@@ -202,6 +286,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.applyPinBlock();
 		this.applyTabLimit();
 		this.applyDragBar();
+		this.applyHomePage();
 	}
 }
 
@@ -228,27 +313,40 @@ class MinimalismUISettingTab extends PluginSettingTab {
 				.onChange(async v => { this.plugin.settings.macSidebar = v; await this.plugin.saveSettings(); }));
 
 		new Setting(containerEl)
-			.setName('隐藏属性Tab一级操作栏')
-			.setDesc('隐藏左侧任意属性栏(包括Files,Tags等)的标签栏操作图片按钮')
-			.addToggle(t => t
-				.setValue(this.plugin.settings.hideTabBar)
-				.onChange(async v => { this.plugin.settings.hideTabBar = v; await this.plugin.saveSettings(); }));
-
-		new Setting(containerEl)
-			.setName('简化信息面板')
-			.setDesc('隐藏左侧属性栏的二级操作按钮，以及 Outline、Backlinks 面板中的搜索框')
-			.addToggle(t => t
-				.setValue(this.plugin.settings.simplifyPanel)
-				.onChange(async v => { this.plugin.settings.simplifyPanel = v; await this.plugin.saveSettings(); }));
-
-		containerEl.createEl('h3', { text: '交互设置' });
-
-		new Setting(containerEl)
-			.setName('禁用笔记 Tab')
+			.setName('顶部 Tab 栏美化')
 			.setDesc('隐藏笔记区域顶部的标签栏，并限制同时只能打开一个笔记')
 			.addToggle(t => t
 				.setValue(this.plugin.settings.disableNoteTabs)
 				.onChange(async v => { this.plugin.settings.disableNoteTabs = v; await this.plugin.saveSettings(); }));
+
+		new Setting(containerEl)
+			.setName('信息栏美化')
+			.setDesc('隐藏左侧属性栏的操作按钮，以及 Outline、Backlinks 面板中的搜索框')
+			.addToggle(t => t
+				.setValue(this.plugin.settings.hideTabBar)
+				.onChange(async v => {
+					this.plugin.settings.hideTabBar = v;
+					this.plugin.settings.simplifyPanel = v;
+					await this.plugin.saveSettings();
+				}));
+
+		containerEl.createEl('h3', { text: '交互设置' });
+
+		new Setting(containerEl)
+			.setName('笔记首页')
+			.setDesc('设置一个笔记作为首页。Obsidian 启动时自动打开，关闭所有标签后自动返回。')
+			.addText(text => {
+				text.setPlaceholder('输入笔记路径，例如：src/Home.md')
+					.setValue(this.plugin.settings.homePage);
+				new FileSuggest(this.app, text.inputEl).onPick(async path => {
+					this.plugin.settings.homePage = path;
+					await this.plugin.saveSettings();
+				});
+				text.inputEl.addEventListener('change', async () => {
+					this.plugin.settings.homePage = text.inputEl.value.trim();
+					await this.plugin.saveSettings();
+				});
+			});
 
 		new Setting(containerEl)
 			.setName('禁用 Pin 标签页功能')

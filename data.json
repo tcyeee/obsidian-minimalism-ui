@@ -4,6 +4,7 @@
   "disablePinTab": true,
   "simplifyPanel": true,
   "disableNoteTabs": true,
+  "homePage": "README.md",
   "hideNavButtons": false,
   "enablePinTab": true,
   "enableMacStyle": false,
