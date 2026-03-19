@@ -41,21 +41,37 @@
 
 /* ── macOS Finder 侧边栏风格 ─────────────────────────────────────────── */
 
-/* 磨砂玻璃背景（亮色） */
-.minimalism-ui-mac-sidebar .workspace-split.mod-left-split {
-	background: rgba(246, 246, 246, 0.82) !important;
-	backdrop-filter: blur(24px) saturate(1.8) !important;
-	-webkit-backdrop-filter: blur(24px) saturate(1.8) !important;
+/* 包裹层：白色底板 + 阴影，overflow 默认 visible 不裁切阴影 */
+.minimalism-ui-sidebar-wrapper {
+	margin: 8px 0 8px 8px;
+	border-radius: 14px;
+	background: #ffffff;
+	box-shadow: 0 4px 24px rgba(0, 0, 0, 0.14), 0 1px 6px rgba(0, 0, 0, 0.08);
+	flex-shrink: 0;
+	height: calc(100% - 16px);
+	align-self: flex-start;
 }
 
-/* 磨砂玻璃背景（暗色） */
-.theme-dark.minimalism-ui-mac-sidebar .workspace-split.mod-left-split {
-	background: rgba(28, 28, 30, 0.85) !important;
-	backdrop-filter: blur(24px) saturate(1.6) !important;
-	-webkit-backdrop-filter: blur(24px) saturate(1.6) !important;
+.theme-dark .minimalism-ui-sidebar-wrapper {
+	background: #1c1c1e;
+	box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5), 0 1px 6px rgba(0, 0, 0, 0.3);
 }
 
-/* 侧边栏内容区背景透明，让磨砂效果透出 */
+/* 侧边栏本体：半透明灰色叠在白色底板上，负责内容裁切 */
+.minimalism-ui-sidebar-wrapper .workspace-split.mod-left-split {
+	border-radius: 14px !important;
+	border-right: none !important;
+	overflow: hidden !important;
+	margin: 0 !important;
+	background: rgba(0, 0, 0, 0.04) !important;
+	height: 100% !important;
+}
+
+.theme-dark .minimalism-ui-sidebar-wrapper .workspace-split.mod-left-split {
+	background: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* 内容区透明，磨砂效果透出 */
 .minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-leaf,
 .minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-leaf-content,
 .minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-files-container,
@@ -63,14 +79,14 @@
 	background: transparent !important;
 }
 
-/* 导航项 hover：Finder 圆角蓝色高亮 */
+/* 导航项 hover */
 .minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title:hover,
 .minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-folder-title:hover {
 	background: rgba(0, 122, 255, 0.1) !important;
 	border-radius: 6px !important;
 }
 
-/* 导航项 active/selected */
+/* 导航项 active */
 .minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active,
 .minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active:hover {
 	background: rgba(0, 122, 255, 0.18) !important;
@@ -78,27 +94,15 @@
 	border-radius: 6px !important;
 }
 
-/* 暗色模式 hover */
+/* 暗色 hover */
 .theme-dark.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title:hover,
 .theme-dark.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-folder-title:hover {
 	background: rgba(255, 255, 255, 0.08) !important;
 }
 
-/* 暗色模式 active */
+/* 暗色 active */
 .theme-dark.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active {
 	background: rgba(0, 122, 255, 0.25) !important;
-}
-
-/* 侧边栏文字略小、偏灰，贴近 Finder 风格 */
-.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title,
-.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-folder-title {
-	font-size: 0.88rem;
-	color: var(--text-normal);
-}
-
-/* 文件夹名称略加粗 */
-.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-folder-title-content {
-	font-weight: 500;
 }
 
 /* ── 隐藏顶部标签栏 ───────────────────────────────────────────────────── */

@@ -32,17 +32,19 @@ var DEFAULT_SETTINGS = {
   macSidebar: false,
   hideTabBar: false,
   hideNavButtons: false,
-  enablePinTab: false
+  disablePinTab: true
 };
 var MinimalismUIPlugin = class extends import_obsidian.Plugin {
   constructor() {
     super(...arguments);
     this.pinBlockHandler = null;
+    this.sidebarWrapper = null;
   }
   async onload() {
     await this.loadSettings();
     this.applyBodyClasses();
     this.applyPinBlock();
+    this.app.workspace.onLayoutReady(() => this.applySidebarWrapper());
     this.addSettingTab(new MinimalismUISettingTab(this.app, this));
   }
   onunload() {
@@ -53,17 +55,18 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
       "minimalism-ui-disable-pin"
     );
     this.removePinBlockHandler();
+    this.removeSidebarWrapper();
   }
   applyBodyClasses() {
     const cls = document.body.classList;
     cls.toggle("minimalism-ui-mac-sidebar", this.settings.macSidebar);
     cls.toggle("minimalism-ui-hide-tab-bar", this.settings.hideTabBar);
     cls.toggle("minimalism-ui-hide-nav-buttons", this.settings.hideNavButtons);
-    cls.toggle("minimalism-ui-disable-pin", !this.settings.enablePinTab);
+    cls.toggle("minimalism-ui-disable-pin", this.settings.disablePinTab);
   }
   applyPinBlock() {
     this.removePinBlockHandler();
-    if (!this.settings.enablePinTab) {
+    if (this.settings.disablePinTab) {
       this.pinBlockHandler = (e) => {
         const target = e.target;
         if (target.closest(".workspace-tab-header.tappable")) {
@@ -83,10 +86,38 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
   }
+  applySidebarWrapper() {
+    var _a;
+    if (!this.settings.macSidebar) {
+      this.removeSidebarWrapper();
+      return;
+    }
+    if ((_a = this.sidebarWrapper) == null ? void 0 : _a.isConnected)
+      return;
+    const sidebar = document.querySelector(".workspace-split.mod-left-split");
+    if (!(sidebar == null ? void 0 : sidebar.parentElement))
+      return;
+    const wrapper = document.createElement("div");
+    wrapper.addClass("minimalism-ui-sidebar-wrapper");
+    sidebar.parentElement.insertBefore(wrapper, sidebar);
+    wrapper.appendChild(sidebar);
+    this.sidebarWrapper = wrapper;
+  }
+  removeSidebarWrapper() {
+    if (!this.sidebarWrapper)
+      return;
+    const sidebar = this.sidebarWrapper.firstElementChild;
+    if (sidebar && this.sidebarWrapper.parentElement) {
+      this.sidebarWrapper.parentElement.insertBefore(sidebar, this.sidebarWrapper);
+    }
+    this.sidebarWrapper.remove();
+    this.sidebarWrapper = null;
+  }
   async saveSettings() {
     await this.saveData(this.settings);
     this.applyBodyClasses();
     this.applyPinBlock();
+    this.applySidebarWrapper();
   }
 };
 var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {
@@ -97,11 +128,6 @@ var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "Minimalism UI" });
-    containerEl.createEl("p", {
-      text: "\u5C06 Obsidian \u6539\u9020\u4E3A\u7C7B macOS \u539F\u751F\u5E94\u7528\u98CE\u683C\u3002",
-      cls: "minimalism-ui-setting-desc"
-    });
     containerEl.createEl("h3", { text: "\u5916\u89C2\u8BBE\u7F6E" });
     new import_obsidian.Setting(containerEl).setName("\u4FA7\u8FB9\u680F\u7F8E\u5316").setDesc("\u4E3A\u5DE6\u4FA7\u8FB9\u680F\u5E94\u7528\u78E8\u7802\u73BB\u7483\u80CC\u666F\u3001\u5706\u89D2\u9AD8\u4EAE\u7B49 Finder \u89C6\u89C9\u6548\u679C").addToggle((t) => t.setValue(this.plugin.settings.macSidebar).onChange(async (v) => {
       this.plugin.settings.macSidebar = v;
@@ -116,8 +142,8 @@ var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {
       await this.plugin.saveSettings();
     }));
     containerEl.createEl("h3", { text: "\u4EA4\u4E92\u8BBE\u7F6E" });
-    new import_obsidian.Setting(containerEl).setName("\u542F\u7528 Pin \u6807\u7B7E\u9875\u529F\u80FD").setDesc("\u5173\u95ED\u540E\uFF0C\u70B9\u51FB\u6807\u7B7E\u9875\u65F6\u4E0D\u518D\u89E6\u53D1 Pin\uFF08\u56FA\u5B9A\uFF09\u529F\u80FD\uFF0C\u5E76\u9690\u85CF Pin \u56FE\u6807").addToggle((t) => t.setValue(this.plugin.settings.enablePinTab).onChange(async (v) => {
-      this.plugin.settings.enablePinTab = v;
+    new import_obsidian.Setting(containerEl).setName("\u7981\u7528 Pin \u6807\u7B7E\u9875\u529F\u80FD").setDesc("\u5F00\u542F\u540E\uFF0C\u70B9\u51FB\u6807\u7B7E\u9875\u65F6\u4E0D\u518D\u89E6\u53D1 Pin\uFF08\u56FA\u5B9A\uFF09\u529F\u80FD\uFF0C\u5E76\u9690\u85CF Pin \u56FE\u6807").addToggle((t) => t.setValue(this.plugin.settings.disablePinTab).onChange(async (v) => {
+      this.plugin.settings.disablePinTab = v;
       await this.plugin.saveSettings();
     }));
   }
