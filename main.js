@@ -38,7 +38,7 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
   constructor() {
     super(...arguments);
     this.pinBlockHandler = null;
-    this.originalCloseCallback = null;
+    this.detachPatches = /* @__PURE__ */ new Map();
     this.sidebarWrapper = null;
   }
   async onload() {
@@ -66,7 +66,6 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
     cls.toggle("minimalism-ui-disable-pin", this.settings.disablePinTab);
   }
   applyPinBlock() {
-    var _a, _b;
     this.removePinBlockHandler();
     if (!this.settings.disablePinTab)
       return;
@@ -77,30 +76,30 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
       }
     };
     document.addEventListener("contextmenu", this.pinBlockHandler, true);
-    const closeCmd = (_b = (_a = this.app.commands) == null ? void 0 : _a.commands) == null ? void 0 : _b["workspace:close"];
-    if (closeCmd == null ? void 0 : closeCmd.callback) {
-      this.originalCloseCallback = closeCmd.callback;
-      closeCmd.callback = () => {
-        var _a2, _b2;
-        const leafEl = (_a2 = this.app.workspace.activeLeaf) == null ? void 0 : _a2.containerEl;
-        if (leafEl == null ? void 0 : leafEl.closest(".workspace-split.mod-left-split"))
-          return;
-        (_b2 = this.originalCloseCallback) == null ? void 0 : _b2.call(this);
+    this.patchSidebarLeafDetach();
+  }
+  patchSidebarLeafDetach() {
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      if (this.detachPatches.has(leaf))
+        return;
+      const leafEl = leaf.containerEl;
+      if (!(leafEl == null ? void 0 : leafEl.closest(".workspace-split.mod-left-split")))
+        return;
+      const original = leaf.detach.bind(leaf);
+      leaf.detach = () => {
       };
-    }
+      this.detachPatches.set(leaf, original);
+    });
   }
   removePinBlockHandler() {
-    var _a, _b;
     if (this.pinBlockHandler) {
       document.removeEventListener("contextmenu", this.pinBlockHandler, true);
       this.pinBlockHandler = null;
     }
-    if (this.originalCloseCallback) {
-      const closeCmd = (_b = (_a = this.app.commands) == null ? void 0 : _a.commands) == null ? void 0 : _b["workspace:close"];
-      if (closeCmd)
-        closeCmd.callback = this.originalCloseCallback;
-      this.originalCloseCallback = null;
+    for (const [leaf, original] of this.detachPatches) {
+      leaf.detach = original;
     }
+    this.detachPatches.clear();
   }
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
