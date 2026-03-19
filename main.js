@@ -24,8 +24,6 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // main.ts
 var main_exports = {};
 __export(main_exports, {
-  NoteInfoView: () => NoteInfoView,
-  VIEW_TYPE_NOTE_INFO: () => VIEW_TYPE_NOTE_INFO,
   default: () => MinimalismUIPlugin
 });
 module.exports = __toCommonJS(main_exports);
@@ -33,219 +31,26 @@ var import_obsidian = require("obsidian");
 var DEFAULT_SETTINGS = {
   enableMacStyle: true,
   hideTabBar: false,
-  hideNavButtons: false,
-  hideRightSidebar: false,
-  showNoteTitle: true,
-  showNoteTags: true,
-  showNoteFrontmatter: true,
-  showNoteCreated: true,
-  showNoteModified: true,
-  showNoteWordCount: true,
-  showNoteLinks: true
+  hideNavButtons: false
 };
-var VIEW_TYPE_NOTE_INFO = "minimalism-ui-note-info";
-var NoteInfoView = class extends import_obsidian.ItemView {
-  constructor(leaf, plugin) {
-    super(leaf);
-    this.plugin = plugin;
-  }
-  getViewType() {
-    return VIEW_TYPE_NOTE_INFO;
-  }
-  getDisplayText() {
-    return "\u7B14\u8BB0\u4FE1\u606F";
-  }
-  getIcon() {
-    return "file-text";
-  }
-  async onOpen() {
-    this.containerEl.addClass("minimalism-ui-view-container");
-    await this.renderContent();
-    this.registerEvent(
-      this.app.workspace.on("file-open", async () => {
-        await this.renderContent();
-      })
-    );
-    this.registerEvent(
-      this.app.metadataCache.on("changed", async (file) => {
-        const active = this.app.workspace.getActiveFile();
-        if (active && file.path === active.path) {
-          await this.renderContent();
-        }
-      })
-    );
-  }
-  async renderContent(file) {
-    var _a, _b, _c;
-    const panel = this.containerEl.children[1];
-    panel.empty();
-    panel.addClass("minimalism-ui-info-panel");
-    const activeFile = file != null ? file : this.app.workspace.getActiveFile();
-    if (!activeFile) {
-      const empty = panel.createEl("div", { cls: "minimalism-ui-empty-state" });
-      empty.createEl("div", { cls: "minimalism-ui-empty-icon", text: "\u{1F4C4}" });
-      empty.createEl("p", { text: "\u8BF7\u6253\u5F00\u4E00\u7BC7\u7B14\u8BB0" });
-      return;
-    }
-    const metadata = this.app.metadataCache.getFileCache(activeFile);
-    const stat = await this.app.vault.adapter.stat(activeFile.path);
-    if (this.plugin.settings.showNoteTitle) {
-      const sec = panel.createEl("div", { cls: "minimalism-ui-section" });
-      sec.createEl("div", { cls: "minimalism-ui-label", text: "\u6807\u9898" });
-      sec.createEl("div", { cls: "minimalism-ui-value minimalism-ui-title", text: activeFile.basename });
-    }
-    if (this.plugin.settings.showNoteTags) {
-      const allTags = [];
-      const fmTags = (_a = metadata == null ? void 0 : metadata.frontmatter) == null ? void 0 : _a.tags;
-      if (fmTags) {
-        if (Array.isArray(fmTags))
-          allTags.push(...fmTags);
-        else
-          allTags.push(String(fmTags));
-      }
-      if (metadata == null ? void 0 : metadata.tags) {
-        metadata.tags.forEach((t) => {
-          const tag = t.tag.startsWith("#") ? t.tag.slice(1) : t.tag;
-          if (!allTags.includes(tag))
-            allTags.push(tag);
-        });
-      }
-      if (allTags.length > 0) {
-        const sec = panel.createEl("div", { cls: "minimalism-ui-section" });
-        sec.createEl("div", { cls: "minimalism-ui-label", text: "\u6807\u7B7E" });
-        const tagsEl = sec.createEl("div", { cls: "minimalism-ui-tags" });
-        allTags.forEach((tag) => {
-          tagsEl.createEl("span", { cls: "minimalism-ui-tag", text: tag });
-        });
-      }
-    }
-    if (this.plugin.settings.showNoteFrontmatter && (metadata == null ? void 0 : metadata.frontmatter)) {
-      const skipKeys = /* @__PURE__ */ new Set(["position", "tags", "tag"]);
-      const entries = Object.entries(metadata.frontmatter).filter(([k]) => !skipKeys.has(k));
-      if (entries.length > 0) {
-        const sec = panel.createEl("div", { cls: "minimalism-ui-section" });
-        sec.createEl("div", { cls: "minimalism-ui-label", text: "\u5C5E\u6027" });
-        entries.forEach(([key, value]) => {
-          const row = sec.createEl("div", { cls: "minimalism-ui-fm-row" });
-          row.createEl("span", { cls: "minimalism-ui-fm-key", text: key });
-          const displayVal = Array.isArray(value) ? value.join(", ") : String(value);
-          row.createEl("span", { cls: "minimalism-ui-fm-value", text: displayVal });
-        });
-      }
-    }
-    if (this.plugin.settings.showNoteCreated && stat) {
-      const sec = panel.createEl("div", { cls: "minimalism-ui-section" });
-      sec.createEl("div", { cls: "minimalism-ui-label", text: "\u521B\u5EFA\u65F6\u95F4" });
-      sec.createEl("div", {
-        cls: "minimalism-ui-value minimalism-ui-date",
-        text: (0, import_obsidian.moment)(stat.ctime).format("YYYY-MM-DD HH:mm")
-      });
-    }
-    if (this.plugin.settings.showNoteModified && stat) {
-      const sec = panel.createEl("div", { cls: "minimalism-ui-section" });
-      sec.createEl("div", { cls: "minimalism-ui-label", text: "\u4FEE\u6539\u65F6\u95F4" });
-      sec.createEl("div", {
-        cls: "minimalism-ui-value minimalism-ui-date",
-        text: (0, import_obsidian.moment)(stat.mtime).format("YYYY-MM-DD HH:mm")
-      });
-    }
-    if (this.plugin.settings.showNoteWordCount) {
-      const content = await this.app.vault.read(activeFile);
-      const { words, chars } = countWords(content);
-      const sec = panel.createEl("div", { cls: "minimalism-ui-section" });
-      sec.createEl("div", { cls: "minimalism-ui-label", text: "\u5B57\u6570\u7EDF\u8BA1" });
-      const wc = sec.createEl("div", { cls: "minimalism-ui-value" });
-      wc.createEl("span", { cls: "minimalism-ui-stat", text: `${words}` });
-      wc.createEl("span", { cls: "minimalism-ui-stat-label", text: " \u8BCD  " });
-      wc.createEl("span", { cls: "minimalism-ui-stat", text: `${chars}` });
-      wc.createEl("span", { cls: "minimalism-ui-stat-label", text: " \u5B57\u7B26" });
-    }
-    if (this.plugin.settings.showNoteLinks) {
-      const outLinks = (_c = (_b = metadata == null ? void 0 : metadata.links) == null ? void 0 : _b.length) != null ? _c : 0;
-      const backlinks = this.app.metadataCache.getBacklinksForFile(activeFile);
-      const inLinks = backlinks ? Object.keys(backlinks.data).length : 0;
-      const sec = panel.createEl("div", { cls: "minimalism-ui-section" });
-      sec.createEl("div", { cls: "minimalism-ui-label", text: "\u94FE\u63A5" });
-      const linksEl = sec.createEl("div", { cls: "minimalism-ui-value minimalism-ui-links" });
-      const outEl = linksEl.createEl("div", { cls: "minimalism-ui-link-row" });
-      outEl.createEl("span", { cls: "minimalism-ui-link-icon", text: "\u2197" });
-      outEl.createEl("span", { text: ` \u51FA\u94FE  ${outLinks}` });
-      const inEl = linksEl.createEl("div", { cls: "minimalism-ui-link-row" });
-      inEl.createEl("span", { cls: "minimalism-ui-link-icon", text: "\u2199" });
-      inEl.createEl("span", { text: ` \u5165\u94FE  ${inLinks}` });
-    }
-  }
-  async onClose() {
-  }
-};
-function countWords(text) {
-  var _a;
-  const clean = text.replace(/```[\s\S]*?```/g, "").replace(/`[^`]*`/g, "").replace(/^#{1,6}\s/gm, "").replace(/\[\[([^\]|]+)(\|[^\]]+)?\]\]/g, "$1").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/[*_~]+/g, "").trim();
-  const chinese = ((_a = clean.match(/[\u4e00-\u9fa5\u3400-\u4dbf]/g)) != null ? _a : []).length;
-  const english = clean.replace(/[\u4e00-\u9fa5\u3400-\u4dbf]/g, " ").split(/\s+/).filter((w) => w.length > 0).length;
-  return { words: chinese + english, chars: clean.replace(/\s/g, "").length };
-}
 var MinimalismUIPlugin = class extends import_obsidian.Plugin {
-  constructor() {
-    super(...arguments);
-    this.ensureTimer = null;
-  }
   async onload() {
     await this.loadSettings();
-    this.registerView(VIEW_TYPE_NOTE_INFO, (leaf) => new NoteInfoView(leaf, this));
     this.applyBodyClasses();
-    this.app.workspace.onLayoutReady(() => {
-      this.ensureNoteInfoOpen();
-    });
-    this.registerEvent(
-      this.app.workspace.on("layout-change", () => {
-        this.scheduleEnsure();
-      })
-    );
-    this.registerDomEvent(document, "keydown", (e) => {
-      const mod = e.metaKey || e.ctrlKey;
-      if (mod && e.key === "\\") {
-        e.stopPropagation();
-        e.preventDefault();
-      }
-    }, true);
     this.addSettingTab(new MinimalismUISettingTab(this.app, this));
   }
   onunload() {
-    if (this.ensureTimer !== null)
-      window.clearTimeout(this.ensureTimer);
     document.body.classList.remove(
       "minimalism-ui-mac-style",
       "minimalism-ui-hide-tab-bar",
-      "minimalism-ui-hide-nav-buttons",
-      "minimalism-ui-hide-right-sidebar"
+      "minimalism-ui-hide-nav-buttons"
     );
-    this.app.workspace.detachLeavesOfType(VIEW_TYPE_NOTE_INFO);
-  }
-  scheduleEnsure() {
-    if (this.ensureTimer !== null)
-      window.clearTimeout(this.ensureTimer);
-    this.ensureTimer = window.setTimeout(() => {
-      this.ensureNoteInfoOpen();
-      this.ensureTimer = null;
-    }, 400);
-  }
-  async ensureNoteInfoOpen() {
-    const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_NOTE_INFO);
-    if (existing.length > 0)
-      return;
-    const leaf = this.app.workspace.getLeftLeaf(false);
-    if (leaf) {
-      await leaf.setViewState({ type: VIEW_TYPE_NOTE_INFO, active: false });
-      this.app.workspace.revealLeaf(leaf);
-    }
   }
   applyBodyClasses() {
     const cls = document.body.classList;
     cls.toggle("minimalism-ui-mac-style", this.settings.enableMacStyle);
     cls.toggle("minimalism-ui-hide-tab-bar", this.settings.hideTabBar);
     cls.toggle("minimalism-ui-hide-nav-buttons", this.settings.hideNavButtons);
-    cls.toggle("minimalism-ui-hide-right-sidebar", this.settings.hideRightSidebar);
   }
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
@@ -253,10 +58,6 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
   async saveSettings() {
     await this.saveData(this.settings);
     this.applyBodyClasses();
-    this.app.workspace.getLeavesOfType(VIEW_TYPE_NOTE_INFO).forEach((leaf) => {
-      if (leaf.view instanceof NoteInfoView)
-        leaf.view.renderContent();
-    });
   }
 };
 var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {
@@ -269,7 +70,7 @@ var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {
     containerEl.empty();
     containerEl.createEl("h2", { text: "Minimalism UI" });
     containerEl.createEl("p", {
-      text: "\u5C06 Obsidian \u6539\u9020\u4E3A\u7C7B macOS \u539F\u751F\u5E94\u7528\u98CE\u683C\u3002\u5DE6\u4FA7\u9762\u677F\u56FA\u5B9A\u663E\u793A\u5F53\u524D\u7B14\u8BB0\u4FE1\u606F\uFF0C\u65E0\u6CD5\u88AB\u5173\u95ED\u3002",
+      text: "\u5C06 Obsidian \u6539\u9020\u4E3A\u7C7B macOS \u539F\u751F\u5E94\u7528\u98CE\u683C\u3002",
       cls: "minimalism-ui-setting-desc"
     });
     containerEl.createEl("h3", { text: "\u5916\u89C2\u8BBE\u7F6E" });
@@ -285,25 +86,5 @@ var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {
       this.plugin.settings.hideNavButtons = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(containerEl).setName("\u9690\u85CF\u53F3\u4FA7\u8FB9\u680F").setDesc("\u9ED8\u8BA4\u6298\u53E0\u53F3\u4FA7\u8FB9\u680F\uFF0C\u4E13\u6CE8\u5DE6+\u5185\u5BB9\u4E8C\u680F\u5E03\u5C40").addToggle((t) => t.setValue(this.plugin.settings.hideRightSidebar).onChange(async (v) => {
-      this.plugin.settings.hideRightSidebar = v;
-      await this.plugin.saveSettings();
-    }));
-    containerEl.createEl("h3", { text: "\u5DE6\u4FA7\u4FE1\u606F\u9762\u677F\u5185\u5BB9" });
-    const panelItems = [
-      ["showNoteTitle", "\u7B14\u8BB0\u6807\u9898", ""],
-      ["showNoteTags", "\u6807\u7B7E", ""],
-      ["showNoteFrontmatter", "Frontmatter \u5C5E\u6027", "\u663E\u793A\u7B14\u8BB0\u7684 YAML \u5C5E\u6027\uFF08tags/tag \u9664\u5916\uFF09"],
-      ["showNoteCreated", "\u521B\u5EFA\u65F6\u95F4", ""],
-      ["showNoteModified", "\u6700\u540E\u4FEE\u6539\u65F6\u95F4", ""],
-      ["showNoteWordCount", "\u5B57\u6570\u7EDF\u8BA1", "\u7EDF\u8BA1\u8BCD\u6570\u4E0E\u5B57\u7B26\u6570"],
-      ["showNoteLinks", "\u94FE\u63A5\u7EDF\u8BA1", "\u663E\u793A\u51FA\u94FE\u4E0E\u5165\u94FE\u6570\u91CF"]
-    ];
-    panelItems.forEach(([key, name, desc]) => {
-      new import_obsidian.Setting(containerEl).setName(name).setDesc(desc).addToggle((t) => t.setValue(this.plugin.settings[key]).onChange(async (v) => {
-        this.plugin.settings[key] = v;
-        await this.plugin.saveSettings();
-      }));
-    });
   }
 };

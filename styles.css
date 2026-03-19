@@ -32,19 +32,6 @@
 	overflow: hidden;
 }
 
-/* ── 禁止拖拽左侧面板中的 minimalism view ────────────────────────────── */
-
-/* 隐藏我们的 view 上的拖拽手柄，防止被拖出左栏 */
-.workspace-leaf[data-type="minimalism-ui-note-info"] .view-header-title-container {
-	cursor: default;
-	pointer-events: none;
-}
-
-/* 禁用 view header 的拖拽区域 */
-.workspace-leaf[data-type="minimalism-ui-note-info"] .view-header {
-	-webkit-app-region: no-drag;
-}
-
 /* ── 隐藏顶部标签栏 ───────────────────────────────────────────────────── */
 
 .minimalism-ui-hide-tab-bar .workspace-tab-header-container {
@@ -62,9 +49,11 @@
 	display: none !important;
 }
 
-/* ── 隐藏右侧边栏 ────────────────────────────────────────────────────── */
+/* ── 隐藏右侧边栏及切换图标 ──────────────────────────────────────────── */
 
-.minimalism-ui-hide-right-sidebar .workspace-split.mod-right-split {
+.workspace-split.mod-right-split,
+.sidebar-toggle-button.mod-right,
+.workspace-tab-header-tab-list {
 	display: none !important;
 }
 
