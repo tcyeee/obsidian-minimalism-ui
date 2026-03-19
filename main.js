@@ -32,18 +32,26 @@ var DEFAULT_SETTINGS = {
   macSidebar: false,
   hideTabBar: false,
   disablePinTab: true,
-  simplifyPanel: false
+  simplifyPanel: false,
+  disableNoteTabs: false
 };
 var MinimalismUIPlugin = class extends import_obsidian.Plugin {
   constructor() {
     super(...arguments);
     this.pinBlockHandler = null;
     this.detachPatches = /* @__PURE__ */ new Map();
+    this.tabLimitHandler = null;
+    this.dragBar = null;
+    this.dragBarTitleHandler = null;
+    this.statusBarOriginalParent = null;
+    this.statusBarOriginalNextSibling = null;
   }
   async onload() {
     await this.loadSettings();
     this.applyBodyClasses();
     this.applyPinBlock();
+    this.applyTabLimit();
+    this.app.workspace.onLayoutReady(() => this.applyDragBar());
     this.addSettingTab(new MinimalismUISettingTab(this.app, this));
   }
   onunload() {
@@ -51,9 +59,12 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
       "minimalism-ui-mac-sidebar",
       "minimalism-ui-hide-tab-bar",
       "minimalism-ui-disable-pin",
-      "minimalism-ui-simplify-panel"
+      "minimalism-ui-simplify-panel",
+      "minimalism-ui-disable-note-tabs"
     );
     this.removePinBlockHandler();
+    this.removeTabLimitHandler();
+    this.removeDragBar();
   }
   applyBodyClasses() {
     const cls = document.body.classList;
@@ -61,6 +72,7 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
     cls.toggle("minimalism-ui-hide-tab-bar", this.settings.hideTabBar);
     cls.toggle("minimalism-ui-disable-pin", this.settings.disablePinTab);
     cls.toggle("minimalism-ui-simplify-panel", this.settings.simplifyPanel);
+    cls.toggle("minimalism-ui-disable-note-tabs", this.settings.disableNoteTabs);
   }
   applyPinBlock() {
     this.removePinBlockHandler();
@@ -74,6 +86,81 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
     };
     document.addEventListener("contextmenu", this.pinBlockHandler, true);
     this.patchSidebarLeafDetach();
+  }
+  applyTabLimit() {
+    this.removeTabLimitHandler();
+    if (!this.settings.disableNoteTabs)
+      return;
+    this.tabLimitHandler = () => {
+      const rootLeaves = [];
+      this.app.workspace.iterateRootLeaves((leaf) => {
+        rootLeaves.push(leaf);
+      });
+      if (rootLeaves.length <= 1)
+        return;
+      const active = this.app.workspace.activeLeaf;
+      for (const leaf of rootLeaves) {
+        if (leaf !== active)
+          leaf.detach();
+      }
+    };
+    this.app.workspace.on("layout-change", this.tabLimitHandler);
+  }
+  applyDragBar() {
+    this.removeDragBar();
+    if (!this.settings.disableNoteTabs)
+      return;
+    const rootEl = this.app.workspace.rootSplit.containerEl;
+    const tabsEl = rootEl.querySelector(".workspace-tabs");
+    if (!tabsEl)
+      return;
+    this.dragBar = document.createElement("div");
+    this.dragBar.className = "minimalism-ui-drag-bar";
+    const titleEl = document.createElement("span");
+    titleEl.className = "minimalism-ui-drag-bar-title";
+    this.dragBar.appendChild(titleEl);
+    tabsEl.insertBefore(this.dragBar, tabsEl.firstChild);
+    const updateTitle = () => {
+      const activeFile = this.app.workspace.getActiveFile();
+      titleEl.textContent = activeFile ? activeFile.basename : "";
+    };
+    updateTitle();
+    this.dragBarTitleHandler = updateTitle;
+    this.app.workspace.on("active-leaf-change", updateTitle);
+    const statusBar = document.querySelector(".status-bar");
+    if (statusBar) {
+      this.statusBarOriginalParent = statusBar.parentElement;
+      this.statusBarOriginalNextSibling = statusBar.nextElementSibling;
+      this.dragBar.appendChild(statusBar);
+    }
+  }
+  removeDragBar() {
+    if (this.dragBarTitleHandler) {
+      this.app.workspace.off("active-leaf-change", this.dragBarTitleHandler);
+      this.dragBarTitleHandler = null;
+    }
+    if (this.statusBarOriginalParent) {
+      const statusBar = document.querySelector(".status-bar");
+      if (statusBar) {
+        if (this.statusBarOriginalNextSibling) {
+          this.statusBarOriginalParent.insertBefore(statusBar, this.statusBarOriginalNextSibling);
+        } else {
+          this.statusBarOriginalParent.appendChild(statusBar);
+        }
+      }
+      this.statusBarOriginalParent = null;
+      this.statusBarOriginalNextSibling = null;
+    }
+    if (this.dragBar) {
+      this.dragBar.remove();
+      this.dragBar = null;
+    }
+  }
+  removeTabLimitHandler() {
+    if (this.tabLimitHandler) {
+      this.app.workspace.off("layout-change", this.tabLimitHandler);
+      this.tabLimitHandler = null;
+    }
   }
   patchSidebarLeafDetach() {
     this.app.workspace.iterateAllLeaves((leaf) => {
@@ -105,6 +192,8 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
     await this.saveData(this.settings);
     this.applyBodyClasses();
     this.applyPinBlock();
+    this.applyTabLimit();
+    this.applyDragBar();
   }
 };
 var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {
@@ -129,6 +218,10 @@ var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {
       await this.plugin.saveSettings();
     }));
     containerEl.createEl("h3", { text: "\u4EA4\u4E92\u8BBE\u7F6E" });
+    new import_obsidian.Setting(containerEl).setName("\u7981\u7528\u7B14\u8BB0 Tab").setDesc("\u9690\u85CF\u7B14\u8BB0\u533A\u57DF\u9876\u90E8\u7684\u6807\u7B7E\u680F\uFF0C\u5E76\u9650\u5236\u540C\u65F6\u53EA\u80FD\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0").addToggle((t) => t.setValue(this.plugin.settings.disableNoteTabs).onChange(async (v) => {
+      this.plugin.settings.disableNoteTabs = v;
+      await this.plugin.saveSettings();
+    }));
     new import_obsidian.Setting(containerEl).setName("\u7981\u7528 Pin \u6807\u7B7E\u9875\u529F\u80FD").setDesc("\u5F00\u542F\u540E\uFF0C\u70B9\u51FB\u6807\u7B7E\u9875\u65F6\u4E0D\u518D\u89E6\u53D1 Pin\uFF08\u56FA\u5B9A\uFF09\u529F\u80FD\uFF0C\u5E76\u9690\u85CF Pin \u56FE\u6807").addToggle((t) => t.setValue(this.plugin.settings.disablePinTab).onChange(async (v) => {
       this.plugin.settings.disablePinTab = v;
       await this.plugin.saveSettings();

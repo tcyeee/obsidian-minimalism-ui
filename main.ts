@@ -13,6 +13,7 @@ export interface MinimalismUISettings {
 	hideTabBar: boolean;
 	disablePinTab: boolean;
 	simplifyPanel: boolean;
+	disableNoteTabs: boolean;
 }
 
 const DEFAULT_SETTINGS: MinimalismUISettings = {
@@ -20,6 +21,7 @@ const DEFAULT_SETTINGS: MinimalismUISettings = {
 	hideTabBar: false,
 	disablePinTab: true,
 	simplifyPanel: false,
+	disableNoteTabs: false,
 };
 
 // ─── Main Plugin ──────────────────────────────────────────────────────────────
@@ -28,11 +30,18 @@ export default class MinimalismUIPlugin extends Plugin {
 	settings: MinimalismUISettings;
 	private pinBlockHandler: ((e: MouseEvent) => void) | null = null;
 	private detachPatches = new Map<WorkspaceLeaf, () => void>();
+	private tabLimitHandler: (() => void) | null = null;
+	private dragBar: HTMLElement | null = null;
+	private dragBarTitleHandler: (() => void) | null = null;
+	private statusBarOriginalParent: HTMLElement | null = null;
+	private statusBarOriginalNextSibling: Element | null = null;
 
 	async onload() {
 		await this.loadSettings();
 		this.applyBodyClasses();
 		this.applyPinBlock();
+		this.applyTabLimit();
+		this.app.workspace.onLayoutReady(() => this.applyDragBar());
 		this.addSettingTab(new MinimalismUISettingTab(this.app, this));
 	}
 
@@ -42,8 +51,11 @@ export default class MinimalismUIPlugin extends Plugin {
 			'minimalism-ui-hide-tab-bar',
 			'minimalism-ui-disable-pin',
 			'minimalism-ui-simplify-panel',
+			'minimalism-ui-disable-note-tabs',
 		);
 		this.removePinBlockHandler();
+		this.removeTabLimitHandler();
+		this.removeDragBar();
 	}
 
 	applyBodyClasses() {
@@ -52,6 +64,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		cls.toggle('minimalism-ui-hide-tab-bar', this.settings.hideTabBar);
 		cls.toggle('minimalism-ui-disable-pin', this.settings.disablePinTab);
 		cls.toggle('minimalism-ui-simplify-panel', this.settings.simplifyPanel);
+		cls.toggle('minimalism-ui-disable-note-tabs', this.settings.disableNoteTabs);
 	}
 
 	applyPinBlock() {
@@ -69,6 +82,92 @@ export default class MinimalismUIPlugin extends Plugin {
 
 		// patch 每个侧边栏 leaf 的 detach()，阻止任何路径关闭它们
 		this.patchSidebarLeafDetach();
+	}
+
+	applyTabLimit() {
+		this.removeTabLimitHandler();
+		if (!this.settings.disableNoteTabs) return;
+
+		this.tabLimitHandler = () => {
+			const rootLeaves: WorkspaceLeaf[] = [];
+			this.app.workspace.iterateRootLeaves((leaf: WorkspaceLeaf) => {
+				rootLeaves.push(leaf);
+			});
+			if (rootLeaves.length <= 1) return;
+			const active = this.app.workspace.activeLeaf;
+			for (const leaf of rootLeaves) {
+				if (leaf !== active) leaf.detach();
+			}
+		};
+		this.app.workspace.on('layout-change', this.tabLimitHandler);
+	}
+
+	applyDragBar() {
+		this.removeDragBar();
+		if (!this.settings.disableNoteTabs) return;
+
+		const rootEl = (this.app.workspace.rootSplit as any).containerEl as HTMLElement;
+		const tabsEl = rootEl.querySelector('.workspace-tabs') as HTMLElement | null;
+		if (!tabsEl) return;
+
+		// 创建拖拽区
+		this.dragBar = document.createElement('div');
+		this.dragBar.className = 'minimalism-ui-drag-bar';
+
+		const titleEl = document.createElement('span');
+		titleEl.className = 'minimalism-ui-drag-bar-title';
+		this.dragBar.appendChild(titleEl);
+
+		tabsEl.insertBefore(this.dragBar, tabsEl.firstChild);
+
+		// 更新标题
+		const updateTitle = () => {
+			const activeFile = this.app.workspace.getActiveFile();
+			titleEl.textContent = activeFile ? activeFile.basename : '';
+		};
+		updateTitle();
+
+		this.dragBarTitleHandler = updateTitle;
+		this.app.workspace.on('active-leaf-change', updateTitle);
+
+		// 将 status-bar 搬入拖拽区右侧
+		const statusBar = document.querySelector('.status-bar') as HTMLElement | null;
+		if (statusBar) {
+			this.statusBarOriginalParent = statusBar.parentElement;
+			this.statusBarOriginalNextSibling = statusBar.nextElementSibling;
+			this.dragBar.appendChild(statusBar);
+		}
+	}
+
+	private removeDragBar() {
+		if (this.dragBarTitleHandler) {
+			this.app.workspace.off('active-leaf-change', this.dragBarTitleHandler);
+			this.dragBarTitleHandler = null;
+		}
+		// 还原 status-bar 到原始位置
+		if (this.statusBarOriginalParent) {
+			const statusBar = document.querySelector('.status-bar') as HTMLElement | null;
+			if (statusBar) {
+				if (this.statusBarOriginalNextSibling) {
+					this.statusBarOriginalParent.insertBefore(statusBar, this.statusBarOriginalNextSibling);
+				} else {
+					this.statusBarOriginalParent.appendChild(statusBar);
+				}
+			}
+			this.statusBarOriginalParent = null;
+			this.statusBarOriginalNextSibling = null;
+		}
+		if (this.dragBar) {
+			this.dragBar.remove();
+			this.dragBar = null;
+		}
+	}
+
+	private removeTabLimitHandler() {
+		if (this.tabLimitHandler) {
+			this.app.workspace.off('layout-change', this.tabLimitHandler);
+			this.tabLimitHandler = null;
+		}
 	}
 
 	private patchSidebarLeafDetach() {
@@ -101,6 +200,8 @@ export default class MinimalismUIPlugin extends Plugin {
 		await this.saveData(this.settings);
 		this.applyBodyClasses();
 		this.applyPinBlock();
+		this.applyTabLimit();
+		this.applyDragBar();
 	}
 }
 
@@ -141,6 +242,13 @@ class MinimalismUISettingTab extends PluginSettingTab {
 				.onChange(async v => { this.plugin.settings.simplifyPanel = v; await this.plugin.saveSettings(); }));
 
 		containerEl.createEl('h3', { text: '交互设置' });
+
+		new Setting(containerEl)
+			.setName('禁用笔记 Tab')
+			.setDesc('隐藏笔记区域顶部的标签栏，并限制同时只能打开一个笔记')
+			.addToggle(t => t
+				.setValue(this.plugin.settings.disableNoteTabs)
+				.onChange(async v => { this.plugin.settings.disableNoteTabs = v; await this.plugin.saveSettings(); }));
 
 		new Setting(containerEl)
 			.setName('禁用 Pin 标签页功能')
