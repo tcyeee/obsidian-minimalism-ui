@@ -56,7 +56,7 @@
 	border-radius: 14px !important;
 	border-right: none !important;
 	overflow: hidden !important;
-	background: #f2f2f7 !important;
+	background: #ffffff !important;
 	box-shadow:
 		0 4px 24px rgba(0, 0, 0, 0.14),
 		0 1px 6px rgba(0, 0, 0, 0.08),
@@ -135,6 +135,13 @@
 /* 隐藏标签栏时信息面板增加顶部间距 */
 .minimalism-ui-hide-tab-bar .workspace-leaf-content {
 	padding-top: 16px;
+}
+
+/* ── 简化信息面板（隐藏 Outline / Backlinks 搜索框） ─────────────────── */
+
+.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"] .nav-header,
+.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="backlink"] .nav-header {
+	display: none !important;
 }
 
 /* ── 隐藏文件区导航按钮 ───────────────────────────────────────────────── */

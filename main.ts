@@ -13,6 +13,7 @@ export interface MinimalismUISettings {
 	hideTabBar: boolean;
 	hideNavButtons: boolean;
 	disablePinTab: boolean;
+	simplifyPanel: boolean;
 }
 
 const DEFAULT_SETTINGS: MinimalismUISettings = {
@@ -20,6 +21,7 @@ const DEFAULT_SETTINGS: MinimalismUISettings = {
 	hideTabBar: false,
 	hideNavButtons: false,
 	disablePinTab: true,
+	simplifyPanel: false,
 };
 
 // ─── Main Plugin ──────────────────────────────────────────────────────────────
@@ -42,6 +44,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			'minimalism-ui-hide-tab-bar',
 			'minimalism-ui-hide-nav-buttons',
 			'minimalism-ui-disable-pin',
+			'minimalism-ui-simplify-panel',
 		);
 		this.removePinBlockHandler();
 	}
@@ -52,6 +55,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		cls.toggle('minimalism-ui-hide-tab-bar', this.settings.hideTabBar);
 		cls.toggle('minimalism-ui-hide-nav-buttons', this.settings.hideNavButtons);
 		cls.toggle('minimalism-ui-disable-pin', this.settings.disablePinTab);
+		cls.toggle('minimalism-ui-simplify-panel', this.settings.simplifyPanel);
 	}
 
 	applyPinBlock() {
@@ -139,6 +143,13 @@ class MinimalismUISettingTab extends PluginSettingTab {
 			.addToggle(t => t
 				.setValue(this.plugin.settings.hideNavButtons)
 				.onChange(async v => { this.plugin.settings.hideNavButtons = v; await this.plugin.saveSettings(); }));
+
+		new Setting(containerEl)
+			.setName('简化信息面板')
+			.setDesc('隐藏 Outline 和 Backlinks 面板中的搜索框')
+			.addToggle(t => t
+				.setValue(this.plugin.settings.simplifyPanel)
+				.onChange(async v => { this.plugin.settings.simplifyPanel = v; await this.plugin.saveSettings(); }));
 
 		containerEl.createEl('h3', { text: '交互设置' });
 
