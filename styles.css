@@ -137,16 +137,11 @@
 	padding-top: 16px;
 }
 
-/* ── 简化信息面板（隐藏 Outline / Backlinks 搜索框） ─────────────────── */
+/* ── 简化信息面板（隐藏二级操作按钮 + Outline / Backlinks 搜索框） ───── */
 
+.minimalism-ui-simplify-panel .nav-buttons-container,
 .minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"] .nav-header,
 .minimalism-ui-simplify-panel .workspace-leaf-content[data-type="backlink"] .nav-header {
-	display: none !important;
-}
-
-/* ── 隐藏文件区导航按钮 ───────────────────────────────────────────────── */
-
-.minimalism-ui-hide-nav-buttons .nav-buttons-container {
 	display: none !important;
 }
 

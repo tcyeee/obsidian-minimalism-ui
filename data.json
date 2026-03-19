@@ -1,9 +1,9 @@
 {
-  "macSidebar": true,
+  "macSidebar": false,
   "hideTabBar": false,
-  "hideNavButtons": true,
+  "hideNavButtons": false,
   "disablePinTab": true,
-  "simplifyPanel": true,
+  "simplifyPanel": false,
   "enablePinTab": true,
   "enableMacStyle": false,
   "hideRightSidebar": false,
