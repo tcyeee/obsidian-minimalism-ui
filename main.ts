@@ -3,6 +3,7 @@ import {
 	Plugin,
 	PluginSettingTab,
 	Setting,
+	WorkspaceLeaf,
 } from 'obsidian';
 
 // ─── Settings ────────────────────────────────────────────────────────────────
@@ -26,7 +27,7 @@ const DEFAULT_SETTINGS: MinimalismUISettings = {
 export default class MinimalismUIPlugin extends Plugin {
 	settings: MinimalismUISettings;
 	private pinBlockHandler: ((e: MouseEvent) => void) | null = null;
-	private originalCloseCallback: (() => void) | null = null;
+	private detachPatches = new Map<WorkspaceLeaf, () => void>();
 	private sidebarWrapper: HTMLElement | null = null;
 
 	async onload() {
@@ -69,16 +70,19 @@ export default class MinimalismUIPlugin extends Plugin {
 		};
 		document.addEventListener('contextmenu', this.pinBlockHandler, true);
 
-		// patch workspace:close 命令，阻止关闭左侧边栏中的窗口
-		const closeCmd = (this.app as any).commands?.commands?.['workspace:close'];
-		if (closeCmd?.callback) {
-			this.originalCloseCallback = closeCmd.callback;
-			closeCmd.callback = () => {
-				const leafEl = (this.app.workspace.activeLeaf as any)?.containerEl as HTMLElement | undefined;
-				if (leafEl?.closest('.workspace-split.mod-left-split')) return;
-				this.originalCloseCallback?.();
-			};
-		}
+		// patch 每个侧边栏 leaf 的 detach()，阻止任何路径关闭它们
+		this.patchSidebarLeafDetach();
+	}
+
+	private patchSidebarLeafDetach() {
+		this.app.workspace.iterateAllLeaves(leaf => {
+			if (this.detachPatches.has(leaf)) return;
+			const leafEl = (leaf as any).containerEl as HTMLElement | undefined;
+			if (!leafEl?.closest('.workspace-split.mod-left-split')) return;
+			const original = (leaf as any).detach.bind(leaf);
+			(leaf as any).detach = () => { /* blocked */ };
+			this.detachPatches.set(leaf, original);
+		});
 	}
 
 	private removePinBlockHandler() {
@@ -86,11 +90,10 @@ export default class MinimalismUIPlugin extends Plugin {
 			document.removeEventListener('contextmenu', this.pinBlockHandler, true);
 			this.pinBlockHandler = null;
 		}
-		if (this.originalCloseCallback) {
-			const closeCmd = (this.app as any).commands?.commands?.['workspace:close'];
-			if (closeCmd) closeCmd.callback = this.originalCloseCallback;
-			this.originalCloseCallback = null;
+		for (const [leaf, original] of this.detachPatches) {
+			(leaf as any).detach = original;
 		}
+		this.detachPatches.clear();
 	}
 
 	async loadSettings() {
