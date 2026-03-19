@@ -21,9 +21,16 @@
 	--color-accent-hover: #0056CC;
 }
 
-/* 左侧边栏整体圆角+阴影 */
+/* 左侧边栏整体圆角 + Finder 风格右侧分割线 */
 .minimalism-ui-mac-style .workspace-split.mod-left-split {
 	border-radius: 0 var(--radius-l) var(--radius-l) 0;
+	border-right: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+	.minimalism-ui-mac-style .workspace-split.mod-left-split {
+		border-right: 1px solid rgba(255, 255, 255, 0.08);
+	}
 }
 
 /* 主编辑区圆角 */
@@ -46,6 +53,13 @@
 /* ── 隐藏文件区导航按钮 ───────────────────────────────────────────────── */
 
 .minimalism-ui-hide-nav-buttons .nav-buttons-container {
+	display: none !important;
+}
+
+/* ── 禁用 Pin 功能时隐藏 Pin 图标 ─────────────────────────────────────── */
+
+.minimalism-ui-disable-pin .workspace-tab-header .mod-pinned,
+.minimalism-ui-disable-pin .workspace-tab-header-status-container {
 	display: none !important;
 }
 

@@ -11,22 +11,26 @@ export interface MinimalismUISettings {
 	enableMacStyle: boolean;
 	hideTabBar: boolean;
 	hideNavButtons: boolean;
+	enablePinTab: boolean;
 }
 
 const DEFAULT_SETTINGS: MinimalismUISettings = {
 	enableMacStyle: true,
 	hideTabBar: false,
 	hideNavButtons: false,
+	enablePinTab: false,
 };
 
 // ─── Main Plugin ──────────────────────────────────────────────────────────────
 
 export default class MinimalismUIPlugin extends Plugin {
 	settings: MinimalismUISettings;
+	private pinBlockHandler: ((e: MouseEvent) => void) | null = null;
 
 	async onload() {
 		await this.loadSettings();
 		this.applyBodyClasses();
+		this.applyPinBlock();
 		this.addSettingTab(new MinimalismUISettingTab(this.app, this));
 	}
 
@@ -35,7 +39,9 @@ export default class MinimalismUIPlugin extends Plugin {
 			'minimalism-ui-mac-style',
 			'minimalism-ui-hide-tab-bar',
 			'minimalism-ui-hide-nav-buttons',
+			'minimalism-ui-disable-pin',
 		);
+		this.removePinBlockHandler();
 	}
 
 	applyBodyClasses() {
@@ -43,6 +49,28 @@ export default class MinimalismUIPlugin extends Plugin {
 		cls.toggle('minimalism-ui-mac-style', this.settings.enableMacStyle);
 		cls.toggle('minimalism-ui-hide-tab-bar', this.settings.hideTabBar);
 		cls.toggle('minimalism-ui-hide-nav-buttons', this.settings.hideNavButtons);
+		cls.toggle('minimalism-ui-disable-pin', !this.settings.enablePinTab);
+	}
+
+	applyPinBlock() {
+		this.removePinBlockHandler();
+		if (!this.settings.enablePinTab) {
+			this.pinBlockHandler = (e: MouseEvent) => {
+				const target = e.target as Element;
+				if (target.closest('.workspace-tab-header.tappable')) {
+					e.stopImmediatePropagation();
+					e.preventDefault();
+				}
+			};
+			document.addEventListener('contextmenu', this.pinBlockHandler, true);
+		}
+	}
+
+	private removePinBlockHandler() {
+		if (this.pinBlockHandler) {
+			document.removeEventListener('contextmenu', this.pinBlockHandler, true);
+			this.pinBlockHandler = null;
+		}
 	}
 
 	async loadSettings() {
@@ -52,6 +80,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	async saveSettings() {
 		await this.saveData(this.settings);
 		this.applyBodyClasses();
+		this.applyPinBlock();
 	}
 }
 
@@ -97,6 +126,15 @@ class MinimalismUISettingTab extends PluginSettingTab {
 			.addToggle(t => t
 				.setValue(this.plugin.settings.hideNavButtons)
 				.onChange(async v => { this.plugin.settings.hideNavButtons = v; await this.plugin.saveSettings(); }));
+
+		containerEl.createEl('h3', { text: '交互设置' });
+
+		new Setting(containerEl)
+			.setName('启用 Pin 标签页功能')
+			.setDesc('关闭后，点击标签页时不再触发 Pin（固定）功能，并隐藏 Pin 图标')
+			.addToggle(t => t
+				.setValue(this.plugin.settings.enablePinTab)
+				.onChange(async v => { this.plugin.settings.enablePinTab = v; await this.plugin.saveSettings(); }));
 
 	}
 }

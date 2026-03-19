@@ -2,6 +2,7 @@
   "enableMacStyle": false,
   "hideTabBar": false,
   "hideNavButtons": false,
+  "enablePinTab": false,
   "hideRightSidebar": false,
   "showNoteTitle": true,
   "showNoteTags": false,
