@@ -3,6 +3,7 @@
   "hideTabBar": false,
   "hideNavButtons": true,
   "disablePinTab": true,
+  "simplifyPanel": true,
   "enablePinTab": true,
   "enableMacStyle": false,
   "hideRightSidebar": false,

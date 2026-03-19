@@ -32,7 +32,8 @@ var DEFAULT_SETTINGS = {
   macSidebar: false,
   hideTabBar: false,
   hideNavButtons: false,
-  disablePinTab: true
+  disablePinTab: true,
+  simplifyPanel: false
 };
 var MinimalismUIPlugin = class extends import_obsidian.Plugin {
   constructor() {
@@ -51,7 +52,8 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
       "minimalism-ui-mac-sidebar",
       "minimalism-ui-hide-tab-bar",
       "minimalism-ui-hide-nav-buttons",
-      "minimalism-ui-disable-pin"
+      "minimalism-ui-disable-pin",
+      "minimalism-ui-simplify-panel"
     );
     this.removePinBlockHandler();
   }
@@ -61,6 +63,7 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
     cls.toggle("minimalism-ui-hide-tab-bar", this.settings.hideTabBar);
     cls.toggle("minimalism-ui-hide-nav-buttons", this.settings.hideNavButtons);
     cls.toggle("minimalism-ui-disable-pin", this.settings.disablePinTab);
+    cls.toggle("minimalism-ui-simplify-panel", this.settings.simplifyPanel);
   }
   applyPinBlock() {
     this.removePinBlockHandler();
@@ -126,6 +129,10 @@ var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {
     }));
     new import_obsidian.Setting(containerEl).setName("\u9690\u85CF\u5C5E\u6027Tab\u4E8C\u7EA7\u64CD\u4F5C\u680F").setDesc("\u9690\u85CF\u5DE6\u4FA7\u4EFB\u610F\u5C5E\u6027\u680F(\u5305\u62ECFiles,Tags\u7B49)\u7684\u4E8C\u7EA7\u64CD\u4F5C\u56FE\u6807\u6309\u94AE").addToggle((t) => t.setValue(this.plugin.settings.hideNavButtons).onChange(async (v) => {
       this.plugin.settings.hideNavButtons = v;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian.Setting(containerEl).setName("\u7B80\u5316\u4FE1\u606F\u9762\u677F").setDesc("\u9690\u85CF Outline \u548C Backlinks \u9762\u677F\u4E2D\u7684\u641C\u7D22\u6846").addToggle((t) => t.setValue(this.plugin.settings.simplifyPanel).onChange(async (v) => {
+      this.plugin.settings.simplifyPanel = v;
       await this.plugin.saveSettings();
     }));
     containerEl.createEl("h3", { text: "\u4EA4\u4E92\u8BBE\u7F6E" });
