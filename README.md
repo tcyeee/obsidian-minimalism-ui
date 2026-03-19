@@ -1,48 +1,52 @@
 # Minimalism UI — Obsidian Plugin
 
-将 Obsidian 改造为类 macOS 原生应用风格。左侧固定展示当前笔记的状态信息，右侧专注笔记内容，外观配置统一在设置页面管理。
+Transform Obsidian into a macOS-native-style application. The left sidebar displays current note metadata at a glance; the right column stays hidden so you can focus on content. All appearance options are managed in one settings page.
 
 ---
 
-## 功能
+## Features
 
-### 左侧固定信息面板
-- 笔记标题、标签、Frontmatter 属性
-- 创建时间 / 最后修改时间
-- 字数统计（词数 + 字符数）
-- 出链 / 入链统计
+### Left Info Panel (fixed)
 
-面板由插件强制保持打开，无法被关闭或拖离左侧栏。`Cmd+\` / `Ctrl+\` 关闭侧边栏的快捷键也会被拦截。
+- Note title, tags, and frontmatter properties
+- Created / last modified timestamps
+- Word and character count
+- Outgoing and incoming link counts
 
-### macOS 原生外观
-- 系统字体（`-apple-system` / SF Pro）
-- Accent 蓝色标签样式
-- 左侧边栏圆角处理
+The panel is kept open by the plugin at all times — it cannot be closed or dragged away. The `Cmd+\` / `Ctrl+\` sidebar shortcut is also intercepted.
 
-### 统一设置页面
-所有外观与面板内容选项均在：**设置 → 第三方插件 → Minimalism UI**
+### Settings
 
-| 选项 | 说明 |
+All options are in: **Settings → Community Plugins → Minimalism UI**
+
+**Appearance**
+
+| Option | Description |
 |---|---|
-| macOS 原生风格 | 系统字体、圆角等视觉优化 |
-| 隐藏顶部标签栏 | 隐藏多标签页切换栏 |
-| 隐藏文件区导航按钮 | 隐藏左侧文件栏上方图标 |
-| 隐藏右侧边栏 | 实现视觉上的左+内容二栏布局 |
-| 左侧面板各项开关 | 按需展示标题/标签/时间/字数/链接 |
+| Sidebar Style | Applies a macOS Finder-style look to the left sidebar (rounded corners, custom background) |
+| Tab Bar Style | Hides the note tab bar and replaces it with a drag region showing the current note title |
+| Info Bar Style | Hides panel action buttons and search boxes in Outline / Backlinks; injects section labels |
+
+**Interaction**
+
+| Option | Description |
+|---|---|
+| Home Note | A note that opens automatically on startup and when all tabs are closed |
+| Disable Pin Tab | Prevents tabs from being pinned and hides the pin icon |
 
 ---
 
-## 安装
+## Installation
 
-### 手动安装（推荐）
+### Manual (recommended)
 
-1. 下载本仓库的 `main.js`、`manifest.json`、`styles.css`
-2. 在你的 vault 中创建目录：`.obsidian/plugins/obsidian-minimalism-ui/`
-3. 将三个文件复制进去
-4. 在 Obsidian 中：设置 → 第三方插件 → 关闭安全模式 → 启用 **Minimalism UI**
+1. Download `main.js`, `manifest.json`, and `styles.css` from this repository
+2. Create the directory `.obsidian/plugins/obsidian-minimalism-ui/` inside your vault
+3. Copy the three files into it
+4. In Obsidian: Settings → Community Plugins → disable Safe Mode → enable **Minimalism UI**
 
 ```
-你的vault/
+your-vault/
 └── .obsidian/
     └── plugins/
         └── obsidian-minimalism-ui/
@@ -53,40 +57,32 @@
 
 ---
 
-## 开发
-
-### 环境准备
+## Development
 
 ```bash
 git clone https://github.com/your-username/obsidian-minimalism-ui.git
 cd obsidian-minimalism-ui
 npm install
+
+npm run build   # production build → main.js
+npm run dev     # watch mode — rebuilds on changes to main.ts
 ```
 
-### 构建
+To test locally, symlink the project directory into your vault's plugin folder:
 
 ```bash
-npm run build    # 生产构建，输出 main.js
-npm run dev      # 监听模式，修改 main.ts 后自动重建
+ln -s $(pwd) ~/your-vault/.obsidian/plugins/obsidian-minimalism-ui
 ```
 
-### 本地调试
-
-将整个项目目录软链到 vault 的插件目录，然后在 Obsidian 中启用插件：
-
-```bash
-ln -s $(pwd) ~/你的vault/.obsidian/plugins/obsidian-minimalism-ui
-```
-
-修改 `main.ts` 后运行 `npm run build`，再在 Obsidian 中执行「重新加载插件」即可看到效果。
+After editing `main.ts`, run `npm run build` and reload the plugin in Obsidian.
 
 ---
 
-## 已知限制
+## Known Limitations
 
-- Obsidian 底层是三栏架构（左栏 + 主区域 + 右栏），无法在代码层面改为二栏；右栏通过 CSS `display: none` 隐藏
-- 切换非默认主题时，部分 CSS 变量覆盖可能不生效
-- `getBacklinksForFile` 为 Obsidian 内部 API，后续版本若变更可能影响入链统计
+- Obsidian uses a three-column layout internally (left + main + right). The right column is hidden via CSS — it cannot be removed at the DOM level.
+- Some CSS variable overrides may not apply when using third-party themes.
+- `getBacklinksForFile` is an internal Obsidian API. Changes in future Obsidian versions may break backlink counts.
 
 ---
 

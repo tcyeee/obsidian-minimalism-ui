@@ -164,6 +164,13 @@
 	padding: 12px 16px 6px;
 }
 
+/* Outline 每行禁止换行 */
+.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"] .tree-item-inner {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
 /* Outline 面板注入标题 */
 .minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"]::before {
 	content: 'OUTLINE';
