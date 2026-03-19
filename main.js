@@ -31,26 +31,54 @@ var import_obsidian = require("obsidian");
 var DEFAULT_SETTINGS = {
   enableMacStyle: true,
   hideTabBar: false,
-  hideNavButtons: false
+  hideNavButtons: false,
+  enablePinTab: false
 };
 var MinimalismUIPlugin = class extends import_obsidian.Plugin {
+  constructor() {
+    super(...arguments);
+    this.pinBlockHandler = null;
+  }
   async onload() {
     await this.loadSettings();
     this.applyBodyClasses();
+    this.applyPinBlock();
     this.addSettingTab(new MinimalismUISettingTab(this.app, this));
   }
   onunload() {
     document.body.classList.remove(
       "minimalism-ui-mac-style",
       "minimalism-ui-hide-tab-bar",
-      "minimalism-ui-hide-nav-buttons"
+      "minimalism-ui-hide-nav-buttons",
+      "minimalism-ui-disable-pin"
     );
+    this.removePinBlockHandler();
   }
   applyBodyClasses() {
     const cls = document.body.classList;
     cls.toggle("minimalism-ui-mac-style", this.settings.enableMacStyle);
     cls.toggle("minimalism-ui-hide-tab-bar", this.settings.hideTabBar);
     cls.toggle("minimalism-ui-hide-nav-buttons", this.settings.hideNavButtons);
+    cls.toggle("minimalism-ui-disable-pin", !this.settings.enablePinTab);
+  }
+  applyPinBlock() {
+    this.removePinBlockHandler();
+    if (!this.settings.enablePinTab) {
+      this.pinBlockHandler = (e) => {
+        const target = e.target;
+        if (target.closest(".workspace-tab-header.tappable")) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+        }
+      };
+      document.addEventListener("contextmenu", this.pinBlockHandler, true);
+    }
+  }
+  removePinBlockHandler() {
+    if (this.pinBlockHandler) {
+      document.removeEventListener("contextmenu", this.pinBlockHandler, true);
+      this.pinBlockHandler = null;
+    }
   }
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
@@ -58,6 +86,7 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
   async saveSettings() {
     await this.saveData(this.settings);
     this.applyBodyClasses();
+    this.applyPinBlock();
   }
 };
 var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {
@@ -84,6 +113,11 @@ var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {
     }));
     new import_obsidian.Setting(containerEl).setName("\u9690\u85CF\u6587\u4EF6\u533A\u57DF\u5BFC\u822A\u6309\u94AE").setDesc("\u9690\u85CF\u5DE6\u4FA7\u6587\u4EF6\u680F\u4E0A\u65B9\u7684\u56FE\u6807\u6309\u94AE").addToggle((t) => t.setValue(this.plugin.settings.hideNavButtons).onChange(async (v) => {
       this.plugin.settings.hideNavButtons = v;
+      await this.plugin.saveSettings();
+    }));
+    containerEl.createEl("h3", { text: "\u4EA4\u4E92\u8BBE\u7F6E" });
+    new import_obsidian.Setting(containerEl).setName("\u542F\u7528 Pin \u6807\u7B7E\u9875\u529F\u80FD").setDesc("\u5173\u95ED\u540E\uFF0C\u70B9\u51FB\u6807\u7B7E\u9875\u65F6\u4E0D\u518D\u89E6\u53D1 Pin\uFF08\u56FA\u5B9A\uFF09\u529F\u80FD\uFF0C\u5E76\u9690\u85CF Pin \u56FE\u6807").addToggle((t) => t.setValue(this.plugin.settings.enablePinTab).onChange(async (v) => {
+      this.plugin.settings.enablePinTab = v;
       await this.plugin.saveSettings();
     }));
   }
