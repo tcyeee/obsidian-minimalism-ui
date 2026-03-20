@@ -587,9 +587,14 @@
 }
 
 /* 阅读视图 */
-.minimalism-ui-note-style .markdown-reading-view .el-table {
-	border-radius: 12px !important;
+.minimalism-ui-note-style .el-table {
+	border-radius: 5px !important;
 	overflow: hidden !important;
+	border: 1px solid #DADCDE !important;
+}
+
+.minimalism-ui-note-style .el-table table {
+	margin: 0 !important;
 }
 
 .minimalism-ui-note-style .markdown-reading-view table thead {
@@ -601,14 +606,11 @@
 	background-color: rgba(0, 153, 123, 0.03);
 }
 
-.minimalism-ui-note-style .markdown-reading-view table tr:first-of-type {
-	border-top: 1px solid #DADCDE;
-}
-
 .minimalism-ui-note-style .markdown-reading-view table tbody tr {
 	border-bottom: 1px solid #DADCDE;
 }
 
+/* 所有单元格：内边距 + 列分隔线（左边框，首列除外） */
 .minimalism-ui-note-style .markdown-reading-view table th,
 .minimalism-ui-note-style .markdown-reading-view table td,
 .minimalism-ui-note-style .markdown-reading-view .el-table .ltr {
@@ -616,8 +618,34 @@
 	border-left: 1px solid #DADCDE !important;
 }
 
+/* 首列去掉左边框（由 el-table 外边框提供） */
+.minimalism-ui-note-style .markdown-reading-view table th:first-of-type,
+.minimalism-ui-note-style .markdown-reading-view table td:first-of-type,
+.minimalism-ui-note-style .markdown-reading-view .el-table .ltr:first-of-type {
+	border-left: none !important;
+}
+
+/* 末列去掉右边框（由 el-table 外边框提供） */
 .minimalism-ui-note-style .markdown-reading-view table th:last-of-type,
 .minimalism-ui-note-style .markdown-reading-view table td:last-of-type,
 .minimalism-ui-note-style .markdown-reading-view .el-table .ltr:last-of-type {
-	border-right: 1px solid #DADCDE !important;
+	border-right: none !important;
+}
+
+/* 首行单元格去掉顶边框（由 el-table 外边框提供） */
+.minimalism-ui-note-style .markdown-reading-view table thead tr:first-of-type th,
+.minimalism-ui-note-style .markdown-reading-view table tr:first-of-type td,
+.minimalism-ui-note-style .markdown-reading-view table tr:first-of-type th {
+	border-top: none !important;
+}
+
+/* 末行单元格去掉底边框（由 el-table 外边框提供） */
+.minimalism-ui-note-style .markdown-reading-view table tbody tr:last-of-type td,
+.minimalism-ui-note-style .markdown-reading-view table tbody tr:last-of-type th {
+	border-bottom: none !important;
+}
+
+/* tr 级别的末行底边框也去掉 */
+.minimalism-ui-note-style .markdown-reading-view table tbody tr:last-of-type {
+	border-bottom: none !important;
 }
