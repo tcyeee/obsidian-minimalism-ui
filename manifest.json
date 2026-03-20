@@ -3,9 +3,9 @@
   "name": "Minimalism UI",
   "version": "1.0.0",
   "minAppVersion": "1.1.0",
-  "description": "将 Obsidian 改造为类 macOS 原生应用风格，左侧固定显示笔记状态信息，右侧专注笔记内容",
+  "description": "Transform Obsidian into a Typora-like style, with the left side fixing the note status information and the right side focusing on the content of the note",
   "author": "Lucas",
-  "authorUrl": "",
+  "authorUrl": "https://tcyeee.top",
   "fundingUrl": "",
   "isDesktopOnly": true
 }
