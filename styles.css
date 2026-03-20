@@ -222,6 +222,20 @@
 	white-space: nowrap;
 	font-weight: bold;
 	max-width: 50%;
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.minimalism-ui-drag-bar-title::before {
+	content: '';
+	flex-shrink: 0;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background-color: var(--text-muted);
+	opacity: 0.5;
 }
 
 /* status-bar 搬入拖拽区后重置定位，推到最右侧 */
@@ -557,6 +571,14 @@ body.minimalism-ui-note-style .cm-editor .cm-scroller .cm-content .cm-line.Hyper
 .minimalism-ui-note-style .markdown-reading-view hr {
 	border: none !important;
 	border-top: 1px dashed var(--hr-color, #DADCDE) !important;
+}
+
+/* 编辑视图：分割线 */
+.minimalism-ui-note-style .cm-line.HyperMD-hr,
+.minimalism-ui-note-style .cm-line.HyperMD-hr .cm-hr {
+	border: none !important;
+	border-top: 1px dashed var(--hr-color, #DADCDE) !important;
+	color: transparent !important;
 }
 
 /* ── 笔记样式：滚动条 ────────────────────────────────────────────────── */
