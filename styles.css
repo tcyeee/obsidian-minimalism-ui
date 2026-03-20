@@ -599,6 +599,23 @@ body.minimalism-ui-note-style .cm-editor .cm-scroller .cm-content .cm-line.Hyper
 	background: transparent;
 }
 
+body.minimalism-ui-note-style .bases-view::-webkit-scrollbar,
+body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar {
+	width: 4px !important;
+	height: 4px !important;
+}
+
+body.minimalism-ui-note-style .bases-view::-webkit-scrollbar-thumb,
+body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar-thumb {
+	background: rgba(128, 128, 128, 0.4) !important;
+	border-radius: 999px;
+}
+
+body.minimalism-ui-note-style .bases-view::-webkit-scrollbar-track,
+body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar-track {
+	background: transparent !important;
+}
+
 /* ── 笔记样式：表格 Forest 风格 ──────────────────────────────────────── */
 
 .minimalism-ui-note-style {
