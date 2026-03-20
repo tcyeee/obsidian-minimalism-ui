@@ -72,9 +72,11 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
     this.statusBarOriginalNextSibling = null;
     this.homePageHandler = null;
     this.isOpeningHomePage = false;
+    this.loadedFonts = [];
   }
   async onload() {
     await this.loadSettings();
+    await this.loadJetBrainsMono();
     this.applyBodyClasses();
     this.applyPinBlock();
     this.applyTabLimit();
@@ -94,10 +96,39 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
       "minimalism-ui-disable-note-tabs",
       "minimalism-ui-note-style"
     );
+    for (const font of this.loadedFonts)
+      document.fonts.delete(font);
+    this.loadedFonts = [];
     this.removePinBlockHandler();
     this.removeTabLimitHandler();
     this.removeDragBar();
     this.removeHomePageHandler();
+  }
+  fontPath(filename) {
+    const adapter = this.app.vault.adapter;
+    return adapter.getResourcePath(`${this.manifest.dir}/fonts/${filename}`);
+  }
+  async loadFontFace(descriptors) {
+    const { file, ...desc } = descriptors;
+    const face = new FontFace("JetBrains Mono", `url('${this.fontPath(file)}')`, desc);
+    try {
+      await face.load();
+      document.fonts.add(face);
+      this.loadedFonts.push(face);
+    } catch (e) {
+    }
+  }
+  async loadJetBrainsMono() {
+    await Promise.all([
+      this.loadFontFace({ file: "JetBrainsMonoNL-Regular.ttf", style: "normal", weight: "400" }),
+      this.loadFontFace({ file: "JetBrainsMonoNL-Italic.ttf", style: "italic", weight: "400" }),
+      this.loadFontFace({ file: "JetBrainsMonoNL-Medium.ttf", style: "normal", weight: "500" }),
+      this.loadFontFace({ file: "JetBrainsMonoNL-MediumItalic.ttf", style: "italic", weight: "500" }),
+      this.loadFontFace({ file: "JetBrainsMonoNL-Bold.ttf", style: "normal", weight: "700" }),
+      this.loadFontFace({ file: "JetBrainsMonoNL-BoldItalic.ttf", style: "italic", weight: "700" }),
+      this.loadFontFace({ file: "JetBrainsMonoNL-ExtraBold.ttf", style: "normal", weight: "900" }),
+      this.loadFontFace({ file: "JetBrainsMonoNL-ExtraBoldItalic.ttf", style: "italic", weight: "900" })
+    ]);
   }
   applyBodyClasses() {
     const cls = document.body.classList;
@@ -300,7 +331,7 @@ var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {
       this.plugin.settings.simplifyPanel = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(containerEl).setName("\u7B14\u8BB0\u6837\u5F0F").setDesc("\u4E3A\u7B14\u8BB0\u6B63\u6587\u5E94\u7528 Forest \u4E3B\u9898\u5B57\u4F53\uFF08\u601D\u6E90\u9ED1\u4F53 + JetBrains Mono\uFF09\uFF0C\u884C\u9AD8 1.6").addToggle((t) => t.setValue(this.plugin.settings.noteStyle).onChange(async (v) => {
+    new import_obsidian.Setting(containerEl).setName("\u7B14\u8BB0\u6837\u5F0F").setDesc("\u4FEE\u6539\u7B14\u8BB0\u90E8\u5206\u4E3B\u9898\u6837\u5F0F").addToggle((t) => t.setValue(this.plugin.settings.noteStyle).onChange(async (v) => {
       this.plugin.settings.noteStyle = v;
       await this.plugin.saveSettings();
     }));

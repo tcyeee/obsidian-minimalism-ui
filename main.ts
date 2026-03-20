@@ -71,9 +71,11 @@ export default class MinimalismUIPlugin extends Plugin {
 	private statusBarOriginalNextSibling: Element | null = null;
 	private homePageHandler: ((file: TFile | null) => void) | null = null;
 	private isOpeningHomePage = false;
+	private loadedFonts: FontFace[] = [];
 
 	async onload() {
 		await this.loadSettings();
+		await this.loadJetBrainsMono();
 		this.applyBodyClasses();
 		this.applyPinBlock();
 		this.applyTabLimit();
@@ -94,10 +96,42 @@ export default class MinimalismUIPlugin extends Plugin {
 			'minimalism-ui-disable-note-tabs',
 			'minimalism-ui-note-style',
 		);
+		for (const font of this.loadedFonts) (document.fonts as any).delete(font);
+		this.loadedFonts = [];
 		this.removePinBlockHandler();
 		this.removeTabLimitHandler();
 		this.removeDragBar();
 		this.removeHomePageHandler();
+	}
+
+	private fontPath(filename: string): string {
+		const adapter = this.app.vault.adapter as any;
+		return adapter.getResourcePath(`${this.manifest.dir}/fonts/${filename}`);
+	}
+
+	private async loadFontFace(descriptors: FontFaceDescriptors & { file: string }) {
+		const { file, ...desc } = descriptors;
+		const face = new FontFace('JetBrains Mono', `url('${this.fontPath(file)}')`, desc);
+		try {
+			await face.load();
+			(document.fonts as any).add(face);
+			this.loadedFonts.push(face);
+		} catch {
+			// 字体文件不存在时静默跳过
+		}
+	}
+
+	private async loadJetBrainsMono() {
+		await Promise.all([
+			this.loadFontFace({ file: 'JetBrainsMonoNL-Regular.ttf',          style: 'normal', weight: '400' }),
+			this.loadFontFace({ file: 'JetBrainsMonoNL-Italic.ttf',           style: 'italic', weight: '400' }),
+			this.loadFontFace({ file: 'JetBrainsMonoNL-Medium.ttf',           style: 'normal', weight: '500' }),
+			this.loadFontFace({ file: 'JetBrainsMonoNL-MediumItalic.ttf',     style: 'italic', weight: '500' }),
+			this.loadFontFace({ file: 'JetBrainsMonoNL-Bold.ttf',             style: 'normal', weight: '700' }),
+			this.loadFontFace({ file: 'JetBrainsMonoNL-BoldItalic.ttf',       style: 'italic', weight: '700' }),
+			this.loadFontFace({ file: 'JetBrainsMonoNL-ExtraBold.ttf',        style: 'normal', weight: '900' }),
+			this.loadFontFace({ file: 'JetBrainsMonoNL-ExtraBoldItalic.ttf',  style: 'italic', weight: '900' }),
+		]);
 	}
 
 	applyBodyClasses() {
