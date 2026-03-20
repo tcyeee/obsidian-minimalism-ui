@@ -559,3 +559,65 @@
 	color: #81888D !important;
 	font-size: 14px !important;
 }
+
+/* ── 笔记样式：代码块字体大小 ────────────────────────────────────────── */
+
+/* 阅读视图：围栏代码块 & 行内代码 */
+.minimalism-ui-note-style .markdown-reading-view pre,
+.minimalism-ui-note-style .markdown-reading-view pre code {
+	font-size: 14px !important;
+}
+
+.minimalism-ui-note-style .markdown-reading-view code {
+	font-size: 14px !important;
+}
+
+/* 编辑视图（Live Preview）：围栏代码块 & 行内代码 */
+.minimalism-ui-note-style .HyperMD-codeblock,
+.minimalism-ui-note-style .cm-inline-code {
+	font-size: 14px !important;
+}
+
+/* ── 笔记样式：表格 Forest 风格 ──────────────────────────────────────── */
+
+.minimalism-ui-note-style {
+	--table-border-color: #DADCDE;
+	--table-header-background: rgba(0, 153, 123, 0.03);
+	--table-row-alt-background: rgba(0, 153, 123, 0.03);
+}
+
+/* 阅读视图 */
+.minimalism-ui-note-style .markdown-reading-view .el-table {
+	border-radius: 12px !important;
+	overflow: hidden !important;
+}
+
+.minimalism-ui-note-style .markdown-reading-view table thead {
+	font-weight: 900;
+	background-color: rgba(0, 153, 123, 0.03);
+}
+
+.minimalism-ui-note-style .markdown-reading-view table tr:nth-child(even) {
+	background-color: rgba(0, 153, 123, 0.03);
+}
+
+.minimalism-ui-note-style .markdown-reading-view table tr:first-of-type {
+	border-top: 1px solid #DADCDE;
+}
+
+.minimalism-ui-note-style .markdown-reading-view table tbody tr {
+	border-bottom: 1px solid #DADCDE;
+}
+
+.minimalism-ui-note-style .markdown-reading-view table th,
+.minimalism-ui-note-style .markdown-reading-view table td,
+.minimalism-ui-note-style .markdown-reading-view .el-table .ltr {
+	padding: 10px 13px !important;
+	border-left: 1px solid #DADCDE !important;
+}
+
+.minimalism-ui-note-style .markdown-reading-view table th:last-of-type,
+.minimalism-ui-note-style .markdown-reading-view table td:last-of-type,
+.minimalism-ui-note-style .markdown-reading-view .el-table .ltr:last-of-type {
+	border-right: 1px solid #DADCDE !important;
+}
