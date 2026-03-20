@@ -3,62 +3,8 @@
    macOS 原生风格 · 左侧固定信息面板
    ============================================================================= */
 
-/* ── 内嵌字体：JetBrains Mono NL ─────────────────────────────────────── */
-
-@font-face {
-	font-family: 'JetBrains Mono';
-	font-style: normal;
-	src: local('JetBrainsMonoNL-Regular'),
-		url('./fonts/JetBrainsMonoNL-Regular.ttf') format('truetype');
-}
-@font-face {
-	font-family: 'JetBrains Mono';
-	font-style: italic;
-	src: local('JetBrainsMonoNL-Italic'),
-		url('./fonts/JetBrainsMonoNL-Italic.ttf') format('truetype');
-}
-@font-face {
-	font-family: 'JetBrains Mono';
-	font-style: normal;
-	font-weight: 500;
-	src: local('JetBrainsMonoNL-Medium'),
-		url('./fonts/JetBrainsMonoNL-Medium.ttf') format('truetype');
-}
-@font-face {
-	font-family: 'JetBrains Mono';
-	font-style: italic;
-	font-weight: 500;
-	src: local('JetBrainsMonoNL-MediumItalic'),
-		url('./fonts/JetBrainsMonoNL-MediumItalic.ttf') format('truetype');
-}
-@font-face {
-	font-family: 'JetBrains Mono';
-	font-style: normal;
-	font-weight: bold;
-	src: local('JetBrainsMonoNL-Bold'),
-		url('./fonts/JetBrainsMonoNL-Bold.ttf') format('truetype');
-}
-@font-face {
-	font-family: 'JetBrains Mono';
-	font-style: italic;
-	font-weight: bold;
-	src: local('JetBrainsMonoNL-BoldItalic'),
-		url('./fonts/JetBrainsMonoNL-BoldItalic.ttf') format('truetype');
-}
-@font-face {
-	font-family: 'JetBrains Mono';
-	font-style: normal;
-	font-weight: 900;
-	src: local('JetBrainsMonoNL-ExtraBold'),
-		url('./fonts/JetBrainsMonoNL-ExtraBold.ttf') format('truetype');
-}
-@font-face {
-	font-family: 'JetBrains Mono';
-	font-style: italic;
-	font-weight: 900;
-	src: local('JetBrainsMonoNL-ExtraBoldItalic'),
-		url('./fonts/JetBrainsMonoNL-ExtraBoldItalic.ttf') format('truetype');
-}
+/* ── 内嵌字体：JetBrains Mono NL（由 main.ts 通过 FontFace API 注册） ── */
+/* CSS url() 在 Obsidian 插件中受安全策略限制，字体文件通过 JS 程序化加载，此处无需声明 @font-face */
 
 /* ── 内嵌字体：思源黑体 SC（仅覆盖 CJK unicode 范围） ────────────────── */
 
