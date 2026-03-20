@@ -473,6 +473,7 @@
 .minimalism-ui-note-style .cm-editor .cm-line,
 .minimalism-ui-note-style .cm-editor .cm-scroller {
 	font-family: 'JetBrains Mono', 'SourceHanSansSC', -apple-system, sans-serif !important;
+	font-size: calc(var(--font-text-size, 16px) - 2px) !important;
 	line-height: 1.6 !important;
 }
 
