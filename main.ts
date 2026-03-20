@@ -340,7 +340,7 @@ class MinimalismUISettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('笔记样式')
-			.setDesc('为笔记正文应用 Forest 主题字体（思源黑体 + JetBrains Mono），行高 1.6')
+			.setDesc('修改笔记部分主题样式')
 			.addToggle(t => t
 				.setValue(this.plugin.settings.noteStyle)
 				.onChange(async v => { this.plugin.settings.noteStyle = v; await this.plugin.saveSettings(); }));
