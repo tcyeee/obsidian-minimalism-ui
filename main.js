@@ -68,6 +68,7 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
     this.dragBar = null;
     this.dragBarTitleHandler = null;
     this.dragBarLayoutHandler = null;
+    this.dragBarRenameHandler = null;
     this.statusBarOriginalParent = null;
     this.statusBarOriginalNextSibling = null;
     this.homePageHandler = null;
@@ -203,6 +204,11 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
     updateTitle();
     this.dragBarTitleHandler = updateTitle;
     this.app.workspace.on("active-leaf-change", updateTitle);
+    this.dragBarRenameHandler = (file) => {
+      if (file === this.app.workspace.getActiveFile())
+        updateTitle();
+    };
+    this.app.vault.on("rename", this.dragBarRenameHandler);
     this.dragBarLayoutHandler = () => {
       if (!this.dragBar || this.dragBar.isConnected)
         return;
@@ -250,6 +256,10 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
     if (this.dragBarTitleHandler) {
       this.app.workspace.off("active-leaf-change", this.dragBarTitleHandler);
       this.dragBarTitleHandler = null;
+    }
+    if (this.dragBarRenameHandler) {
+      this.app.vault.off("rename", this.dragBarRenameHandler);
+      this.dragBarRenameHandler = null;
     }
     if (this.dragBarLayoutHandler) {
       this.app.workspace.off("layout-change", this.dragBarLayoutHandler);

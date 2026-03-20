@@ -4,6 +4,7 @@ import {
 	Plugin,
 	PluginSettingTab,
 	Setting,
+	TAbstractFile,
 	TFile,
 	WorkspaceLeaf,
 } from 'obsidian';
@@ -67,6 +68,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	private dragBar: HTMLElement | null = null;
 	private dragBarTitleHandler: (() => void) | null = null;
 	private dragBarLayoutHandler: (() => void) | null = null;
+	private dragBarRenameHandler: ((file: TAbstractFile) => void) | null = null;
 	private statusBarOriginalParent: HTMLElement | null = null;
 	private statusBarOriginalNextSibling: Element | null = null;
 	private homePageHandler: ((file: TFile | null) => void) | null = null;
@@ -219,6 +221,11 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.dragBarTitleHandler = updateTitle;
 		this.app.workspace.on('active-leaf-change', updateTitle);
 
+		this.dragBarRenameHandler = (file: TAbstractFile) => {
+			if (file === this.app.workspace.getActiveFile()) updateTitle();
+		};
+		this.app.vault.on('rename', this.dragBarRenameHandler);
+
 		// 布局变化时重新插入拖拽区（关闭 Tab 时 Obsidian 会重建 DOM）
 		this.dragBarLayoutHandler = () => {
 			if (!this.dragBar || this.dragBar.isConnected) return;
@@ -266,6 +273,10 @@ export default class MinimalismUIPlugin extends Plugin {
 		if (this.dragBarTitleHandler) {
 			this.app.workspace.off('active-leaf-change', this.dragBarTitleHandler);
 			this.dragBarTitleHandler = null;
+		}
+		if (this.dragBarRenameHandler) {
+			this.app.vault.off('rename', this.dragBarRenameHandler);
+			this.dragBarRenameHandler = null;
 		}
 		if (this.dragBarLayoutHandler) {
 			this.app.workspace.off('layout-change', this.dragBarLayoutHandler);
