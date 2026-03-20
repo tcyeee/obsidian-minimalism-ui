@@ -76,6 +76,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 		await this.loadJetBrainsMono();
+		await this.loadSourceHanSansSC();
 		this.applyBodyClasses();
 		this.applyPinBlock();
 		this.applyTabLimit();
@@ -109,9 +110,9 @@ export default class MinimalismUIPlugin extends Plugin {
 		return adapter.getResourcePath(`${this.manifest.dir}/fonts/${filename}`);
 	}
 
-	private async loadFontFace(descriptors: FontFaceDescriptors & { file: string }) {
+	private async loadFontFace(family: string, descriptors: FontFaceDescriptors & { file: string }) {
 		const { file, ...desc } = descriptors;
-		const face = new FontFace('JetBrains Mono', `url('${this.fontPath(file)}')`, desc);
+		const face = new FontFace(family, `url('${this.fontPath(file)}')`, desc);
 		try {
 			await face.load();
 			(document.fonts as any).add(face);
@@ -123,14 +124,25 @@ export default class MinimalismUIPlugin extends Plugin {
 
 	private async loadJetBrainsMono() {
 		await Promise.all([
-			this.loadFontFace({ file: 'JetBrainsMonoNL-Regular.ttf',          style: 'normal', weight: '400' }),
-			this.loadFontFace({ file: 'JetBrainsMonoNL-Italic.ttf',           style: 'italic', weight: '400' }),
-			this.loadFontFace({ file: 'JetBrainsMonoNL-Medium.ttf',           style: 'normal', weight: '500' }),
-			this.loadFontFace({ file: 'JetBrainsMonoNL-MediumItalic.ttf',     style: 'italic', weight: '500' }),
-			this.loadFontFace({ file: 'JetBrainsMonoNL-Bold.ttf',             style: 'normal', weight: '700' }),
-			this.loadFontFace({ file: 'JetBrainsMonoNL-BoldItalic.ttf',       style: 'italic', weight: '700' }),
-			this.loadFontFace({ file: 'JetBrainsMonoNL-ExtraBold.ttf',        style: 'normal', weight: '900' }),
-			this.loadFontFace({ file: 'JetBrainsMonoNL-ExtraBoldItalic.ttf',  style: 'italic', weight: '900' }),
+			this.loadFontFace('JetBrains Mono', { file: 'JetBrainsMonoNL-Regular.ttf',          style: 'normal', weight: '400' }),
+			this.loadFontFace('JetBrains Mono', { file: 'JetBrainsMonoNL-Italic.ttf',           style: 'italic', weight: '400' }),
+			this.loadFontFace('JetBrains Mono', { file: 'JetBrainsMonoNL-Medium.ttf',           style: 'normal', weight: '500' }),
+			this.loadFontFace('JetBrains Mono', { file: 'JetBrainsMonoNL-MediumItalic.ttf',     style: 'italic', weight: '500' }),
+			this.loadFontFace('JetBrains Mono', { file: 'JetBrainsMonoNL-Bold.ttf',             style: 'normal', weight: '700' }),
+			this.loadFontFace('JetBrains Mono', { file: 'JetBrainsMonoNL-BoldItalic.ttf',       style: 'italic', weight: '700' }),
+			this.loadFontFace('JetBrains Mono', { file: 'JetBrainsMonoNL-ExtraBold.ttf',        style: 'normal', weight: '900' }),
+			this.loadFontFace('JetBrains Mono', { file: 'JetBrainsMonoNL-ExtraBoldItalic.ttf',  style: 'italic', weight: '900' }),
+		]);
+	}
+
+	private async loadSourceHanSansSC() {
+		const unicodeRange = 'U+4E00-9FA5, U+9FA6-9FFF, U+3400-4DBF, U+2E80-2EF3, U+2F00-2FD5, U+2FF0-2FFB, U+3007, U+31C0-31E3, U+3105-312F, U+31A0-31BA, U+F900-FAD9, U+2F800-2FA1D';
+		await Promise.all([
+			this.loadFontFace('SourceHanSansSC', { file: 'SourceHanSansSC-Light.otf',   weight: '300',    unicodeRange }),
+			this.loadFontFace('SourceHanSansSC', { file: 'SourceHanSansSC-Regular.otf', weight: 'normal', unicodeRange }),
+			this.loadFontFace('SourceHanSansSC', { file: 'SourceHanSansSC-Medium.otf',  weight: '500',    unicodeRange }),
+			this.loadFontFace('SourceHanSansSC', { file: 'SourceHanSansSC-Bold.otf',    weight: 'bold',   unicodeRange }),
+			this.loadFontFace('SourceHanSansSC', { file: 'SourceHanSansSC-Heavy.otf',   weight: '900',    unicodeRange }),
 		]);
 	}
 
