@@ -496,6 +496,12 @@
 	line-height: 1.6 !important;
 }
 
+/* 正文缩小 1px（不影响标题，标题由 --hX-size 变量控制） */
+.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section p,
+.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section li {
+	font-size: calc(var(--font-text-size, 16px) - 2px) !important;
+}
+
 /* 编辑视图（CodeMirror 6） */
 .minimalism-ui-note-style .cm-editor,
 .minimalism-ui-note-style .cm-editor .cm-content,
