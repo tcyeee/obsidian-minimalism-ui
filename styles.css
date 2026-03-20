@@ -530,18 +530,37 @@
 	padding-top: 8px !important;
 }
 
-/* ── 笔记样式：Forest 主题字体 ───────────────────────────────────────── */
+/* ── 笔记样式 ───────────────────────────────────────── */
 
 .minimalism-ui-note-style {
-	--font-text-theme: 'SourceHanSansSC', 'JetBrains Mono', -apple-system, sans-serif;
-	--font-interface-theme: 'SourceHanSansSC', 'JetBrains Mono', -apple-system, sans-serif;
-	--font-monospace-theme: 'JetBrains Mono', 'SourceHanSansSC', -apple-system, sans-serif;
+	--font-text-theme: 'JetBrains Mono', 'SourceHanSansSC', -apple-system, sans-serif ;
+	--font-text: 'JetBrains Mono', 'SourceHanSansSC', -apple-system, sans-serif;
+	--font-interface-theme: 'JetBrains Mono', 'SourceHanSansSC', -apple-system, sans-serif;
+	--font-interface: 'JetBrains Mono', 'SourceHanSansSC', -apple-system, sans-serif;
+	--font-monospace-theme: 'JetBrains Mono', monospace;
+	--font-monospace: 'JetBrains Mono', monospace;
 	--line-height-normal: 1.6;
 }
 
-.minimalism-ui-note-style .markdown-reading-view,
+/* 阅读视图 */
+.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section,
+.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section p,
+.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section li,
+.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h1,
+.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h2,
+.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h3,
+.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h4,
+.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h5,
+.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h6 {
+	font-family: 'JetBrains Mono', 'SourceHanSansSC', -apple-system, sans-serif !important;
+	line-height: 1.6 !important;
+}
+
+/* 编辑视图（CodeMirror 6） */
+.minimalism-ui-note-style .cm-editor,
 .minimalism-ui-note-style .cm-editor .cm-content,
-.minimalism-ui-note-style .markdown-source-view.mod-cm6 .cm-line {
-	font-family: 'SourceHanSansSC', 'JetBrains Mono', -apple-system, sans-serif;
-	line-height: 1.6;
+.minimalism-ui-note-style .cm-editor .cm-line,
+.minimalism-ui-note-style .cm-editor .cm-scroller {
+	font-family: 'JetBrains Mono', 'SourceHanSansSC', -apple-system, sans-serif !important;
+	line-height: 1.6 !important;
 }
