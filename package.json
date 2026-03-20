@@ -1,7 +1,7 @@
 {
-  "name": "obsidian-minimalism-ui",
+  "name": "minimalism-ui",
   "version": "1.0.0",
-  "description": "将 Obsidian 改造为类 macOS 原生应用风格",
+  "description": "Transform UI into a Typora-like style, with the left side fixing the note status information and the right side focusing on the content of the note.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
