@@ -4,6 +4,7 @@
   "disablePinTab": true,
   "simplifyPanel": true,
   "disableNoteTabs": true,
+  "leafCacheSize": 10,
   "noteStyle": true,
   "homePage": "README.md",
   "hideNavButtons": false,
