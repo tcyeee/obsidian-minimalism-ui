@@ -578,6 +578,17 @@
 	font-size: 14px !important;
 }
 
+/* 阅读视图：代码块圆角 */
+.minimalism-ui-note-style .markdown-reading-view pre {
+	border-radius: 5px !important;
+}
+
+/* 阅读视图：分割线 */
+.minimalism-ui-note-style .markdown-reading-view hr {
+	border: none !important;
+	border-top: 1px dashed var(--hr-color, #DADCDE) !important;
+}
+
 /* ── 笔记样式：表格 Forest 风格 ──────────────────────────────────────── */
 
 .minimalism-ui-note-style {
