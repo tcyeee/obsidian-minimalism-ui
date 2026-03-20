@@ -589,6 +589,24 @@
 	border-top: 1px dashed var(--hr-color, #DADCDE) !important;
 }
 
+/* ── 笔记样式：滚动条 ────────────────────────────────────────────────── */
+
+.minimalism-ui-note-style .markdown-reading-view ::-webkit-scrollbar,
+.minimalism-ui-note-style .cm-scroller::-webkit-scrollbar {
+	width: 3px;
+}
+
+.minimalism-ui-note-style .markdown-reading-view ::-webkit-scrollbar-thumb,
+.minimalism-ui-note-style .cm-scroller::-webkit-scrollbar-thumb {
+	background: rgba(128, 128, 128, 0.4);
+	border-radius: 999px;
+}
+
+.minimalism-ui-note-style .markdown-reading-view ::-webkit-scrollbar-track,
+.minimalism-ui-note-style .cm-scroller::-webkit-scrollbar-track {
+	background: transparent;
+}
+
 /* ── 笔记样式：表格 Forest 风格 ──────────────────────────────────────── */
 
 .minimalism-ui-note-style {
