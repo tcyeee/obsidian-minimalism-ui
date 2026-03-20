@@ -34,6 +34,7 @@ var DEFAULT_SETTINGS = {
   disablePinTab: true,
   simplifyPanel: false,
   disableNoteTabs: false,
+  noteStyle: false,
   homePage: ""
 };
 var FileSuggest = class extends import_obsidian.AbstractInputSuggest {
@@ -90,7 +91,8 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
       "minimalism-ui-hide-tab-bar",
       "minimalism-ui-disable-pin",
       "minimalism-ui-simplify-panel",
-      "minimalism-ui-disable-note-tabs"
+      "minimalism-ui-disable-note-tabs",
+      "minimalism-ui-note-style"
     );
     this.removePinBlockHandler();
     this.removeTabLimitHandler();
@@ -104,6 +106,7 @@ var MinimalismUIPlugin = class extends import_obsidian.Plugin {
     cls.toggle("minimalism-ui-disable-pin", this.settings.disablePinTab);
     cls.toggle("minimalism-ui-simplify-panel", this.settings.simplifyPanel);
     cls.toggle("minimalism-ui-disable-note-tabs", this.settings.disableNoteTabs);
+    cls.toggle("minimalism-ui-note-style", this.settings.noteStyle);
   }
   applyPinBlock() {
     this.removePinBlockHandler();
@@ -295,6 +298,10 @@ var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {
     new import_obsidian.Setting(containerEl).setName("\u6781\u7B80\u4FE1\u606F\u680F").setDesc("\u9690\u85CF\u5DE6\u4FA7\u5C5E\u6027\u680F\u7684\u64CD\u4F5C\u6309\u94AE\uFF0C\u4EE5\u53CA Outline\u3001Backlinks \u9762\u677F\u4E2D\u7684\u641C\u7D22\u6846").addToggle((t) => t.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
       this.plugin.settings.hideTabBar = v;
       this.plugin.settings.simplifyPanel = v;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian.Setting(containerEl).setName("\u7B14\u8BB0\u6837\u5F0F").setDesc("\u4E3A\u7B14\u8BB0\u6B63\u6587\u5E94\u7528 Forest \u4E3B\u9898\u5B57\u4F53\uFF08\u601D\u6E90\u9ED1\u4F53 + JetBrains Mono\uFF09\uFF0C\u884C\u9AD8 1.6").addToggle((t) => t.setValue(this.plugin.settings.noteStyle).onChange(async (v) => {
+      this.plugin.settings.noteStyle = v;
       await this.plugin.saveSettings();
     }));
     containerEl.createEl("h3", { text: "\u4EA4\u4E92\u8BBE\u7F6E" });

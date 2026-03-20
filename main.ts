@@ -16,6 +16,7 @@ export interface MinimalismUISettings {
 	disablePinTab: boolean;
 	simplifyPanel: boolean;
 	disableNoteTabs: boolean;
+	noteStyle: boolean;
 	homePage: string;
 }
 
@@ -25,6 +26,7 @@ const DEFAULT_SETTINGS: MinimalismUISettings = {
 	disablePinTab: true,
 	simplifyPanel: false,
 	disableNoteTabs: false,
+	noteStyle: false,
 	homePage: '',
 };
 
@@ -90,6 +92,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			'minimalism-ui-disable-pin',
 			'minimalism-ui-simplify-panel',
 			'minimalism-ui-disable-note-tabs',
+			'minimalism-ui-note-style',
 		);
 		this.removePinBlockHandler();
 		this.removeTabLimitHandler();
@@ -104,6 +107,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		cls.toggle('minimalism-ui-disable-pin', this.settings.disablePinTab);
 		cls.toggle('minimalism-ui-simplify-panel', this.settings.simplifyPanel);
 		cls.toggle('minimalism-ui-disable-note-tabs', this.settings.disableNoteTabs);
+		cls.toggle('minimalism-ui-note-style', this.settings.noteStyle);
 	}
 
 	applyPinBlock() {
@@ -333,6 +337,13 @@ class MinimalismUISettingTab extends PluginSettingTab {
 					this.plugin.settings.simplifyPanel = v;
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(containerEl)
+			.setName('笔记样式')
+			.setDesc('为笔记正文应用 Forest 主题字体（思源黑体 + JetBrains Mono），行高 1.6')
+			.addToggle(t => t
+				.setValue(this.plugin.settings.noteStyle)
+				.onChange(async v => { this.plugin.settings.noteStyle = v; await this.plugin.saveSettings(); }));
 
 		containerEl.createEl('h3', { text: '交互设置' });
 
