@@ -590,8 +590,14 @@ body.minimalism-ui-note-style .cm-editor .cm-scroller .cm-content .cm-line.Hyper
 
 .minimalism-ui-note-style .markdown-reading-view ::-webkit-scrollbar-thumb,
 .minimalism-ui-note-style .cm-scroller::-webkit-scrollbar-thumb {
-	background: rgba(128, 128, 128, 0.4);
+	background: transparent;
 	border-radius: 999px;
+	transition: background 0.3s ease;
+}
+
+.minimalism-ui-note-style .markdown-reading-view:hover ::-webkit-scrollbar-thumb,
+.minimalism-ui-note-style .cm-scroller:hover::-webkit-scrollbar-thumb {
+	background: rgba(128, 128, 128, 0.4);
 }
 
 .minimalism-ui-note-style .markdown-reading-view ::-webkit-scrollbar-track,
@@ -607,8 +613,14 @@ body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar {
 
 body.minimalism-ui-note-style .bases-view::-webkit-scrollbar-thumb,
 body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar-thumb {
-	background: rgba(128, 128, 128, 0.4) !important;
+	background: transparent !important;
 	border-radius: 999px;
+	transition: background 0.3s ease;
+}
+
+body.minimalism-ui-note-style .bases-view:hover::-webkit-scrollbar-thumb,
+body.minimalism-ui-note-style .bases-view:hover ::-webkit-scrollbar-thumb {
+	background: rgba(128, 128, 128, 0.4) !important;
 }
 
 body.minimalism-ui-note-style .bases-view::-webkit-scrollbar-track,
