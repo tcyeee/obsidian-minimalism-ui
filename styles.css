@@ -510,3 +510,52 @@
 	font-family: 'JetBrains Mono', 'SourceHanSansSC', -apple-system, sans-serif !important;
 	line-height: 1.6 !important;
 }
+
+/* ── 笔记样式：引用块 Forest 风格 ────────────────────────────────────── */
+
+.minimalism-ui-note-style {
+	--blockquote-background-color: rgba(0, 153, 123, 0.05);
+	--blockquote-border-color: transparent;
+	--blockquote-border-thickness: 0px;
+	--blockquote-color: #81888D;
+	--blockquote-font-style: normal ;
+}
+
+/* 阅读视图 blockquote */
+.minimalism-ui-note-style .markdown-reading-view blockquote {
+	position: relative;
+	padding: 1rem 1rem 1rem 1.3rem;
+	background-color: rgba(0, 153, 123, 0.05);
+	border-radius: 6px;
+	border: none !important;
+	line-height: 1.6;
+}
+
+.minimalism-ui-note-style .markdown-reading-view blockquote p {
+	color: #81888D;
+	font-size: 14px;
+	margin: 0;
+}
+
+.minimalism-ui-note-style .markdown-reading-view blockquote::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	height: 100%;
+	width: 0.3rem;
+	background: #00997B;
+	border-top-left-radius: 6px;
+	border-bottom-left-radius: 6px;
+}
+
+/* 编辑视图（Live Preview）blockquote */
+.minimalism-ui-note-style .cm-blockquote-border {
+	border-left: 0.3rem solid #00997B !important;
+}
+
+.minimalism-ui-note-style .HyperMD-quote {
+	background-color: rgba(0, 153, 123, 0.05) !important;
+	color: #81888D !important;
+	font-size: 14px !important;
+}
