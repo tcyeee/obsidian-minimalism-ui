@@ -3,6 +3,101 @@
    macOS 原生风格 · 左侧固定信息面板
    ============================================================================= */
 
+/* ── 内嵌字体：JetBrains Mono NL ─────────────────────────────────────── */
+
+@font-face {
+	font-family: 'JetBrains Mono';
+	font-style: normal;
+	src: local('JetBrainsMonoNL-Regular'),
+		url('./fonts/JetBrainsMonoNL-Regular.ttf') format('truetype');
+}
+@font-face {
+	font-family: 'JetBrains Mono';
+	font-style: italic;
+	src: local('JetBrainsMonoNL-Italic'),
+		url('./fonts/JetBrainsMonoNL-Italic.ttf') format('truetype');
+}
+@font-face {
+	font-family: 'JetBrains Mono';
+	font-style: normal;
+	font-weight: 500;
+	src: local('JetBrainsMonoNL-Medium'),
+		url('./fonts/JetBrainsMonoNL-Medium.ttf') format('truetype');
+}
+@font-face {
+	font-family: 'JetBrains Mono';
+	font-style: italic;
+	font-weight: 500;
+	src: local('JetBrainsMonoNL-MediumItalic'),
+		url('./fonts/JetBrainsMonoNL-MediumItalic.ttf') format('truetype');
+}
+@font-face {
+	font-family: 'JetBrains Mono';
+	font-style: normal;
+	font-weight: bold;
+	src: local('JetBrainsMonoNL-Bold'),
+		url('./fonts/JetBrainsMonoNL-Bold.ttf') format('truetype');
+}
+@font-face {
+	font-family: 'JetBrains Mono';
+	font-style: italic;
+	font-weight: bold;
+	src: local('JetBrainsMonoNL-BoldItalic'),
+		url('./fonts/JetBrainsMonoNL-BoldItalic.ttf') format('truetype');
+}
+@font-face {
+	font-family: 'JetBrains Mono';
+	font-style: normal;
+	font-weight: 900;
+	src: local('JetBrainsMonoNL-ExtraBold'),
+		url('./fonts/JetBrainsMonoNL-ExtraBold.ttf') format('truetype');
+}
+@font-face {
+	font-family: 'JetBrains Mono';
+	font-style: italic;
+	font-weight: 900;
+	src: local('JetBrainsMonoNL-ExtraBoldItalic'),
+		url('./fonts/JetBrainsMonoNL-ExtraBoldItalic.ttf') format('truetype');
+}
+
+/* ── 内嵌字体：思源黑体 SC（仅覆盖 CJK unicode 范围） ────────────────── */
+
+@font-face {
+	font-family: 'SourceHanSansSC';
+	font-weight: 300;
+	src: local('SourceHanSansSC-Light'),
+		url('./fonts/SourceHanSansSC-Light.otf') format('opentype');
+	unicode-range: U+4E00-9FA5, U+9FA6-9FFF, U+3400-4DBF, U+20000-2A6DF, U+2A700-2B738, U+2B740-2B81D, U+2B820-2CEA1, U+2CEB0-2EBE0, U+30000-3134A, U+2F00-2FD5, U+2E80-2EF3, U+F900-FAD9, U+2F800-2FA1D, U+E815-E86F, U+E400-E5E8, U+E600-E6CF, U+31C0-31E3, U+2FF0-2FFB, U+3105-312F, U+31A0-31BA, U+3007;
+}
+@font-face {
+	font-family: 'SourceHanSansSC';
+	font-weight: normal;
+	src: local('SourceHanSansSC-Regular'),
+		url('./fonts/SourceHanSansSC-Regular.otf') format('opentype');
+	unicode-range: U+4E00-9FA5, U+9FA6-9FFF, U+3400-4DBF, U+20000-2A6DF, U+2A700-2B738, U+2B740-2B81D, U+2B820-2CEA1, U+2CEB0-2EBE0, U+30000-3134A, U+2F00-2FD5, U+2E80-2EF3, U+F900-FAD9, U+2F800-2FA1D, U+E815-E86F, U+E400-E5E8, U+E600-E6CF, U+31C0-31E3, U+2FF0-2FFB, U+3105-312F, U+31A0-31BA, U+3007;
+}
+@font-face {
+	font-family: 'SourceHanSansSC';
+	font-weight: 500;
+	src: local('SourceHanSansSC-Medium'),
+		url('./fonts/SourceHanSansSC-Medium.otf') format('opentype');
+	unicode-range: U+4E00-9FA5, U+9FA6-9FFF, U+3400-4DBF, U+20000-2A6DF, U+2A700-2B738, U+2B740-2B81D, U+2B820-2CEA1, U+2CEB0-2EBE0, U+30000-3134A, U+2F00-2FD5, U+2E80-2EF3, U+F900-FAD9, U+2F800-2FA1D, U+E815-E86F, U+E400-E5E8, U+E600-E6CF, U+31C0-31E3, U+2FF0-2FFB, U+3105-312F, U+31A0-31BA, U+3007;
+}
+@font-face {
+	font-family: 'SourceHanSansSC';
+	font-weight: bold;
+	src: local('SourceHanSansSC-Bold'),
+		url('./fonts/SourceHanSansSC-Bold.otf') format('opentype');
+	unicode-range: U+4E00-9FA5, U+9FA6-9FFF, U+3400-4DBF, U+20000-2A6DF, U+2A700-2B738, U+2B740-2B81D, U+2B820-2CEA1, U+2CEB0-2EBE0, U+30000-3134A, U+2F00-2FD5, U+2E80-2EF3, U+F900-FAD9, U+2F800-2FA1D, U+E815-E86F, U+E400-E5E8, U+E600-E6CF, U+31C0-31E3, U+2FF0-2FFB, U+3105-312F, U+31A0-31BA, U+3007;
+}
+@font-face {
+	font-family: 'SourceHanSansSC';
+	font-weight: 900;
+	src: local('SourceHanSansSC-Heavy'),
+		url('./fonts/SourceHanSansSC-Heavy.otf') format('opentype');
+	unicode-range: U+4E00-9FA5, U+9FA6-9FFF, U+3400-4DBF, U+20000-2A6DF, U+2A700-2B738, U+2B740-2B81D, U+2B820-2CEA1, U+2CEB0-2EBE0, U+30000-3134A, U+2F00-2FD5, U+2E80-2EF3, U+F900-FAD9, U+2F800-2FA1D, U+E815-E86F, U+E400-E5E8, U+E600-E6CF, U+31C0-31E3, U+2FF0-2FFB, U+3105-312F, U+31A0-31BA, U+3007;
+}
+
 /* ── Mac 风格全局样式 ──────────────────────────────────────────────────── */
 
 .minimalism-ui-mac-style {
@@ -433,4 +528,20 @@
 .is-mac.minimalism-ui-mac-sidebar .titlebar-button-container.mod-left {
 	padding-left: 8px !important;
 	padding-top: 8px !important;
+}
+
+/* ── 笔记样式：Forest 主题字体 ───────────────────────────────────────── */
+
+.minimalism-ui-note-style {
+	--font-text-theme: 'SourceHanSansSC', 'JetBrains Mono', -apple-system, sans-serif;
+	--font-interface-theme: 'SourceHanSansSC', 'JetBrains Mono', -apple-system, sans-serif;
+	--font-monospace-theme: 'JetBrains Mono', 'SourceHanSansSC', -apple-system, sans-serif;
+	--line-height-normal: 1.6;
+}
+
+.minimalism-ui-note-style .markdown-reading-view,
+.minimalism-ui-note-style .cm-editor .cm-content,
+.minimalism-ui-note-style .markdown-source-view.mod-cm6 .cm-line {
+	font-family: 'SourceHanSansSC', 'JetBrains Mono', -apple-system, sans-serif;
+	line-height: 1.6;
 }
