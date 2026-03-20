@@ -27,16 +27,289 @@ __export(main_exports, {
   default: () => MinimalismUIPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian = require("obsidian");
+var import_obsidian2 = require("obsidian");
+
+// src/settings.ts
 var DEFAULT_SETTINGS = {
   macSidebar: false,
   hideTabBar: false,
   disablePinTab: true,
   simplifyPanel: false,
   disableNoteTabs: false,
+  leafCacheSize: 3,
   noteStyle: false,
   homePage: ""
 };
+
+// src/TabCacheManager.ts
+var TabCacheManager = class {
+  // isOpeningHomePage 由 plugin 提供，避免首页打开时触发 getLeaf 拦截
+  constructor(app, getSettings, isOpeningHomePage) {
+    this.app = app;
+    this.getSettings = getSettings;
+    this.isOpeningHomePage = isOpeningHomePage;
+    this.leafQueue = [];
+    this.isReusingLeaf = false;
+    this.isEvicting = false;
+    this.originalGetLeaf = null;
+    this.navHistory = [];
+    this.navFuture = [];
+    this.navJumpTarget = null;
+    this.tabLimitHandler = null;
+    this.navTrackHandler = null;
+    this.historyPatches = /* @__PURE__ */ new Map();
+  }
+  apply() {
+    this.remove();
+    this.leafQueue = [];
+    if (!this.getSettings().disableNoteTabs)
+      return;
+    const ws = this.app.workspace;
+    this.originalGetLeaf = ws.getLeaf.bind(ws);
+    ws.getLeaf = (newLeaf) => {
+      if ((newLeaf === false || newLeaf === void 0) && !this.isReusingLeaf && !this.isOpeningHomePage()) {
+        const leaf = this.originalGetLeaf("tab");
+        this.interceptLeafOpenFile(leaf);
+        return leaf;
+      }
+      return this.originalGetLeaf(newLeaf);
+    };
+    this.tabLimitHandler = () => {
+      if (this.isEvicting)
+        return;
+      const active = this.app.workspace.activeLeaf;
+      if (!active)
+        return;
+      this.leafQueue = this.leafQueue.filter((l) => l !== active);
+      this.leafQueue.push(active);
+      const rootLeaves = [];
+      this.app.workspace.iterateRootLeaves((l) => rootLeaves.push(l));
+      this.leafQueue = this.leafQueue.filter((l) => rootLeaves.includes(l));
+      const max = this.getSettings().leafCacheSize;
+      if (this.leafQueue.length > max) {
+        this.isEvicting = true;
+        try {
+          while (this.leafQueue.length > max) {
+            const oldest = this.leafQueue.shift();
+            oldest.detach();
+          }
+        } finally {
+          this.isEvicting = false;
+        }
+      }
+    };
+    this.app.workspace.on("active-leaf-change", this.tabLimitHandler);
+    this.navTrackHandler = (leaf) => {
+      if (!leaf)
+        return;
+      if (leaf === this.navJumpTarget) {
+        this.navJumpTarget = null;
+        return;
+      }
+      const last = this.navHistory[this.navHistory.length - 1];
+      if (last === leaf)
+        return;
+      this.navHistory.push(leaf);
+      this.navFuture = [];
+    };
+    this.app.workspace.on("active-leaf-change", this.navTrackHandler);
+    this.app.workspace.iterateRootLeaves((leaf) => this.patchLeafHistory(leaf));
+  }
+  remove() {
+    if (this.originalGetLeaf) {
+      this.app.workspace.getLeaf = this.originalGetLeaf;
+      this.originalGetLeaf = null;
+    }
+    if (this.tabLimitHandler) {
+      this.app.workspace.off("active-leaf-change", this.tabLimitHandler);
+      this.tabLimitHandler = null;
+    }
+    if (this.navTrackHandler) {
+      this.app.workspace.off("active-leaf-change", this.navTrackHandler);
+      this.navTrackHandler = null;
+    }
+    this.unpatchAllLeafHistories();
+    this.leafQueue = [];
+    this.navHistory = [];
+    this.navFuture = [];
+    this.navJumpTarget = null;
+  }
+  // 对新建的空 leaf 注入一次性 openFile 拦截器：
+  // 在文件实际加载前检查缓存，若已有相同文件的 leaf 则直接复用，避免闪烁
+  interceptLeafOpenFile(leaf) {
+    const manager = this;
+    const origOpenFile = leaf.openFile.bind(leaf);
+    leaf.openFile = async function(file, state) {
+      leaf.openFile = origOpenFile;
+      if (!manager.isReusingLeaf) {
+        let existingLeaf = null;
+        manager.app.workspace.iterateRootLeaves((l) => {
+          var _a, _b;
+          if (existingLeaf || l === leaf)
+            return;
+          if (((_b = (_a = l.view) == null ? void 0 : _a.file) == null ? void 0 : _b.path) === file.path) {
+            existingLeaf = l;
+          }
+        });
+        if (existingLeaf) {
+          manager.isReusingLeaf = true;
+          try {
+            manager.leafQueue = manager.leafQueue.filter((l) => l !== existingLeaf);
+            manager.leafQueue.push(existingLeaf);
+            manager.app.workspace.setActiveLeaf(existingLeaf, { focus: true });
+            leaf.detach();
+          } finally {
+            manager.isReusingLeaf = false;
+          }
+          return;
+        }
+      }
+      manager.patchLeafHistory(leaf);
+      return origOpenFile(file, state);
+    };
+  }
+  navigateBack() {
+    while (this.navHistory.length >= 2) {
+      const current = this.navHistory.pop();
+      this.navFuture.unshift(current);
+      const prev = this.navHistory[this.navHistory.length - 1];
+      if (prev.parent) {
+        this.navJumpTarget = prev;
+        this.app.workspace.setActiveLeaf(prev, { focus: true });
+        return;
+      }
+    }
+  }
+  navigateForward() {
+    while (this.navFuture.length > 0) {
+      const next = this.navFuture.shift();
+      if (next.parent) {
+        this.navHistory.push(next);
+        this.navJumpTarget = next;
+        this.app.workspace.setActiveLeaf(next, { focus: true });
+        return;
+      }
+    }
+  }
+  patchLeafHistory(leaf) {
+    var _a, _b;
+    const history = leaf.history;
+    if (!history || this.historyPatches.has(leaf))
+      return;
+    const origBack = history.back.bind(history);
+    const origForward = history.forward.bind(history);
+    const origCanGoBack = (_a = history.canGoBack) == null ? void 0 : _a.bind(history);
+    const origCanGoForward = (_b = history.canGoForward) == null ? void 0 : _b.bind(history);
+    history.back = () => this.navigateBack();
+    history.forward = () => this.navigateForward();
+    history.canGoBack = () => this.navHistory.length >= 2;
+    history.canGoForward = () => this.navFuture.length > 0;
+    this.historyPatches.set(leaf, { back: origBack, forward: origForward, canGoBack: origCanGoBack, canGoForward: origCanGoForward });
+  }
+  unpatchAllLeafHistories() {
+    for (const [leaf, orig] of this.historyPatches) {
+      const history = leaf.history;
+      if (history) {
+        history.back = orig.back;
+        history.forward = orig.forward;
+        if (orig.canGoBack !== void 0)
+          history.canGoBack = orig.canGoBack;
+        if (orig.canGoForward !== void 0)
+          history.canGoForward = orig.canGoForward;
+      }
+    }
+    this.historyPatches.clear();
+  }
+};
+
+// src/DragBarManager.ts
+var DragBarManager = class {
+  constructor(app, getSettings) {
+    this.app = app;
+    this.getSettings = getSettings;
+    this.dragBar = null;
+    this.titleHandler = null;
+    this.layoutHandler = null;
+    this.renameHandler = null;
+    this.statusBarOriginalParent = null;
+    this.statusBarOriginalNextSibling = null;
+  }
+  apply() {
+    this.remove();
+    if (!this.getSettings().disableNoteTabs)
+      return;
+    const rootEl = this.app.workspace.rootSplit.containerEl;
+    const tabsEl = rootEl.querySelector(".workspace-tabs");
+    if (!tabsEl)
+      return;
+    this.dragBar = document.createElement("div");
+    this.dragBar.className = "minimalism-ui-drag-bar";
+    const titleEl = document.createElement("span");
+    titleEl.className = "minimalism-ui-drag-bar-title";
+    this.dragBar.appendChild(titleEl);
+    tabsEl.insertBefore(this.dragBar, tabsEl.firstChild);
+    const updateTitle = () => {
+      const activeFile = this.app.workspace.getActiveFile();
+      titleEl.textContent = activeFile ? activeFile.basename : "";
+    };
+    updateTitle();
+    this.titleHandler = updateTitle;
+    this.app.workspace.on("active-leaf-change", updateTitle);
+    this.renameHandler = (file) => {
+      if (file === this.app.workspace.getActiveFile())
+        updateTitle();
+    };
+    this.app.vault.on("rename", this.renameHandler);
+    this.layoutHandler = () => {
+      if (!this.dragBar || this.dragBar.isConnected)
+        return;
+      const rootEl2 = this.app.workspace.rootSplit.containerEl;
+      const tabsEl2 = rootEl2.querySelector(".workspace-tabs");
+      if (tabsEl2)
+        tabsEl2.insertBefore(this.dragBar, tabsEl2.firstChild);
+    };
+    this.app.workspace.on("layout-change", this.layoutHandler);
+    const statusBar = document.querySelector(".status-bar");
+    if (statusBar) {
+      this.statusBarOriginalParent = statusBar.parentElement;
+      this.statusBarOriginalNextSibling = statusBar.nextElementSibling;
+      this.dragBar.appendChild(statusBar);
+    }
+  }
+  remove() {
+    if (this.titleHandler) {
+      this.app.workspace.off("active-leaf-change", this.titleHandler);
+      this.titleHandler = null;
+    }
+    if (this.renameHandler) {
+      this.app.vault.off("rename", this.renameHandler);
+      this.renameHandler = null;
+    }
+    if (this.layoutHandler) {
+      this.app.workspace.off("layout-change", this.layoutHandler);
+      this.layoutHandler = null;
+    }
+    if (this.statusBarOriginalParent) {
+      const statusBar = document.querySelector(".status-bar");
+      if (statusBar) {
+        if (this.statusBarOriginalNextSibling) {
+          this.statusBarOriginalParent.insertBefore(statusBar, this.statusBarOriginalNextSibling);
+        } else {
+          this.statusBarOriginalParent.appendChild(statusBar);
+        }
+      }
+      this.statusBarOriginalParent = null;
+      this.statusBarOriginalNextSibling = null;
+    }
+    if (this.dragBar) {
+      this.dragBar.remove();
+      this.dragBar = null;
+    }
+  }
+};
+
+// src/SettingTab.ts
+var import_obsidian = require("obsidian");
 var FileSuggest = class extends import_obsidian.AbstractInputSuggest {
   constructor() {
     super(...arguments);
@@ -57,276 +330,6 @@ var FileSuggest = class extends import_obsidian.AbstractInputSuggest {
     this.setValue(file.path);
     (_a = this.onPickCb) == null ? void 0 : _a.call(this, file.path);
     this.close();
-  }
-};
-var MinimalismUIPlugin = class extends import_obsidian.Plugin {
-  constructor() {
-    super(...arguments);
-    this.pinBlockHandler = null;
-    this.detachPatches = /* @__PURE__ */ new Map();
-    this.tabLimitHandler = null;
-    this.dragBar = null;
-    this.dragBarTitleHandler = null;
-    this.dragBarLayoutHandler = null;
-    this.dragBarRenameHandler = null;
-    this.statusBarOriginalParent = null;
-    this.statusBarOriginalNextSibling = null;
-    this.homePageHandler = null;
-    this.isOpeningHomePage = false;
-    this.loadedFonts = [];
-  }
-  async onload() {
-    await this.loadSettings();
-    await this.loadJetBrainsMono();
-    await this.loadSourceHanSansSC();
-    this.applyBodyClasses();
-    this.applyPinBlock();
-    this.applyTabLimit();
-    this.app.workspace.onLayoutReady(() => {
-      this.applyDragBar();
-      this.applyHomePage();
-      this.openHomePage();
-    });
-    this.addSettingTab(new MinimalismUISettingTab(this.app, this));
-  }
-  onunload() {
-    document.body.classList.remove(
-      "minimalism-ui-mac-sidebar",
-      "minimalism-ui-hide-tab-bar",
-      "minimalism-ui-disable-pin",
-      "minimalism-ui-simplify-panel",
-      "minimalism-ui-disable-note-tabs",
-      "minimalism-ui-note-style"
-    );
-    for (const font of this.loadedFonts)
-      document.fonts.delete(font);
-    this.loadedFonts = [];
-    this.removePinBlockHandler();
-    this.removeTabLimitHandler();
-    this.removeDragBar();
-    this.removeHomePageHandler();
-  }
-  fontPath(filename) {
-    const adapter = this.app.vault.adapter;
-    return adapter.getResourcePath(`${this.manifest.dir}/fonts/${filename}`);
-  }
-  async loadFontFace(family, descriptors) {
-    const { file, ...desc } = descriptors;
-    const face = new FontFace(family, `url('${this.fontPath(file)}')`, desc);
-    try {
-      await face.load();
-      document.fonts.add(face);
-      this.loadedFonts.push(face);
-    } catch (e) {
-    }
-  }
-  async loadJetBrainsMono() {
-    await Promise.all([
-      this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-Regular.ttf", style: "normal", weight: "400" }),
-      this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-Italic.ttf", style: "italic", weight: "400" }),
-      this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-Medium.ttf", style: "normal", weight: "500" }),
-      this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-MediumItalic.ttf", style: "italic", weight: "500" }),
-      this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-Bold.ttf", style: "normal", weight: "700" }),
-      this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-BoldItalic.ttf", style: "italic", weight: "700" }),
-      this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-ExtraBold.ttf", style: "normal", weight: "900" }),
-      this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-ExtraBoldItalic.ttf", style: "italic", weight: "900" })
-    ]);
-  }
-  async loadSourceHanSansSC() {
-    const unicodeRange = "U+4E00-9FA5, U+9FA6-9FFF, U+3400-4DBF, U+2E80-2EF3, U+2F00-2FD5, U+2FF0-2FFB, U+3007, U+31C0-31E3, U+3105-312F, U+31A0-31BA, U+F900-FAD9, U+2F800-2FA1D";
-    await Promise.all([
-      this.loadFontFace("SourceHanSansSC", { file: "SourceHanSansSC-Light.otf", weight: "300", unicodeRange }),
-      this.loadFontFace("SourceHanSansSC", { file: "SourceHanSansSC-Regular.otf", weight: "normal", unicodeRange }),
-      this.loadFontFace("SourceHanSansSC", { file: "SourceHanSansSC-Medium.otf", weight: "500", unicodeRange }),
-      this.loadFontFace("SourceHanSansSC", { file: "SourceHanSansSC-Bold.otf", weight: "bold", unicodeRange }),
-      this.loadFontFace("SourceHanSansSC", { file: "SourceHanSansSC-Heavy.otf", weight: "900", unicodeRange })
-    ]);
-  }
-  applyBodyClasses() {
-    const cls = document.body.classList;
-    cls.toggle("minimalism-ui-mac-sidebar", this.settings.macSidebar);
-    cls.toggle("minimalism-ui-hide-tab-bar", this.settings.hideTabBar);
-    cls.toggle("minimalism-ui-disable-pin", this.settings.disablePinTab);
-    cls.toggle("minimalism-ui-simplify-panel", this.settings.simplifyPanel);
-    cls.toggle("minimalism-ui-disable-note-tabs", this.settings.disableNoteTabs);
-    cls.toggle("minimalism-ui-note-style", this.settings.noteStyle);
-  }
-  applyPinBlock() {
-    this.removePinBlockHandler();
-    if (!this.settings.disablePinTab)
-      return;
-    this.pinBlockHandler = (e) => {
-      if (e.target.closest(".workspace-tab-header.tappable")) {
-        e.stopImmediatePropagation();
-        e.preventDefault();
-      }
-    };
-    document.addEventListener("contextmenu", this.pinBlockHandler, true);
-    this.patchSidebarLeafDetach();
-  }
-  applyTabLimit() {
-    this.removeTabLimitHandler();
-    if (!this.settings.disableNoteTabs)
-      return;
-    this.tabLimitHandler = () => {
-      const rootLeaves = [];
-      this.app.workspace.iterateRootLeaves((leaf) => {
-        rootLeaves.push(leaf);
-      });
-      if (rootLeaves.length <= 1)
-        return;
-      const active = this.app.workspace.activeLeaf;
-      for (const leaf of rootLeaves) {
-        if (leaf !== active)
-          leaf.detach();
-      }
-    };
-    this.app.workspace.on("layout-change", this.tabLimitHandler);
-  }
-  applyDragBar() {
-    this.removeDragBar();
-    if (!this.settings.disableNoteTabs)
-      return;
-    const rootEl = this.app.workspace.rootSplit.containerEl;
-    const tabsEl = rootEl.querySelector(".workspace-tabs");
-    if (!tabsEl)
-      return;
-    this.dragBar = document.createElement("div");
-    this.dragBar.className = "minimalism-ui-drag-bar";
-    const titleEl = document.createElement("span");
-    titleEl.className = "minimalism-ui-drag-bar-title";
-    this.dragBar.appendChild(titleEl);
-    tabsEl.insertBefore(this.dragBar, tabsEl.firstChild);
-    const updateTitle = () => {
-      const activeFile = this.app.workspace.getActiveFile();
-      titleEl.textContent = activeFile ? activeFile.basename : "";
-    };
-    updateTitle();
-    this.dragBarTitleHandler = updateTitle;
-    this.app.workspace.on("active-leaf-change", updateTitle);
-    this.dragBarRenameHandler = (file) => {
-      if (file === this.app.workspace.getActiveFile())
-        updateTitle();
-    };
-    this.app.vault.on("rename", this.dragBarRenameHandler);
-    this.dragBarLayoutHandler = () => {
-      if (!this.dragBar || this.dragBar.isConnected)
-        return;
-      const rootEl2 = this.app.workspace.rootSplit.containerEl;
-      const tabsEl2 = rootEl2.querySelector(".workspace-tabs");
-      if (tabsEl2)
-        tabsEl2.insertBefore(this.dragBar, tabsEl2.firstChild);
-    };
-    this.app.workspace.on("layout-change", this.dragBarLayoutHandler);
-    const statusBar = document.querySelector(".status-bar");
-    if (statusBar) {
-      this.statusBarOriginalParent = statusBar.parentElement;
-      this.statusBarOriginalNextSibling = statusBar.nextElementSibling;
-      this.dragBar.appendChild(statusBar);
-    }
-  }
-  applyHomePage() {
-    this.removeHomePageHandler();
-    if (!this.settings.homePage)
-      return;
-    this.homePageHandler = (file) => {
-      if (!file)
-        this.openHomePage();
-    };
-    this.app.workspace.on("file-open", this.homePageHandler);
-  }
-  async openHomePage() {
-    if (this.isOpeningHomePage)
-      return;
-    const path = this.settings.homePage;
-    if (!path)
-      return;
-    const file = this.app.vault.getAbstractFileByPath(path);
-    if (!(file instanceof import_obsidian.TFile))
-      return;
-    this.isOpeningHomePage = true;
-    try {
-      const leaf = this.app.workspace.getLeaf(false);
-      await leaf.openFile(file);
-    } finally {
-      this.isOpeningHomePage = false;
-    }
-  }
-  removeDragBar() {
-    if (this.dragBarTitleHandler) {
-      this.app.workspace.off("active-leaf-change", this.dragBarTitleHandler);
-      this.dragBarTitleHandler = null;
-    }
-    if (this.dragBarRenameHandler) {
-      this.app.vault.off("rename", this.dragBarRenameHandler);
-      this.dragBarRenameHandler = null;
-    }
-    if (this.dragBarLayoutHandler) {
-      this.app.workspace.off("layout-change", this.dragBarLayoutHandler);
-      this.dragBarLayoutHandler = null;
-    }
-    if (this.statusBarOriginalParent) {
-      const statusBar = document.querySelector(".status-bar");
-      if (statusBar) {
-        if (this.statusBarOriginalNextSibling) {
-          this.statusBarOriginalParent.insertBefore(statusBar, this.statusBarOriginalNextSibling);
-        } else {
-          this.statusBarOriginalParent.appendChild(statusBar);
-        }
-      }
-      this.statusBarOriginalParent = null;
-      this.statusBarOriginalNextSibling = null;
-    }
-    if (this.dragBar) {
-      this.dragBar.remove();
-      this.dragBar = null;
-    }
-  }
-  removeTabLimitHandler() {
-    if (this.tabLimitHandler) {
-      this.app.workspace.off("layout-change", this.tabLimitHandler);
-      this.tabLimitHandler = null;
-    }
-  }
-  removeHomePageHandler() {
-    if (this.homePageHandler) {
-      this.app.workspace.off("file-open", this.homePageHandler);
-      this.homePageHandler = null;
-    }
-  }
-  patchSidebarLeafDetach() {
-    this.app.workspace.iterateAllLeaves((leaf) => {
-      if (this.detachPatches.has(leaf))
-        return;
-      const leafEl = leaf.containerEl;
-      if (!(leafEl == null ? void 0 : leafEl.closest(".workspace-split.mod-left-split")))
-        return;
-      const original = leaf.detach.bind(leaf);
-      leaf.detach = () => {
-      };
-      this.detachPatches.set(leaf, original);
-    });
-  }
-  removePinBlockHandler() {
-    if (this.pinBlockHandler) {
-      document.removeEventListener("contextmenu", this.pinBlockHandler, true);
-      this.pinBlockHandler = null;
-    }
-    for (const [leaf, original] of this.detachPatches) {
-      leaf.detach = original;
-    }
-    this.detachPatches.clear();
-  }
-  async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-  }
-  async saveSettings() {
-    await this.saveData(this.settings);
-    this.applyBodyClasses();
-    this.applyPinBlock();
-    this.applyTabLimit();
-    this.applyDragBar();
-    this.applyHomePage();
   }
 };
 var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {
@@ -368,5 +371,188 @@ var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
+    new import_obsidian.Setting(containerEl).setName("\u9875\u9762\u7F13\u5B58\u6570\u91CF").setDesc("\u6781\u7B80\u5BFC\u822A\u680F\u5F00\u542F\u65F6\uFF0C\u5728\u5185\u5B58\u4E2D\u4FDD\u7559\u6700\u8FD1\u8BBF\u95EE\u7684\u9875\u9762\u6570\u91CF\uFF0C\u8FD4\u56DE\u5DF2\u8BBF\u95EE\u9875\u9762\u65F6\u65E0\u9700\u91CD\u65B0\u52A0\u8F7D").addDropdown((d) => d.addOption("3", "3 \u4E2A\u9875\u9762").addOption("5", "5 \u4E2A\u9875\u9762").addOption("10", "10 \u4E2A\u9875\u9762").setValue(String(this.plugin.settings.leafCacheSize)).onChange(async (v) => {
+      this.plugin.settings.leafCacheSize = Number(v);
+      await this.plugin.saveSettings();
+    }));
+  }
+};
+
+// main.ts
+var MinimalismUIPlugin = class extends import_obsidian2.Plugin {
+  constructor() {
+    super(...arguments);
+    this.pinBlockHandler = null;
+    this.detachPatches = /* @__PURE__ */ new Map();
+    this.homePageHandler = null;
+    this.isOpeningHomePage = false;
+    this.loadedFonts = [];
+  }
+  async onload() {
+    await this.loadSettings();
+    this.tabCache = new TabCacheManager(
+      this.app,
+      () => this.settings,
+      () => this.isOpeningHomePage
+    );
+    this.dragBar = new DragBarManager(this.app, () => this.settings);
+    await this.loadJetBrainsMono();
+    await this.loadSourceHanSansSC();
+    this.applyBodyClasses();
+    this.applyPinBlock();
+    this.tabCache.apply();
+    this.app.workspace.onLayoutReady(() => {
+      this.dragBar.apply();
+      this.applyHomePage();
+      this.openHomePage();
+    });
+    this.addSettingTab(new MinimalismUISettingTab(this.app, this));
+  }
+  onunload() {
+    document.body.classList.remove(
+      "minimalism-ui-mac-sidebar",
+      "minimalism-ui-hide-tab-bar",
+      "minimalism-ui-disable-pin",
+      "minimalism-ui-simplify-panel",
+      "minimalism-ui-disable-note-tabs",
+      "minimalism-ui-note-style"
+    );
+    for (const font of this.loadedFonts)
+      document.fonts.delete(font);
+    this.loadedFonts = [];
+    this.removePinBlockHandler();
+    this.tabCache.remove();
+    this.dragBar.remove();
+    this.removeHomePageHandler();
+  }
+  // ─── Body Classes ─────────────────────────────────────────────────────────
+  applyBodyClasses() {
+    const cls = document.body.classList;
+    cls.toggle("minimalism-ui-mac-sidebar", this.settings.macSidebar);
+    cls.toggle("minimalism-ui-hide-tab-bar", this.settings.hideTabBar);
+    cls.toggle("minimalism-ui-disable-pin", this.settings.disablePinTab);
+    cls.toggle("minimalism-ui-simplify-panel", this.settings.simplifyPanel);
+    cls.toggle("minimalism-ui-disable-note-tabs", this.settings.disableNoteTabs);
+    cls.toggle("minimalism-ui-note-style", this.settings.noteStyle);
+  }
+  // ─── Pin Block ────────────────────────────────────────────────────────────
+  applyPinBlock() {
+    this.removePinBlockHandler();
+    if (!this.settings.disablePinTab)
+      return;
+    this.pinBlockHandler = (e) => {
+      if (e.target.closest(".workspace-tab-header.tappable")) {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+      }
+    };
+    document.addEventListener("contextmenu", this.pinBlockHandler, true);
+    this.patchSidebarLeafDetach();
+  }
+  patchSidebarLeafDetach() {
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      if (this.detachPatches.has(leaf))
+        return;
+      const leafEl = leaf.containerEl;
+      if (!(leafEl == null ? void 0 : leafEl.closest(".workspace-split.mod-left-split")))
+        return;
+      const original = leaf.detach.bind(leaf);
+      leaf.detach = () => {
+      };
+      this.detachPatches.set(leaf, original);
+    });
+  }
+  removePinBlockHandler() {
+    if (this.pinBlockHandler) {
+      document.removeEventListener("contextmenu", this.pinBlockHandler, true);
+      this.pinBlockHandler = null;
+    }
+    for (const [leaf, original] of this.detachPatches) {
+      leaf.detach = original;
+    }
+    this.detachPatches.clear();
+  }
+  // ─── Home Page ────────────────────────────────────────────────────────────
+  applyHomePage() {
+    this.removeHomePageHandler();
+    if (!this.settings.homePage)
+      return;
+    this.homePageHandler = (file) => {
+      if (!file)
+        this.openHomePage();
+    };
+    this.app.workspace.on("file-open", this.homePageHandler);
+  }
+  async openHomePage() {
+    if (this.isOpeningHomePage)
+      return;
+    const path = this.settings.homePage;
+    if (!path)
+      return;
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof import_obsidian2.TFile))
+      return;
+    this.isOpeningHomePage = true;
+    try {
+      const leaf = this.app.workspace.getLeaf(false);
+      await leaf.openFile(file);
+    } finally {
+      this.isOpeningHomePage = false;
+    }
+  }
+  removeHomePageHandler() {
+    if (this.homePageHandler) {
+      this.app.workspace.off("file-open", this.homePageHandler);
+      this.homePageHandler = null;
+    }
+  }
+  // ─── Settings ─────────────────────────────────────────────────────────────
+  async loadSettings() {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+  }
+  async saveSettings() {
+    await this.saveData(this.settings);
+    this.applyBodyClasses();
+    this.applyPinBlock();
+    this.tabCache.apply();
+    this.dragBar.apply();
+    this.applyHomePage();
+  }
+  // ─── Fonts ────────────────────────────────────────────────────────────────
+  fontPath(filename) {
+    const adapter = this.app.vault.adapter;
+    return adapter.getResourcePath(`${this.manifest.dir}/fonts/${filename}`);
+  }
+  async loadFontFace(family, descriptors) {
+    const { file, ...desc } = descriptors;
+    const face = new FontFace(family, `url('${this.fontPath(file)}')`, desc);
+    try {
+      await face.load();
+      document.fonts.add(face);
+      this.loadedFonts.push(face);
+    } catch (e) {
+    }
+  }
+  async loadJetBrainsMono() {
+    await Promise.all([
+      this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-Regular.ttf", style: "normal", weight: "400" }),
+      this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-Italic.ttf", style: "italic", weight: "400" }),
+      this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-Medium.ttf", style: "normal", weight: "500" }),
+      this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-MediumItalic.ttf", style: "italic", weight: "500" }),
+      this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-Bold.ttf", style: "normal", weight: "700" }),
+      this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-BoldItalic.ttf", style: "italic", weight: "700" }),
+      this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-ExtraBold.ttf", style: "normal", weight: "900" }),
+      this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-ExtraBoldItalic.ttf", style: "italic", weight: "900" })
+    ]);
+  }
+  async loadSourceHanSansSC() {
+    const unicodeRange = "U+4E00-9FA5, U+9FA6-9FFF, U+3400-4DBF, U+2E80-2EF3, U+2F00-2FD5, U+2FF0-2FFB, U+3007, U+31C0-31E3, U+3105-312F, U+31A0-31BA, U+F900-FAD9, U+2F800-2FA1D";
+    await Promise.all([
+      this.loadFontFace("SourceHanSansSC", { file: "SourceHanSansSC-Light.otf", weight: "300", unicodeRange }),
+      this.loadFontFace("SourceHanSansSC", { file: "SourceHanSansSC-Regular.otf", weight: "normal", unicodeRange }),
+      this.loadFontFace("SourceHanSansSC", { file: "SourceHanSansSC-Medium.otf", weight: "500", unicodeRange }),
+      this.loadFontFace("SourceHanSansSC", { file: "SourceHanSansSC-Bold.otf", weight: "bold", unicodeRange }),
+      this.loadFontFace("SourceHanSansSC", { file: "SourceHanSansSC-Heavy.otf", weight: "900", unicodeRange })
+    ]);
   }
 };
