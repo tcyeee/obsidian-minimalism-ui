@@ -479,12 +479,6 @@
 /* ── 笔记样式 ───────────────────────────────────────── */
 
 .minimalism-ui-note-style {
-	--font-text-theme: 'JetBrains Mono', 'SourceHanSansSC', -apple-system, sans-serif ;
-	--font-text: 'JetBrains Mono', 'SourceHanSansSC', -apple-system, sans-serif;
-	--font-interface-theme: 'JetBrains Mono', 'SourceHanSansSC', -apple-system, sans-serif;
-	--font-interface: 'JetBrains Mono', 'SourceHanSansSC', -apple-system, sans-serif;
-	--font-monospace-theme: 'JetBrains Mono', monospace;
-	--font-monospace: 'JetBrains Mono', monospace;
 	--line-height-normal: 1.6;
 }
 
@@ -554,10 +548,14 @@
 	border-left: 0.3rem solid #00997B !important;
 }
 
-.minimalism-ui-note-style .HyperMD-quote {
+body.minimalism-ui-note-style .cm-editor .cm-scroller .cm-content .cm-line.HyperMD-quote {
 	background-color: rgba(0, 153, 123, 0.05) !important;
 	color: #81888D !important;
 	font-size: 14px !important;
+	padding-top: 4px !important;
+	padding-bottom: 4px !important;
+	padding-left: 16px !important;
+	padding-right: 16px !important;
 }
 
 /* ── 笔记样式：代码块字体大小 ────────────────────────────────────────── */
