@@ -534,17 +534,17 @@ body.minimalism-ui-note-style .cm-editor .cm-scroller .cm-content .cm-line.Hyper
 /* 阅读视图：围栏代码块 & 行内代码 */
 .minimalism-ui-note-style .markdown-reading-view pre,
 .minimalism-ui-note-style .markdown-reading-view pre code {
-	font-size: 14px !important;
+	font-size: 13px !important;
 }
 
 .minimalism-ui-note-style .markdown-reading-view code {
-	font-size: 14px !important;
+	font-size: 13px !important;
 }
 
 /* 编辑视图（Live Preview）：围栏代码块 & 行内代码 */
 .minimalism-ui-note-style .HyperMD-codeblock,
 .minimalism-ui-note-style .cm-inline-code {
-	font-size: 14px !important;
+	font-size: 13px !important;
 }
 
 /* 阅读视图：代码块圆角 */
