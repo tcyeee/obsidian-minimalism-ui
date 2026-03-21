@@ -513,6 +513,21 @@
 	--line-height-normal: 1.6;
 }
 
+/* Outline 跳转：平滑滚动 */
+.minimalism-ui-note-style .markdown-preview-view {
+	scroll-behavior: smooth;
+}
+
+/* Outline 跳转：目标标题闪入动画 */
+@keyframes minimalism-ui-heading-flash {
+	0%   { opacity: 0.2; color: var(--color-accent); }
+	40%  { opacity: 1;   color: var(--color-accent); }
+	100% { opacity: 1;   color: inherit; }
+}
+.minimalism-ui-heading-flash {
+	animation: minimalism-ui-heading-flash 0.7s ease-out !important;
+}
+
 /* 阅读视图 */
 .minimalism-ui-note-style .markdown-reading-view .markdown-preview-section,
 .minimalism-ui-note-style .markdown-reading-view .markdown-preview-section p,
@@ -523,14 +538,14 @@
 .minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h4,
 .minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h5,
 .minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h6 {
-	font-family: 'JetBrains Mono Digits', 'JetBrains Mono', -apple-system, sans-serif !important;
+	font-family: 'JetBrains Mono', 'Chinese Quote', 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
 	line-height: 1.6 !important;
 }
 
 /* 正文缩小 1px（不影响标题，标题由 --hX-size 变量控制） */
 .minimalism-ui-note-style .markdown-reading-view .markdown-preview-section p,
 .minimalism-ui-note-style .markdown-reading-view .markdown-preview-section li {
-	font-size: calc(var(--font-text-size, 16px) - 2px) !important;
+	font-size: 15px !important;
 }
 
 /* 编辑视图（CodeMirror 6） */
@@ -538,8 +553,8 @@
 .minimalism-ui-note-style .cm-editor .cm-content,
 .minimalism-ui-note-style .cm-editor .cm-line,
 .minimalism-ui-note-style .cm-editor .cm-scroller {
-	font-family: 'JetBrains Mono Digits', 'JetBrains Mono', -apple-system, sans-serif !important;
-	font-size: calc(var(--font-text-size, 16px) - 2px) !important;
+	font-family: 'JetBrains Mono', 'Chinese Quote', 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+	font-size: 15px !important;
 	line-height: 1.6 !important;
 }
 
@@ -825,3 +840,20 @@ body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar-track {
 body.minimalism-ui-note-style .bases-cards-property.mod-title {
 	font-weight: 400;
 }
+
+/* ── 笔记样式：脚注内容 ─────────────────────────────────────────────────── */
+
+/* 阅读视图 */
+.minimalism-ui-note-style .markdown-reading-view section.footnotes,
+.minimalism-ui-note-style .markdown-reading-view section.footnotes li,
+.minimalism-ui-note-style .markdown-reading-view section.footnotes p {
+	font-size: 0.8rem !important;
+	opacity: 0.8 !important;
+}
+
+/* 编辑视图 */
+.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-footnote {
+	font-size: 0.8rem !important;
+	opacity: 0.8 !important;
+}
+
