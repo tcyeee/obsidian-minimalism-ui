@@ -8,7 +8,7 @@
   "enableNavAnimation": true,
   "noteStyle": true,
   "homePage": "README.md",
-  "autoPropertiesHeight": true,
+  "autoPropertiesHeight": false,
   "leafCacheSize": 10,
   "hideNavButtons": false,
   "enablePinTab": true,
