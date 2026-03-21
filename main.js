@@ -647,7 +647,10 @@ var PropertiesAutoHeightManager = class {
   findTabsEl() {
     var _a;
     const contentEl = document.querySelector(PROPS_SELECTOR);
-    return (_a = contentEl == null ? void 0 : contentEl.closest(".workspace-tabs")) != null ? _a : null;
+    const tabsEl = (_a = contentEl == null ? void 0 : contentEl.closest(".workspace-tabs")) != null ? _a : null;
+    if (!(tabsEl == null ? void 0 : tabsEl.dataset.propertiesAutoHeight))
+      return null;
+    return tabsEl;
   }
   /**
    * Measure the height .workspace-tabs needs to show all properties without clipping.
@@ -714,16 +717,16 @@ var MinimalismUISettingTab = class extends import_obsidian2.PluginSettingTab {
       this.plugin.settings.macSidebar = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian2.Setting(containerEl).setName("\u81EA\u52A8\u8C03\u6574\u5C5E\u6027\u7A97\u53E3\u9AD8\u5EA6").setDesc("\u5F00\u542F\u540E\uFF0CProperties \u9762\u677F\u9AD8\u5EA6\u968F\u7B14\u8BB0\u5C5E\u6027\u6570\u91CF\u81EA\u52A8\u4F38\u7F29\uFF0C\u5207\u6362\u7B14\u8BB0\u65F6\u5E73\u6ED1\u8FC7\u6E21\uFF08\u9700\u540C\u65F6\u5F00\u542F\u6781\u7B80\u4FA7\u8FB9\u680F\uFF09").addToggle((t) => t.setValue(this.plugin.settings.autoPropertiesHeight).onChange(async (v) => {
-      this.plugin.settings.autoPropertiesHeight = v;
-      await this.plugin.saveSettings();
-    }));
     new import_obsidian2.Setting(containerEl).setName("\u6781\u7B80\u4FE1\u606F\u680F").setDesc("\u9690\u85CF\u5DE6\u4FA7\u5C5E\u6027\u680F\u7684\u64CD\u4F5C\u6309\u94AE\uFF0C\u4EE5\u53CA\u5927\u7EB2\u3001\u53CD\u5411\u94FE\u63A5\u9762\u677F\u4E2D\u7684\u641C\u7D22\u6846").addToggle((t) => t.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
       this.plugin.settings.hideTabBar = v;
       this.plugin.settings.simplifyPanel = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian2.Setting(containerEl).setName("\u7B14\u8BB0\u6837\u5F0F").setDesc("\u4FEE\u6539\u7B14\u8BB0\u90E8\u5206\u4E3B\u9898\u6837\u5F0F").addToggle((t) => t.setValue(this.plugin.settings.noteStyle).onChange(async (v) => {
+    new import_obsidian2.Setting(containerEl).setName("\u6781\u7B80\u5C5E\u6027\u680F").setDesc("\u5F00\u542F\u540E\uFF0CProperties \u9762\u677F\u9AD8\u5EA6\u968F\u7B14\u8BB0\u5C5E\u6027\u6570\u91CF\u81EA\u52A8\u4F38\u7F29\uFF0C\u5207\u6362\u7B14\u8BB0\u65F6\u5E73\u6ED1\u8FC7\u6E21\uFF08\u9700\u540C\u65F6\u5F00\u542F\u6781\u7B80\u4FA7\u8FB9\u680F\uFF09").addToggle((t) => t.setValue(this.plugin.settings.autoPropertiesHeight).onChange(async (v) => {
+      this.plugin.settings.autoPropertiesHeight = v;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian2.Setting(containerEl).setName("\u7B14\u8BB0\u6837\u5F0F\u4F18\u5316").setDesc("\u4FEE\u6539\u7B14\u8BB0\u90E8\u5206\u4E3B\u9898\u6837\u5F0F").addToggle((t) => t.setValue(this.plugin.settings.noteStyle).onChange(async (v) => {
       this.plugin.settings.noteStyle = v;
       await this.plugin.saveSettings();
     }));

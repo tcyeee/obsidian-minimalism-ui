@@ -177,7 +177,9 @@ export class PropertiesAutoHeightManager {
 
 	private findTabsEl(): HTMLElement | null {
 		const contentEl = document.querySelector<HTMLElement>(PROPS_SELECTOR);
-		return contentEl?.closest<HTMLElement>('.workspace-tabs') ?? null;
+		const tabsEl = contentEl?.closest<HTMLElement>('.workspace-tabs') ?? null;
+		if (!tabsEl?.dataset.propertiesAutoHeight) return null;
+		return tabsEl;
 	}
 
 	/**
