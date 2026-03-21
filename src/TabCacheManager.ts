@@ -1,6 +1,25 @@
 import { App, TFile, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from './settings';
 
+type WorkspaceInternal = {
+	getLeaf: (newLeaf?: boolean | string) => WorkspaceLeaf;
+};
+
+type LeafInternal = WorkspaceLeaf & {
+	openFile: (file: TFile, state?: unknown) => Promise<void>;
+	history?: {
+		back: () => void;
+		forward: () => void;
+		canGoBack?: () => boolean;
+		canGoForward?: () => boolean;
+	};
+	view?: {
+		file?: TFile;
+		contentEl?: HTMLElement;
+	};
+	parent?: unknown;
+};
+
 type HistoryPatch = {
 	back: () => void;
 	forward: () => void;
@@ -40,7 +59,7 @@ export class TabCacheManager {
 
 		// 拦截 workspace.getLeaf(false)：将所有"当前 leaf"导航改为新开 tab，
 		// 并在新 leaf 上注入一次性 openFile 拦截器（路径 4）
-		const ws = this.app.workspace as any;
+		const ws = this.app.workspace as unknown as WorkspaceInternal;
 		this.originalGetLeaf = ws.getLeaf.bind(ws);
 		ws.getLeaf = (newLeaf?: boolean | string) => {
 			if ((newLeaf === false || newLeaf === undefined) && !this.isReusingLeaf && !this.isOpeningHomePage()) {
@@ -67,7 +86,7 @@ export class TabCacheManager {
 		// 仅监听 active-leaf-change，避免 layout-change 引发的重入
 		this.tabLimitHandler = () => {
 			if (this.isEvicting) return;
-			const active = this.app.workspace.activeLeaf;
+			const active = this.app.workspace.getMostRecentLeaf();
 			if (!active) return;
 
 			// 将当前 leaf 移到队列末尾（最近使用）
@@ -126,7 +145,7 @@ export class TabCacheManager {
 			// 第一帧移除旧 class，第二帧添加新 class，避免同帧内强制重排
 			// 触发 ResizeObserver loop 错误
 			requestAnimationFrame(() => {
-				const el = (leaf as any).view?.contentEl as HTMLElement | undefined;
+				const el = (leaf as LeafInternal).view?.contentEl;
 				if (!el) return;
 				el.classList.remove('minimalism-ui-slide-from-left', 'minimalism-ui-slide-from-right');
 				requestAnimationFrame(() => {
@@ -143,7 +162,7 @@ export class TabCacheManager {
 
 	remove() {
 		if (this.originalGetLeaf) {
-			(this.app.workspace as any).getLeaf = this.originalGetLeaf;
+			(this.app.workspace as unknown as WorkspaceInternal).getLeaf = this.originalGetLeaf;
 			this.originalGetLeaf = null;
 		}
 		if (this.tabLimitHandler) {
@@ -185,39 +204,38 @@ export class TabCacheManager {
 	// 在文件实际加载前检查缓存，若已有相同文件的 leaf 则直接复用，避免闪烁
 	private interceptLeafOpenFile(leaf: WorkspaceLeaf) {
 		this.pendingInterceptLeaves.add(leaf);
-		const manager = this;
-		const origOpenFile = (leaf as any).openFile.bind(leaf);
-		(leaf as any).openFile = async function(file: TFile, state?: any) {
+		const origOpenFile = (leaf as LeafInternal).openFile.bind(leaf);
+		(leaf as LeafInternal).openFile = async (file: TFile, state?: unknown) => {
 			// 一次性拦截：立即还原，防止后续调用被意外拦截
-			(leaf as any).openFile = origOpenFile;
-			manager.pendingInterceptLeaves.delete(leaf);
+			(leaf as LeafInternal).openFile = origOpenFile;
+			this.pendingInterceptLeaves.delete(leaf);
 
-			if (!manager.isReusingLeaf) {
+			if (!this.isReusingLeaf) {
 				let existingLeaf: WorkspaceLeaf | null = null;
-				manager.app.workspace.iterateRootLeaves(l => {
+				this.app.workspace.iterateRootLeaves(l => {
 					if (existingLeaf || l === leaf) return;
-					if (((l as any).view?.file as TFile | undefined)?.path === file.path) {
+					if ((l as LeafInternal).view?.file?.path === file.path) {
 						existingLeaf = l;
 					}
 				});
 				if (existingLeaf) {
 					// 文件已在缓存中：激活已有 leaf，丢弃当前空 leaf，无需加载文件
-					manager.isReusingLeaf = true;
+					this.isReusingLeaf = true;
 					try {
-						manager.leafQueue = manager.leafQueue.filter(l => l !== existingLeaf);
-						manager.leafQueue.push(existingLeaf!);
-						manager.app.workspace.setActiveLeaf(existingLeaf!, { focus: true });
+						this.leafQueue = this.leafQueue.filter(l => l !== existingLeaf);
+						this.leafQueue.push(existingLeaf);
+						this.app.workspace.setActiveLeaf(existingLeaf, { focus: true });
 						leaf.detach();
 					} finally {
-						manager.isReusingLeaf = false;
+						this.isReusingLeaf = false;
 					}
 					return;
 				}
 			}
 
 			// 文件不在缓存中：正常加载，并补充 history 拦截
-			manager.patchLeafHistory(leaf);
-			return origOpenFile(file, state);
+			this.patchLeafHistory(leaf);
+			return await origOpenFile(file, state);
 		};
 	}
 
@@ -235,7 +253,7 @@ export class TabCacheManager {
 			const current = this.navHistory.pop()!;
 			this.navFuture.unshift(current);
 			const prev = this.navHistory[this.navHistory.length - 1];
-			if ((prev as any).parent) {
+			if ((prev as LeafInternal).parent) {
 				this.navJumpTarget = prev;
 				this.pendingAnimationCls = 'minimalism-ui-slide-from-left';
 				// 用 setTimeout(0) 推入新 task，彻底脱离当前渲染管线，
@@ -264,7 +282,7 @@ export class TabCacheManager {
 		const snapFuture  = [...this.navFuture];
 		while (this.navFuture.length > 0) {
 			const next = this.navFuture.shift()!;
-			if ((next as any).parent) {
+			if ((next as LeafInternal).parent) {
 				this.navHistory.push(next);
 				this.navJumpTarget = next;
 				this.pendingAnimationCls = 'minimalism-ui-slide-from-right';
@@ -284,7 +302,7 @@ export class TabCacheManager {
 	}
 
 	patchLeafHistory(leaf: WorkspaceLeaf) {
-		const history = (leaf as any).history;
+		const history = (leaf as LeafInternal).history;
 		if (!history || this.historyPatches.has(leaf)) return;
 		const origBack = history.back.bind(history);
 		const origForward = history.forward.bind(history);
@@ -300,7 +318,7 @@ export class TabCacheManager {
 
 	private unpatchAllLeafHistories() {
 		for (const [leaf, orig] of this.historyPatches) {
-			const history = (leaf as any).history;
+			const history = (leaf as LeafInternal).history;
 			if (history) {
 				history.back = orig.back;
 				history.forward = orig.forward;

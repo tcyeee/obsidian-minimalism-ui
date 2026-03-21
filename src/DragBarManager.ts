@@ -1,6 +1,8 @@
 import { App, TAbstractFile } from 'obsidian';
 import { MinimalismUISettings } from './settings';
 
+type WorkspaceSplitInternal = { containerEl: HTMLElement };
+
 export class DragBarManager {
 	private dragBar: HTMLElement | null = null;
 	private titleHandler: (() => void) | null = null;
@@ -15,8 +17,8 @@ export class DragBarManager {
 		this.remove();
 		if (!this.getSettings().disableNoteTabs) return;
 
-		const rootEl = (this.app.workspace.rootSplit as any).containerEl as HTMLElement;
-		const tabsEl = rootEl.querySelector('.workspace-tabs') as HTMLElement | null;
+		const rootEl = (this.app.workspace.rootSplit as unknown as WorkspaceSplitInternal).containerEl;
+		const tabsEl = rootEl.querySelector<HTMLElement>('.workspace-tabs');
 		if (!tabsEl) return;
 
 		// 创建拖拽区
@@ -47,14 +49,14 @@ export class DragBarManager {
 		// 布局变化时重新插入拖拽区（关闭 Tab 时 Obsidian 会重建 DOM）
 		this.layoutHandler = () => {
 			if (!this.dragBar || this.dragBar.isConnected) return;
-			const rootEl2 = (this.app.workspace.rootSplit as any).containerEl as HTMLElement;
-			const tabsEl2 = rootEl2.querySelector('.workspace-tabs') as HTMLElement | null;
+			const rootEl2 = (this.app.workspace.rootSplit as unknown as WorkspaceSplitInternal).containerEl;
+			const tabsEl2 = rootEl2.querySelector<HTMLElement>('.workspace-tabs');
 			if (tabsEl2) tabsEl2.insertBefore(this.dragBar, tabsEl2.firstChild);
 		};
 		this.app.workspace.on('layout-change', this.layoutHandler);
 
 		// 将 status-bar 搬入拖拽区右侧
-		const statusBar = document.querySelector('.status-bar') as HTMLElement | null;
+		const statusBar = document.querySelector<HTMLElement>('.status-bar');
 		if (statusBar) {
 			this.statusBarOriginalParent = statusBar.parentElement;
 			this.statusBarOriginalNextSibling = statusBar.nextElementSibling;
@@ -77,7 +79,7 @@ export class DragBarManager {
 		}
 		// 还原 status-bar 到原始位置
 		if (this.statusBarOriginalParent) {
-			const statusBar = document.querySelector('.status-bar') as HTMLElement | null;
+			const statusBar = document.querySelector<HTMLElement>('.status-bar');
 			if (statusBar) {
 				if (this.statusBarOriginalNextSibling) {
 					this.statusBarOriginalParent.insertBefore(statusBar, this.statusBarOriginalNextSibling);
