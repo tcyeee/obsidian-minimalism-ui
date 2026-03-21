@@ -98,15 +98,12 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName('页面缓存数量')
-			.setDesc('极简导航栏开启时，在内存中保留最近访问的页面数量，返回已访问页面时无需重新加载')
-			.addDropdown(d => d
-				.addOption('3', '3 个页面')
-				.addOption('5', '5 个页面')
-				.addOption('10', '10 个页面')
-				.setValue(String(this.plugin.settings.leafCacheSize))
+			.setName('页面缓存')
+			.setDesc('极简导航栏开启时，在内存中保留最近访问的 10 个页面，返回已访问页面时无需重新加载')
+			.addToggle(t => t
+				.setValue(this.plugin.settings.enableLeafCache)
 				.onChange(async v => {
-					this.plugin.settings.leafCacheSize = Number(v);
+					this.plugin.settings.enableLeafCache = v;
 					await this.plugin.saveSettings();
 				}));
 	}

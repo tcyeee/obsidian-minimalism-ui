@@ -62,7 +62,7 @@ export class TabCacheManager {
 
 			// 淘汰超出缓存数量的最旧 leaf
 			// isEvicting 防止 detach() 触发的 active-leaf-change 引发重入
-			const max = this.getSettings().leafCacheSize;
+			const max = this.getSettings().enableLeafCache ? 10 : Infinity;
 			if (this.leafQueue.length > max) {
 				this.isEvicting = true;
 				try {

@@ -4,7 +4,7 @@ export interface MinimalismUISettings {
 	disablePinTab: boolean;
 	simplifyPanel: boolean;
 	disableNoteTabs: boolean;
-	leafCacheSize: number;
+	enableLeafCache: boolean;
 	noteStyle: boolean;
 	homePage: string;
 }
@@ -15,7 +15,7 @@ export const DEFAULT_SETTINGS: MinimalismUISettings = {
 	disablePinTab: true,
 	simplifyPanel: false,
 	disableNoteTabs: false,
-	leafCacheSize: 3,
+	enableLeafCache: false,
 	noteStyle: false,
 	homePage: '',
 };
