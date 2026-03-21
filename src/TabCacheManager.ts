@@ -87,6 +87,11 @@ export class TabCacheManager {
 				this.navJumpTarget = null;
 				return;
 			}
+			// 只跟踪主内容区的 leaf，排除左/右侧边栏 leaf（点击侧边栏也会触发此事件）
+			let isRootLeaf = false;
+			this.app.workspace.iterateRootLeaves(l => { if (l === leaf) isRootLeaf = true; });
+			if (!isRootLeaf) return;
+
 			const last = this.navHistory[this.navHistory.length - 1];
 			if (last === leaf) return;
 			this.navHistory.push(leaf);
@@ -181,6 +186,9 @@ export class TabCacheManager {
 	}
 
 	private navigateBack() {
+		// 快照：若找不到可用的目标 leaf，回滚所有状态变更，避免 navFuture 被污染
+		const snapHistory = [...this.navHistory];
+		const snapFuture  = [...this.navFuture];
 		while (this.navHistory.length >= 2) {
 			const current = this.navHistory.pop()!;
 			this.navFuture.unshift(current);
@@ -193,9 +201,15 @@ export class TabCacheManager {
 			}
 			// leaf 已被淘汰，继续向前找
 		}
+		// 未能完成导航（所有历史 leaf 均已淘汰），回滚
+		this.navHistory = snapHistory;
+		this.navFuture  = snapFuture;
 	}
 
 	private navigateForward() {
+		// 快照：若所有 forward leaf 均已淘汰，回滚，避免 navHistory 被多余条目污染
+		const snapHistory = [...this.navHistory];
+		const snapFuture  = [...this.navFuture];
 		while (this.navFuture.length > 0) {
 			const next = this.navFuture.shift()!;
 			if ((next as any).parent) {
@@ -207,6 +221,9 @@ export class TabCacheManager {
 			}
 			// leaf 已被淘汰，继续向后找
 		}
+		// 未能完成导航，回滚
+		this.navHistory = snapHistory;
+		this.navFuture  = snapFuture;
 	}
 
 	patchLeafHistory(leaf: WorkspaceLeaf) {
