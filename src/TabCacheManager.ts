@@ -20,6 +20,8 @@ export class TabCacheManager {
 	private navTrackHandler: ((leaf: WorkspaceLeaf | null) => void) | null = null;
 	private navAnimateHandler: ((leaf: WorkspaceLeaf | null) => void) | null = null;
 	private pendingAnimationCls: 'minimalism-ui-slide-from-left' | 'minimalism-ui-slide-from-right' | null = null;
+	private navTimer: ReturnType<typeof setTimeout> | null = null;
+	private resizeObserverErrHandler: ((e: ErrorEvent) => void) | null = null;
 	private historyPatches = new Map<WorkspaceLeaf, HistoryPatch>();
 	// 由 getLeaf patch 新建、尚未调用 openFile 的空 leaf
 	private pendingInterceptLeaves = new Set<WorkspaceLeaf>();
@@ -48,6 +50,19 @@ export class TabCacheManager {
 			}
 			return this.originalGetLeaf!(newLeaf);
 		};
+
+		// 拦截 "ResizeObserver loop completed with undelivered notifications" 错误：
+		// 切换到"冷" leaf 时，CodeMirror 内部 ResizeObserver 级联迭代次数超出浏览器阈值，
+		// 浏览器抛出此错误事件（非致命，未送达的通知会推迟到下一帧自动处理），
+		// 但 Obsidian 的 window.onerror 会将它展示为用户可见的报错提示。
+		// 通过 capture phase 提前拦截，阻止其传播到 Obsidian 的全局 handler。
+		this.resizeObserverErrHandler = (e: ErrorEvent) => {
+			if (e.message === 'ResizeObserver loop completed with undelivered notifications.') {
+				e.stopImmediatePropagation();
+				e.preventDefault();
+			}
+		};
+		window.addEventListener('error', this.resizeObserverErrHandler, true);
 
 		// 仅监听 active-leaf-change，避免 layout-change 引发的重入
 		this.tabLimitHandler = () => {
@@ -144,6 +159,14 @@ export class TabCacheManager {
 			this.navAnimateHandler = null;
 		}
 		this.pendingAnimationCls = null;
+		if (this.navTimer !== null) {
+			clearTimeout(this.navTimer);
+			this.navTimer = null;
+		}
+		if (this.resizeObserverErrHandler) {
+			window.removeEventListener('error', this.resizeObserverErrHandler, true);
+			this.resizeObserverErrHandler = null;
+		}
 		this.unpatchAllLeafHistories();
 		this.leafQueue = [];
 		this.navHistory = [];
@@ -199,6 +222,12 @@ export class TabCacheManager {
 	}
 
 	private navigateBack() {
+		// 取消上一次尚未执行的导航 timer，防止连续点击时多个 setActiveLeaf 并发触发，
+		// 导致 navJumpTarget 状态错乱，并引发 ResizeObserver loop 错误
+		if (this.navTimer !== null) {
+			clearTimeout(this.navTimer);
+			this.navTimer = null;
+		}
 		// 快照：若找不到可用的目标 leaf，回滚所有状态变更，避免 navFuture 被污染
 		const snapHistory = [...this.navHistory];
 		const snapFuture  = [...this.navFuture];
@@ -211,7 +240,8 @@ export class TabCacheManager {
 				this.pendingAnimationCls = 'minimalism-ui-slide-from-left';
 				// 用 setTimeout(0) 推入新 task，彻底脱离当前渲染管线，
 				// 避免 setActiveLeaf 在 rAF/ResizeObserver 阶段触发布局，产生 loop 错误
-				setTimeout(() => {
+				this.navTimer = setTimeout(() => {
+					this.navTimer = null;
 					this.app.workspace.setActiveLeaf(prev, { focus: true });
 				}, 0);
 				return;
@@ -224,6 +254,11 @@ export class TabCacheManager {
 	}
 
 	private navigateForward() {
+		// 取消上一次尚未执行的导航 timer，防止连续点击时多个 setActiveLeaf 并发触发
+		if (this.navTimer !== null) {
+			clearTimeout(this.navTimer);
+			this.navTimer = null;
+		}
 		// 快照：若所有 forward leaf 均已淘汰，回滚，避免 navHistory 被多余条目污染
 		const snapHistory = [...this.navHistory];
 		const snapFuture  = [...this.navFuture];
@@ -235,7 +270,8 @@ export class TabCacheManager {
 				this.pendingAnimationCls = 'minimalism-ui-slide-from-right';
 				// 用 setTimeout(0) 推入新 task，彻底脱离当前渲染管线，
 				// 避免 setActiveLeaf 在 rAF/ResizeObserver 阶段触发布局，产生 loop 错误
-				setTimeout(() => {
+				this.navTimer = setTimeout(() => {
+					this.navTimer = null;
 					this.app.workspace.setActiveLeaf(next, { focus: true });
 				}, 0);
 				return;
