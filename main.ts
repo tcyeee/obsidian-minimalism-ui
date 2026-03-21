@@ -6,6 +6,16 @@ import { MinimalismUISettingTab } from './src/SettingTab';
 
 export type { MinimalismUISettings };
 
+interface MutableFontFaceSet {
+	add(font: FontFace): void;
+	delete(font: FontFace): void;
+}
+
+type LeafWithInternals = WorkspaceLeaf & {
+	containerEl?: HTMLElement;
+	detach: () => void;
+};
+
 // ─── Main Plugin ──────────────────────────────────────────────────────────────
 
 export default class MinimalismUIPlugin extends Plugin {
@@ -39,7 +49,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.app.workspace.onLayoutReady(() => {
 			this.dragBar.apply();
 			this.applyHomePage();
-			this.openHomePage();
+			void this.openHomePage();
 		});
 		this.addSettingTab(new MinimalismUISettingTab(this.app, this));
 	}
@@ -53,7 +63,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			'minimalism-ui-disable-note-tabs',
 			'minimalism-ui-note-style',
 		);
-		for (const font of this.loadedFonts) (document.fonts as any).delete(font);
+		for (const font of this.loadedFonts) (document.fonts as unknown as MutableFontFaceSet).delete(font);
 		this.loadedFonts = [];
 		this.removePinBlockHandler();
 		this.tabCache.remove();
@@ -92,10 +102,10 @@ export default class MinimalismUIPlugin extends Plugin {
 	private patchSidebarLeafDetach() {
 		this.app.workspace.iterateAllLeaves(leaf => {
 			if (this.detachPatches.has(leaf)) return;
-			const leafEl = (leaf as any).containerEl as HTMLElement | undefined;
+			const leafEl = (leaf as LeafWithInternals).containerEl;
 			if (!leafEl?.closest('.workspace-split.mod-left-split')) return;
-			const original = (leaf as any).detach.bind(leaf);
-			(leaf as any).detach = () => { /* blocked */ };
+			const original = (leaf as LeafWithInternals).detach.bind(leaf);
+			(leaf as LeafWithInternals).detach = () => { /* blocked */ };
 			this.detachPatches.set(leaf, original);
 		});
 	}
@@ -106,7 +116,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			this.pinBlockHandler = null;
 		}
 		for (const [leaf, original] of this.detachPatches) {
-			(leaf as any).detach = original;
+			(leaf as LeafWithInternals).detach = original;
 		}
 		this.detachPatches.clear();
 	}
@@ -121,9 +131,9 @@ export default class MinimalismUIPlugin extends Plugin {
 			if (!file) {
 				// 若 active leaf 正在等待 openFile（由 getLeaf patch 新建，如 Cmd+N 新笔记），
 				// 跳过首页跳转，避免抢占该 leaf
-				const active = this.app.workspace.activeLeaf;
+				const active = this.app.workspace.getMostRecentLeaf();
 				if (active && this.tabCache.hasPendingIntercept(active)) return;
-				this.openHomePage();
+				void this.openHomePage();
 			}
 		};
 		this.app.workspace.on('file-open', this.homePageHandler);
@@ -172,7 +182,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	// ─── Fonts ────────────────────────────────────────────────────────────────
 
 	private fontPath(filename: string): string {
-		const adapter = this.app.vault.adapter as any;
+		const adapter = this.app.vault.adapter as { getResourcePath: (path: string) => string };
 		return adapter.getResourcePath(`${this.manifest.dir}/fonts/${filename}`);
 	}
 
@@ -181,7 +191,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		const face = new FontFace(family, `url('${this.fontPath(file)}')`, desc);
 		try {
 			await face.load();
-			(document.fonts as any).add(face);
+			(document.fonts as unknown as MutableFontFaceSet).add(face);
 			this.loadedFonts.push(face);
 		} catch {
 			// 字体文件不存在时静默跳过

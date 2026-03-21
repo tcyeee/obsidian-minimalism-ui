@@ -41,18 +41,18 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
-		containerEl.createEl('h3', { text: '外观设置' });
+		new Setting(containerEl).setName('外观设置').setHeading();
 
 		new Setting(containerEl)
 			.setName('极简侧边栏')
-			.setDesc('为左侧边栏应用磨砂玻璃背景、圆角高亮等 Finder 视觉效果')
+			.setDesc('为左侧边栏应用磨砂玻璃背景与圆角高亮，打造 macOS 原生风格')
 			.addToggle(t => t
 				.setValue(this.plugin.settings.macSidebar)
 				.onChange(async v => { this.plugin.settings.macSidebar = v; await this.plugin.saveSettings(); }));
 
 		new Setting(containerEl)
 			.setName('极简信息栏')
-			.setDesc('隐藏左侧属性栏的操作按钮，以及 Outline、Backlinks 面板中的搜索框')
+			.setDesc('隐藏左侧属性栏的操作按钮，以及大纲、反向链接面板中的搜索框')
 			.addToggle(t => t
 				.setValue(this.plugin.settings.hideTabBar)
 				.onChange(async v => {
@@ -68,7 +68,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.noteStyle)
 				.onChange(async v => { this.plugin.settings.noteStyle = v; await this.plugin.saveSettings(); }));
 
-		containerEl.createEl('h3', { text: '交互设置' });
+		new Setting(containerEl).setName('交互设置').setHeading();
 
 		new Setting(containerEl)
 			.setName('笔记首页')
@@ -76,13 +76,13 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 			.addText(text => {
 				text.setPlaceholder('输入笔记路径，例如：src/Home.md')
 					.setValue(this.plugin.settings.homePage);
-				new FileSuggest(this.app, text.inputEl).onPick(async path => {
+				new FileSuggest(this.app, text.inputEl).onPick(path => {
 					this.plugin.settings.homePage = path;
-					await this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 				});
-				text.inputEl.addEventListener('change', async () => {
+				text.inputEl.addEventListener('change', () => {
 					this.plugin.settings.homePage = text.inputEl.value.trim();
-					await this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 				});
 			});
 
@@ -101,11 +101,11 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		singlePageSetting.descEl.createEl('br');
 		singlePageSetting.descEl.createEl('span', { text: '2.启用页面缓存，在内存中保留最近访问的 10 个页面' });
 		singlePageSetting.descEl.createEl('br');
-		singlePageSetting.descEl.createEl('span', { text: '3.禁用 Pin 标签功能，避免多余的标签被固定在顶部。' });
+		singlePageSetting.descEl.createEl('span', { text: '3.禁用 pin 标签功能，避免多余的标签被固定在顶部。' });
 		singlePageSetting.descEl.createEl('br');
 
 		new Setting(containerEl)
-			.setName('页面加载动画(Beta)')
+			.setName('页面加载动画 (beta)')
 			.setDesc('前进或后退时，为目标页面播放滑入动画')
 			.addToggle(t => t
 				.setValue(this.plugin.settings.enableNavAnimation)
