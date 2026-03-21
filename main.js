@@ -606,6 +606,7 @@ var MinimalismUIPlugin = class extends import_obsidian2.Plugin {
     }
   }
   async loadJetBrainsMono() {
+    const digitsRange = "U+002D, U+002E, U+0030-0039";
     await Promise.all([
       this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-Regular.ttf", style: "normal", weight: "400" }),
       this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-Italic.ttf", style: "italic", weight: "400" }),
@@ -614,7 +615,16 @@ var MinimalismUIPlugin = class extends import_obsidian2.Plugin {
       this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-Bold.ttf", style: "normal", weight: "700" }),
       this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-BoldItalic.ttf", style: "italic", weight: "700" }),
       this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-ExtraBold.ttf", style: "normal", weight: "900" }),
-      this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-ExtraBoldItalic.ttf", style: "italic", weight: "900" })
+      this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-ExtraBoldItalic.ttf", style: "italic", weight: "900" }),
+      // 数字专用字族：只覆盖数字 unicode 范围，用于正文混排
+      this.loadFontFace("JetBrains Mono Digits", { file: "JetBrainsMonoNL-Regular.ttf", style: "normal", weight: "400", unicodeRange: digitsRange }),
+      this.loadFontFace("JetBrains Mono Digits", { file: "JetBrainsMonoNL-Italic.ttf", style: "italic", weight: "400", unicodeRange: digitsRange }),
+      this.loadFontFace("JetBrains Mono Digits", { file: "JetBrainsMonoNL-Medium.ttf", style: "normal", weight: "500", unicodeRange: digitsRange }),
+      this.loadFontFace("JetBrains Mono Digits", { file: "JetBrainsMonoNL-MediumItalic.ttf", style: "italic", weight: "500", unicodeRange: digitsRange }),
+      this.loadFontFace("JetBrains Mono Digits", { file: "JetBrainsMonoNL-Bold.ttf", style: "normal", weight: "700", unicodeRange: digitsRange }),
+      this.loadFontFace("JetBrains Mono Digits", { file: "JetBrainsMonoNL-BoldItalic.ttf", style: "italic", weight: "700", unicodeRange: digitsRange }),
+      this.loadFontFace("JetBrains Mono Digits", { file: "JetBrainsMonoNL-ExtraBold.ttf", style: "normal", weight: "900", unicodeRange: digitsRange }),
+      this.loadFontFace("JetBrains Mono Digits", { file: "JetBrainsMonoNL-ExtraBoldItalic.ttf", style: "italic", weight: "900", unicodeRange: digitsRange })
     ]);
   }
 };
