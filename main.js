@@ -36,7 +36,7 @@ var DEFAULT_SETTINGS = {
   disablePinTab: true,
   simplifyPanel: false,
   disableNoteTabs: false,
-  leafCacheSize: 3,
+  enableLeafCache: false,
   noteStyle: false,
   homePage: ""
 };
@@ -85,7 +85,7 @@ var TabCacheManager = class {
       const rootLeaves = [];
       this.app.workspace.iterateRootLeaves((l) => rootLeaves.push(l));
       this.leafQueue = this.leafQueue.filter((l) => rootLeaves.includes(l));
-      const max = this.getSettings().leafCacheSize;
+      const max = this.getSettings().enableLeafCache ? 10 : Infinity;
       if (this.leafQueue.length > max) {
         this.isEvicting = true;
         try {
@@ -371,8 +371,8 @@ var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian.Setting(containerEl).setName("\u9875\u9762\u7F13\u5B58\u6570\u91CF").setDesc("\u6781\u7B80\u5BFC\u822A\u680F\u5F00\u542F\u65F6\uFF0C\u5728\u5185\u5B58\u4E2D\u4FDD\u7559\u6700\u8FD1\u8BBF\u95EE\u7684\u9875\u9762\u6570\u91CF\uFF0C\u8FD4\u56DE\u5DF2\u8BBF\u95EE\u9875\u9762\u65F6\u65E0\u9700\u91CD\u65B0\u52A0\u8F7D").addDropdown((d) => d.addOption("3", "3 \u4E2A\u9875\u9762").addOption("5", "5 \u4E2A\u9875\u9762").addOption("10", "10 \u4E2A\u9875\u9762").setValue(String(this.plugin.settings.leafCacheSize)).onChange(async (v) => {
-      this.plugin.settings.leafCacheSize = Number(v);
+    new import_obsidian.Setting(containerEl).setName("\u9875\u9762\u7F13\u5B58").setDesc("\u6781\u7B80\u5BFC\u822A\u680F\u5F00\u542F\u65F6\uFF0C\u5728\u5185\u5B58\u4E2D\u4FDD\u7559\u6700\u8FD1\u8BBF\u95EE\u7684 10 \u4E2A\u9875\u9762\uFF0C\u8FD4\u56DE\u5DF2\u8BBF\u95EE\u9875\u9762\u65F6\u65E0\u9700\u91CD\u65B0\u52A0\u8F7D").addToggle((t) => t.setValue(this.plugin.settings.enableLeafCache).onChange(async (v) => {
+      this.plugin.settings.enableLeafCache = v;
       await this.plugin.saveSettings();
     }));
   }
