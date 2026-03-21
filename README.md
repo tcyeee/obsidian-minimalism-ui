@@ -40,9 +40,9 @@ All options are in: **Settings → Community Plugins → Minimalism UI**
 
 ### Manual (recommended)
 
-1. Download `main.js`, `manifest.json`, and `styles.css` from this repository
+1. Download `main.js`, `manifest.json`, `styles.css`, and the `fonts/` folder from this repository
 2. Create the directory `.obsidian/plugins/obsidian-minimalism-ui/` inside your vault
-3. Copy the three files into it
+3. Copy all four items into it
 4. In Obsidian: Settings → Community Plugins → disable Safe Mode → enable **Minimalism UI**
 
 ```
@@ -53,6 +53,55 @@ your-vault/
             ├── main.js
             ├── manifest.json
             └── styles.css
+```
+
+### Required Fonts
+
+The plugin loads two font families at runtime from a `fonts/` subfolder inside the plugin directory. **Without these files the fonts will silently fall back to system defaults**, but no error will occur.
+
+**JetBrains Mono NL** (monospace, used for code blocks and the word-count display):
+
+| File | Weight | Style |
+|---|---|---|
+| `JetBrainsMonoNL-Regular.ttf` | 400 | normal |
+| `JetBrainsMonoNL-Italic.ttf` | 400 | italic |
+| `JetBrainsMonoNL-Medium.ttf` | 500 | normal |
+| `JetBrainsMonoNL-MediumItalic.ttf` | 500 | italic |
+| `JetBrainsMonoNL-Bold.ttf` | 700 | normal |
+| `JetBrainsMonoNL-BoldItalic.ttf` | 700 | italic |
+| `JetBrainsMonoNL-ExtraBold.ttf` | 900 | normal |
+| `JetBrainsMonoNL-ExtraBoldItalic.ttf` | 900 | italic |
+
+Download from the [JetBrains Mono releases page](https://github.com/JetBrains/JetBrainsMono/releases).
+
+**Source Han Sans SC** (Chinese UI text):
+
+| File | Weight |
+|---|---|
+| `SourceHanSansSC-Light.otf` | 300 |
+| `SourceHanSansSC-Regular.otf` | 400 |
+| `SourceHanSansSC-Medium.otf` | 500 |
+| `SourceHanSansSC-Bold.otf` | 700 |
+| `SourceHanSansSC-Heavy.otf` | 900 |
+
+Download from the [Source Han Sans releases page](https://github.com/adobe-fonts/source-han-sans/releases).
+
+Place the downloaded files so your plugin directory looks like this:
+
+```
+your-vault/
+└── .obsidian/
+    └── plugins/
+        └── obsidian-minimalism-ui/
+            ├── main.js
+            ├── manifest.json
+            ├── styles.css
+            └── fonts/
+                ├── JetBrainsMonoNL-Regular.ttf
+                ├── JetBrainsMonoNL-Italic.ttf
+                ├── ... (remaining JetBrains Mono NL files)
+                ├── SourceHanSansSC-Regular.otf
+                └── ... (remaining Source Han Sans SC files)
 ```
 
 ---
