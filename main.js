@@ -109,6 +109,13 @@ var TabCacheManager = class {
         this.navJumpTarget = null;
         return;
       }
+      let isRootLeaf = false;
+      this.app.workspace.iterateRootLeaves((l) => {
+        if (l === leaf)
+          isRootLeaf = true;
+      });
+      if (!isRootLeaf)
+        return;
       const last = this.navHistory[this.navHistory.length - 1];
       if (last === leaf)
         return;
@@ -196,6 +203,8 @@ var TabCacheManager = class {
     };
   }
   navigateBack() {
+    const snapHistory = [...this.navHistory];
+    const snapFuture = [...this.navFuture];
     while (this.navHistory.length >= 2) {
       const current = this.navHistory.pop();
       this.navFuture.unshift(current);
@@ -207,8 +216,12 @@ var TabCacheManager = class {
         return;
       }
     }
+    this.navHistory = snapHistory;
+    this.navFuture = snapFuture;
   }
   navigateForward() {
+    const snapHistory = [...this.navHistory];
+    const snapFuture = [...this.navFuture];
     while (this.navFuture.length > 0) {
       const next = this.navFuture.shift();
       if (next.parent) {
@@ -219,6 +232,8 @@ var TabCacheManager = class {
         return;
       }
     }
+    this.navHistory = snapHistory;
+    this.navFuture = snapFuture;
   }
   patchLeafHistory(leaf) {
     var _a, _b;
@@ -409,7 +424,7 @@ var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {
     singlePageSetting.descEl.createEl("br");
     singlePageSetting.descEl.createEl("span", { text: "3.\u7981\u7528 Pin \u6807\u7B7E\u529F\u80FD\uFF0C\u907F\u514D\u591A\u4F59\u7684\u6807\u7B7E\u88AB\u56FA\u5B9A\u5728\u9876\u90E8\u3002" });
     singlePageSetting.descEl.createEl("br");
-    new import_obsidian.Setting(containerEl).setName("\u9875\u9762\u52A0\u8F7D\u52A8\u753B").setDesc("\u524D\u8FDB\u6216\u540E\u9000\u65F6\uFF0C\u4E3A\u76EE\u6807\u9875\u9762\u64AD\u653E\u6ED1\u5165\u52A8\u753B").addToggle((t) => t.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
+    new import_obsidian.Setting(containerEl).setName("\u9875\u9762\u52A0\u8F7D\u52A8\u753B(Beta)").setDesc("\u524D\u8FDB\u6216\u540E\u9000\u65F6\uFF0C\u4E3A\u76EE\u6807\u9875\u9762\u64AD\u653E\u6ED1\u5165\u52A8\u753B").addToggle((t) => t.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
       this.plugin.settings.enableNavAnimation = v;
       await this.plugin.saveSettings();
     }));
