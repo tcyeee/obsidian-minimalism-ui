@@ -10,8 +10,14 @@ export class PropertiesAutoHeightManager {
 	private leafChangeHandler: (() => void) | null = null;
 	private layoutHandler: (() => void) | null = null;
 
-	// Saved inline flex-grow so remove() can restore Obsidian's original value
+	// Saved flex-grow so remove() can restore Obsidian's original value
 	private savedFlexGrow = '';
+
+	// Saved DOM position so remove() can put the panel back where it was
+	private movedTabsEl: HTMLElement | null = null;
+	private movedRhEl: HTMLElement | null = null;          // resize handle that travels with the panel
+	private tabsOriginalNextSibling: Node | null = null;
+	private originalParent: HTMLElement | null = null;
 
 	constructor(private app: App, private getSettings: () => MinimalismUISettings) {}
 
@@ -38,35 +44,29 @@ export class PropertiesAutoHeightManager {
 			const tabsEl = contentEl?.closest<HTMLElement>('.workspace-tabs') ?? null;
 			if (!contentEl || !tabsEl) return false;
 
-			// Read current rendered height BEFORE touching flex, so we can keep
-			// the panel visible while switching from flex-grow to explicit height.
-			const currentH = tabsEl.offsetHeight;
+			// ── 1. Move panel to bottom ──────────────────────────────────────
+			this.moveToBottom(tabsEl);
 
-			// Save Obsidian's flex-grow and switch to fixed sizing so our explicit
-			// height takes full effect instead of competing with flex distribution.
+			// ── 2. Switch from flex-grow to explicit height ──────────────────
+			// Read current height BEFORE changing flex to prevent a collapse flash.
+			const currentH = tabsEl.offsetHeight;
 			this.savedFlexGrow = tabsEl.style.flexGrow;
 			tabsEl.dataset.propertiesAutoHeight = 'true';
 			tabsEl.style.flexGrow = '0';
 			tabsEl.style.flexShrink = '0';
-			// Lock to current height immediately — prevents the panel collapsing to
-			// 0 before measureContentHeight() has a chance to run.
 			tabsEl.style.height = currentH + 'px';
 
-			// MutationObserver catches property add / remove / value edits
+			// ── 3. Observers ─────────────────────────────────────────────────
 			this.mutationObserver = new MutationObserver(syncHeight);
 			this.mutationObserver.observe(contentEl, { childList: true, subtree: true });
 
-			// ResizeObserver on .metadata-content catches height changes that
-			// MutationObserver may miss (e.g. multi-line value expansion)
 			const metaContent = contentEl.querySelector<HTMLElement>('.metadata-content');
 			if (metaContent) {
 				this.resizeObserver = new ResizeObserver(syncHeight);
 				this.resizeObserver.observe(metaContent);
 			}
 
-			// Animate to content height on the next frame (CSS transition is now active)
 			syncHeight();
-
 			return true;
 		};
 
@@ -80,8 +80,6 @@ export class PropertiesAutoHeightManager {
 			this.app.workspace.on('layout-change', this.layoutHandler);
 		}
 
-		// active-leaf-change fires before Obsidian updates the properties DOM,
-		// delay to let the mutations land first.
 		this.leafChangeHandler = () => setTimeout(syncHeight, 80);
 		this.app.workspace.on('active-leaf-change', this.leafChangeHandler);
 	}
@@ -101,6 +99,7 @@ export class PropertiesAutoHeightManager {
 			this.layoutHandler = null;
 		}
 
+		// Restore flex / height overrides
 		document.querySelectorAll<HTMLElement>('.workspace-tabs[data-properties-auto-height]').forEach(el => {
 			el.style.flexGrow = this.savedFlexGrow;
 			el.style.flexShrink = '';
@@ -108,9 +107,73 @@ export class PropertiesAutoHeightManager {
 			delete el.dataset.propertiesAutoHeight;
 		});
 		this.savedFlexGrow = '';
+
+		// Restore panel to its original position in the sidebar
+		this.restorePosition();
 	}
 
-	// ── helpers ──────────────────────────────────────────────────────────────
+	// ── DOM reordering ────────────────────────────────────────────────────────
+
+	/**
+	 * Move tabsEl (and the resize handle preceding it) to the bottom of the
+	 * sidebar container, just before .workspace-sidedock-vault-profile.
+	 *
+	 * Before: [...] [rh] [tabsEl] [rh2] [Other panel] [vault-profile]
+	 * After:  [...] [rh2] [Other panel] [rh] [tabsEl] [vault-profile]
+	 */
+	private moveToBottom(tabsEl: HTMLElement): void {
+		const parent = tabsEl.parentElement;
+		if (!parent) return;
+
+		// Already the last workspace-tabs → nothing to do
+		const allTabs = Array.from(parent.querySelectorAll<HTMLElement>(':scope > .workspace-tabs'));
+		if (allTabs[allTabs.length - 1] === tabsEl) return;
+
+		// The resize handle immediately before tabsEl travels with it
+		const prevEl = tabsEl.previousElementSibling as HTMLElement | null;
+		const rh = prevEl?.classList.contains('workspace-leaf-resize-handle') ? prevEl : null;
+
+		// Save original position (next sibling of tabsEl is enough to restore both)
+		this.originalParent = parent;
+		this.tabsOriginalNextSibling = tabsEl.nextSibling;
+		this.movedTabsEl = tabsEl;
+		this.movedRhEl = rh;
+
+		// Insertion point: directly before vault profile, or at end of container
+		const vaultProfile = parent.querySelector<HTMLElement>(':scope > .workspace-sidedock-vault-profile');
+
+		if (vaultProfile) {
+			if (rh) parent.insertBefore(rh, vaultProfile);
+			parent.insertBefore(tabsEl, vaultProfile);
+		} else {
+			if (rh) parent.appendChild(rh);
+			parent.appendChild(tabsEl);
+		}
+	}
+
+	/**
+	 * Put tabsEl (and its resize handle) back to the original position.
+	 */
+	private restorePosition(): void {
+		if (!this.originalParent || !this.movedTabsEl) return;
+
+		// Restore tabsEl first, then insert rh directly before it
+		if (this.tabsOriginalNextSibling) {
+			this.originalParent.insertBefore(this.movedTabsEl, this.tabsOriginalNextSibling);
+		} else {
+			this.originalParent.appendChild(this.movedTabsEl);
+		}
+		if (this.movedRhEl) {
+			this.originalParent.insertBefore(this.movedRhEl, this.movedTabsEl);
+			this.movedRhEl = null;
+		}
+
+		this.movedTabsEl = null;
+		this.tabsOriginalNextSibling = null;
+		this.originalParent = null;
+	}
+
+	// ── height helpers ────────────────────────────────────────────────────────
 
 	private findTabsEl(): HTMLElement | null {
 		const contentEl = document.querySelector<HTMLElement>(PROPS_SELECTOR);
@@ -118,13 +181,13 @@ export class PropertiesAutoHeightManager {
 	}
 
 	/**
-	 * Measure the height that .workspace-tabs needs to show all properties.
+	 * Measure the height .workspace-tabs needs to show all properties without clipping.
 	 *
-	 * .metadata-content has natural (unconstrained) height — its offsetHeight is
-	 * the true rendered height of all property rows.  We add:
-	 *   • the gap between the top of .workspace-tabs and the top of .metadata-content
-	 *     (tab-header, "PROPERTIES" label, container padding, etc.)
-	 *   • the bottom padding of .workspace-leaf-content so nothing is clipped.
+	 * .metadata-content has a natural (unconstrained) height, so offsetHeight is the
+	 * true rendered height of all property rows.  We add:
+	 *   • topOffset  — distance from .workspace-tabs top to .metadata-content top
+	 *                  (tab-header, "PROPERTIES" label, container padding, etc.)
+	 *   • bottomPad  — bottom padding of .workspace-leaf-content
 	 */
 	private measureContentHeight(): number {
 		const contentEl = document.querySelector<HTMLElement>(PROPS_SELECTOR);
@@ -137,8 +200,8 @@ export class PropertiesAutoHeightManager {
 
 		const tabsTop = tabsEl.getBoundingClientRect().top;
 		const metaTop = metaContent.getBoundingClientRect().top;
-		const topOffset = metaTop - tabsTop;           // headers + padding above properties
-		const metaH = metaContent.offsetHeight;        // natural height of property rows
+		const topOffset = metaTop - tabsTop;
+		const metaH = metaContent.offsetHeight;
 		const bottomPad = parseFloat(getComputedStyle(contentEl).paddingBottom) || 8;
 
 		return Math.round(topOffset + metaH + bottomPad);
