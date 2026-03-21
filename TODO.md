@@ -91,6 +91,25 @@ this.navFuture = [];
 
 - **状态**：已实现，待验证
 
+#### ⚠️ 已知 BUG：回退到首页后前进失效
+
+**根因**：`openHomePage()` 打开文件时 `isOpeningHomePage = true`，绕过了 `getLeaf` 的 patch，
+因此首页 leaf 不经过 `interceptLeafOpenFile`，也就不会触发 `patchLeafHistory`。
+
+当用户回退到首页 leaf 时，该 leaf 的 `history.canGoForward()` 仍是 Obsidian 原生实现，
+每个 tab 内只有单文件，原生 `canGoForward()` 永远返回 false。
+Obsidian 在执行 forward 命令前先调用此方法做守卫，结果 `navigateForward()` 根本不会被调用，
+表现为「回退到首页后按前进无响应」。
+
+**修复**：在 `openHomePage()` 中，`await leaf.openFile(file)` 之后手动调用
+`this.tabCache.patchLeafHistory(leaf)`，将首页 leaf 的 history 拦截补上。
+`patchLeafHistory` 内部有 `historyPatches.has(leaf)` 幂等守卫，多次调用安全。
+
+同样地，`homePageHandler`（`file-open` 为 null 时触发）也会走 `openHomePage()`，
+同一修复路径覆盖所有首页 leaf 被创建的场景。
+
+- **状态**：已修复
+
 #### ⚠️ 已知 BUG：前进快捷键无响应
 
 **根因**：Obsidian 在执行 forward 命令前会先调用 `leaf.history.canGoForward()` 检查是否可前进。

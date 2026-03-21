@@ -134,6 +134,9 @@ export default class MinimalismUIPlugin extends Plugin {
 		try {
 			const leaf = this.app.workspace.getLeaf(false);
 			await leaf.openFile(file);
+			// 首页 leaf 绕过了 getLeaf 拦截，不会经过 interceptLeafOpenFile，
+			// 需在此手动补充 history patch，确保 canGoForward 返回我们的导航栈状态
+			this.tabCache.patchLeafHistory(leaf);
 		} finally {
 			this.isOpeningHomePage = false;
 		}

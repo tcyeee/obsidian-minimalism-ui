@@ -496,6 +496,7 @@ var MinimalismUIPlugin = class extends import_obsidian2.Plugin {
     try {
       const leaf = this.app.workspace.getLeaf(false);
       await leaf.openFile(file);
+      this.tabCache.patchLeafHistory(leaf);
     } finally {
       this.isOpeningHomePage = false;
     }
