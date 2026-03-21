@@ -39,7 +39,8 @@ var DEFAULT_SETTINGS = {
   enableLeafCache: false,
   enableNavAnimation: false,
   noteStyle: false,
-  homePage: ""
+  homePage: "",
+  autoPropertiesHeight: false
 };
 
 // src/TabCacheManager.ts
@@ -393,6 +394,129 @@ var DragBarManager = class {
   }
 };
 
+// src/PropertiesAutoHeightManager.ts
+var PROPS_SELECTOR = '.workspace-split.mod-left-split .workspace-leaf-content[data-type="file-properties"]';
+var PropertiesAutoHeightManager = class {
+  constructor(app, getSettings) {
+    this.app = app;
+    this.getSettings = getSettings;
+    this.mutationObserver = null;
+    this.resizeObserver = null;
+    this.leafChangeHandler = null;
+    this.layoutHandler = null;
+    // Saved inline flex-grow so remove() can restore Obsidian's original value
+    this.savedFlexGrow = "";
+  }
+  apply() {
+    this.remove();
+    const s = this.getSettings();
+    if (!s.macSidebar || !s.autoPropertiesHeight)
+      return;
+    let rafId = null;
+    const syncHeight = () => {
+      const tabsEl = this.findTabsEl();
+      if (!tabsEl)
+        return;
+      if (rafId !== null)
+        cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        const toH = this.measureContentHeight();
+        if (toH <= 0)
+          return;
+        tabsEl.style.height = toH + "px";
+      });
+    };
+    const setupObserver = () => {
+      var _a;
+      const contentEl = document.querySelector(PROPS_SELECTOR);
+      const tabsEl = (_a = contentEl == null ? void 0 : contentEl.closest(".workspace-tabs")) != null ? _a : null;
+      if (!contentEl || !tabsEl)
+        return false;
+      const currentH = tabsEl.offsetHeight;
+      this.savedFlexGrow = tabsEl.style.flexGrow;
+      tabsEl.dataset.propertiesAutoHeight = "true";
+      tabsEl.style.flexGrow = "0";
+      tabsEl.style.flexShrink = "0";
+      tabsEl.style.height = currentH + "px";
+      this.mutationObserver = new MutationObserver(syncHeight);
+      this.mutationObserver.observe(contentEl, { childList: true, subtree: true });
+      const metaContent = contentEl.querySelector(".metadata-content");
+      if (metaContent) {
+        this.resizeObserver = new ResizeObserver(syncHeight);
+        this.resizeObserver.observe(metaContent);
+      }
+      syncHeight();
+      return true;
+    };
+    if (!setupObserver()) {
+      this.layoutHandler = () => {
+        if (setupObserver()) {
+          this.app.workspace.off("layout-change", this.layoutHandler);
+          this.layoutHandler = null;
+        }
+      };
+      this.app.workspace.on("layout-change", this.layoutHandler);
+    }
+    this.leafChangeHandler = () => setTimeout(syncHeight, 80);
+    this.app.workspace.on("active-leaf-change", this.leafChangeHandler);
+  }
+  remove() {
+    var _a, _b;
+    (_a = this.mutationObserver) == null ? void 0 : _a.disconnect();
+    this.mutationObserver = null;
+    (_b = this.resizeObserver) == null ? void 0 : _b.disconnect();
+    this.resizeObserver = null;
+    if (this.leafChangeHandler) {
+      this.app.workspace.off("active-leaf-change", this.leafChangeHandler);
+      this.leafChangeHandler = null;
+    }
+    if (this.layoutHandler) {
+      this.app.workspace.off("layout-change", this.layoutHandler);
+      this.layoutHandler = null;
+    }
+    document.querySelectorAll(".workspace-tabs[data-properties-auto-height]").forEach((el) => {
+      el.style.flexGrow = this.savedFlexGrow;
+      el.style.flexShrink = "";
+      el.style.height = "";
+      delete el.dataset.propertiesAutoHeight;
+    });
+    this.savedFlexGrow = "";
+  }
+  // ── helpers ──────────────────────────────────────────────────────────────
+  findTabsEl() {
+    var _a;
+    const contentEl = document.querySelector(PROPS_SELECTOR);
+    return (_a = contentEl == null ? void 0 : contentEl.closest(".workspace-tabs")) != null ? _a : null;
+  }
+  /**
+   * Measure the height that .workspace-tabs needs to show all properties.
+   *
+   * .metadata-content has natural (unconstrained) height — its offsetHeight is
+   * the true rendered height of all property rows.  We add:
+   *   • the gap between the top of .workspace-tabs and the top of .metadata-content
+   *     (tab-header, "PROPERTIES" label, container padding, etc.)
+   *   • the bottom padding of .workspace-leaf-content so nothing is clipped.
+   */
+  measureContentHeight() {
+    const contentEl = document.querySelector(PROPS_SELECTOR);
+    if (!contentEl)
+      return 0;
+    const tabsEl = contentEl.closest(".workspace-tabs");
+    if (!tabsEl)
+      return 0;
+    const metaContent = contentEl.querySelector(".metadata-content");
+    if (!metaContent)
+      return 0;
+    const tabsTop = tabsEl.getBoundingClientRect().top;
+    const metaTop = metaContent.getBoundingClientRect().top;
+    const topOffset = metaTop - tabsTop;
+    const metaH = metaContent.offsetHeight;
+    const bottomPad = parseFloat(getComputedStyle(contentEl).paddingBottom) || 8;
+    return Math.round(topOffset + metaH + bottomPad);
+  }
+};
+
 // src/SettingTab.ts
 var import_obsidian = require("obsidian");
 var FileSuggest = class extends import_obsidian.AbstractInputSuggest {
@@ -428,6 +552,10 @@ var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {
     new import_obsidian.Setting(containerEl).setName("\u5916\u89C2\u8BBE\u7F6E").setHeading();
     new import_obsidian.Setting(containerEl).setName("\u6781\u7B80\u4FA7\u8FB9\u680F").setDesc("\u4E3A\u5DE6\u4FA7\u8FB9\u680F\u5E94\u7528\u78E8\u7802\u73BB\u7483\u80CC\u666F\u4E0E\u5706\u89D2\u9AD8\u4EAE\uFF0C\u6253\u9020 macOS \u539F\u751F\u98CE\u683C").addToggle((t) => t.setValue(this.plugin.settings.macSidebar).onChange(async (v) => {
       this.plugin.settings.macSidebar = v;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian.Setting(containerEl).setName("\u81EA\u52A8\u8C03\u6574\u5C5E\u6027\u7A97\u53E3\u9AD8\u5EA6").setDesc("\u5F00\u542F\u540E\uFF0CProperties \u9762\u677F\u9AD8\u5EA6\u968F\u7B14\u8BB0\u5C5E\u6027\u6570\u91CF\u81EA\u52A8\u4F38\u7F29\uFF0C\u5207\u6362\u7B14\u8BB0\u65F6\u5E73\u6ED1\u8FC7\u6E21\uFF08\u9700\u540C\u65F6\u5F00\u542F\u6781\u7B80\u4FA7\u8FB9\u680F\uFF09").addToggle((t) => t.setValue(this.plugin.settings.autoPropertiesHeight).onChange(async (v) => {
+      this.plugin.settings.autoPropertiesHeight = v;
       await this.plugin.saveSettings();
     }));
     new import_obsidian.Setting(containerEl).setName("\u6781\u7B80\u4FE1\u606F\u680F").setDesc("\u9690\u85CF\u5DE6\u4FA7\u5C5E\u6027\u680F\u7684\u64CD\u4F5C\u6309\u94AE\uFF0C\u4EE5\u53CA\u5927\u7EB2\u3001\u53CD\u5411\u94FE\u63A5\u9762\u677F\u4E2D\u7684\u641C\u7D22\u6846").addToggle((t) => t.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
@@ -491,6 +619,7 @@ var MinimalismUIPlugin = class extends import_obsidian2.Plugin {
       () => this.isOpeningHomePage
     );
     this.dragBar = new DragBarManager(this.app, () => this.settings);
+    this.propertiesHeight = new PropertiesAutoHeightManager(this.app, () => this.settings);
     await this.loadJetBrainsMono();
     this.applyBodyClasses();
     this.applyPinBlock();
@@ -499,6 +628,7 @@ var MinimalismUIPlugin = class extends import_obsidian2.Plugin {
     this.app.workspace.onLayoutReady(() => {
       this.dragBar.apply();
       this.applyHomePage();
+      this.propertiesHeight.apply();
       void this.openHomePage();
     });
     this.addSettingTab(new MinimalismUISettingTab(this.app, this));
@@ -520,6 +650,7 @@ var MinimalismUIPlugin = class extends import_obsidian2.Plugin {
     this.dragBar.remove();
     this.removeHomePageHandler();
     this.removeOutlineAnimation();
+    this.propertiesHeight.remove();
   }
   // ─── Body Classes ─────────────────────────────────────────────────────────
   applyBodyClasses() {
@@ -619,6 +750,7 @@ var MinimalismUIPlugin = class extends import_obsidian2.Plugin {
     this.dragBar.apply();
     this.applyHomePage();
     this.applyOutlineAnimation();
+    this.propertiesHeight.apply();
   }
   // ─── Outline Animation ────────────────────────────────────────────────────
   applyOutlineAnimation() {

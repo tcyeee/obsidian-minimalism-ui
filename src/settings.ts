@@ -8,6 +8,7 @@ export interface MinimalismUISettings {
 	enableNavAnimation: boolean;
 	noteStyle: boolean;
 	homePage: string;
+	autoPropertiesHeight: boolean;
 }
 
 export const DEFAULT_SETTINGS: MinimalismUISettings = {
@@ -20,4 +21,5 @@ export const DEFAULT_SETTINGS: MinimalismUISettings = {
 	enableNavAnimation: false,
 	noteStyle: false,
 	homePage: '',
+	autoPropertiesHeight: false,
 };
