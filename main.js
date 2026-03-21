@@ -61,6 +61,8 @@ var TabCacheManager = class {
     this.navAnimateHandler = null;
     this.pendingAnimationCls = null;
     this.historyPatches = /* @__PURE__ */ new Map();
+    // 由 getLeaf patch 新建、尚未调用 openFile 的空 leaf
+    this.pendingInterceptLeaves = /* @__PURE__ */ new Set();
   }
   apply() {
     this.remove();
@@ -167,14 +169,22 @@ var TabCacheManager = class {
     this.navHistory = [];
     this.navFuture = [];
     this.navJumpTarget = null;
+    this.pendingInterceptLeaves.clear();
+  }
+  // 检查指定 leaf 是否正处于等待 openFile 的 pending 状态
+  // 供外部（homePageHandler）判断：若为 pending 则不应触发首页跳转
+  hasPendingIntercept(leaf) {
+    return this.pendingInterceptLeaves.has(leaf);
   }
   // 对新建的空 leaf 注入一次性 openFile 拦截器：
   // 在文件实际加载前检查缓存，若已有相同文件的 leaf 则直接复用，避免闪烁
   interceptLeafOpenFile(leaf) {
+    this.pendingInterceptLeaves.add(leaf);
     const manager = this;
     const origOpenFile = leaf.openFile.bind(leaf);
     leaf.openFile = async function(file, state) {
       leaf.openFile = origOpenFile;
+      manager.pendingInterceptLeaves.delete(leaf);
       if (!manager.isReusingLeaf) {
         let existingLeaf = null;
         manager.app.workspace.iterateRootLeaves((l) => {
@@ -531,8 +541,12 @@ var MinimalismUIPlugin = class extends import_obsidian2.Plugin {
     if (!this.settings.homePage)
       return;
     this.homePageHandler = (file) => {
-      if (!file)
+      if (!file) {
+        const active = this.app.workspace.activeLeaf;
+        if (active && this.tabCache.hasPendingIntercept(active))
+          return;
         this.openHomePage();
+      }
     };
     this.app.workspace.on("file-open", this.homePageHandler);
   }

@@ -119,7 +119,13 @@ export default class MinimalismUIPlugin extends Plugin {
 		if (!this.settings.homePage) return;
 
 		this.homePageHandler = (file: TFile | null) => {
-			if (!file) this.openHomePage();
+			if (!file) {
+				// 若 active leaf 正在等待 openFile（由 getLeaf patch 新建，如 Cmd+N 新笔记），
+				// 跳过首页跳转，避免抢占该 leaf
+				const active = this.app.workspace.activeLeaf;
+				if (active && this.tabCache.hasPendingIntercept(active)) return;
+				this.openHomePage();
+			}
 		};
 		this.app.workspace.on('file-open', this.homePageHandler);
 	}
