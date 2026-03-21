@@ -435,6 +435,22 @@
 	line-height: 1.5;
 }
 
+/* ── 单页模式：多行说明与其他单行设置项对齐 ─────────────────────────── */
+
+.minimalism-ui-single-page-setting {
+	align-items: flex-start;
+	padding-top: 12px;
+	padding-bottom: 12px;
+}
+
+.minimalism-ui-single-page-setting .setting-item-control {
+	margin-top: 2px;
+}
+
+.minimalism-ui-single-page-setting .setting-item-description {
+	line-height: 1.6;
+}
+
 /* ── 深色模式适配 ─────────────────────────────────────────────────────── */
 
 .theme-dark .minimalism-ui-mac-style .minimalism-ui-info-panel {
