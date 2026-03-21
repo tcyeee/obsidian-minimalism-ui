@@ -60,6 +60,8 @@ var TabCacheManager = class {
     this.navTrackHandler = null;
     this.navAnimateHandler = null;
     this.pendingAnimationCls = null;
+    this.navTimer = null;
+    this.resizeObserverErrHandler = null;
     this.historyPatches = /* @__PURE__ */ new Map();
     // 由 getLeaf patch 新建、尚未调用 openFile 的空 leaf
     this.pendingInterceptLeaves = /* @__PURE__ */ new Set();
@@ -79,6 +81,13 @@ var TabCacheManager = class {
       }
       return this.originalGetLeaf(newLeaf);
     };
+    this.resizeObserverErrHandler = (e) => {
+      if (e.message === "ResizeObserver loop completed with undelivered notifications.") {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("error", this.resizeObserverErrHandler, true);
     this.tabLimitHandler = () => {
       if (this.isEvicting)
         return;
@@ -165,6 +174,14 @@ var TabCacheManager = class {
       this.navAnimateHandler = null;
     }
     this.pendingAnimationCls = null;
+    if (this.navTimer !== null) {
+      clearTimeout(this.navTimer);
+      this.navTimer = null;
+    }
+    if (this.resizeObserverErrHandler) {
+      window.removeEventListener("error", this.resizeObserverErrHandler, true);
+      this.resizeObserverErrHandler = null;
+    }
     this.unpatchAllLeafHistories();
     this.leafQueue = [];
     this.navHistory = [];
@@ -214,6 +231,10 @@ var TabCacheManager = class {
     };
   }
   navigateBack() {
+    if (this.navTimer !== null) {
+      clearTimeout(this.navTimer);
+      this.navTimer = null;
+    }
     const snapHistory = [...this.navHistory];
     const snapFuture = [...this.navFuture];
     while (this.navHistory.length >= 2) {
@@ -223,7 +244,8 @@ var TabCacheManager = class {
       if (prev.parent) {
         this.navJumpTarget = prev;
         this.pendingAnimationCls = "minimalism-ui-slide-from-left";
-        setTimeout(() => {
+        this.navTimer = setTimeout(() => {
+          this.navTimer = null;
           this.app.workspace.setActiveLeaf(prev, { focus: true });
         }, 0);
         return;
@@ -233,6 +255,10 @@ var TabCacheManager = class {
     this.navFuture = snapFuture;
   }
   navigateForward() {
+    if (this.navTimer !== null) {
+      clearTimeout(this.navTimer);
+      this.navTimer = null;
+    }
     const snapHistory = [...this.navHistory];
     const snapFuture = [...this.navFuture];
     while (this.navFuture.length > 0) {
@@ -241,7 +267,8 @@ var TabCacheManager = class {
         this.navHistory.push(next);
         this.navJumpTarget = next;
         this.pendingAnimationCls = "minimalism-ui-slide-from-right";
-        setTimeout(() => {
+        this.navTimer = setTimeout(() => {
+          this.navTimer = null;
           this.app.workspace.setActiveLeaf(next, { focus: true });
         }, 0);
         return;
