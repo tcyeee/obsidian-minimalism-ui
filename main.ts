@@ -1,7 +1,8 @@
-import { Plugin, TFile, WorkspaceLeaf } from 'obsidian';
+import { Plugin, TFile } from 'obsidian';
 import { MinimalismUISettings, DEFAULT_SETTINGS } from './src/settings';
 import { TabCacheManager } from './src/TabCacheManager';
 import { DragBarManager } from './src/DragBarManager';
+import { SinglePageManager } from './src/SinglePageManager';
 import { PropertiesAutoHeightManager } from './src/PropertiesAutoHeightManager';
 import { MinimalismUISettingTab } from './src/SettingTab';
 
@@ -12,11 +13,6 @@ interface MutableFontFaceSet {
 	delete(font: FontFace): void;
 }
 
-type LeafWithInternals = WorkspaceLeaf & {
-	containerEl?: HTMLElement;
-	detach: () => void;
-};
-
 // ─── Main Plugin ──────────────────────────────────────────────────────────────
 
 export default class MinimalismUIPlugin extends Plugin {
@@ -24,12 +20,12 @@ export default class MinimalismUIPlugin extends Plugin {
 
 	private tabCache: TabCacheManager;
 	private dragBar: DragBarManager;
+	private singlePage: SinglePageManager;
 	private propertiesHeight: PropertiesAutoHeightManager;
 
-	private pinBlockHandler: ((e: MouseEvent) => void) | null = null;
-	private detachPatches = new Map<WorkspaceLeaf, () => void>();
-
-	private homePageHandler: ((file: TFile | null) => void) | null = null;
+	// Shared flag between TabCacheManager and SinglePageManager.
+	// TabCacheManager reads it to skip getLeaf interception while the home page
+	// is opening; SinglePageManager writes it during openHomePage().
 	private isOpeningHomePage = false;
 
 	private outlineNavHandler: ((e: MouseEvent) => void) | null = null;
@@ -45,18 +41,25 @@ export default class MinimalismUIPlugin extends Plugin {
 			() => this.isOpeningHomePage,
 		);
 		this.dragBar = new DragBarManager(this.app, () => this.settings);
+		this.singlePage = new SinglePageManager(
+			this.app,
+			() => this.settings,
+			this.tabCache,
+			() => this.isOpeningHomePage,
+			(v) => { this.isOpeningHomePage = v; },
+		);
 		this.propertiesHeight = new PropertiesAutoHeightManager(this.app, () => this.settings);
 
 		await this.loadJetBrainsMono();
 		this.applyBodyClasses();
-		this.applyPinBlock();
+		this.singlePage.apply();
 		this.applyOutlineAnimation();
 		this.tabCache.apply();
 		this.app.workspace.onLayoutReady(() => {
 			this.dragBar.apply();
-			this.applyHomePage();
+			this.singlePage.applyHomePage();
 			this.propertiesHeight.apply();
-			void this.openHomePage();
+			void this.singlePage.openHomePage();
 		});
 		this.addSettingTab(new MinimalismUISettingTab(this.app, this));
 	}
@@ -72,10 +75,9 @@ export default class MinimalismUIPlugin extends Plugin {
 		);
 		for (const font of this.loadedFonts) (document.fonts as unknown as MutableFontFaceSet).delete(font);
 		this.loadedFonts = [];
-		this.removePinBlockHandler();
+		this.singlePage.remove();
 		this.tabCache.remove();
 		this.dragBar.remove();
-		this.removeHomePageHandler();
 		this.removeOutlineAnimation();
 		this.propertiesHeight.remove();
 	}
@@ -92,87 +94,6 @@ export default class MinimalismUIPlugin extends Plugin {
 		cls.toggle('minimalism-ui-note-style', this.settings.noteStyle);
 	}
 
-	// ─── Pin Block ────────────────────────────────────────────────────────────
-
-	applyPinBlock() {
-		this.removePinBlockHandler();
-		if (!this.settings.disablePinTab) return;
-
-		this.pinBlockHandler = (e: MouseEvent) => {
-			if ((e.target as Element).closest('.workspace-tab-header.tappable')) {
-				e.stopImmediatePropagation();
-				e.preventDefault();
-			}
-		};
-		document.addEventListener('contextmenu', this.pinBlockHandler, true);
-		this.patchSidebarLeafDetach();
-	}
-
-	private patchSidebarLeafDetach() {
-		this.app.workspace.iterateAllLeaves(leaf => {
-			if (this.detachPatches.has(leaf)) return;
-			const leafEl = (leaf as LeafWithInternals).containerEl;
-			if (!leafEl?.closest('.workspace-split.mod-left-split')) return;
-			const original = (leaf as LeafWithInternals).detach.bind(leaf);
-			(leaf as LeafWithInternals).detach = () => { /* blocked */ };
-			this.detachPatches.set(leaf, original);
-		});
-	}
-
-	private removePinBlockHandler() {
-		if (this.pinBlockHandler) {
-			document.removeEventListener('contextmenu', this.pinBlockHandler, true);
-			this.pinBlockHandler = null;
-		}
-		for (const [leaf, original] of this.detachPatches) {
-			(leaf as LeafWithInternals).detach = original;
-		}
-		this.detachPatches.clear();
-	}
-
-	// ─── Home Page ────────────────────────────────────────────────────────────
-
-	applyHomePage() {
-		this.removeHomePageHandler();
-		if (!this.settings.homePage) return;
-
-		this.homePageHandler = (file: TFile | null) => {
-			if (!file) {
-				// 若 active leaf 正在等待 openFile（由 getLeaf patch 新建，如 Cmd+N 新笔记），
-				// 跳过首页跳转，避免抢占该 leaf
-				const active = this.app.workspace.getMostRecentLeaf();
-				if (active && this.tabCache.hasPendingIntercept(active)) return;
-				void this.openHomePage();
-			}
-		};
-		this.app.workspace.on('file-open', this.homePageHandler);
-	}
-
-	async openHomePage() {
-		if (this.isOpeningHomePage) return;
-		const path = this.settings.homePage;
-		if (!path) return;
-		const file = this.app.vault.getAbstractFileByPath(path);
-		if (!(file instanceof TFile)) return;
-		this.isOpeningHomePage = true;
-		try {
-			const leaf = this.app.workspace.getLeaf(false);
-			await leaf.openFile(file);
-			// 首页 leaf 绕过了 getLeaf 拦截，不会经过 interceptLeafOpenFile，
-			// 需在此手动补充 history patch，确保 canGoForward 返回我们的导航栈状态
-			this.tabCache.patchLeafHistory(leaf);
-		} finally {
-			this.isOpeningHomePage = false;
-		}
-	}
-
-	private removeHomePageHandler() {
-		if (this.homePageHandler) {
-			this.app.workspace.off('file-open', this.homePageHandler);
-			this.homePageHandler = null;
-		}
-	}
-
 	// ─── Settings ─────────────────────────────────────────────────────────────
 
 	async loadSettings() {
@@ -182,10 +103,10 @@ export default class MinimalismUIPlugin extends Plugin {
 	async saveSettings() {
 		await this.saveData(this.settings);
 		this.applyBodyClasses();
-		this.applyPinBlock();
+		this.singlePage.apply();
 		this.tabCache.apply();
 		this.dragBar.apply();
-		this.applyHomePage();
+		this.singlePage.applyHomePage();
 		this.applyOutlineAnimation();
 		this.propertiesHeight.apply();
 	}
