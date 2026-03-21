@@ -480,6 +480,7 @@ var MinimalismUIPlugin = class extends import_obsidian2.Plugin {
     this.detachPatches = /* @__PURE__ */ new Map();
     this.homePageHandler = null;
     this.isOpeningHomePage = false;
+    this.outlineNavHandler = null;
     this.loadedFonts = [];
   }
   async onload() {
@@ -493,6 +494,7 @@ var MinimalismUIPlugin = class extends import_obsidian2.Plugin {
     await this.loadJetBrainsMono();
     this.applyBodyClasses();
     this.applyPinBlock();
+    this.applyOutlineAnimation();
     this.tabCache.apply();
     this.app.workspace.onLayoutReady(() => {
       this.dragBar.apply();
@@ -517,6 +519,7 @@ var MinimalismUIPlugin = class extends import_obsidian2.Plugin {
     this.tabCache.remove();
     this.dragBar.remove();
     this.removeHomePageHandler();
+    this.removeOutlineAnimation();
   }
   // ─── Body Classes ─────────────────────────────────────────────────────────
   applyBodyClasses() {
@@ -615,6 +618,50 @@ var MinimalismUIPlugin = class extends import_obsidian2.Plugin {
     this.tabCache.apply();
     this.dragBar.apply();
     this.applyHomePage();
+    this.applyOutlineAnimation();
+  }
+  // ─── Outline Animation ────────────────────────────────────────────────────
+  applyOutlineAnimation() {
+    this.removeOutlineAnimation();
+    if (!this.settings.noteStyle)
+      return;
+    this.outlineNavHandler = (e) => {
+      const item = e.target.closest(".tree-item-inner");
+      if (!(item == null ? void 0 : item.closest('[data-type="outline"]')))
+        return;
+      setTimeout(() => this.flashCurrentHeading(), 50);
+    };
+    document.addEventListener("click", this.outlineNavHandler, true);
+  }
+  removeOutlineAnimation() {
+    if (this.outlineNavHandler) {
+      document.removeEventListener("click", this.outlineNavHandler, true);
+      this.outlineNavHandler = null;
+    }
+  }
+  flashCurrentHeading() {
+    const leaf = this.app.workspace.getMostRecentLeaf();
+    if (!leaf)
+      return;
+    const scrollEl = leaf.view.containerEl.querySelector(".markdown-preview-view");
+    if (!scrollEl)
+      return;
+    const containerRect = scrollEl.getBoundingClientRect();
+    const headings = scrollEl.querySelectorAll("h1, h2, h3, h4, h5, h6");
+    let target = null;
+    let minDist = Infinity;
+    for (const h of Array.from(headings)) {
+      const dist = Math.abs(h.getBoundingClientRect().top - containerRect.top);
+      if (dist < minDist) {
+        minDist = dist;
+        target = h;
+      }
+    }
+    if (target) {
+      const el = target;
+      el.classList.add("minimalism-ui-heading-flash");
+      el.addEventListener("animationend", () => el.classList.remove("minimalism-ui-heading-flash"), { once: true });
+    }
   }
   // ─── Fonts ────────────────────────────────────────────────────────────────
   fontPath(filename) {
