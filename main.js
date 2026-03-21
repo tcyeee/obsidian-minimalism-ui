@@ -138,9 +138,10 @@ var TabCacheManager = class {
         if (!el)
           return;
         el.classList.remove("minimalism-ui-slide-from-left", "minimalism-ui-slide-from-right");
-        void el.offsetWidth;
-        el.classList.add(cls);
-        el.addEventListener("animationend", () => el.classList.remove(cls), { once: true });
+        requestAnimationFrame(() => {
+          el.classList.add(cls);
+          el.addEventListener("animationend", () => el.classList.remove(cls), { once: true });
+        });
       });
     };
     this.app.workspace.on("active-leaf-change", this.navAnimateHandler);
@@ -222,7 +223,9 @@ var TabCacheManager = class {
       if (prev.parent) {
         this.navJumpTarget = prev;
         this.pendingAnimationCls = "minimalism-ui-slide-from-left";
-        this.app.workspace.setActiveLeaf(prev, { focus: true });
+        setTimeout(() => {
+          this.app.workspace.setActiveLeaf(prev, { focus: true });
+        }, 0);
         return;
       }
     }
@@ -238,7 +241,9 @@ var TabCacheManager = class {
         this.navHistory.push(next);
         this.navJumpTarget = next;
         this.pendingAnimationCls = "minimalism-ui-slide-from-right";
-        this.app.workspace.setActiveLeaf(next, { focus: true });
+        setTimeout(() => {
+          this.app.workspace.setActiveLeaf(next, { focus: true });
+        }, 0);
         return;
       }
     }

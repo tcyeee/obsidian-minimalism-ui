@@ -107,15 +107,17 @@ export class TabCacheManager {
 			const cls = this.pendingAnimationCls;
 			this.pendingAnimationCls = null;
 			if (!this.getSettings().enableNavAnimation) return;
-			// 用 rAF 推迟到浏览器完成 DOM 渲染后再加动画 class，
-			// 避免 active-leaf-change 同步触发时 leaf 尚未显示
+			// 用双重 rAF 推迟到浏览器完成 DOM 渲染后再加动画 class：
+			// 第一帧移除旧 class，第二帧添加新 class，避免同帧内强制重排
+			// 触发 ResizeObserver loop 错误
 			requestAnimationFrame(() => {
 				const el = (leaf as any).view?.contentEl as HTMLElement | undefined;
 				if (!el) return;
 				el.classList.remove('minimalism-ui-slide-from-left', 'minimalism-ui-slide-from-right');
-				void el.offsetWidth;
-				el.classList.add(cls);
-				el.addEventListener('animationend', () => el.classList.remove(cls), { once: true });
+				requestAnimationFrame(() => {
+					el.classList.add(cls);
+					el.addEventListener('animationend', () => el.classList.remove(cls), { once: true });
+				});
 			});
 		};
 		this.app.workspace.on('active-leaf-change', this.navAnimateHandler);
@@ -207,7 +209,11 @@ export class TabCacheManager {
 			if ((prev as any).parent) {
 				this.navJumpTarget = prev;
 				this.pendingAnimationCls = 'minimalism-ui-slide-from-left';
-				this.app.workspace.setActiveLeaf(prev, { focus: true });
+				// 用 setTimeout(0) 推入新 task，彻底脱离当前渲染管线，
+				// 避免 setActiveLeaf 在 rAF/ResizeObserver 阶段触发布局，产生 loop 错误
+				setTimeout(() => {
+					this.app.workspace.setActiveLeaf(prev, { focus: true });
+				}, 0);
 				return;
 			}
 			// leaf 已被淘汰，继续向前找
@@ -227,7 +233,11 @@ export class TabCacheManager {
 				this.navHistory.push(next);
 				this.navJumpTarget = next;
 				this.pendingAnimationCls = 'minimalism-ui-slide-from-right';
-				this.app.workspace.setActiveLeaf(next, { focus: true });
+				// 用 setTimeout(0) 推入新 task，彻底脱离当前渲染管线，
+				// 避免 setActiveLeaf 在 rAF/ResizeObserver 阶段触发布局，产生 loop 错误
+				setTimeout(() => {
+					this.app.workspace.setActiveLeaf(next, { focus: true });
+				}, 0);
 				return;
 			}
 			// leaf 已被淘汰，继续向后找

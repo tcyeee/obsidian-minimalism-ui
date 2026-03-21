@@ -600,10 +600,24 @@ body.minimalism-ui-note-style .cm-editor .cm-scroller .cm-content .cm-line.Hyper
 	font-size: 13px !important;
 }
 
+/* 阅读视图：行内代码背景色（排除代码块内的 code） */
+.minimalism-ui-note-style .markdown-reading-view :not(pre) > code {
+	font-size: 0.8rem !important;	
+	color: #347698 !important;
+	background-color: #F3F3F3 !important;
+}
+
 /* 编辑视图（Live Preview）：围栏代码块 & 行内代码 */
 .minimalism-ui-note-style .HyperMD-codeblock,
 .minimalism-ui-note-style .cm-inline-code {
-	font-size: 13px !important;
+	font-size: 0.8rem !important;
+}
+
+/* 编辑视图：行内代码背景色 */
+.minimalism-ui-note-style .cm-inline-code {
+	font-size: 0.8rem !important;
+	color: #347698 !important;
+	background-color: #F3F3F3 !important;
 }
 
 /* 阅读视图：代码块圆角 */
@@ -774,5 +788,5 @@ body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar-track {
 /* ── 笔记样式：Bases 网格卡片标题 ──────────────────────────────────────── */
 
 body.minimalism-ui-note-style .bases-cards-property.mod-title {
-	font-weight: 200;
+	font-weight: 400;
 }
