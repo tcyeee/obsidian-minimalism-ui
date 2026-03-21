@@ -527,6 +527,14 @@
 	line-height: 1.6 !important;
 }
 
+/* 编辑视图标题：还原为与预览模式一致的 --hX-size 字号 */
+.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-header-1 { font-size: var(--h1-size) !important; }
+.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-header-2 { font-size: var(--h2-size) !important; }
+.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-header-3 { font-size: var(--h3-size) !important; }
+.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-header-4 { font-size: var(--h4-size) !important; }
+.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-header-5 { font-size: var(--h5-size) !important; }
+.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-header-6 { font-size: var(--h6-size) !important; }
+
 /* ── 笔记样式：引用块 Forest 风格 ────────────────────────────────────── */
 
 .minimalism-ui-note-style {
@@ -684,23 +692,28 @@ body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar-track {
 	width: 100% !important;
 }
 
-.minimalism-ui-note-style .markdown-reading-view table thead {
+.minimalism-ui-note-style .markdown-reading-view table thead,
+.minimalism-ui-note-style .cm-editor table thead {
 	font-weight: 900;
 	background-color: rgba(0, 153, 123, 0.03);
 }
 
-.minimalism-ui-note-style .markdown-reading-view table tr:nth-child(even) {
+.minimalism-ui-note-style .markdown-reading-view table tr:nth-child(even),
+.minimalism-ui-note-style .cm-editor table tr:nth-child(even) {
 	background-color: rgba(0, 153, 123, 0.03);
 }
 
-.minimalism-ui-note-style .markdown-reading-view table tbody tr {
+.minimalism-ui-note-style .markdown-reading-view table tbody tr,
+.minimalism-ui-note-style .cm-editor table tbody tr {
 	border-bottom: 1px solid #DADCDE;
 }
 
-/* 所有单元格：字体、大小、颜色 */
+/* 所有单元格：字体、大小、颜色（阅读视图 + 编辑视图） */
 .minimalism-ui-note-style .markdown-reading-view table th,
 .minimalism-ui-note-style .markdown-reading-view table td,
-.minimalism-ui-note-style .markdown-reading-view .el-table .ltr {
+.minimalism-ui-note-style .markdown-reading-view .el-table .ltr,
+.minimalism-ui-note-style .cm-editor table th,
+.minimalism-ui-note-style .cm-editor table td {
 	font-family: 'JetBrains Mono', 'SourceHanSansSC', -apple-system, sans-serif !important;
 	font-size: calc(var(--font-text-size, 16px) - 3px) !important;
 	color: rgb(107, 107, 107) !important;
@@ -709,7 +722,9 @@ body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar-track {
 /* 所有单元格：内边距 + 列分隔线（左边框，首列除外） */
 .minimalism-ui-note-style .markdown-reading-view table th,
 .minimalism-ui-note-style .markdown-reading-view table td,
-.minimalism-ui-note-style .markdown-reading-view .el-table .ltr {
+.minimalism-ui-note-style .markdown-reading-view .el-table .ltr,
+.minimalism-ui-note-style .cm-editor table th,
+.minimalism-ui-note-style .cm-editor table td {
 	padding: 10px 13px !important;
 	border-left: 1px solid #DADCDE !important;
 }
@@ -717,31 +732,47 @@ body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar-track {
 /* 首列去掉左边框（由 el-table 外边框提供） */
 .minimalism-ui-note-style .markdown-reading-view table th:first-of-type,
 .minimalism-ui-note-style .markdown-reading-view table td:first-of-type,
-.minimalism-ui-note-style .markdown-reading-view .el-table .ltr:first-of-type {
+.minimalism-ui-note-style .markdown-reading-view .el-table .ltr:first-of-type,
+.minimalism-ui-note-style .cm-editor table th:first-of-type,
+.minimalism-ui-note-style .cm-editor table td:first-of-type {
 	border-left: none !important;
 }
 
 /* 末列去掉右边框（由 el-table 外边框提供） */
 .minimalism-ui-note-style .markdown-reading-view table th:last-of-type,
 .minimalism-ui-note-style .markdown-reading-view table td:last-of-type,
-.minimalism-ui-note-style .markdown-reading-view .el-table .ltr:last-of-type {
+.minimalism-ui-note-style .markdown-reading-view .el-table .ltr:last-of-type,
+.minimalism-ui-note-style .cm-editor table th:last-of-type,
+.minimalism-ui-note-style .cm-editor table td:last-of-type {
 	border-right: none !important;
 }
 
 /* 首行单元格去掉顶边框（由 el-table 外边框提供） */
 .minimalism-ui-note-style .markdown-reading-view table thead tr:first-of-type th,
 .minimalism-ui-note-style .markdown-reading-view table tr:first-of-type td,
-.minimalism-ui-note-style .markdown-reading-view table tr:first-of-type th {
+.minimalism-ui-note-style .markdown-reading-view table tr:first-of-type th,
+.minimalism-ui-note-style .cm-editor table thead tr:first-of-type th,
+.minimalism-ui-note-style .cm-editor table tr:first-of-type td,
+.minimalism-ui-note-style .cm-editor table tr:first-of-type th {
 	border-top: none !important;
 }
 
 /* 末行单元格去掉底边框（由 el-table 外边框提供） */
 .minimalism-ui-note-style .markdown-reading-view table tbody tr:last-of-type td,
-.minimalism-ui-note-style .markdown-reading-view table tbody tr:last-of-type th {
+.minimalism-ui-note-style .markdown-reading-view table tbody tr:last-of-type th,
+.minimalism-ui-note-style .cm-editor table tbody tr:last-of-type td,
+.minimalism-ui-note-style .cm-editor table tbody tr:last-of-type th {
 	border-bottom: none !important;
 }
 
 /* tr 级别的末行底边框也去掉 */
-.minimalism-ui-note-style .markdown-reading-view table tbody tr:last-of-type {
+.minimalism-ui-note-style .markdown-reading-view table tbody tr:last-of-type,
+.minimalism-ui-note-style .cm-editor table tbody tr:last-of-type {
 	border-bottom: none !important;
+}
+
+/* ── 笔记样式：Bases 网格卡片标题 ──────────────────────────────────────── */
+
+body.minimalism-ui-note-style .bases-cards-property.mod-title {
+	font-weight: 200;
 }
