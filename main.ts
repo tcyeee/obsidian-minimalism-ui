@@ -2,6 +2,7 @@ import { Plugin, TFile, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings, DEFAULT_SETTINGS } from './src/settings';
 import { TabCacheManager } from './src/TabCacheManager';
 import { DragBarManager } from './src/DragBarManager';
+import { PropertiesAutoHeightManager } from './src/PropertiesAutoHeightManager';
 import { MinimalismUISettingTab } from './src/SettingTab';
 
 export type { MinimalismUISettings };
@@ -23,6 +24,7 @@ export default class MinimalismUIPlugin extends Plugin {
 
 	private tabCache: TabCacheManager;
 	private dragBar: DragBarManager;
+	private propertiesHeight: PropertiesAutoHeightManager;
 
 	private pinBlockHandler: ((e: MouseEvent) => void) | null = null;
 	private detachPatches = new Map<WorkspaceLeaf, () => void>();
@@ -43,6 +45,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			() => this.isOpeningHomePage,
 		);
 		this.dragBar = new DragBarManager(this.app, () => this.settings);
+		this.propertiesHeight = new PropertiesAutoHeightManager(this.app, () => this.settings);
 
 		await this.loadJetBrainsMono();
 		this.applyBodyClasses();
@@ -52,6 +55,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.app.workspace.onLayoutReady(() => {
 			this.dragBar.apply();
 			this.applyHomePage();
+			this.propertiesHeight.apply();
 			void this.openHomePage();
 		});
 		this.addSettingTab(new MinimalismUISettingTab(this.app, this));
@@ -73,6 +77,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.dragBar.remove();
 		this.removeHomePageHandler();
 		this.removeOutlineAnimation();
+		this.propertiesHeight.remove();
 	}
 
 	// ─── Body Classes ─────────────────────────────────────────────────────────
@@ -182,6 +187,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.dragBar.apply();
 		this.applyHomePage();
 		this.applyOutlineAnimation();
+		this.propertiesHeight.apply();
 	}
 
 	// ─── Outline Animation ────────────────────────────────────────────────────

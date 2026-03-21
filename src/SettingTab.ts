@@ -51,6 +51,13 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				.onChange(async v => { this.plugin.settings.macSidebar = v; await this.plugin.saveSettings(); }));
 
 		new Setting(containerEl)
+			.setName('自动调整属性窗口高度')
+			.setDesc('开启后，Properties 面板高度随笔记属性数量自动伸缩，切换笔记时平滑过渡（需同时开启极简侧边栏）')
+			.addToggle(t => t
+				.setValue(this.plugin.settings.autoPropertiesHeight)
+				.onChange(async v => { this.plugin.settings.autoPropertiesHeight = v; await this.plugin.saveSettings(); }));
+
+		new Setting(containerEl)
 			.setName('极简信息栏')
 			.setDesc('隐藏左侧属性栏的操作按钮，以及大纲、反向链接面板中的搜索框')
 			.addToggle(t => t

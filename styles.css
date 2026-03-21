@@ -105,6 +105,12 @@
 }
 
 
+/* 属性栏高度自动适配内容，切换笔记时平滑过渡 */
+.minimalism-ui-mac-sidebar .workspace-tabs[data-properties-auto-height] {
+	transition: height 0.3s ease !important;
+	overflow: hidden !important;
+}
+
 /* 属性栏分割线 */
 .minimalism-ui-mac-sidebar .workspace-leaf-resize-handle {
 	border: none !important;
