@@ -21,6 +21,8 @@ export class TabCacheManager {
 	private navAnimateHandler: ((leaf: WorkspaceLeaf | null) => void) | null = null;
 	private pendingAnimationCls: 'minimalism-ui-slide-from-left' | 'minimalism-ui-slide-from-right' | null = null;
 	private historyPatches = new Map<WorkspaceLeaf, HistoryPatch>();
+	// 由 getLeaf patch 新建、尚未调用 openFile 的空 leaf
+	private pendingInterceptLeaves = new Set<WorkspaceLeaf>();
 
 	// isOpeningHomePage 由 plugin 提供，避免首页打开时触发 getLeaf 拦截
 	constructor(
@@ -145,16 +147,25 @@ export class TabCacheManager {
 		this.navHistory = [];
 		this.navFuture = [];
 		this.navJumpTarget = null;
+		this.pendingInterceptLeaves.clear();
+	}
+
+	// 检查指定 leaf 是否正处于等待 openFile 的 pending 状态
+	// 供外部（homePageHandler）判断：若为 pending 则不应触发首页跳转
+	hasPendingIntercept(leaf: WorkspaceLeaf): boolean {
+		return this.pendingInterceptLeaves.has(leaf);
 	}
 
 	// 对新建的空 leaf 注入一次性 openFile 拦截器：
 	// 在文件实际加载前检查缓存，若已有相同文件的 leaf 则直接复用，避免闪烁
 	private interceptLeafOpenFile(leaf: WorkspaceLeaf) {
+		this.pendingInterceptLeaves.add(leaf);
 		const manager = this;
 		const origOpenFile = (leaf as any).openFile.bind(leaf);
 		(leaf as any).openFile = async function(file: TFile, state?: any) {
 			// 一次性拦截：立即还原，防止后续调用被意外拦截
 			(leaf as any).openFile = origOpenFile;
+			manager.pendingInterceptLeaves.delete(leaf);
 
 			if (!manager.isReusingLeaf) {
 				let existingLeaf: WorkspaceLeaf | null = null;
