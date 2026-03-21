@@ -18,6 +18,8 @@ export class TabCacheManager {
 	private navJumpTarget: WorkspaceLeaf | null = null;
 	private tabLimitHandler: (() => void) | null = null;
 	private navTrackHandler: ((leaf: WorkspaceLeaf | null) => void) | null = null;
+	private navAnimateHandler: ((leaf: WorkspaceLeaf | null) => void) | null = null;
+	private pendingAnimationCls: 'minimalism-ui-slide-from-left' | 'minimalism-ui-slide-from-right' | null = null;
 	private historyPatches = new Map<WorkspaceLeaf, HistoryPatch>();
 
 	// isOpeningHomePage 由 plugin 提供，避免首页打开时触发 getLeaf 拦截
@@ -92,6 +94,25 @@ export class TabCacheManager {
 		};
 		this.app.workspace.on('active-leaf-change', this.navTrackHandler);
 
+		// 前进/后退导航完成后，对已显示的目标 leaf 播放入场动画
+		this.navAnimateHandler = (leaf: WorkspaceLeaf | null) => {
+			if (!this.pendingAnimationCls || !leaf) return;
+			const cls = this.pendingAnimationCls;
+			this.pendingAnimationCls = null;
+			if (!this.getSettings().enableNavAnimation) return;
+			// 用 rAF 推迟到浏览器完成 DOM 渲染后再加动画 class，
+			// 避免 active-leaf-change 同步触发时 leaf 尚未显示
+			requestAnimationFrame(() => {
+				const el = (leaf as any).view?.contentEl as HTMLElement | undefined;
+				if (!el) return;
+				el.classList.remove('minimalism-ui-slide-from-left', 'minimalism-ui-slide-from-right');
+				void el.offsetWidth;
+				el.classList.add(cls);
+				el.addEventListener('animationend', () => el.classList.remove(cls), { once: true });
+			});
+		};
+		this.app.workspace.on('active-leaf-change', this.navAnimateHandler);
+
 		// 对已有 leaf 补充 history 拦截
 		this.app.workspace.iterateRootLeaves(leaf => this.patchLeafHistory(leaf));
 	}
@@ -109,6 +130,11 @@ export class TabCacheManager {
 			this.app.workspace.off('active-leaf-change', this.navTrackHandler);
 			this.navTrackHandler = null;
 		}
+		if (this.navAnimateHandler) {
+			this.app.workspace.off('active-leaf-change', this.navAnimateHandler);
+			this.navAnimateHandler = null;
+		}
+		this.pendingAnimationCls = null;
 		this.unpatchAllLeafHistories();
 		this.leafQueue = [];
 		this.navHistory = [];
@@ -161,6 +187,7 @@ export class TabCacheManager {
 			const prev = this.navHistory[this.navHistory.length - 1];
 			if ((prev as any).parent) {
 				this.navJumpTarget = prev;
+				this.pendingAnimationCls = 'minimalism-ui-slide-from-left';
 				this.app.workspace.setActiveLeaf(prev, { focus: true });
 				return;
 			}
@@ -174,6 +201,7 @@ export class TabCacheManager {
 			if ((next as any).parent) {
 				this.navHistory.push(next);
 				this.navJumpTarget = next;
+				this.pendingAnimationCls = 'minimalism-ui-slide-from-right';
 				this.app.workspace.setActiveLeaf(next, { focus: true });
 				return;
 			}
