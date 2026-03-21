@@ -22,7 +22,7 @@
 .markdown-reading-view .markdown-preview-section h5,
 .markdown-reading-view .markdown-preview-section h6,
 .cm-editor .cm-line {
-	font-family: 'JetBrains Mono Digits', inherit !important;
+	font-family: 'JetBrains Mono Digits', var(--font-text), -apple-system, sans-serif !important;
 }
 
 /* ── Mac 风格全局样式 ──────────────────────────────────────────────────── */
@@ -602,6 +602,25 @@ body.minimalism-ui-note-style .cm-editor .cm-scroller .cm-content .cm-line.Hyper
 	padding-bottom: 4px !important;
 	padding-left: 16px !important;
 	padding-right: 16px !important;
+}
+
+/* ── 笔记样式：内部链接去掉下划线 ───────────────────────────────────── */
+
+/* 覆盖 Obsidian 链接下划线 CSS 变量 */
+.minimalism-ui-note-style {
+	--link-decoration: none;
+	--link-decoration-hover: none;
+	--link-unresolved-decoration: none;
+}
+
+/* 阅读视图（兜底） */
+.minimalism-ui-note-style .markdown-reading-view a.internal-link {
+	text-decoration: none !important;
+}
+
+/* 编辑视图（Live Preview）兜底 */
+.minimalism-ui-note-style .cm-editor .cm-hmd-internal-link {
+	text-decoration: none !important;
 }
 
 /* ── 笔记样式：代码块字体大小 ────────────────────────────────────────── */
