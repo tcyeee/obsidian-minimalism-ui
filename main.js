@@ -366,17 +366,20 @@ var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    const singlePageSetting = new import_obsidian.Setting(containerEl).setName("\u5355\u9875\u6A21\u5F0F").addToggle((t) => t.setValue(this.plugin.settings.disableNoteTabs).onChange(async (v) => {
+    const singlePageSetting = new import_obsidian.Setting(containerEl).setName("\u5355\u9875\u6A21\u5F0F");
+    singlePageSetting.settingEl.addClass("minimalism-ui-single-page-setting");
+    singlePageSetting.addToggle((t) => t.setValue(this.plugin.settings.disableNoteTabs).onChange(async (v) => {
       this.plugin.settings.disableNoteTabs = v;
       this.plugin.settings.disablePinTab = v;
       this.plugin.settings.enableLeafCache = v;
       await this.plugin.saveSettings();
     }));
-    singlePageSetting.descEl.createEl("span", { text: "\u5C06\u7B14\u8BB0\u533A\u57DF\u8FD8\u539F\u4E3A\u5355\u7A97\u53E3\u6D4F\u89C8\u4F53\u9A8C\uFF0C\u9690\u85CF\u9876\u90E8\u6807\u7B7E\u680F\uFF0C\u6BCF\u6B21\u53EA\u5C55\u793A\u4E00\u7BC7\u7B14\u8BB0\u3002" });
+    singlePageSetting.descEl.createEl("span", { text: "1.\u9690\u85CF\u9876\u90E8\u6807\u7B7E\u680F\uFF0C\u6BCF\u6B21\u53EA\u5C55\u793A\u4E00\u7BC7\u7B14\u8BB0\u3002" });
     singlePageSetting.descEl.createEl("br");
-    singlePageSetting.descEl.createEl("span", { text: "\u5F00\u542F\u540E\u81EA\u52A8\u542F\u7528\u9875\u9762\u7F13\u5B58\uFF0C\u5728\u5185\u5B58\u4E2D\u4FDD\u7559\u6700\u8FD1\u8BBF\u95EE\u7684 10 \u4E2A\u9875\u9762\uFF0C\u5207\u6362\u56DE\u5DF2\u8BBF\u95EE\u9875\u9762\u65F6\u65E0\u9700\u91CD\u65B0\u52A0\u8F7D\uFF0C\u5E76\u901A\u8FC7\u5DE6\u4E0A\u89D2\u7684\u524D\u8FDB / \u540E\u9000\u6309\u94AE\u5728\u5386\u53F2\u8BB0\u5F55\u95F4\u5BFC\u822A\u3002" });
+    singlePageSetting.descEl.createEl("span", { text: "2.\u542F\u7528\u9875\u9762\u7F13\u5B58\uFF0C\u5728\u5185\u5B58\u4E2D\u4FDD\u7559\u6700\u8FD1\u8BBF\u95EE\u7684 10 \u4E2A\u9875\u9762" });
     singlePageSetting.descEl.createEl("br");
-    singlePageSetting.descEl.createEl("span", { text: "\u540C\u65F6\u7981\u7528 Pin \u6807\u7B7E\u529F\u80FD\uFF0C\u907F\u514D\u591A\u4F59\u7684\u6807\u7B7E\u88AB\u56FA\u5B9A\u5728\u9876\u90E8\u3002" });
+    singlePageSetting.descEl.createEl("span", { text: "3.\u7981\u7528 Pin \u6807\u7B7E\u529F\u80FD\uFF0C\u907F\u514D\u591A\u4F59\u7684\u6807\u7B7E\u88AB\u56FA\u5B9A\u5728\u9876\u90E8\u3002" });
+    singlePageSetting.descEl.createEl("br");
   }
 };
 

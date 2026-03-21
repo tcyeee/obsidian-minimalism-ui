@@ -87,8 +87,9 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 			});
 
 		const singlePageSetting = new Setting(containerEl)
-			.setName('单页模式')
-			.addToggle(t => t
+			.setName('单页模式');
+		singlePageSetting.settingEl.addClass('minimalism-ui-single-page-setting');
+		singlePageSetting.addToggle(t => t
 				.setValue(this.plugin.settings.disableNoteTabs)
 				.onChange(async v => {
 					this.plugin.settings.disableNoteTabs = v;
