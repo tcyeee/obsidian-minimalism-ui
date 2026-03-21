@@ -435,6 +435,26 @@
 	line-height: 1.5;
 }
 
+/* ── 单页模式：页面切换动画 ──────────────────────────────────────────── */
+
+@keyframes minimalism-slide-from-left {
+	from { transform: translateX(-18px); opacity: 0; }
+	to   { transform: translateX(0);     opacity: 1; }
+}
+
+@keyframes minimalism-slide-from-right {
+	from { transform: translateX(18px); opacity: 0; }
+	to   { transform: translateX(0);    opacity: 1; }
+}
+
+.minimalism-ui-slide-from-left {
+	animation: minimalism-slide-from-left 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.minimalism-ui-slide-from-right {
+	animation: minimalism-slide-from-right 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
 /* ── 单页模式：多行说明与其他单行设置项对齐 ─────────────────────────── */
 
 .minimalism-ui-single-page-setting {

@@ -37,6 +37,7 @@ var DEFAULT_SETTINGS = {
   simplifyPanel: false,
   disableNoteTabs: false,
   enableLeafCache: false,
+  enableNavAnimation: false,
   noteStyle: false,
   homePage: ""
 };
@@ -57,6 +58,8 @@ var TabCacheManager = class {
     this.navJumpTarget = null;
     this.tabLimitHandler = null;
     this.navTrackHandler = null;
+    this.navAnimateHandler = null;
+    this.pendingAnimationCls = null;
     this.historyPatches = /* @__PURE__ */ new Map();
   }
   apply() {
@@ -113,6 +116,25 @@ var TabCacheManager = class {
       this.navFuture = [];
     };
     this.app.workspace.on("active-leaf-change", this.navTrackHandler);
+    this.navAnimateHandler = (leaf) => {
+      if (!this.pendingAnimationCls || !leaf)
+        return;
+      const cls = this.pendingAnimationCls;
+      this.pendingAnimationCls = null;
+      if (!this.getSettings().enableNavAnimation)
+        return;
+      requestAnimationFrame(() => {
+        var _a;
+        const el = (_a = leaf.view) == null ? void 0 : _a.contentEl;
+        if (!el)
+          return;
+        el.classList.remove("minimalism-ui-slide-from-left", "minimalism-ui-slide-from-right");
+        void el.offsetWidth;
+        el.classList.add(cls);
+        el.addEventListener("animationend", () => el.classList.remove(cls), { once: true });
+      });
+    };
+    this.app.workspace.on("active-leaf-change", this.navAnimateHandler);
     this.app.workspace.iterateRootLeaves((leaf) => this.patchLeafHistory(leaf));
   }
   remove() {
@@ -128,6 +150,11 @@ var TabCacheManager = class {
       this.app.workspace.off("active-leaf-change", this.navTrackHandler);
       this.navTrackHandler = null;
     }
+    if (this.navAnimateHandler) {
+      this.app.workspace.off("active-leaf-change", this.navAnimateHandler);
+      this.navAnimateHandler = null;
+    }
+    this.pendingAnimationCls = null;
     this.unpatchAllLeafHistories();
     this.leafQueue = [];
     this.navHistory = [];
@@ -175,6 +202,7 @@ var TabCacheManager = class {
       const prev = this.navHistory[this.navHistory.length - 1];
       if (prev.parent) {
         this.navJumpTarget = prev;
+        this.pendingAnimationCls = "minimalism-ui-slide-from-left";
         this.app.workspace.setActiveLeaf(prev, { focus: true });
         return;
       }
@@ -186,6 +214,7 @@ var TabCacheManager = class {
       if (next.parent) {
         this.navHistory.push(next);
         this.navJumpTarget = next;
+        this.pendingAnimationCls = "minimalism-ui-slide-from-right";
         this.app.workspace.setActiveLeaf(next, { focus: true });
         return;
       }
@@ -380,6 +409,10 @@ var MinimalismUISettingTab = class extends import_obsidian.PluginSettingTab {
     singlePageSetting.descEl.createEl("br");
     singlePageSetting.descEl.createEl("span", { text: "3.\u7981\u7528 Pin \u6807\u7B7E\u529F\u80FD\uFF0C\u907F\u514D\u591A\u4F59\u7684\u6807\u7B7E\u88AB\u56FA\u5B9A\u5728\u9876\u90E8\u3002" });
     singlePageSetting.descEl.createEl("br");
+    new import_obsidian.Setting(containerEl).setName("\u9875\u9762\u52A0\u8F7D\u52A8\u753B").setDesc("\u524D\u8FDB\u6216\u540E\u9000\u65F6\uFF0C\u4E3A\u76EE\u6807\u9875\u9762\u64AD\u653E\u6ED1\u5165\u52A8\u753B").addToggle((t) => t.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
+      this.plugin.settings.enableNavAnimation = v;
+      await this.plugin.saveSettings();
+    }));
   }
 };
 

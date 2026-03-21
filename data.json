@@ -5,6 +5,7 @@
   "simplifyPanel": true,
   "disableNoteTabs": true,
   "enableLeafCache": true,
+  "enableNavAnimation": true,
   "noteStyle": true,
   "homePage": "README.md",
   "leafCacheSize": 10,

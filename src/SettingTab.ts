@@ -90,18 +90,28 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 			.setName('单页模式');
 		singlePageSetting.settingEl.addClass('minimalism-ui-single-page-setting');
 		singlePageSetting.addToggle(t => t
-				.setValue(this.plugin.settings.disableNoteTabs)
-				.onChange(async v => {
-					this.plugin.settings.disableNoteTabs = v;
-					this.plugin.settings.disablePinTab = v;
-					this.plugin.settings.enableLeafCache = v;
-					await this.plugin.saveSettings();
-				}));
+			.setValue(this.plugin.settings.disableNoteTabs)
+			.onChange(async v => {
+				this.plugin.settings.disableNoteTabs = v;
+				this.plugin.settings.disablePinTab = v;
+				this.plugin.settings.enableLeafCache = v;
+				await this.plugin.saveSettings();
+			}));
 		singlePageSetting.descEl.createEl('span', { text: '1.隐藏顶部标签栏，每次只展示一篇笔记。' });
 		singlePageSetting.descEl.createEl('br');
 		singlePageSetting.descEl.createEl('span', { text: '2.启用页面缓存，在内存中保留最近访问的 10 个页面' });
 		singlePageSetting.descEl.createEl('br');
 		singlePageSetting.descEl.createEl('span', { text: '3.禁用 Pin 标签功能，避免多余的标签被固定在顶部。' });
 		singlePageSetting.descEl.createEl('br');
+
+		new Setting(containerEl)
+			.setName('页面加载动画(Beta)')
+			.setDesc('前进或后退时，为目标页面播放滑入动画')
+			.addToggle(t => t
+				.setValue(this.plugin.settings.enableNavAnimation)
+				.onChange(async v => {
+					this.plugin.settings.enableNavAnimation = v;
+					await this.plugin.saveSettings();
+				}));
 	}
 }
