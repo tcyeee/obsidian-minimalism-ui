@@ -681,6 +681,7 @@ body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar-track {
 
 .minimalism-ui-note-style .el-table table {
 	margin: 0 !important;
+	width: 100% !important;
 }
 
 .minimalism-ui-note-style .markdown-reading-view table thead {
@@ -694,6 +695,15 @@ body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar-track {
 
 .minimalism-ui-note-style .markdown-reading-view table tbody tr {
 	border-bottom: 1px solid #DADCDE;
+}
+
+/* 所有单元格：字体、大小、颜色 */
+.minimalism-ui-note-style .markdown-reading-view table th,
+.minimalism-ui-note-style .markdown-reading-view table td,
+.minimalism-ui-note-style .markdown-reading-view .el-table .ltr {
+	font-family: 'JetBrains Mono', 'SourceHanSansSC', -apple-system, sans-serif !important;
+	font-size: calc(var(--font-text-size, 16px) - 3px) !important;
+	color: rgb(107, 107, 107) !important;
 }
 
 /* 所有单元格：内边距 + 列分隔线（左边框，首列除外） */
