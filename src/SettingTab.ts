@@ -51,17 +51,6 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				.onChange(async v => { this.plugin.settings.macSidebar = v; await this.plugin.saveSettings(); }));
 
 		new Setting(containerEl)
-			.setName('极简导航栏')
-			.setDesc('隐藏笔记区域顶部的标签栏，限制同时只能打开一个笔记，并禁用 Pin 功能')
-			.addToggle(t => t
-				.setValue(this.plugin.settings.disableNoteTabs)
-				.onChange(async v => {
-					this.plugin.settings.disableNoteTabs = v;
-					this.plugin.settings.disablePinTab = v;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
 			.setName('极简信息栏')
 			.setDesc('隐藏左侧属性栏的操作按钮，以及 Outline、Backlinks 面板中的搜索框')
 			.addToggle(t => t
@@ -97,14 +86,21 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				});
 			});
 
-		new Setting(containerEl)
-			.setName('页面缓存')
-			.setDesc('极简导航栏开启时，在内存中保留最近访问的 10 个页面，返回已访问页面时无需重新加载')
+		const singlePageSetting = new Setting(containerEl)
+			.setName('单页模式')
 			.addToggle(t => t
-				.setValue(this.plugin.settings.enableLeafCache)
+				.setValue(this.plugin.settings.disableNoteTabs)
 				.onChange(async v => {
+					this.plugin.settings.disableNoteTabs = v;
+					this.plugin.settings.disablePinTab = v;
 					this.plugin.settings.enableLeafCache = v;
 					await this.plugin.saveSettings();
 				}));
+		singlePageSetting.descEl.createEl('span', { text: '1.隐藏顶部标签栏，每次只展示一篇笔记。' });
+		singlePageSetting.descEl.createEl('br');
+		singlePageSetting.descEl.createEl('span', { text: '2.启用页面缓存，在内存中保留最近访问的 10 个页面' });
+		singlePageSetting.descEl.createEl('br');
+		singlePageSetting.descEl.createEl('span', { text: '3.禁用 Pin 标签功能，避免多余的标签被固定在顶部。' });
+		singlePageSetting.descEl.createEl('br');
 	}
 }
