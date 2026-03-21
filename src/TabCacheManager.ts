@@ -181,7 +181,7 @@ export class TabCacheManager {
 		}
 	}
 
-	private patchLeafHistory(leaf: WorkspaceLeaf) {
+	patchLeafHistory(leaf: WorkspaceLeaf) {
 		const history = (leaf as any).history;
 		if (!history || this.historyPatches.has(leaf)) return;
 		const origBack = history.back.bind(history);
