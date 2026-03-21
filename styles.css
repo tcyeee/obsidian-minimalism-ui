@@ -507,7 +507,7 @@
 .minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h4,
 .minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h5,
 .minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h6 {
-	font-family: 'JetBrains Mono', 'SourceHanSansSC', -apple-system, sans-serif !important;
+	font-family: 'JetBrains Mono', -apple-system, sans-serif !important;
 	line-height: 1.6 !important;
 }
 
@@ -522,7 +522,7 @@
 .minimalism-ui-note-style .cm-editor .cm-content,
 .minimalism-ui-note-style .cm-editor .cm-line,
 .minimalism-ui-note-style .cm-editor .cm-scroller {
-	font-family: 'JetBrains Mono', 'SourceHanSansSC', -apple-system, sans-serif !important;
+	font-family: 'JetBrains Mono', -apple-system, sans-serif !important;
 	font-size: calc(var(--font-text-size, 16px) - 2px) !important;
 	line-height: 1.6 !important;
 }
@@ -714,7 +714,7 @@ body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar-track {
 .minimalism-ui-note-style .markdown-reading-view .el-table .ltr,
 .minimalism-ui-note-style .cm-editor table th,
 .minimalism-ui-note-style .cm-editor table td {
-	font-family: 'JetBrains Mono', 'SourceHanSansSC', -apple-system, sans-serif !important;
+	font-family: 'JetBrains Mono', -apple-system, sans-serif !important;
 	font-size: calc(var(--font-text-size, 16px) - 3px) !important;
 	color: rgb(107, 107, 107) !important;
 }

@@ -33,7 +33,6 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.dragBar = new DragBarManager(this.app, () => this.settings);
 
 		await this.loadJetBrainsMono();
-		await this.loadSourceHanSansSC();
 		this.applyBodyClasses();
 		this.applyPinBlock();
 		this.tabCache.apply();
@@ -202,14 +201,4 @@ export default class MinimalismUIPlugin extends Plugin {
 		]);
 	}
 
-	private async loadSourceHanSansSC() {
-		const unicodeRange = 'U+4E00-9FA5, U+9FA6-9FFF, U+3400-4DBF, U+2E80-2EF3, U+2F00-2FD5, U+2FF0-2FFB, U+3007, U+31C0-31E3, U+3105-312F, U+31A0-31BA, U+F900-FAD9, U+2F800-2FA1D';
-		await Promise.all([
-			this.loadFontFace('SourceHanSansSC', { file: 'SourceHanSansSC-Light.otf',   weight: '300',    unicodeRange }),
-			this.loadFontFace('SourceHanSansSC', { file: 'SourceHanSansSC-Regular.otf', weight: 'normal', unicodeRange }),
-			this.loadFontFace('SourceHanSansSC', { file: 'SourceHanSansSC-Medium.otf',  weight: '500',    unicodeRange }),
-			this.loadFontFace('SourceHanSansSC', { file: 'SourceHanSansSC-Bold.otf',    weight: 'bold',   unicodeRange }),
-			this.loadFontFace('SourceHanSansSC', { file: 'SourceHanSansSC-Heavy.otf',   weight: '900',    unicodeRange }),
-		]);
-	}
 }
