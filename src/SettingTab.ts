@@ -63,7 +63,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('极简属性栏')
-			.setDesc('开启后，Properties 面板高度随笔记属性数量自动伸缩，切换笔记时平滑过渡（需同时开启极简侧边栏）')
+			.setDesc('开启后，将 Properties 面板移至左侧边栏下半部分，并根据笔记属性数量自动调整高度（需同时开启极简侧边栏）')
 			.addToggle(t => t
 				.setValue(this.plugin.settings.autoPropertiesHeight)
 				.onChange(async v => { this.plugin.settings.autoPropertiesHeight = v; await this.plugin.saveSettings(); }));

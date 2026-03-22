@@ -520,6 +520,7 @@ var PropertiesAutoHeightManager = class {
     const s = this.getSettings();
     if (!s.macSidebar || !s.autoPropertiesHeight)
       return;
+    void this.ensurePropertiesInLeftSidebar();
     let rafId = null;
     const syncHeight = () => {
       const tabsEl = this.findTabsEl();
@@ -592,6 +593,25 @@ var PropertiesAutoHeightManager = class {
     });
     this.savedFlexGrow = "";
     this.restorePosition();
+  }
+  // ── Sidebar placement ─────────────────────────────────────────────────────
+  /**
+   * 检查 Properties 面板是否已在左侧边栏；若不在（通常默认位于右侧上半部分），
+   * 则将其 detach 后在左侧边栏新建一个分区（split）重新打开。
+   * 移动完成后 Obsidian 触发 layout-change，由 layoutHandler 接手后续 moveToBottom。
+   */
+  async ensurePropertiesInLeftSidebar() {
+    if (document.querySelector(PROPS_SELECTOR))
+      return;
+    const leaves = this.app.workspace.getLeavesOfType("file-properties");
+    if (leaves.length === 0)
+      return;
+    for (const leaf of leaves)
+      leaf.detach();
+    const newLeaf = this.app.workspace.getLeftLeaf(true);
+    if (!newLeaf)
+      return;
+    await newLeaf.setViewState({ type: "file-properties", active: false });
   }
   // ── DOM reordering ────────────────────────────────────────────────────────
   /**
@@ -723,7 +743,7 @@ var MinimalismUISettingTab = class extends import_obsidian2.PluginSettingTab {
       this.plugin.settings.simplifyPanel = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian2.Setting(containerEl).setName("\u6781\u7B80\u5C5E\u6027\u680F").setDesc("\u5F00\u542F\u540E\uFF0CProperties \u9762\u677F\u9AD8\u5EA6\u968F\u7B14\u8BB0\u5C5E\u6027\u6570\u91CF\u81EA\u52A8\u4F38\u7F29\uFF0C\u5207\u6362\u7B14\u8BB0\u65F6\u5E73\u6ED1\u8FC7\u6E21\uFF08\u9700\u540C\u65F6\u5F00\u542F\u6781\u7B80\u4FA7\u8FB9\u680F\uFF09").addToggle((t) => t.setValue(this.plugin.settings.autoPropertiesHeight).onChange(async (v) => {
+    new import_obsidian2.Setting(containerEl).setName("\u6781\u7B80\u5C5E\u6027\u680F").setDesc("\u5F00\u542F\u540E\uFF0C\u5C06 Properties \u9762\u677F\u79FB\u81F3\u5DE6\u4FA7\u8FB9\u680F\u4E0B\u534A\u90E8\u5206\uFF0C\u5E76\u6839\u636E\u7B14\u8BB0\u5C5E\u6027\u6570\u91CF\u81EA\u52A8\u8C03\u6574\u9AD8\u5EA6\uFF08\u9700\u540C\u65F6\u5F00\u542F\u6781\u7B80\u4FA7\u8FB9\u680F\uFF09").addToggle((t) => t.setValue(this.plugin.settings.autoPropertiesHeight).onChange(async (v) => {
       this.plugin.settings.autoPropertiesHeight = v;
       await this.plugin.saveSettings();
     }));

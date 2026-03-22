@@ -1,4 +1,4 @@
-import { App } from 'obsidian';
+import { App, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from './settings';
 
 const PROPS_SELECTOR =
@@ -25,6 +25,10 @@ export class PropertiesAutoHeightManager {
 		this.remove();
 		const s = this.getSettings();
 		if (!s.macSidebar || !s.autoPropertiesHeight) return;
+
+		// 如果 Properties 面板不在左侧边栏，先将其移过去；
+		// 移动完成后 layout-change 触发，layoutHandler 会接手后续 setupObserver
+		void this.ensurePropertiesInLeftSidebar();
 
 		let rafId: number | null = null;
 		const syncHeight = () => {
@@ -110,6 +114,30 @@ export class PropertiesAutoHeightManager {
 
 		// Restore panel to its original position in the sidebar
 		this.restorePosition();
+	}
+
+	// ── Sidebar placement ─────────────────────────────────────────────────────
+
+	/**
+	 * 检查 Properties 面板是否已在左侧边栏；若不在（通常默认位于右侧上半部分），
+	 * 则将其 detach 后在左侧边栏新建一个分区（split）重新打开。
+	 * 移动完成后 Obsidian 触发 layout-change，由 layoutHandler 接手后续 moveToBottom。
+	 */
+	private async ensurePropertiesInLeftSidebar(): Promise<void> {
+		// 已在左侧边栏 → 无需移动
+		if (document.querySelector(PROPS_SELECTOR)) return;
+
+		const leaves = this.app.workspace.getLeavesOfType('file-properties') as WorkspaceLeaf[];
+		if (leaves.length === 0) return; // 面板未开启，无法移动
+
+		// 从当前位置（通常是右侧边栏）摘除
+		for (const leaf of leaves) leaf.detach();
+
+		// 在左侧边栏底部新建一个独立分区并打开 Properties
+		const newLeaf = this.app.workspace.getLeftLeaf(true);
+		if (!newLeaf) return;
+		await newLeaf.setViewState({ type: 'file-properties', active: false });
+		// layout-change 触发后 layoutHandler → setupObserver → moveToBottom 完成定位
 	}
 
 	// ── DOM reordering ────────────────────────────────────────────────────────
