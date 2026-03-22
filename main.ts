@@ -1,4 +1,4 @@
-import { Plugin, TFile } from 'obsidian';
+import { Plugin } from 'obsidian';
 import { MinimalismUISettings, DEFAULT_SETTINGS } from './src/settings';
 import { TabCacheManager } from './src/TabCacheManager';
 import { DragBarManager } from './src/DragBarManager';
