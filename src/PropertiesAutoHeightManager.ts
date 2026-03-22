@@ -154,8 +154,8 @@ export class PropertiesAutoHeightManager {
 			}) => Promise<unknown>;
 		};
 		await ws.ensureSideLeaf('outline', 'left', {
-			split: true,
-			reveal: false,
+			split: false,
+			reveal: true,
 			active: false,
 		});
 	}

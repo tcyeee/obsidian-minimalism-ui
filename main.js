@@ -614,8 +614,8 @@ var PropertiesAutoHeightManager = class {
     this.app.workspace.detachLeavesOfType("outline");
     const ws = this.app.workspace;
     await ws.ensureSideLeaf("outline", "left", {
-      split: true,
-      reveal: false,
+      split: false,
+      reveal: true,
       active: false
     });
   }
