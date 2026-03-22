@@ -3,7 +3,6 @@ import { MinimalismUISettings, DEFAULT_SETTINGS } from './src/settings';
 import { TabCacheManager } from './src/TabCacheManager';
 import { DragBarManager } from './src/DragBarManager';
 import { SinglePageManager } from './src/SinglePageManager';
-import { PropertiesAutoHeightManager } from './src/PropertiesAutoHeightManager';
 import { MinimalismUISettingTab } from './src/SettingTab';
 
 export type { MinimalismUISettings };
@@ -21,8 +20,6 @@ export default class MinimalismUIPlugin extends Plugin {
 	private tabCache: TabCacheManager;
 	private dragBar: DragBarManager;
 	private singlePage: SinglePageManager;
-	propertiesHeight: PropertiesAutoHeightManager;
-
 	// Shared flag between TabCacheManager and SinglePageManager.
 	// TabCacheManager reads it to skip getLeaf interception while the home page
 	// is opening; SinglePageManager writes it during openHomePage().
@@ -48,8 +45,6 @@ export default class MinimalismUIPlugin extends Plugin {
 			() => this.isOpeningHomePage,
 			(v) => { this.isOpeningHomePage = v; },
 		);
-		this.propertiesHeight = new PropertiesAutoHeightManager(this.app, () => this.settings);
-
 		await this.loadJetBrainsMono();
 		this.applyBodyClasses();
 		this.singlePage.apply();
@@ -58,7 +53,6 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.app.workspace.onLayoutReady(() => {
 			this.dragBar.apply();
 			this.singlePage.applyHomePage();
-			this.propertiesHeight.apply();
 			void this.singlePage.openHomePage();
 		});
 		this.addSettingTab(new MinimalismUISettingTab(this.app, this));
@@ -79,7 +73,6 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.tabCache.remove();
 		this.dragBar.remove();
 		this.removeOutlineAnimation();
-		this.propertiesHeight.remove();
 	}
 
 	// ─── Body Classes ─────────────────────────────────────────────────────────
@@ -108,7 +101,6 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.dragBar.apply();
 		this.singlePage.applyHomePage();
 		this.applyOutlineAnimation();
-		this.propertiesHeight.apply();
 	}
 
 	// ─── Outline Animation ────────────────────────────────────────────────────

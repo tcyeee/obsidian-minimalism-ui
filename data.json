@@ -1,5 +1,5 @@
 {
-  "macSidebar": true,
+  "macSidebar": false,
   "hideTabBar": false,
   "disablePinTab": false,
   "simplifyPanel": false,
