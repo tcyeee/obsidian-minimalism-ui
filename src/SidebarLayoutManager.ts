@@ -105,7 +105,7 @@ export class SidebarLayoutManager {
 			if (type === 'outline' || type === 'file-properties') stragglers.push(leaf);
 		});
 		for (const leaf of stragglers) {
-			try { this.forceDetach(leaf); } catch {}
+			try { this.forceDetach(leaf); } catch { /* leaf may already be detached */ }
 		}
 	}
 
