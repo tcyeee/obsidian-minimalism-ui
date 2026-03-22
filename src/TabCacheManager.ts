@@ -57,12 +57,14 @@ export class TabCacheManager {
 		this.leafQueue = [];
 		if (!this.getSettings().disableNoteTabs) return;
 
-		// 拦截 workspace.getLeaf(false)：将所有"当前 leaf"导航改为新开 tab，
-		// 并在新 leaf 上注入一次性 openFile 拦截器（路径 4）
+		// 拦截所有会新建/复用 leaf 的 getLeaf 调用（false/undefined/true/'tab'），
+		// 统一改为新开 tab 并注入一次性 openFile 拦截器，实现全路径去重。
+		// 'split' / 'window' 等明确指定布局方式的调用不拦截，保留原行为。
 		const ws = this.app.workspace as unknown as WorkspaceInternal;
 		this.originalGetLeaf = ws.getLeaf.bind(ws);
 		ws.getLeaf = (newLeaf?: boolean | string) => {
-			if ((newLeaf === false || newLeaf === undefined) && !this.isReusingLeaf && !this.isOpeningHomePage()) {
+			const shouldIntercept = newLeaf === false || newLeaf === undefined || newLeaf === true || newLeaf === 'tab';
+			if (shouldIntercept && !this.isReusingLeaf && !this.isOpeningHomePage()) {
 				const leaf = this.originalGetLeaf!('tab');
 				this.interceptLeafOpenFile(leaf);
 				return leaf;
