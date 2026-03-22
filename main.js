@@ -497,6 +497,7 @@ var SinglePageManager = class {
 
 // src/PropertiesAutoHeightManager.ts
 var PROPS_SELECTOR = '.workspace-split.mod-left-split .workspace-leaf-content[data-type="file-properties"]';
+var OUTLINE_SELECTOR = '.workspace-split.mod-left-split .workspace-leaf-content[data-type="outline"]';
 var PropertiesAutoHeightManager = class {
   constructor(app, getSettings) {
     this.app = app;
@@ -519,6 +520,8 @@ var PropertiesAutoHeightManager = class {
     const s = this.getSettings();
     if (!s.macSidebar)
       return;
+    this.expandLeftSidebar();
+    void this.ensureOutlineInLeftSidebar();
     void this.ensurePropertiesInLeftSidebar();
     let rafId = null;
     const syncHeight = () => {
@@ -594,6 +597,28 @@ var PropertiesAutoHeightManager = class {
     this.restorePosition();
   }
   // ── Sidebar placement ─────────────────────────────────────────────────────
+  /** 展开左侧边栏（如已展开则无操作）。 */
+  expandLeftSidebar() {
+    const leftSplit = this.app.workspace.leftSplit;
+    if (leftSplit == null ? void 0 : leftSplit.collapsed)
+      leftSplit.expand();
+  }
+  /**
+   * 检查 Outline 面板是否已在左侧边栏；若不在，先关闭现有 Outline 面板，
+   * 再用 ensureSideLeaf 在左侧边栏新建独立分区。
+   * moveToBottom 将 Properties 置底后，Outline 自然位于上半部分。
+   */
+  async ensureOutlineInLeftSidebar() {
+    if (document.querySelector(OUTLINE_SELECTOR))
+      return;
+    this.app.workspace.detachLeavesOfType("outline");
+    const ws = this.app.workspace;
+    await ws.ensureSideLeaf("outline", "left", {
+      split: true,
+      reveal: false,
+      active: false
+    });
+  }
   /**
    * 检查 Properties 面板是否已在左侧边栏；若不在（通常默认位于右侧上半部分），
    * 先关闭所有现有 Properties 面板，再用 ensureSideLeaf 在左侧边栏新建独立分区。
