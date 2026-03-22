@@ -27,6 +27,17 @@ type HistoryPatch = {
 	canGoForward: (() => boolean) | undefined;
 };
 
+type ObsidianCommand = {
+	callback?: () => void;
+	checkCallback?: (checking: boolean) => boolean | void;
+};
+
+type AppInternal = App & {
+	commands: {
+		commands: Record<string, ObsidianCommand>;
+	};
+};
+
 export class TabCacheManager {
 	private leafQueue: WorkspaceLeaf[] = [];
 	private isReusingLeaf = false;
@@ -42,6 +53,8 @@ export class TabCacheManager {
 	private navTimer: ReturnType<typeof setTimeout> | null = null;
 	private resizeObserverErrHandler: ((e: ErrorEvent) => void) | null = null;
 	private historyPatches = new Map<WorkspaceLeaf, HistoryPatch>();
+	private origGoBack: ObsidianCommand | null = null;
+	private origGoForward: ObsidianCommand | null = null;
 	// 由 getLeaf patch 新建、尚未调用 openFile 的空 leaf
 	private pendingInterceptLeaves = new Set<WorkspaceLeaf>();
 
@@ -160,6 +173,33 @@ export class TabCacheManager {
 
 		// 对已有 leaf 补充 history 拦截
 		this.app.workspace.iterateRootLeaves(leaf => this.patchLeafHistory(leaf));
+
+		// Patch 内置的 app:go-back / app:go-forward command，
+		// 使快捷键在焦点位于 OUTLINE / PROPERTIES 等侧边栏面板时同样生效。
+		// Obsidian 热键系统在 document 层全局触发 command，不受焦点限制；
+		// 唯一有焦点依赖的是 command 内部的 getActiveLeaf()?.history.back/forward()，
+		// 替换 callback 与 checkCallback 两个入口，直接调用我们的导航方法即可解决。
+		const appCmds = (this.app as unknown as AppInternal).commands.commands;
+		const backCmd = appCmds['app:go-back'];
+		const fwdCmd  = appCmds['app:go-forward'];
+		if (backCmd) {
+			this.origGoBack = { callback: backCmd.callback, checkCallback: backCmd.checkCallback };
+			delete backCmd.callback;
+			backCmd.checkCallback = (checking: boolean) => {
+				if (checking) return this.navHistory.length >= 2;
+				this.navigateBack();
+				return true;
+			};
+		}
+		if (fwdCmd) {
+			this.origGoForward = { callback: fwdCmd.callback, checkCallback: fwdCmd.checkCallback };
+			delete fwdCmd.callback;
+			fwdCmd.checkCallback = (checking: boolean) => {
+				if (checking) return this.navFuture.length > 0;
+				this.navigateForward();
+				return true;
+			};
+		}
 	}
 
 	remove() {
@@ -189,6 +229,25 @@ export class TabCacheManager {
 			this.resizeObserverErrHandler = null;
 		}
 		this.unpatchAllLeafHistories();
+		const appCmds = (this.app as unknown as AppInternal).commands.commands;
+		if (this.origGoBack) {
+			const cmd = appCmds['app:go-back'];
+			if (cmd) {
+				delete cmd.checkCallback;
+				if (this.origGoBack.callback) cmd.callback = this.origGoBack.callback;
+				if (this.origGoBack.checkCallback) cmd.checkCallback = this.origGoBack.checkCallback;
+			}
+			this.origGoBack = null;
+		}
+		if (this.origGoForward) {
+			const cmd = appCmds['app:go-forward'];
+			if (cmd) {
+				delete cmd.checkCallback;
+				if (this.origGoForward.callback) cmd.callback = this.origGoForward.callback;
+				if (this.origGoForward.checkCallback) cmd.checkCallback = this.origGoForward.checkCallback;
+			}
+			this.origGoForward = null;
+		}
 		this.leafQueue = [];
 		this.navHistory = [];
 		this.navFuture = [];
