@@ -497,6 +497,44 @@ var SinglePageManager = class {
   }
 };
 
+// src/SidebarLayoutManager.ts
+var SidebarLayoutManager = class {
+  constructor(app, getSettings) {
+    this.app = app;
+    this.getSettings = getSettings;
+  }
+  async apply() {
+    if (!this.getSettings().macSidebar)
+      return;
+    const { workspace } = this.app;
+    const leftSplit = workspace.leftSplit;
+    if (leftSplit == null ? void 0 : leftSplit.collapsed) {
+      leftSplit.expand();
+    }
+    const toDetach = [];
+    workspace.iterateAllLeaves((leaf) => {
+      const containerEl = leaf.containerEl;
+      if (containerEl == null ? void 0 : containerEl.closest(".workspace-split.mod-left-split")) {
+        toDetach.push(leaf);
+      }
+    });
+    for (const leaf of toDetach) {
+      leaf.detach();
+    }
+    if (leftSplit == null ? void 0 : leftSplit.collapsed) {
+      leftSplit.expand();
+    }
+    const outlineLeaf = workspace.getLeftLeaf(false);
+    if (outlineLeaf) {
+      await outlineLeaf.setViewState({ type: "outline", active: false });
+    }
+    const propsLeaf = workspace.getLeftLeaf(true);
+    if (propsLeaf) {
+      await propsLeaf.setViewState({ type: "file-properties", active: false });
+    }
+  }
+};
+
 // src/SettingTab.ts
 var import_obsidian2 = require("obsidian");
 var FileSuggest = class extends import_obsidian2.AbstractInputSuggest {
@@ -534,6 +572,8 @@ var MinimalismUISettingTab = class extends import_obsidian2.PluginSettingTab {
       this.plugin.settings.macSidebar = v;
       await this.plugin.saveSettings();
       this.plugin.applyBodyClasses();
+      if (v)
+        await this.plugin.applyMacSidebarLayout();
     }));
     new import_obsidian2.Setting(containerEl).setName("\u6781\u7B80\u4FE1\u606F\u680F").setDesc("\u9690\u85CF\u5DE6\u4FA7\u5C5E\u6027\u680F\u7684\u64CD\u4F5C\u6309\u94AE\uFF0C\u4EE5\u53CA\u5927\u7EB2\u3001\u53CD\u5411\u94FE\u63A5\u9762\u677F\u4E2D\u7684\u641C\u7D22\u6846").addToggle((t) => t.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
       this.plugin.settings.hideTabBar = v;
@@ -596,6 +636,7 @@ var MinimalismUIPlugin = class extends import_obsidian3.Plugin {
       () => this.isOpeningHomePage
     );
     this.dragBar = new DragBarManager(this.app, () => this.settings);
+    this.sidebarLayout = new SidebarLayoutManager(this.app, () => this.settings);
     this.singlePage = new SinglePageManager(
       this.app,
       () => this.settings,
@@ -614,6 +655,7 @@ var MinimalismUIPlugin = class extends import_obsidian3.Plugin {
       this.dragBar.apply();
       this.singlePage.applyHomePage();
       void this.singlePage.openHomePage();
+      void this.sidebarLayout.apply();
     });
     this.addSettingTab(new MinimalismUISettingTab(this.app, this));
   }
@@ -633,6 +675,10 @@ var MinimalismUIPlugin = class extends import_obsidian3.Plugin {
     this.tabCache.remove();
     this.dragBar.remove();
     this.removeOutlineAnimation();
+  }
+  // ─── Sidebar Layout ───────────────────────────────────────────────────────
+  async applyMacSidebarLayout() {
+    await this.sidebarLayout.apply();
   }
   // ─── Body Classes ─────────────────────────────────────────────────────────
   applyBodyClasses() {

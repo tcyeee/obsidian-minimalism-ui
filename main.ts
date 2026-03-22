@@ -3,6 +3,7 @@ import { MinimalismUISettings, DEFAULT_SETTINGS } from './src/settings';
 import { TabCacheManager } from './src/TabCacheManager';
 import { DragBarManager } from './src/DragBarManager';
 import { SinglePageManager } from './src/SinglePageManager';
+import { SidebarLayoutManager } from './src/SidebarLayoutManager';
 import { MinimalismUISettingTab } from './src/SettingTab';
 
 export type { MinimalismUISettings };
@@ -20,6 +21,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	private tabCache: TabCacheManager;
 	private dragBar: DragBarManager;
 	private singlePage: SinglePageManager;
+	private sidebarLayout: SidebarLayoutManager;
 	// Shared flag between TabCacheManager and SinglePageManager.
 	// TabCacheManager reads it to skip getLeaf interception while the home page
 	// is opening; SinglePageManager writes it during openHomePage().
@@ -38,6 +40,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			() => this.isOpeningHomePage,
 		);
 		this.dragBar = new DragBarManager(this.app, () => this.settings);
+		this.sidebarLayout = new SidebarLayoutManager(this.app, () => this.settings);
 		this.singlePage = new SinglePageManager(
 			this.app,
 			() => this.settings,
@@ -54,6 +57,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			this.dragBar.apply();
 			this.singlePage.applyHomePage();
 			void this.singlePage.openHomePage();
+			void this.sidebarLayout.apply();
 		});
 		this.addSettingTab(new MinimalismUISettingTab(this.app, this));
 	}
@@ -73,6 +77,12 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.tabCache.remove();
 		this.dragBar.remove();
 		this.removeOutlineAnimation();
+	}
+
+	// ─── Sidebar Layout ───────────────────────────────────────────────────────
+
+	async applyMacSidebarLayout() {
+		await this.sidebarLayout.apply();
 	}
 
 	// ─── Body Classes ─────────────────────────────────────────────────────────
