@@ -63,6 +63,8 @@ var TabCacheManager = class {
     this.navTimer = null;
     this.resizeObserverErrHandler = null;
     this.historyPatches = /* @__PURE__ */ new Map();
+    this.origGoBack = null;
+    this.origGoForward = null;
     // 由 getLeaf patch 新建、尚未调用 openFile 的空 leaf
     this.pendingInterceptLeaves = /* @__PURE__ */ new Set();
   }
@@ -156,6 +158,29 @@ var TabCacheManager = class {
     };
     this.app.workspace.on("active-leaf-change", this.navAnimateHandler);
     this.app.workspace.iterateRootLeaves((leaf) => this.patchLeafHistory(leaf));
+    const appCmds = this.app.commands.commands;
+    const backCmd = appCmds["app:go-back"];
+    const fwdCmd = appCmds["app:go-forward"];
+    if (backCmd) {
+      this.origGoBack = { callback: backCmd.callback, checkCallback: backCmd.checkCallback };
+      delete backCmd.callback;
+      backCmd.checkCallback = (checking) => {
+        if (checking)
+          return this.navHistory.length >= 2;
+        this.navigateBack();
+        return true;
+      };
+    }
+    if (fwdCmd) {
+      this.origGoForward = { callback: fwdCmd.callback, checkCallback: fwdCmd.checkCallback };
+      delete fwdCmd.callback;
+      fwdCmd.checkCallback = (checking) => {
+        if (checking)
+          return this.navFuture.length > 0;
+        this.navigateForward();
+        return true;
+      };
+    }
   }
   remove() {
     if (this.originalGetLeaf) {
@@ -184,6 +209,29 @@ var TabCacheManager = class {
       this.resizeObserverErrHandler = null;
     }
     this.unpatchAllLeafHistories();
+    const appCmds = this.app.commands.commands;
+    if (this.origGoBack) {
+      const cmd = appCmds["app:go-back"];
+      if (cmd) {
+        delete cmd.checkCallback;
+        if (this.origGoBack.callback)
+          cmd.callback = this.origGoBack.callback;
+        if (this.origGoBack.checkCallback)
+          cmd.checkCallback = this.origGoBack.checkCallback;
+      }
+      this.origGoBack = null;
+    }
+    if (this.origGoForward) {
+      const cmd = appCmds["app:go-forward"];
+      if (cmd) {
+        delete cmd.checkCallback;
+        if (this.origGoForward.callback)
+          cmd.callback = this.origGoForward.callback;
+        if (this.origGoForward.checkCallback)
+          cmd.checkCallback = this.origGoForward.checkCallback;
+      }
+      this.origGoForward = null;
+    }
     this.leafQueue = [];
     this.navHistory = [];
     this.navFuture = [];
