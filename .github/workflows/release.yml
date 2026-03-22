@@ -23,6 +23,13 @@ jobs:
           npm install
           npm run build
 
+      - name: Package plugin
+        run: |
+          mkdir -p obsidian-minimalism-ui
+          cp main.js manifest.json styles.css obsidian-minimalism-ui/
+          cp -r fonts obsidian-minimalism-ui/
+          zip -r obsidian-minimalism-ui.zip obsidian-minimalism-ui
+
       - name: Create release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -32,4 +39,5 @@ jobs:
           gh release create "$tag" \
             --title="$tag" \
             --draft \
+            obsidian-minimalism-ui.zip \
             main.js manifest.json styles.css
