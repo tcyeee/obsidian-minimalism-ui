@@ -75,7 +75,8 @@ var TabCacheManager = class {
     const ws = this.app.workspace;
     this.originalGetLeaf = ws.getLeaf.bind(ws);
     ws.getLeaf = (newLeaf) => {
-      if ((newLeaf === false || newLeaf === void 0) && !this.isReusingLeaf && !this.isOpeningHomePage()) {
+      const shouldIntercept = newLeaf === false || newLeaf === void 0 || newLeaf === true || newLeaf === "tab";
+      if (shouldIntercept && !this.isReusingLeaf && !this.isOpeningHomePage()) {
         const leaf = this.originalGetLeaf("tab");
         this.interceptLeafOpenFile(leaf);
         return leaf;
