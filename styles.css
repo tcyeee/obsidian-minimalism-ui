@@ -133,6 +133,10 @@
 	background: transparent !important;
 }
 
+.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-tab-header-container {
+	border-bottom: none !important;
+}
+
 /* 导航项 hover */
 .minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title:hover,
 .minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-folder-title:hover {
