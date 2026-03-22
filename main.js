@@ -470,6 +470,8 @@ var SinglePageManager = class {
     const path = this.getSettings().homePage;
     if (!path)
       return;
+    if (document.querySelector(".modal-container"))
+      return;
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!(file instanceof import_obsidian.TFile))
       return;
@@ -492,234 +494,6 @@ var SinglePageManager = class {
   remove() {
     this.removePinBlock();
     this.removeHomePage();
-  }
-};
-
-// src/PropertiesAutoHeightManager.ts
-var PROPS_SELECTOR = '.workspace-split.mod-left-split .workspace-leaf-content[data-type="file-properties"]';
-var OUTLINE_SELECTOR = '.workspace-split.mod-left-split .workspace-leaf-content[data-type="outline"]';
-var PropertiesAutoHeightManager = class {
-  constructor(app, getSettings) {
-    this.app = app;
-    this.getSettings = getSettings;
-    this.mutationObserver = null;
-    this.resizeObserver = null;
-    this.leafChangeHandler = null;
-    this.layoutHandler = null;
-    // Saved flex-grow so remove() can restore Obsidian's original value
-    this.savedFlexGrow = "";
-    // Saved DOM position so remove() can put the panel back where it was
-    this.movedTabsEl = null;
-    this.movedRhEl = null;
-    // resize handle that travels with the panel
-    this.tabsOriginalNextSibling = null;
-    this.originalParent = null;
-  }
-  apply() {
-    this.remove();
-    const s = this.getSettings();
-    if (!s.macSidebar)
-      return;
-    this.expandLeftSidebar();
-    void this.ensureOutlineInLeftSidebar();
-    void this.ensurePropertiesInLeftSidebar();
-    let rafId = null;
-    const syncHeight = () => {
-      const tabsEl = this.findTabsEl();
-      if (!tabsEl)
-        return;
-      if (rafId !== null)
-        cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => {
-        rafId = null;
-        const toH = this.measureContentHeight();
-        if (toH <= 0)
-          return;
-        tabsEl.style.height = toH + "px";
-      });
-    };
-    const setupObserver = () => {
-      var _a;
-      const contentEl = document.querySelector(PROPS_SELECTOR);
-      const tabsEl = (_a = contentEl == null ? void 0 : contentEl.closest(".workspace-tabs")) != null ? _a : null;
-      if (!contentEl || !tabsEl)
-        return false;
-      this.moveToBottom(tabsEl);
-      const currentH = tabsEl.offsetHeight;
-      this.savedFlexGrow = tabsEl.style.flexGrow;
-      tabsEl.dataset.propertiesAutoHeight = "true";
-      tabsEl.style.flexGrow = "0";
-      tabsEl.style.flexShrink = "0";
-      tabsEl.style.height = currentH + "px";
-      this.mutationObserver = new MutationObserver(syncHeight);
-      this.mutationObserver.observe(contentEl, { childList: true, subtree: true });
-      const metaContent = contentEl.querySelector(".metadata-content");
-      if (metaContent) {
-        this.resizeObserver = new ResizeObserver(syncHeight);
-        this.resizeObserver.observe(metaContent);
-      }
-      syncHeight();
-      return true;
-    };
-    if (!setupObserver()) {
-      this.layoutHandler = () => {
-        if (setupObserver()) {
-          this.app.workspace.off("layout-change", this.layoutHandler);
-          this.layoutHandler = null;
-        }
-      };
-      this.app.workspace.on("layout-change", this.layoutHandler);
-    }
-    this.leafChangeHandler = () => setTimeout(syncHeight, 80);
-    this.app.workspace.on("active-leaf-change", this.leafChangeHandler);
-  }
-  remove() {
-    var _a, _b;
-    (_a = this.mutationObserver) == null ? void 0 : _a.disconnect();
-    this.mutationObserver = null;
-    (_b = this.resizeObserver) == null ? void 0 : _b.disconnect();
-    this.resizeObserver = null;
-    if (this.leafChangeHandler) {
-      this.app.workspace.off("active-leaf-change", this.leafChangeHandler);
-      this.leafChangeHandler = null;
-    }
-    if (this.layoutHandler) {
-      this.app.workspace.off("layout-change", this.layoutHandler);
-      this.layoutHandler = null;
-    }
-    document.querySelectorAll(".workspace-tabs[data-properties-auto-height]").forEach((el) => {
-      el.style.flexGrow = this.savedFlexGrow;
-      el.style.flexShrink = "";
-      el.style.height = "";
-      delete el.dataset.propertiesAutoHeight;
-    });
-    this.savedFlexGrow = "";
-    this.restorePosition();
-  }
-  // ── Sidebar placement ─────────────────────────────────────────────────────
-  /** 展开左侧边栏（如已展开则无操作）。 */
-  expandLeftSidebar() {
-    const leftSplit = this.app.workspace.leftSplit;
-    if (leftSplit == null ? void 0 : leftSplit.collapsed)
-      leftSplit.expand();
-  }
-  /**
-   * 检查 Outline 面板是否已在左侧边栏；若不在，先关闭现有 Outline 面板，
-   * 再用 ensureSideLeaf 在左侧边栏新建独立分区。
-   * moveToBottom 将 Properties 置底后，Outline 自然位于上半部分。
-   */
-  async ensureOutlineInLeftSidebar() {
-    if (document.querySelector(OUTLINE_SELECTOR))
-      return;
-    this.app.workspace.detachLeavesOfType("outline");
-    const ws = this.app.workspace;
-    await ws.ensureSideLeaf("outline", "left", {
-      split: false,
-      reveal: true,
-      active: false
-    });
-  }
-  /**
-   * 检查 Properties 面板是否已在左侧边栏；若不在（通常默认位于右侧上半部分），
-   * 先关闭所有现有 Properties 面板，再用 ensureSideLeaf 在左侧边栏新建独立分区。
-   * 移动完成后 Obsidian 触发 layout-change，由 layoutHandler 接手后续 moveToBottom。
-   */
-  async ensurePropertiesInLeftSidebar() {
-    if (document.querySelector(PROPS_SELECTOR))
-      return;
-    this.app.workspace.detachLeavesOfType("file-properties");
-    const ws = this.app.workspace;
-    await ws.ensureSideLeaf("file-properties", "left", {
-      split: true,
-      reveal: true,
-      active: false
-    });
-  }
-  // ── DOM reordering ────────────────────────────────────────────────────────
-  /**
-   * Move tabsEl (and the resize handle preceding it) to the bottom of the
-   * sidebar container, just before .workspace-sidedock-vault-profile.
-   *
-   * Before: [...] [rh] [tabsEl] [rh2] [Other panel] [vault-profile]
-   * After:  [...] [rh2] [Other panel] [rh] [tabsEl] [vault-profile]
-   */
-  moveToBottom(tabsEl) {
-    const parent = tabsEl.parentElement;
-    if (!parent)
-      return;
-    const allTabs = Array.from(parent.querySelectorAll(":scope > .workspace-tabs"));
-    if (allTabs[allTabs.length - 1] === tabsEl)
-      return;
-    const prevEl = tabsEl.previousElementSibling;
-    const rh = (prevEl == null ? void 0 : prevEl.classList.contains("workspace-leaf-resize-handle")) ? prevEl : null;
-    this.originalParent = parent;
-    this.tabsOriginalNextSibling = tabsEl.nextSibling;
-    this.movedTabsEl = tabsEl;
-    this.movedRhEl = rh;
-    const vaultProfile = parent.querySelector(":scope > .workspace-sidedock-vault-profile");
-    if (vaultProfile) {
-      if (rh)
-        parent.insertBefore(rh, vaultProfile);
-      parent.insertBefore(tabsEl, vaultProfile);
-    } else {
-      if (rh)
-        parent.appendChild(rh);
-      parent.appendChild(tabsEl);
-    }
-  }
-  /**
-   * Put tabsEl (and its resize handle) back to the original position.
-   */
-  restorePosition() {
-    if (!this.originalParent || !this.movedTabsEl)
-      return;
-    if (this.tabsOriginalNextSibling) {
-      this.originalParent.insertBefore(this.movedTabsEl, this.tabsOriginalNextSibling);
-    } else {
-      this.originalParent.appendChild(this.movedTabsEl);
-    }
-    if (this.movedRhEl) {
-      this.originalParent.insertBefore(this.movedRhEl, this.movedTabsEl);
-      this.movedRhEl = null;
-    }
-    this.movedTabsEl = null;
-    this.tabsOriginalNextSibling = null;
-    this.originalParent = null;
-  }
-  // ── height helpers ────────────────────────────────────────────────────────
-  findTabsEl() {
-    var _a;
-    const contentEl = document.querySelector(PROPS_SELECTOR);
-    const tabsEl = (_a = contentEl == null ? void 0 : contentEl.closest(".workspace-tabs")) != null ? _a : null;
-    if (!(tabsEl == null ? void 0 : tabsEl.dataset.propertiesAutoHeight))
-      return null;
-    return tabsEl;
-  }
-  /**
-   * Measure the height .workspace-tabs needs to show all properties without clipping.
-   *
-   * .metadata-content has a natural (unconstrained) height, so offsetHeight is the
-   * true rendered height of all property rows.  We add:
-   *   • topOffset  — distance from .workspace-tabs top to .metadata-content top
-   *                  (tab-header, "PROPERTIES" label, container padding, etc.)
-   *   • bottomPad  — bottom padding of .workspace-leaf-content
-   */
-  measureContentHeight() {
-    const contentEl = document.querySelector(PROPS_SELECTOR);
-    if (!contentEl)
-      return 0;
-    const tabsEl = contentEl.closest(".workspace-tabs");
-    if (!tabsEl)
-      return 0;
-    const metaContent = contentEl.querySelector(".metadata-content");
-    if (!metaContent)
-      return 0;
-    const tabsTop = tabsEl.getBoundingClientRect().top;
-    const metaTop = metaContent.getBoundingClientRect().top;
-    const topOffset = metaTop - tabsTop;
-    const metaH = metaContent.offsetHeight;
-    const bottomPad = parseFloat(getComputedStyle(contentEl).paddingBottom) || 8;
-    return Math.round(topOffset + metaH + bottomPad);
   }
 };
 
@@ -756,11 +530,10 @@ var MinimalismUISettingTab = class extends import_obsidian2.PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     new import_obsidian2.Setting(containerEl).setName("\u5916\u89C2\u8BBE\u7F6E").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("\u6781\u7B80\u4FA7\u8FB9\u680F").setDesc("\u4E3A\u5DE6\u4FA7\u8FB9\u680F\u5E94\u7528\u78E8\u7802\u73BB\u7483\u80CC\u666F\u4E0E\u5706\u89D2\u9AD8\u4EAE\uFF0C\u6253\u9020 macOS \u539F\u751F\u98CE\u683C\u3002\u540C\u65F6\u5C06 Properties \u9762\u677F\u79FB\u81F3\u4FA7\u8FB9\u680F\u5E95\u90E8\u5E76\u81EA\u52A8\u8C03\u6574\u9AD8\u5EA6\u3002").addToggle((t) => t.setValue(this.plugin.settings.macSidebar).onChange(async (v) => {
+    new import_obsidian2.Setting(containerEl).setName("\u6781\u7B80\u4FA7\u8FB9\u680F").setDesc("\u4E3A\u5DE6\u4FA7\u8FB9\u680F\u5E94\u7528\u78E8\u7802\u73BB\u7483\u80CC\u666F\u4E0E\u5706\u89D2\u9AD8\u4EAE\uFF0C\u6253\u9020 macOS \u539F\u751F\u98CE\u683C\u3002").addToggle((t) => t.setValue(this.plugin.settings.macSidebar).onChange(async (v) => {
       this.plugin.settings.macSidebar = v;
       await this.plugin.saveSettings();
       this.plugin.applyBodyClasses();
-      this.plugin.propertiesHeight.apply();
     }));
     new import_obsidian2.Setting(containerEl).setName("\u6781\u7B80\u4FE1\u606F\u680F").setDesc("\u9690\u85CF\u5DE6\u4FA7\u5C5E\u6027\u680F\u7684\u64CD\u4F5C\u6309\u94AE\uFF0C\u4EE5\u53CA\u5927\u7EB2\u3001\u53CD\u5411\u94FE\u63A5\u9762\u677F\u4E2D\u7684\u641C\u7D22\u6846").addToggle((t) => t.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
       this.plugin.settings.hideTabBar = v;
@@ -832,7 +605,6 @@ var MinimalismUIPlugin = class extends import_obsidian3.Plugin {
         this.isOpeningHomePage = v;
       }
     );
-    this.propertiesHeight = new PropertiesAutoHeightManager(this.app, () => this.settings);
     await this.loadJetBrainsMono();
     this.applyBodyClasses();
     this.singlePage.apply();
@@ -841,7 +613,6 @@ var MinimalismUIPlugin = class extends import_obsidian3.Plugin {
     this.app.workspace.onLayoutReady(() => {
       this.dragBar.apply();
       this.singlePage.applyHomePage();
-      this.propertiesHeight.apply();
       void this.singlePage.openHomePage();
     });
     this.addSettingTab(new MinimalismUISettingTab(this.app, this));
@@ -862,7 +633,6 @@ var MinimalismUIPlugin = class extends import_obsidian3.Plugin {
     this.tabCache.remove();
     this.dragBar.remove();
     this.removeOutlineAnimation();
-    this.propertiesHeight.remove();
   }
   // ─── Body Classes ─────────────────────────────────────────────────────────
   applyBodyClasses() {
@@ -886,7 +656,6 @@ var MinimalismUIPlugin = class extends import_obsidian3.Plugin {
     this.dragBar.apply();
     this.singlePage.applyHomePage();
     this.applyOutlineAnimation();
-    this.propertiesHeight.apply();
   }
   // ─── Outline Animation ────────────────────────────────────────────────────
   applyOutlineAnimation() {

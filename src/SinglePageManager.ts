@@ -94,6 +94,8 @@ export class SinglePageManager {
 		if (this.getIsOpeningHomePage()) return;
 		const path = this.getSettings().homePage;
 		if (!path) return;
+		// 如果当前有 Modal 打开（如设置窗口），跳过，避免抢占焦点导致 Modal 被关闭
+		if (document.querySelector('.modal-container')) return;
 		const file = this.app.vault.getAbstractFileByPath(path);
 		if (!(file instanceof TFile)) return;
 		this.setIsOpeningHomePage(true);

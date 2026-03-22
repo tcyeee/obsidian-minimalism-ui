@@ -45,14 +45,13 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('极简侧边栏')
-			.setDesc('为左侧边栏应用磨砂玻璃背景与圆角高亮，打造 macOS 原生风格。同时将 Properties 面板移至侧边栏底部并自动调整高度。')
+			.setDesc('为左侧边栏应用磨砂玻璃背景与圆角高亮，打造 macOS 原生风格。')
 			.addToggle(t => t
 				.setValue(this.plugin.settings.macSidebar)
 				.onChange(async v => {
 					this.plugin.settings.macSidebar = v;
 					await this.plugin.saveSettings();
 					this.plugin.applyBodyClasses();
-					this.plugin.propertiesHeight.apply();
 				}));
 
 		new Setting(containerEl)
