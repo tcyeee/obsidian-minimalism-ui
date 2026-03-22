@@ -39,8 +39,7 @@ var DEFAULT_SETTINGS = {
   enableLeafCache: false,
   enableNavAnimation: false,
   noteStyle: false,
-  homePage: "",
-  autoPropertiesHeight: false
+  homePage: ""
 };
 
 // src/TabCacheManager.ts
@@ -518,7 +517,7 @@ var PropertiesAutoHeightManager = class {
   apply() {
     this.remove();
     const s = this.getSettings();
-    if (!s.macSidebar || !s.autoPropertiesHeight)
+    if (!s.macSidebar)
       return;
     void this.ensurePropertiesInLeftSidebar();
     let rafId = null;
@@ -597,21 +596,19 @@ var PropertiesAutoHeightManager = class {
   // ── Sidebar placement ─────────────────────────────────────────────────────
   /**
    * 检查 Properties 面板是否已在左侧边栏；若不在（通常默认位于右侧上半部分），
-   * 则将其 detach 后在左侧边栏新建一个分区（split）重新打开。
+   * 先关闭所有现有 Properties 面板，再用 ensureSideLeaf 在左侧边栏新建独立分区。
    * 移动完成后 Obsidian 触发 layout-change，由 layoutHandler 接手后续 moveToBottom。
    */
   async ensurePropertiesInLeftSidebar() {
     if (document.querySelector(PROPS_SELECTOR))
       return;
-    const leaves = this.app.workspace.getLeavesOfType("file-properties");
-    if (leaves.length === 0)
-      return;
-    for (const leaf of leaves)
-      leaf.detach();
-    const newLeaf = this.app.workspace.getLeftLeaf(true);
-    if (!newLeaf)
-      return;
-    await newLeaf.setViewState({ type: "file-properties", active: false });
+    this.app.workspace.detachLeavesOfType("file-properties");
+    const ws = this.app.workspace;
+    await ws.ensureSideLeaf("file-properties", "left", {
+      split: true,
+      reveal: true,
+      active: false
+    });
   }
   // ── DOM reordering ────────────────────────────────────────────────────────
   /**
@@ -734,17 +731,15 @@ var MinimalismUISettingTab = class extends import_obsidian2.PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     new import_obsidian2.Setting(containerEl).setName("\u5916\u89C2\u8BBE\u7F6E").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("\u6781\u7B80\u4FA7\u8FB9\u680F").setDesc("\u4E3A\u5DE6\u4FA7\u8FB9\u680F\u5E94\u7528\u78E8\u7802\u73BB\u7483\u80CC\u666F\u4E0E\u5706\u89D2\u9AD8\u4EAE\uFF0C\u6253\u9020 macOS \u539F\u751F\u98CE\u683C").addToggle((t) => t.setValue(this.plugin.settings.macSidebar).onChange(async (v) => {
+    new import_obsidian2.Setting(containerEl).setName("\u6781\u7B80\u4FA7\u8FB9\u680F").setDesc("\u4E3A\u5DE6\u4FA7\u8FB9\u680F\u5E94\u7528\u78E8\u7802\u73BB\u7483\u80CC\u666F\u4E0E\u5706\u89D2\u9AD8\u4EAE\uFF0C\u6253\u9020 macOS \u539F\u751F\u98CE\u683C\u3002\u540C\u65F6\u5C06 Properties \u9762\u677F\u79FB\u81F3\u4FA7\u8FB9\u680F\u5E95\u90E8\u5E76\u81EA\u52A8\u8C03\u6574\u9AD8\u5EA6\u3002").addToggle((t) => t.setValue(this.plugin.settings.macSidebar).onChange(async (v) => {
       this.plugin.settings.macSidebar = v;
       await this.plugin.saveSettings();
+      this.plugin.applyBodyClasses();
+      this.plugin.propertiesHeight.apply();
     }));
     new import_obsidian2.Setting(containerEl).setName("\u6781\u7B80\u4FE1\u606F\u680F").setDesc("\u9690\u85CF\u5DE6\u4FA7\u5C5E\u6027\u680F\u7684\u64CD\u4F5C\u6309\u94AE\uFF0C\u4EE5\u53CA\u5927\u7EB2\u3001\u53CD\u5411\u94FE\u63A5\u9762\u677F\u4E2D\u7684\u641C\u7D22\u6846").addToggle((t) => t.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
       this.plugin.settings.hideTabBar = v;
       this.plugin.settings.simplifyPanel = v;
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian2.Setting(containerEl).setName("\u6781\u7B80\u5C5E\u6027\u680F").setDesc("\u5F00\u542F\u540E\uFF0C\u5C06 Properties \u9762\u677F\u79FB\u81F3\u5DE6\u4FA7\u8FB9\u680F\u4E0B\u534A\u90E8\u5206\uFF0C\u5E76\u6839\u636E\u7B14\u8BB0\u5C5E\u6027\u6570\u91CF\u81EA\u52A8\u8C03\u6574\u9AD8\u5EA6\uFF08\u9700\u540C\u65F6\u5F00\u542F\u6781\u7B80\u4FA7\u8FB9\u680F\uFF09").addToggle((t) => t.setValue(this.plugin.settings.autoPropertiesHeight).onChange(async (v) => {
-      this.plugin.settings.autoPropertiesHeight = v;
       await this.plugin.saveSettings();
     }));
     new import_obsidian2.Setting(containerEl).setName("\u7B14\u8BB0\u6837\u5F0F\u4F18\u5316").setDesc("\u4FEE\u6539\u7B14\u8BB0\u90E8\u5206\u4E3B\u9898\u6837\u5F0F").addToggle((t) => t.setValue(this.plugin.settings.noteStyle).onChange(async (v) => {

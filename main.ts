@@ -21,7 +21,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	private tabCache: TabCacheManager;
 	private dragBar: DragBarManager;
 	private singlePage: SinglePageManager;
-	private propertiesHeight: PropertiesAutoHeightManager;
+	propertiesHeight: PropertiesAutoHeightManager;
 
 	// Shared flag between TabCacheManager and SinglePageManager.
 	// TabCacheManager reads it to skip getLeaf interception while the home page
