@@ -2,7 +2,7 @@
   "id": "minimalism-ui",
   "name": "Minimalism UI",
   "version": "1.0.0",
-  "minAppVersion": "1.1.0",
+  "minAppVersion": "1.7.2",
   "description": "Transform UI into a Typora-like style, with the left side fixing the note status information and the right side focusing on the content of the note.",
   "author": "Lucas",
   "authorUrl": "https://tcyeee.top",

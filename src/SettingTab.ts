@@ -45,10 +45,15 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('极简侧边栏')
-			.setDesc('为左侧边栏应用磨砂玻璃背景与圆角高亮，打造 macOS 原生风格')
+			.setDesc('为左侧边栏应用磨砂玻璃背景与圆角高亮，打造 macOS 原生风格。同时将 Properties 面板移至侧边栏底部并自动调整高度。')
 			.addToggle(t => t
 				.setValue(this.plugin.settings.macSidebar)
-				.onChange(async v => { this.plugin.settings.macSidebar = v; await this.plugin.saveSettings(); }));
+				.onChange(async v => {
+					this.plugin.settings.macSidebar = v;
+					await this.plugin.saveSettings();
+					this.plugin.applyBodyClasses();
+					this.plugin.propertiesHeight.apply();
+				}));
 
 		new Setting(containerEl)
 			.setName('极简信息栏')
@@ -60,13 +65,6 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 					this.plugin.settings.simplifyPanel = v;
 					await this.plugin.saveSettings();
 				}));
-
-		new Setting(containerEl)
-			.setName('极简属性栏')
-			.setDesc('开启后，将 Properties 面板移至左侧边栏下半部分，并根据笔记属性数量自动调整高度（需同时开启极简侧边栏）')
-			.addToggle(t => t
-				.setValue(this.plugin.settings.autoPropertiesHeight)
-				.onChange(async v => { this.plugin.settings.autoPropertiesHeight = v; await this.plugin.saveSettings(); }));
 
 		new Setting(containerEl)
 			.setName('笔记样式优化')
