@@ -4,6 +4,9 @@ import { MinimalismUISettings } from './settings';
 const PROPS_SELECTOR =
 	'.workspace-split.mod-left-split .workspace-leaf-content[data-type="file-properties"]';
 
+const OUTLINE_SELECTOR =
+	'.workspace-split.mod-left-split .workspace-leaf-content[data-type="outline"]';
+
 export class PropertiesAutoHeightManager {
 	private mutationObserver: MutationObserver | null = null;
 	private resizeObserver: ResizeObserver | null = null;
@@ -25,6 +28,12 @@ export class PropertiesAutoHeightManager {
 		this.remove();
 		const s = this.getSettings();
 		if (!s.macSidebar) return;
+
+		// 展开左侧边栏
+		this.expandLeftSidebar();
+
+		// 确保 Outline 面板在左侧边栏（上半部分）
+		void this.ensureOutlineInLeftSidebar();
 
 		// 如果 Properties 面板不在左侧边栏，先将其移过去；
 		// 移动完成后 layout-change 触发，layoutHandler 会接手后续 setupObserver
@@ -117,6 +126,39 @@ export class PropertiesAutoHeightManager {
 	}
 
 	// ── Sidebar placement ─────────────────────────────────────────────────────
+
+	/** 展开左侧边栏（如已展开则无操作）。 */
+	private expandLeftSidebar(): void {
+		const leftSplit = this.app.workspace.leftSplit as unknown as {
+			expand: () => void;
+			collapsed: boolean;
+		};
+		if (leftSplit?.collapsed) leftSplit.expand();
+	}
+
+	/**
+	 * 检查 Outline 面板是否已在左侧边栏；若不在，先关闭现有 Outline 面板，
+	 * 再用 ensureSideLeaf 在左侧边栏新建独立分区。
+	 * moveToBottom 将 Properties 置底后，Outline 自然位于上半部分。
+	 */
+	private async ensureOutlineInLeftSidebar(): Promise<void> {
+		// 已在左侧边栏 → 无需移动
+		if (document.querySelector(OUTLINE_SELECTOR)) return;
+
+		// 关闭其他位置的 Outline 面板（通常在右侧边栏）
+		this.app.workspace.detachLeavesOfType('outline');
+
+		const ws = this.app.workspace as unknown as {
+			ensureSideLeaf: (type: string, side: 'left' | 'right', options?: {
+				split?: boolean; reveal?: boolean; active?: boolean; state?: unknown;
+			}) => Promise<unknown>;
+		};
+		await ws.ensureSideLeaf('outline', 'left', {
+			split: true,
+			reveal: false,
+			active: false,
+		});
+	}
 
 	/**
 	 * 检查 Properties 面板是否已在左侧边栏；若不在（通常默认位于右侧上半部分），
