@@ -54,6 +54,9 @@ export class SinglePageManager {
 			const leafEl = (leaf as LeafWithInternals).containerEl;
 			if (!leafEl?.closest('.workspace-split.mod-left-split')) return;
 			const original = (leaf as LeafWithInternals).detach.bind(leaf);
+			// Store the original on the leaf so SidebarLayoutManager can bypass
+			// this block when it needs to programmatically clear the sidebar.
+			(leaf as LeafWithInternals & { __minui_origDetach__?: () => void }).__minui_origDetach__ = original;
 			(leaf as LeafWithInternals).detach = () => { /* blocked */ };
 			this.detachPatches.set(leaf, original);
 		});
@@ -66,6 +69,7 @@ export class SinglePageManager {
 		}
 		for (const [leaf, original] of this.detachPatches) {
 			(leaf as LeafWithInternals).detach = original;
+			delete (leaf as LeafWithInternals & { __minui_origDetach__?: () => void }).__minui_origDetach__;
 		}
 		this.detachPatches.clear();
 	}

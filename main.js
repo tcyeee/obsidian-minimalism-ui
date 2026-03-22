@@ -27,7 +27,7 @@ __export(main_exports, {
   default: () => MinimalismUIPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 
 // src/settings.ts
 var DEFAULT_SETTINGS = {
@@ -432,6 +432,7 @@ var SinglePageManager = class {
       if (!(leafEl == null ? void 0 : leafEl.closest(".workspace-split.mod-left-split")))
         return;
       const original = leaf.detach.bind(leaf);
+      leaf.__minui_origDetach__ = original;
       leaf.detach = () => {
       };
       this.detachPatches.set(leaf, original);
@@ -444,6 +445,7 @@ var SinglePageManager = class {
     }
     for (const [leaf, original] of this.detachPatches) {
       leaf.detach = original;
+      delete leaf.__minui_origDetach__;
     }
     this.detachPatches.clear();
   }
@@ -498,46 +500,123 @@ var SinglePageManager = class {
 };
 
 // src/SidebarLayoutManager.ts
+var import_obsidian2 = require("obsidian");
 var SidebarLayoutManager = class {
   constructor(app, getSettings) {
     this.app = app;
     this.getSettings = getSettings;
+    // Guard against concurrent calls: each `apply()` awaits async ops, so a
+    // second call arriving mid-flight would create duplicate leaves.
+    this.isApplying = false;
   }
+  // ── Public ────────────────────────────────────────────────────────────────
   async apply() {
     if (!this.getSettings().macSidebar)
       return;
-    const { workspace } = this.app;
-    const leftSplit = workspace.leftSplit;
-    if (leftSplit == null ? void 0 : leftSplit.collapsed) {
-      leftSplit.expand();
+    if (this.isApplying)
+      return;
+    this.isApplying = true;
+    try {
+      const { workspace } = this.app;
+      const leftSplit = workspace.leftSplit;
+      this.clearLeftSidebar();
+      if (leftSplit == null ? void 0 : leftSplit.collapsed)
+        leftSplit.expand();
+      const outlineLeaf = workspace.getLeftLeaf(false);
+      if (outlineLeaf) {
+        await outlineLeaf.setViewState({ type: "outline", active: false });
+      }
+      const propsLeaf = workspace.getLeftLeaf(true);
+      if (propsLeaf) {
+        await propsLeaf.setViewState({ type: "file-properties", active: false });
+      }
+    } finally {
+      this.isApplying = false;
     }
-    const toDetach = [];
+  }
+  // ── Public helpers ────────────────────────────────────────────────────────
+  /**
+   * Clears every leaf from the left sidebar using three complementary strategies:
+   *
+   *   A. Walk leftSplit's internal workspace-item tree directly.
+   *      Works regardless of DOM state (collapsed sidebar, mid-rebuild, etc.).
+   *
+   *   B. DOM traversal via containerEl.closest('.mod-left-split').
+   *      Catches leaves whose workspace-item tree position wasn't found in A
+   *      (e.g. floating / detached DOM fragments that still reference a split).
+   *
+   *   C. Full iterateAllLeaves sweep for the two target types (outline, file-properties).
+   *      Guards against leaves that survived A and B because their containerEl
+   *      was missing or not yet attached to the document.
+   *
+   * Results from all three are de-duplicated via a Set before detaching.
+   *
+   * NOTE: SinglePageManager may patch leaf.detach() to a no-op when disablePinTab
+   * is enabled. We bypass this by calling the original stored as __minui_origDetach__.
+   */
+  clearLeftSidebar() {
+    const { workspace } = this.app;
+    const all = /* @__PURE__ */ new Set();
+    const leftSplit = workspace.leftSplit;
+    for (const leaf of this.collectLeavesFromItem(leftSplit)) {
+      all.add(leaf);
+    }
     workspace.iterateAllLeaves((leaf) => {
-      const containerEl = leaf.containerEl;
-      if (containerEl == null ? void 0 : containerEl.closest(".workspace-split.mod-left-split")) {
-        toDetach.push(leaf);
+      const el = leaf.containerEl;
+      if (el == null ? void 0 : el.closest(".workspace-split.mod-left-split")) {
+        all.add(leaf);
       }
     });
-    for (const leaf of toDetach) {
+    for (const leaf of all) {
+      try {
+        this.forceDetach(leaf);
+      } catch (e) {
+      }
+    }
+    const stragglers = [];
+    workspace.iterateAllLeaves((leaf) => {
+      const type = leaf.getViewState().type;
+      if (type === "outline" || type === "file-properties")
+        stragglers.push(leaf);
+    });
+    for (const leaf of stragglers) {
+      try {
+        this.forceDetach(leaf);
+      } catch (e) {
+      }
+    }
+  }
+  /**
+   * Detaches a leaf, bypassing SinglePageManager's pin-block patch if active.
+   * SinglePageManager stores the original detach as __minui_origDetach__ on the leaf.
+   */
+  forceDetach(leaf) {
+    const orig = leaf.__minui_origDetach__;
+    if (orig) {
+      orig();
+    } else {
       leaf.detach();
     }
-    if (leftSplit == null ? void 0 : leftSplit.collapsed) {
-      leftSplit.expand();
-    }
-    const outlineLeaf = workspace.getLeftLeaf(false);
-    if (outlineLeaf) {
-      await outlineLeaf.setViewState({ type: "outline", active: false });
-    }
-    const propsLeaf = workspace.getLeftLeaf(true);
-    if (propsLeaf) {
-      await propsLeaf.setViewState({ type: "file-properties", active: false });
-    }
+  }
+  /**
+   * Recursively collects all WorkspaceLeaf instances from a workspace item
+   * (WorkspaceSplit / WorkspaceSidedock / WorkspaceTabs / WorkspaceLeaf).
+   */
+  collectLeavesFromItem(item) {
+    if (!item || typeof item !== "object")
+      return [];
+    if (item instanceof import_obsidian2.WorkspaceLeaf)
+      return [item];
+    const children = item.children;
+    if (!Array.isArray(children))
+      return [];
+    return children.flatMap((child) => this.collectLeavesFromItem(child));
   }
 };
 
 // src/SettingTab.ts
-var import_obsidian2 = require("obsidian");
-var FileSuggest = class extends import_obsidian2.AbstractInputSuggest {
+var import_obsidian3 = require("obsidian");
+var FileSuggest = class extends import_obsidian3.AbstractInputSuggest {
   constructor() {
     super(...arguments);
     this.onPickCb = null;
@@ -559,7 +638,7 @@ var FileSuggest = class extends import_obsidian2.AbstractInputSuggest {
     this.close();
   }
 };
-var MinimalismUISettingTab = class extends import_obsidian2.PluginSettingTab {
+var MinimalismUISettingTab = class extends import_obsidian3.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -567,25 +646,25 @@ var MinimalismUISettingTab = class extends import_obsidian2.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian2.Setting(containerEl).setName("\u5916\u89C2\u8BBE\u7F6E").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("\u6781\u7B80\u4FA7\u8FB9\u680F").setDesc("\u4E3A\u5DE6\u4FA7\u8FB9\u680F\u5E94\u7528\u78E8\u7802\u73BB\u7483\u80CC\u666F\u4E0E\u5706\u89D2\u9AD8\u4EAE\uFF0C\u6253\u9020 macOS \u539F\u751F\u98CE\u683C\u3002").addToggle((t) => t.setValue(this.plugin.settings.macSidebar).onChange(async (v) => {
+    new import_obsidian3.Setting(containerEl).setName("\u5916\u89C2\u8BBE\u7F6E").setHeading();
+    new import_obsidian3.Setting(containerEl).setName("\u6781\u7B80\u4FA7\u8FB9\u680F").setDesc("\u4E3A\u5DE6\u4FA7\u8FB9\u680F\u5E94\u7528\u78E8\u7802\u73BB\u7483\u80CC\u666F\u4E0E\u5706\u89D2\u9AD8\u4EAE\uFF0C\u6253\u9020 macOS \u539F\u751F\u98CE\u683C\u3002").addToggle((t) => t.setValue(this.plugin.settings.macSidebar).onChange(async (v) => {
       this.plugin.settings.macSidebar = v;
       await this.plugin.saveSettings();
       this.plugin.applyBodyClasses();
       if (v)
         await this.plugin.applyMacSidebarLayout();
     }));
-    new import_obsidian2.Setting(containerEl).setName("\u6781\u7B80\u4FE1\u606F\u680F").setDesc("\u9690\u85CF\u5DE6\u4FA7\u5C5E\u6027\u680F\u7684\u64CD\u4F5C\u6309\u94AE\uFF0C\u4EE5\u53CA\u5927\u7EB2\u3001\u53CD\u5411\u94FE\u63A5\u9762\u677F\u4E2D\u7684\u641C\u7D22\u6846").addToggle((t) => t.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
+    new import_obsidian3.Setting(containerEl).setName("\u6781\u7B80\u4FE1\u606F\u680F").setDesc("\u9690\u85CF\u5DE6\u4FA7\u5C5E\u6027\u680F\u7684\u64CD\u4F5C\u6309\u94AE\uFF0C\u4EE5\u53CA\u5927\u7EB2\u3001\u53CD\u5411\u94FE\u63A5\u9762\u677F\u4E2D\u7684\u641C\u7D22\u6846").addToggle((t) => t.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
       this.plugin.settings.hideTabBar = v;
       this.plugin.settings.simplifyPanel = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian2.Setting(containerEl).setName("\u7B14\u8BB0\u6837\u5F0F\u4F18\u5316").setDesc("\u4FEE\u6539\u7B14\u8BB0\u90E8\u5206\u4E3B\u9898\u6837\u5F0F").addToggle((t) => t.setValue(this.plugin.settings.noteStyle).onChange(async (v) => {
+    new import_obsidian3.Setting(containerEl).setName("\u7B14\u8BB0\u6837\u5F0F\u4F18\u5316").setDesc("\u4FEE\u6539\u7B14\u8BB0\u90E8\u5206\u4E3B\u9898\u6837\u5F0F").addToggle((t) => t.setValue(this.plugin.settings.noteStyle).onChange(async (v) => {
       this.plugin.settings.noteStyle = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian2.Setting(containerEl).setName("\u4EA4\u4E92\u8BBE\u7F6E").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("\u7B14\u8BB0\u9996\u9875").setDesc("\u8BBE\u7F6E\u4E00\u4E2A\u7B14\u8BB0\u4F5C\u4E3A\u9996\u9875\u3002Obsidian \u542F\u52A8\u65F6\u81EA\u52A8\u6253\u5F00\uFF0C\u5173\u95ED\u6240\u6709\u6807\u7B7E\u540E\u81EA\u52A8\u8FD4\u56DE\u3002").addText((text) => {
+    new import_obsidian3.Setting(containerEl).setName("\u4EA4\u4E92\u8BBE\u7F6E").setHeading();
+    new import_obsidian3.Setting(containerEl).setName("\u7B14\u8BB0\u9996\u9875").setDesc("\u8BBE\u7F6E\u4E00\u4E2A\u7B14\u8BB0\u4F5C\u4E3A\u9996\u9875\u3002Obsidian \u542F\u52A8\u65F6\u81EA\u52A8\u6253\u5F00\uFF0C\u5173\u95ED\u6240\u6709\u6807\u7B7E\u540E\u81EA\u52A8\u8FD4\u56DE\u3002").addText((text) => {
       text.setPlaceholder("\u8F93\u5165\u7B14\u8BB0\u8DEF\u5F84\uFF0C\u4F8B\u5982\uFF1Asrc/Home.md").setValue(this.plugin.settings.homePage);
       new FileSuggest(this.app, text.inputEl).onPick((path) => {
         this.plugin.settings.homePage = path;
@@ -596,7 +675,7 @@ var MinimalismUISettingTab = class extends import_obsidian2.PluginSettingTab {
         void this.plugin.saveSettings();
       });
     });
-    const singlePageSetting = new import_obsidian2.Setting(containerEl).setName("\u5355\u9875\u6A21\u5F0F");
+    const singlePageSetting = new import_obsidian3.Setting(containerEl).setName("\u5355\u9875\u6A21\u5F0F");
     singlePageSetting.settingEl.addClass("minimalism-ui-single-page-setting");
     singlePageSetting.addToggle((t) => t.setValue(this.plugin.settings.disableNoteTabs).onChange(async (v) => {
       this.plugin.settings.disableNoteTabs = v;
@@ -610,7 +689,7 @@ var MinimalismUISettingTab = class extends import_obsidian2.PluginSettingTab {
     singlePageSetting.descEl.createEl("br");
     singlePageSetting.descEl.createEl("span", { text: "3.\u7981\u7528 pin \u6807\u7B7E\u529F\u80FD\uFF0C\u907F\u514D\u591A\u4F59\u7684\u6807\u7B7E\u88AB\u56FA\u5B9A\u5728\u9876\u90E8\u3002" });
     singlePageSetting.descEl.createEl("br");
-    new import_obsidian2.Setting(containerEl).setName("\u9875\u9762\u52A0\u8F7D\u52A8\u753B (beta)").setDesc("\u524D\u8FDB\u6216\u540E\u9000\u65F6\uFF0C\u4E3A\u76EE\u6807\u9875\u9762\u64AD\u653E\u6ED1\u5165\u52A8\u753B").addToggle((t) => t.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
+    new import_obsidian3.Setting(containerEl).setName("\u9875\u9762\u52A0\u8F7D\u52A8\u753B (beta)").setDesc("\u524D\u8FDB\u6216\u540E\u9000\u65F6\uFF0C\u4E3A\u76EE\u6807\u9875\u9762\u64AD\u653E\u6ED1\u5165\u52A8\u753B").addToggle((t) => t.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
       this.plugin.settings.enableNavAnimation = v;
       await this.plugin.saveSettings();
     }));
@@ -618,7 +697,7 @@ var MinimalismUISettingTab = class extends import_obsidian2.PluginSettingTab {
 };
 
 // main.ts
-var MinimalismUIPlugin = class extends import_obsidian3.Plugin {
+var MinimalismUIPlugin = class extends import_obsidian4.Plugin {
   constructor() {
     super(...arguments);
     // Shared flag between TabCacheManager and SinglePageManager.
@@ -702,6 +781,8 @@ var MinimalismUIPlugin = class extends import_obsidian3.Plugin {
     this.dragBar.apply();
     this.singlePage.applyHomePage();
     this.applyOutlineAnimation();
+    if (this.settings.macSidebar)
+      void this.sidebarLayout.apply();
   }
   // ─── Outline Animation ────────────────────────────────────────────────────
   applyOutlineAnimation() {
