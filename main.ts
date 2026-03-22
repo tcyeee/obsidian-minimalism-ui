@@ -111,6 +111,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.dragBar.apply();
 		this.singlePage.applyHomePage();
 		this.applyOutlineAnimation();
+		if (this.settings.macSidebar) void this.sidebarLayout.apply();
 	}
 
 	// ─── Outline Animation ────────────────────────────────────────────────────
