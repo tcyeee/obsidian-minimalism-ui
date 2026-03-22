@@ -18,6 +18,7 @@ type LeafWithInternals = WorkspaceLeaf & {
 export class SinglePageManager {
 	// ── Pin block ────────────────────────────────────────────────────────────
 	private pinBlockHandler: ((e: MouseEvent) => void) | null = null;
+	private layoutChangeHandler: (() => void) | null = null;
 	private detachPatches = new Map<WorkspaceLeaf, () => void>();
 
 	// ── Home page ────────────────────────────────────────────────────────────
@@ -46,6 +47,11 @@ export class SinglePageManager {
 		};
 		document.addEventListener('contextmenu', this.pinBlockHandler, true);
 		this.patchSidebarLeafDetach();
+
+		// Re-patch whenever new leaves arrive in the left sidebar
+		// (e.g. after SidebarLayoutManager recreates outline/file-properties).
+		this.layoutChangeHandler = () => this.patchSidebarLeafDetach();
+		this.app.workspace.on('layout-change', this.layoutChangeHandler);
 	}
 
 	private patchSidebarLeafDetach() {
@@ -66,6 +72,10 @@ export class SinglePageManager {
 		if (this.pinBlockHandler) {
 			document.removeEventListener('contextmenu', this.pinBlockHandler, true);
 			this.pinBlockHandler = null;
+		}
+		if (this.layoutChangeHandler) {
+			this.app.workspace.off('layout-change', this.layoutChangeHandler);
+			this.layoutChangeHandler = null;
 		}
 		for (const [leaf, original] of this.detachPatches) {
 			(leaf as LeafWithInternals).detach = original;

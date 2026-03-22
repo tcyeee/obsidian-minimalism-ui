@@ -405,6 +405,7 @@ var SinglePageManager = class {
     this.setIsOpeningHomePage = setIsOpeningHomePage;
     // ── Pin block ────────────────────────────────────────────────────────────
     this.pinBlockHandler = null;
+    this.layoutChangeHandler = null;
     this.detachPatches = /* @__PURE__ */ new Map();
     // ── Home page ────────────────────────────────────────────────────────────
     this.homePageHandler = null;
@@ -423,6 +424,8 @@ var SinglePageManager = class {
     };
     document.addEventListener("contextmenu", this.pinBlockHandler, true);
     this.patchSidebarLeafDetach();
+    this.layoutChangeHandler = () => this.patchSidebarLeafDetach();
+    this.app.workspace.on("layout-change", this.layoutChangeHandler);
   }
   patchSidebarLeafDetach() {
     this.app.workspace.iterateAllLeaves((leaf) => {
@@ -442,6 +445,10 @@ var SinglePageManager = class {
     if (this.pinBlockHandler) {
       document.removeEventListener("contextmenu", this.pinBlockHandler, true);
       this.pinBlockHandler = null;
+    }
+    if (this.layoutChangeHandler) {
+      this.app.workspace.off("layout-change", this.layoutChangeHandler);
+      this.layoutChangeHandler = null;
     }
     for (const [leaf, original] of this.detachPatches) {
       leaf.detach = original;
