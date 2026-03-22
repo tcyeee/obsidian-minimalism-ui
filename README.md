@@ -40,9 +40,9 @@ All options are in: **Settings → Community Plugins → Minimalism UI**
 
 ### Manual (recommended)
 
-1. Download `main.js`, `manifest.json`, `styles.css`, and the `fonts/` folder from this repository
-2. Create the directory `.obsidian/plugins/obsidian-minimalism-ui/` inside your vault
-3. Copy all four items into it
+1. Go to the [Releases](../../releases) page and download `obsidian-minimalism-ui.zip` from the latest release
+2. Unzip it — you will get a folder named `obsidian-minimalism-ui/`
+3. Move that folder into your vault's `.obsidian/plugins/` directory
 4. In Obsidian: Settings → Community Plugins → disable Safe Mode → enable **Minimalism UI**
 
 ```
@@ -52,14 +52,14 @@ your-vault/
         └── obsidian-minimalism-ui/
             ├── main.js
             ├── manifest.json
-            └── styles.css
+            ├── styles.css
+            └── fonts/
+                └── ...
 ```
 
 ### Required Fonts
 
-The plugin loads two font families at runtime from a `fonts/` subfolder inside the plugin directory. **Without these files the fonts will silently fall back to system defaults**, but no error will occur.
-
-**JetBrains Mono NL** (monospace, used for code blocks and the word-count display):
+The plugin loads **JetBrains Mono NL** at runtime from a `fonts/` subfolder inside the plugin directory. **The `fonts/` folder is included in `obsidian-minimalism-ui.zip`** — no separate download needed.
 
 | File | Weight | Style |
 |---|---|---|
@@ -72,37 +72,7 @@ The plugin loads two font families at runtime from a `fonts/` subfolder inside t
 | `JetBrainsMonoNL-ExtraBold.ttf` | 900 | normal |
 | `JetBrainsMonoNL-ExtraBoldItalic.ttf` | 900 | italic |
 
-Download from the [JetBrains Mono releases page](https://github.com/JetBrains/JetBrainsMono/releases).
-
-**Source Han Sans SC** (Chinese UI text):
-
-| File | Weight |
-|---|---|
-| `SourceHanSansSC-Light.otf` | 300 |
-| `SourceHanSansSC-Regular.otf` | 400 |
-| `SourceHanSansSC-Medium.otf` | 500 |
-| `SourceHanSansSC-Bold.otf` | 700 |
-| `SourceHanSansSC-Heavy.otf` | 900 |
-
-Download from the [Source Han Sans releases page](https://github.com/adobe-fonts/source-han-sans/releases).
-
-Place the downloaded files so your plugin directory looks like this:
-
-```
-your-vault/
-└── .obsidian/
-    └── plugins/
-        └── obsidian-minimalism-ui/
-            ├── main.js
-            ├── manifest.json
-            ├── styles.css
-            └── fonts/
-                ├── JetBrainsMonoNL-Regular.ttf
-                ├── JetBrainsMonoNL-Italic.ttf
-                ├── ... (remaining JetBrains Mono NL files)
-                ├── SourceHanSansSC-Regular.otf
-                └── ... (remaining Source Han Sans SC files)
-```
+Without these files the font will silently fall back to system defaults, but no error will occur.
 
 ---
 

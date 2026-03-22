@@ -8,7 +8,7 @@ This file provides guidance for Claude Code when working in this project.
 
 - **极简侧边栏** — Finder-style frosted-glass sidebar with rounded corners
 - **极简信息栏** — Hides sidebar panel buttons and Outline/Backlinks search bars
-- **笔记样式** — Custom typography: JetBrains Mono + SourceHanSansSC, Forest-style blockquotes/tables/code
+- **笔记样式** — Custom typography: JetBrains Mono, Forest-style blockquotes/tables/code
 - **笔记首页** — Auto-opens a designated note on startup; returns to it when all tabs are closed
 - **单页模式** — Hides the tab bar, shows one note at a time, caches the last 10 notes (LRU), disables pin
 - **页面加载动画** — Slide-in animation on back/forward navigation (Beta)
@@ -78,7 +78,7 @@ Obsidian requires these three files to load a plugin:
 | `workspace.on('layout-change')` | Re-insert drag bar after Obsidian rebuilds DOM |
 | `vault.on('rename')` | Update drag bar title when active file is renamed |
 | `leaf.history.back/forward/canGoBack/canGoForward` (patched) | Redirect built-in back/forward to cross-tab navigation stack |
-| `FontFace` API | Load JetBrains Mono NL + SourceHanSansSC from plugin `fonts/` directory |
+| `FontFace` API | Load JetBrains Mono NL from plugin `fonts/` directory |
 
 ## Architecture Notes
 
