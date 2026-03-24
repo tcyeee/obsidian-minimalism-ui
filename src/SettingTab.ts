@@ -52,7 +52,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 					this.plugin.settings.macSidebar = v;
 					await this.plugin.saveSettings();
 					this.plugin.applyBodyClasses();
-					if (v) await this.plugin.applyMacSidebarLayout();
+					await this.plugin.applyMacSidebarLayout();
 				}));
 
 		new Setting(containerEl)
