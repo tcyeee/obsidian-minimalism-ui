@@ -1,88 +1,64 @@
-# Minimalism UI — 功能介绍
+# Minimalism UI
+
+> 将 Obsidian 改造为极简 macOS 风格的写作环境。
+> Transform Obsidian into a minimal, macOS-native writing environment.
 
 ---
 
-## 一、极简侧边栏
+## 极简侧边栏 · Minimal Sidebar
 
-在设置中开启后，左侧边栏会变成 类似 Typora 风格的样式：
+左侧边栏切换为磨砂玻璃风格，固定显示**大纲**（上）与**笔记属性**（下），无需切换面板。关闭后恢复原始布局。
 
-- 侧边栏背景变为深色，有圆角和阴影，看起来像悬浮在页面上
-- 侧边栏内固定显示两个区域：上方是**大纲**，下方是**笔记属性**，不会被其他面板打乱
-- 每次开启这个功能，插件会自动清理侧边栏里多余的面板，保持干净整洁
+The left sidebar gets a frosted-glass look with rounded corners. Outline and Properties are merged into a single fixed view. Toggling off fully restores the original layout.
 
 ---
 
-## 二、极简信息栏
+## 极简信息栏 · Minimal Info Bar
 
-开启后，界面顶部的标签栏会被隐藏，同时：
+隐藏侧边栏图标按钮、大纲与反向链接面板中的搜索框，减少视觉干扰。
 
-- 左侧边栏顶部的一排图标按钮（文件列表、搜索、书签等）会被隐藏
-- 大纲和反向链接面板里的搜索框会被隐藏
-- 整体界面更干净，去掉所有不常用的操作区域
+Hides sidebar icon buttons and search bars in the Outline / Backlinks panels.
 
 ---
 
-## 三、笔记样式
+## 笔记样式 · Note Style
 
-开启后，笔记的字体和排版会发生变化：
+- 代码使用 **JetBrains Mono NL**，中文使用思源黑体
+- 引用块、表格、代码块有独立视觉风格
+- 阅读视图平滑滚动；从大纲跳转时当前标题闪光提示
 
-- **中文**使用思源黑体，阅读更舒适
-- **代码**使用 JetBrains Mono，等宽清晰
-- **数字**始终使用等宽字体排列（无论是否开启笔记样式，数字对齐效果都会生效）
-- 引用块、表格、代码块有独立的视觉风格，区分更明显
-- 界面整体偏向 macOS 原生风格，圆角更大，强调色为苹果蓝
-
----
-
-## 四、笔记首页
-
-在设置中填入一个笔记的路径后：
-
-- 每次打开 Obsidian，自动打开这篇笔记
-- 当所有标签页都关闭时，自动跳回这篇笔记，不会停留在空白页
-- 打开设置窗口时不会触发跳转，避免干扰操作
+- Code uses **JetBrains Mono NL**; Chinese body text uses Source Han Sans
+- Custom styles for blockquotes, tables, and code blocks
+- Smooth scroll in reading view; heading flash on Outline jump
 
 ---
 
-## 五、单页模式
+## 笔记首页 · Home Note
 
-开启后，界面切换为「一次只看一篇笔记」的阅读模式：
+填入一个笔记路径后，Obsidian 启动时自动打开，关闭所有标签后自动返回。
 
-**标签页行为**
-- 顶部标签栏隐藏，改为显示一个细长的标题栏，显示当前笔记的名称
-- 右键点击标签无法固定（Pin）笔记，避免在单页模式下产生混乱
-- 界面底部的状态栏被整合进顶部标题栏右侧
-
-**智能缓存**
-- 最多同时保留 10 篇笔记在后台，超出后自动关闭最久未看的那篇
-- 打开一篇已经在缓存中的笔记时，直接切换过去，不会重新加载，也不会出现闪烁
-
-**前进 / 后退导航**
-- 插件维护一套独立的浏览历史，记录你在不同笔记之间切换的顺序
-- 点击 Obsidian 的后退按钮（或使用快捷键），跳回上一篇看过的笔记
-- 点击前进按钮，跳到后退之前的笔记
-- 如果某篇笔记已被缓存淘汰关闭，后退时会自动跳过它，找到更早的一篇
-- 焦点在大纲、笔记属性等侧边栏面板时，前进 / 后退快捷键同样生效
+Set a note path to auto-open on startup and return to when all tabs are closed.
 
 ---
 
-## 六、页面加载动画（Beta）
+## 单页模式 · Single-Page Mode
 
-开启后，使用前进 / 后退切换笔记时，内容区会有一个滑入动画：
+隐藏标签栏，一次只显示一篇笔记，同时：
 
-- **后退**：新内容从左侧滑入
-- **前进**：新内容从右侧滑入
-- 动画轻快，结束后自动清除，不影响后续操作
+- 后台保留最近 10 篇笔记（LRU 缓存），切换无闪烁
+- 维护独立的跨标签浏览历史，支持前进 / 后退
+- 焦点在侧边栏时，前进 / 后退快捷键同样生效
+
+Hides the tab bar and shows one note at a time:
+
+- Keeps the 10 most recent notes cached in the background (LRU); switching is instant
+- Maintains a cross-tab navigation history with back / forward support
+- Back / forward shortcuts work even when focus is in a sidebar panel
 
 ---
 
-## 设置项一览
+## 页面加载动画 · Page Transition · *(Beta)*
 
-| 功能名称 | 默认状态 | 说明 |
-|---|---|---|
-| 极简侧边栏 | 关 | Finder 风格侧边栏，固定显示大纲 + 笔记属性 |
-| 极简信息栏 | 关 | 隐藏顶部标签栏、侧边栏图标按钮、面板搜索框 |
-| 笔记样式 | 关 | 思源黑体 + JetBrains Mono，自定义排版风格 |
-| 笔记首页 | 空（未设置）| 启动时 / 关闭所有标签后自动打开的笔记 |
-| 单页模式 | 关 | 单标签阅读、10 篇缓存、跨笔记前进后退 |
-| 页面加载动画 | 关 | 前进 / 后退时的滑入动画效果（Beta）|
+前进 / 后退切换笔记时，内容区从左或右滑入。
+
+Slide-in animation when navigating back or forward through note history.

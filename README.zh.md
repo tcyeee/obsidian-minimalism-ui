@@ -60,30 +60,11 @@
 
 ## 安装
 
-### 手动安装
+1. 在 [Releases](../../releases) 页面下载 `minimalism-ui.zip`
+2. 将压缩包直接解压到库的 `.obsidian/plugins/` 目录中
+3. 在 Obsidian 中：**设置 → 第三方插件 → 启用 Minimalism UI**
 
-1. 前往 [Releases](../../releases) 页面，下载最新版本的 `obsidian-minimalism-ui.zip`
-2. 解压后得到 `obsidian-minimalism-ui/` 文件夹
-3. 将该文件夹移入你的库的 `.obsidian/plugins/` 目录
-4. 在 Obsidian 中：**设置 → 第三方插件 → 启用 Minimalism UI**
-
-```
-your-vault/
-└── .obsidian/
-    └── plugins/
-        └── obsidian-minimalism-ui/
-            ├── main.js
-            ├── manifest.json
-            ├── styles.css
-            └── fonts/
-                └── JetBrainsMonoNL-*.ttf
-```
-
-### 字体
-
-JetBrains Mono NL 已打包在插件的 `fonts/` 子目录中，运行时自动加载。**`fonts/` 文件夹已包含在 `obsidian-minimalism-ui.zip` 中**，无需单独下载。
-
-若字体文件缺失，插件仍可正常运行，代码块将回退到系统等宽字体。
+压缩包解压后得到 `obsidian-minimalism-ui/` 文件夹，已包含 `main.js`、`manifest.json`、`styles.css` 及 `fonts/` 目录，无需额外操作。
 
 ---
 
