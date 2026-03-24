@@ -563,9 +563,21 @@ var SidebarLayoutManager = class {
     // Guard against concurrent calls: each `apply()` awaits async ops, so a
     // second call arriving mid-flight would create duplicate leaves.
     this.isApplying = false;
+    // Saved state for reversible injection.
+    this.injectedState = null;
   }
   // ── Public ────────────────────────────────────────────────────────────────
+  /** Undo the DOM injection and restore the Properties leaf to its original state. */
+  remove() {
+    if (!this.injectedState)
+      return;
+    const { metadataContent, originalParent, originalNextSibling, hiddenTabs } = this.injectedState;
+    this.injectedState = null;
+    originalParent.insertBefore(metadataContent, originalNextSibling);
+    hiddenTabs.style.display = "";
+  }
   async apply() {
+    this.remove();
     if (!this.getSettings().macSidebar)
       return;
     if (this.isApplying)
@@ -615,10 +627,13 @@ var SidebarLayoutManager = class {
     );
     if (!metadataContent || !outlineLeafContent)
       return;
+    const originalParent = metadataContent.parentElement;
+    const originalNextSibling = metadataContent.nextSibling;
     outlineLeafContent.appendChild(metadataContent);
     const propsWorkspaceTabs = propsEl.closest(".workspace-tabs");
     if (propsWorkspaceTabs) {
       propsWorkspaceTabs.style.display = "none";
+      this.injectedState = { metadataContent, originalParent, originalNextSibling, hiddenTabs: propsWorkspaceTabs };
     }
   }
   // ── Public helpers ────────────────────────────────────────────────────────
@@ -738,8 +753,7 @@ var MinimalismUISettingTab = class extends import_obsidian3.PluginSettingTab {
       this.plugin.settings.macSidebar = v;
       await this.plugin.saveSettings();
       this.plugin.applyBodyClasses();
-      if (v)
-        await this.plugin.applyMacSidebarLayout();
+      await this.plugin.applyMacSidebarLayout();
     }));
     new import_obsidian3.Setting(containerEl).setName("\u6781\u7B80\u4FE1\u606F\u680F").setDesc("\u9690\u85CF\u5DE6\u4FA7\u5C5E\u6027\u680F\u7684\u64CD\u4F5C\u6309\u94AE\uFF0C\u4EE5\u53CA\u5927\u7EB2\u3001\u53CD\u5411\u94FE\u63A5\u9762\u677F\u4E2D\u7684\u641C\u7D22\u6846").addToggle((t) => t.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
       this.plugin.settings.hideTabBar = v;
@@ -840,11 +854,16 @@ var MinimalismUIPlugin = class extends import_obsidian4.Plugin {
     this.singlePage.remove();
     this.tabCache.remove();
     this.dragBar.remove();
+    this.sidebarLayout.remove();
     this.removeOutlineAnimation();
   }
   // ─── Sidebar Layout ───────────────────────────────────────────────────────
   async applyMacSidebarLayout() {
-    await this.sidebarLayout.apply();
+    if (this.settings.macSidebar) {
+      await this.sidebarLayout.apply();
+    } else {
+      this.sidebarLayout.remove();
+    }
   }
   // ─── Body Classes ─────────────────────────────────────────────────────────
   applyBodyClasses() {

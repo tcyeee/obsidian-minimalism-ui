@@ -24,6 +24,14 @@ export class SidebarLayoutManager {
 	// second call arriving mid-flight would create duplicate leaves.
 	private isApplying = false;
 
+	// Saved state for reversible injection.
+	private injectedState: {
+		metadataContent: HTMLElement;
+		originalParent: HTMLElement;
+		originalNextSibling: ChildNode | null;
+		hiddenTabs: HTMLElement;
+	} | null = null;
+
 	constructor(
 		private app: App,
 		private getSettings: () => MinimalismUISettings,
@@ -31,7 +39,17 @@ export class SidebarLayoutManager {
 
 	// ── Public ────────────────────────────────────────────────────────────────
 
+	/** Undo the DOM injection and restore the Properties leaf to its original state. */
+	remove() {
+		if (!this.injectedState) return;
+		const { metadataContent, originalParent, originalNextSibling, hiddenTabs } = this.injectedState;
+		this.injectedState = null;
+		originalParent.insertBefore(metadataContent, originalNextSibling);
+		hiddenTabs.style.display = '';
+	}
+
 	async apply() {
+		this.remove();
 		if (!this.getSettings().macSidebar) return;
 		if (this.isApplying) return;
 		this.isApplying = true;
@@ -106,12 +124,17 @@ export class SidebarLayoutManager {
 
 		if (!metadataContent || !outlineLeafContent) return;
 
+		// Save state for reversible injection.
+		const originalParent = metadataContent.parentElement as HTMLElement;
+		const originalNextSibling = metadataContent.nextSibling;
+
 		outlineLeafContent.appendChild(metadataContent);
 
 		// Hide the now-empty Properties workspace-tabs shell.
 		const propsWorkspaceTabs = propsEl.closest<HTMLElement>('.workspace-tabs');
 		if (propsWorkspaceTabs) {
 			propsWorkspaceTabs.style.display = 'none';
+			this.injectedState = { metadataContent, originalParent, originalNextSibling, hiddenTabs: propsWorkspaceTabs };
 		}
 	}
 

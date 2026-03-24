@@ -76,13 +76,18 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.singlePage.remove();
 		this.tabCache.remove();
 		this.dragBar.remove();
+		this.sidebarLayout.remove();
 		this.removeOutlineAnimation();
 	}
 
 	// ─── Sidebar Layout ───────────────────────────────────────────────────────
 
 	async applyMacSidebarLayout() {
-		await this.sidebarLayout.apply();
+		if (this.settings.macSidebar) {
+			await this.sidebarLayout.apply();
+		} else {
+			this.sidebarLayout.remove();
+		}
 	}
 
 	// ─── Body Classes ─────────────────────────────────────────────────────────
