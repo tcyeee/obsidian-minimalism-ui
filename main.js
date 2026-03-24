@@ -71,6 +71,13 @@ var TabCacheManager = class {
   apply() {
     this.remove();
     this.leafQueue = [];
+    this.resizeObserverErrHandler = (e) => {
+      if (e.message === "ResizeObserver loop completed with undelivered notifications.") {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("error", this.resizeObserverErrHandler, true);
     if (!this.getSettings().disableNoteTabs)
       return;
     const ws = this.app.workspace;
@@ -84,13 +91,6 @@ var TabCacheManager = class {
       }
       return this.originalGetLeaf(newLeaf);
     };
-    this.resizeObserverErrHandler = (e) => {
-      if (e.message === "ResizeObserver loop completed with undelivered notifications.") {
-        e.stopImmediatePropagation();
-        e.preventDefault();
-      }
-    };
-    window.addEventListener("error", this.resizeObserverErrHandler, true);
     this.tabLimitHandler = () => {
       if (this.isEvicting)
         return;
