@@ -6,7 +6,18 @@ type WorkspaceSidedock = { collapsed: boolean; expand(): void; children?: unknow
 /**
  * SidebarLayoutManager — triggered when 极简侧边栏 is enabled.
  *
- * Places the Outline panel (data-type="outline") in the left sidebar.
+ * Strategy: create Outline + Properties leaves, then extract the inner
+ * `.metadata-content` div from Properties and inject it directly into the
+ * Outline leaf's `.workspace-leaf-content`. The Properties leaf shell is
+ * hidden via inline style. CSS flexbox handles the top/bottom layout.
+ *
+ * Why inject the inner div instead of moving the whole leaf:
+ *   - `.metadata-content` is a plain presentational div; Obsidian's workspace
+ *     system does not track it.
+ *   - Obsidian's Properties view JS holds a direct reference to the node, so
+ *     it continues updating when the active file changes regardless of where
+ *     the node lives in the DOM tree.
+ *   - No workspace-split manipulation → no empty-shell artifacts.
  */
 export class SidebarLayoutManager {
 	// Guard against concurrent calls: each `apply()` awaits async ops, so a
@@ -35,13 +46,63 @@ export class SidebarLayoutManager {
 			// 2. Expand left sidebar (may have auto-collapsed after clearing)
 			if (leftSplit?.collapsed) leftSplit.expand();
 
-			// 3. Outline in the top section
+			// 3. Outline leaf
 			const outlineLeaf = workspace.getLeftLeaf(false);
 			if (outlineLeaf) {
 				await outlineLeaf.setViewState({ type: 'outline', active: false });
 			}
+
+			// 4. Properties leaf — active: true so Obsidian binds it to the
+			//    current file and fully initializes .metadata-content.
+			const propsLeaf = workspace.getLeftLeaf(true);
+			if (propsLeaf) {
+				await propsLeaf.setViewState({ type: 'file-properties', active: true });
+			}
+
+			// 5. Wait for Obsidian to finish rendering both views.
+			await new Promise(resolve => setTimeout(resolve, 100));
+
+			// 6. Extract .metadata-content and inject into Outline leaf.
+			if (outlineLeaf && propsLeaf) {
+				this.injectMetadataIntoOutline(outlineLeaf, propsLeaf);
+			}
 		} finally {
 			this.isApplying = false;
+		}
+	}
+
+	// ── Private ───────────────────────────────────────────────────────────────
+
+	/**
+	 * Moves `.metadata-content` (direct child of `.metadata-container`) from
+	 * the Properties leaf into the Outline leaf's `.workspace-leaf-content`.
+	 * The now-empty Properties workspace-tabs shell is hidden.
+	 */
+	private injectMetadataIntoOutline(outlineLeaf: WorkspaceLeaf, propsLeaf: WorkspaceLeaf) {
+		const outlineEl = (outlineLeaf as WorkspaceLeaf & { containerEl: HTMLElement }).containerEl;
+		const propsEl   = (propsLeaf  as WorkspaceLeaf & { containerEl: HTMLElement }).containerEl;
+
+		// `.metadata-container > .metadata-content` — the direct child avoids
+		// matching nested `.metadata-content` nodes inside individual properties.
+		const metadataContent = propsEl.querySelector<HTMLElement>(
+			'.metadata-container > .metadata-content',
+		);
+
+		// Injection target: the outline leaf content wrapper.
+		// Appending here makes metadata-content a flex sibling of .view-content,
+		// so CSS can size them independently (outline: flex 1, metadata: auto).
+		const outlineLeafContent = outlineEl.querySelector<HTMLElement>(
+			'.workspace-leaf-content[data-type="outline"]',
+		);
+
+		if (!metadataContent || !outlineLeafContent) return;
+
+		outlineLeafContent.appendChild(metadataContent);
+
+		// Hide the now-empty Properties workspace-tabs shell.
+		const propsWorkspaceTabs = propsEl.closest<HTMLElement>('.workspace-tabs');
+		if (propsWorkspaceTabs) {
+			propsWorkspaceTabs.style.display = 'none';
 		}
 	}
 
