@@ -8,17 +8,17 @@ Transform Obsidian into a minimal, macOS-native-style writing environment. All o
 
 ## Features
 
-### 极简侧边栏
+### Minimal Sidebar
 
 Applies a Typora-style frosted-glass look to the left sidebar (rounded corners, custom background). Also restructures the sidebar: the Outline panel and Properties metadata are merged into a single view — Outline on top, frontmatter properties below — so all note context is visible at a glance without switching panels.
 
 Toggling this option off restores the original sidebar layout.
 
-### 极简信息栏
+### Simplified Panel
 
 Hides panel action buttons (the icon row in Outline, Backlinks, etc.) and removes the search bar from those panels, reducing visual noise.
 
-### 笔记样式
+### Note Style
 
 Applies custom typography to the editor and reading view:
 
@@ -27,11 +27,11 @@ Applies custom typography to the editor and reading view:
 - Adjusted line height and smooth scroll in the reading view
 - Heading flash animation when jumping from the Outline panel
 
-### 笔记首页
+### Home Note
 
 Designates a note that opens automatically on startup and whenever all tabs are closed. Set the path in the plugin settings (supports autocomplete).
 
-### 单页模式
+### Single-Page Mode
 
 Hides the tab bar and keeps one note visible at a time. Additional navigation features:
 
@@ -39,7 +39,7 @@ Hides the tab bar and keeps one note visible at a time. Additional navigation fe
 - **Cross-tab back / forward** — `app:go-back` / `app:go-forward` navigate across tabs, not just within a single tab's history
 - Disables tab pinning
 
-### 页面加载动画 *(Beta)*
+### Page Load Animation *(Beta)*
 
 Slide-in animation when navigating back or forward through note history.
 
@@ -49,41 +49,22 @@ Slide-in animation when navigating back or forward through note history.
 
 | Option | Description |
 |---|---|
-| 极简侧边栏 | Finder-style sidebar + merged Outline + Properties layout |
-| 极简信息栏 | Hides panel buttons and search bars |
-| 笔记样式 | JetBrains Mono, Forest-style blocks, smooth scroll, heading flash |
-| 笔记首页 | Note path to open on startup and when all tabs are closed |
-| 单页模式 | One-note-at-a-time with LRU cache and cross-tab history |
-| 页面加载动画 | Slide animation on back/forward navigation |
+| Minimal Sidebar | Finder-style sidebar + merged Outline + Properties layout |
+| Simplified Panel | Hides panel buttons and search bars |
+| Note Style | JetBrains Mono, Forest-style blocks, smooth scroll, heading flash |
+| Home Note | Note path to open on startup and when all tabs are closed |
+| Single-Page Mode | One-note-at-a-time with LRU cache and cross-tab history |
+| Page Load Animation | Slide animation on back/forward navigation |
 
 ---
 
 ## Installation
 
-### Manual
+1. Download `minimalism-ui.zip` from the [Releases](../../releases) page
+2. Unzip it directly into your vault's `.obsidian/plugins/` directory
+3. In Obsidian: **Settings → Community Plugins → enable Minimalism UI**
 
-1. Go to the [Releases](../../releases) page and download `obsidian-minimalism-ui.zip` from the latest release
-2. Unzip — you will get a folder named `obsidian-minimalism-ui/`
-3. Move that folder into your vault's `.obsidian/plugins/` directory
-4. In Obsidian: **Settings → Community Plugins → enable Minimalism UI**
-
-```
-your-vault/
-└── .obsidian/
-    └── plugins/
-        └── obsidian-minimalism-ui/
-            ├── main.js
-            ├── manifest.json
-            ├── styles.css
-            └── fonts/
-                └── JetBrainsMonoNL-*.ttf
-```
-
-### Fonts
-
-JetBrains Mono NL is bundled in the `fonts/` subfolder and loaded at runtime. **The `fonts/` folder is included in `obsidian-minimalism-ui.zip`** — no separate download needed.
-
-Without the font files the plugin still works; code blocks will fall back to your system monospace font.
+The zip extracts to an `obsidian-minimalism-ui/` folder that includes `main.js`, `manifest.json`, `styles.css`, and the bundled `fonts/` directory — no extra steps needed.
 
 ---
 
