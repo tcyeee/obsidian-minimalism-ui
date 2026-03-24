@@ -570,8 +570,6 @@ var SidebarLayoutManager = class {
       return;
     if (this.isApplying)
       return;
-    if (document.querySelector(".modal-container"))
-      return;
     this.isApplying = true;
     try {
       const { workspace } = this.app;
@@ -585,9 +583,14 @@ var SidebarLayoutManager = class {
       }
       const propsLeaf = workspace.getLeftLeaf(true);
       if (propsLeaf) {
-        await propsLeaf.setViewState({ type: "file-properties", active: true });
+        await propsLeaf.setViewState({ type: "file-properties", active: false });
       }
       await new Promise((resolve) => setTimeout(resolve, 100));
+      const activeFile = workspace.getActiveFile();
+      if (activeFile) {
+        workspace.trigger("file-open", activeFile);
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
       if (outlineLeaf && propsLeaf) {
         this.injectMetadataIntoOutline(outlineLeaf, propsLeaf);
       }
