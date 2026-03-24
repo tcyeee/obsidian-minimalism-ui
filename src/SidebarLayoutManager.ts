@@ -15,6 +15,8 @@ export class SidebarLayoutManager {
 	// second call arriving mid-flight would create duplicate leaves.
 	private isApplying = false;
 
+	private static readonly MERGE_CLASS = 'minimalism-ui-props-outline-container';
+
 	constructor(
 		private app: App,
 		private getSettings: () => MinimalismUISettings,
@@ -48,9 +50,57 @@ export class SidebarLayoutManager {
 			if (propsLeaf) {
 				await propsLeaf.setViewState({ type: 'file-properties', active: false });
 			}
+
+			// 5. If 极简信息栏 is also on, merge both leaves into one tab container
+			await new Promise(r => setTimeout(r, 50));
+			this.mergePropertiesLeaf();
 		} finally {
 			this.isApplying = false;
 		}
+	}
+
+	// ── Properties merge ──────────────────────────────────────────────────────
+
+	/**
+	 * When 极简信息栏 (simplifyPanel) is enabled, moves the file-properties
+	 * .workspace-leaf into the same .workspace-tab-container as the outline
+	 * leaf and applies a flex space-between layout so the two panels sit at
+	 * the top and bottom of the sidebar.
+	 */
+	mergePropertiesLeaf() {
+		if (!this.getSettings().simplifyPanel) {
+			this.unmergePropertiesLeaf();
+			return;
+		}
+
+		const outlineContent = document.querySelector<HTMLElement>(
+			'.workspace-leaf-content[data-type="outline"]',
+		);
+		const propsContent = document.querySelector<HTMLElement>(
+			'.workspace-leaf-content[data-type="file-properties"]',
+		);
+		if (!outlineContent || !propsContent) return;
+
+		const outlineLeafEl = outlineContent.closest<HTMLElement>('.workspace-leaf');
+		if (!outlineLeafEl) return;
+		const tabContainer = outlineLeafEl.parentElement;
+		if (!tabContainer?.classList.contains('workspace-tab-container')) return;
+
+		const propsLeafEl = propsContent.closest<HTMLElement>('.workspace-leaf');
+		if (!propsLeafEl) return;
+
+		// Move into outline's container if not already there
+		if (propsLeafEl.parentElement !== tabContainer) {
+			tabContainer.appendChild(propsLeafEl);
+		}
+
+		tabContainer.classList.add(SidebarLayoutManager.MERGE_CLASS);
+	}
+
+	private unmergePropertiesLeaf() {
+		document.querySelectorAll(`.${SidebarLayoutManager.MERGE_CLASS}`).forEach(el => {
+			el.classList.remove(SidebarLayoutManager.MERGE_CLASS);
+		});
 	}
 
 	// ── Public helpers ────────────────────────────────────────────────────────
