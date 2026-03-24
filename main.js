@@ -556,7 +556,7 @@ var SinglePageManager = class {
 
 // src/SidebarLayoutManager.ts
 var import_obsidian2 = require("obsidian");
-var _SidebarLayoutManager = class {
+var SidebarLayoutManager = class {
   constructor(app, getSettings) {
     this.app = app;
     this.getSettings = getSettings;
@@ -581,54 +581,9 @@ var _SidebarLayoutManager = class {
       if (outlineLeaf) {
         await outlineLeaf.setViewState({ type: "outline", active: false });
       }
-      const propsLeaf = workspace.getLeftLeaf(true);
-      if (propsLeaf) {
-        await propsLeaf.setViewState({ type: "file-properties", active: false });
-      }
-      await new Promise((r) => setTimeout(r, 50));
-      this.mergePropertiesLeaf();
     } finally {
       this.isApplying = false;
     }
-  }
-  // ── Properties merge ──────────────────────────────────────────────────────
-  /**
-   * When 极简信息栏 (simplifyPanel) is enabled, moves the file-properties
-   * .workspace-leaf into the same .workspace-tab-container as the outline
-   * leaf and applies a flex space-between layout so the two panels sit at
-   * the top and bottom of the sidebar.
-   */
-  mergePropertiesLeaf() {
-    if (!this.getSettings().simplifyPanel) {
-      this.unmergePropertiesLeaf();
-      return;
-    }
-    const outlineContent = document.querySelector(
-      '.workspace-leaf-content[data-type="outline"]'
-    );
-    const propsContent = document.querySelector(
-      '.workspace-leaf-content[data-type="file-properties"]'
-    );
-    if (!outlineContent || !propsContent)
-      return;
-    const outlineLeafEl = outlineContent.closest(".workspace-leaf");
-    if (!outlineLeafEl)
-      return;
-    const tabContainer = outlineLeafEl.parentElement;
-    if (!(tabContainer == null ? void 0 : tabContainer.classList.contains("workspace-tab-container")))
-      return;
-    const propsLeafEl = propsContent.closest(".workspace-leaf");
-    if (!propsLeafEl)
-      return;
-    if (propsLeafEl.parentElement !== tabContainer) {
-      tabContainer.appendChild(propsLeafEl);
-    }
-    tabContainer.classList.add(_SidebarLayoutManager.MERGE_CLASS);
-  }
-  unmergePropertiesLeaf() {
-    document.querySelectorAll(`.${_SidebarLayoutManager.MERGE_CLASS}`).forEach((el) => {
-      el.classList.remove(_SidebarLayoutManager.MERGE_CLASS);
-    });
   }
   // ── Public helpers ────────────────────────────────────────────────────────
   /**
@@ -641,7 +596,7 @@ var _SidebarLayoutManager = class {
    *      Catches leaves whose workspace-item tree position wasn't found in A
    *      (e.g. floating / detached DOM fragments that still reference a split).
    *
-   *   C. Full iterateAllLeaves sweep for the two target types (outline, file-properties).
+   *   C. Full iterateAllLeaves sweep for the outline type.
    *      Guards against leaves that survived A and B because their containerEl
    *      was missing or not yet attached to the document.
    *
@@ -672,7 +627,7 @@ var _SidebarLayoutManager = class {
     const stragglers = [];
     workspace.iterateAllLeaves((leaf) => {
       const type = leaf.getViewState().type;
-      if (type === "outline" || type === "file-properties")
+      if (type === "outline")
         stragglers.push(leaf);
     });
     for (const leaf of stragglers) {
@@ -709,8 +664,6 @@ var _SidebarLayoutManager = class {
     return children.flatMap((child) => this.collectLeavesFromItem(child));
   }
 };
-var SidebarLayoutManager = _SidebarLayoutManager;
-SidebarLayoutManager.MERGE_CLASS = "minimalism-ui-props-outline-container";
 
 // src/SettingTab.ts
 var import_obsidian3 = require("obsidian");
@@ -881,8 +834,6 @@ var MinimalismUIPlugin = class extends import_obsidian4.Plugin {
     this.applyOutlineAnimation();
     if (this.settings.macSidebar)
       void this.sidebarLayout.apply();
-    else
-      this.sidebarLayout.mergePropertiesLeaf();
   }
   // ─── Outline Animation ────────────────────────────────────────────────────
   applyOutlineAnimation() {

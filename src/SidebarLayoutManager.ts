@@ -6,16 +6,12 @@ type WorkspaceSidedock = { collapsed: boolean; expand(): void; children?: unknow
 /**
  * SidebarLayoutManager — triggered when 极简侧边栏 is enabled.
  *
- * Arranges the left sidebar into two sections:
- *   • Top   — Outline (data-type="outline")
- *   • Bottom — File properties (data-type="file-properties")
+ * Places the Outline panel (data-type="outline") in the left sidebar.
  */
 export class SidebarLayoutManager {
 	// Guard against concurrent calls: each `apply()` awaits async ops, so a
 	// second call arriving mid-flight would create duplicate leaves.
 	private isApplying = false;
-
-	private static readonly MERGE_CLASS = 'minimalism-ui-props-outline-container';
 
 	constructor(
 		private app: App,
@@ -44,63 +40,9 @@ export class SidebarLayoutManager {
 			if (outlineLeaf) {
 				await outlineLeaf.setViewState({ type: 'outline', active: false });
 			}
-
-			// 4. File properties in the bottom section (new horizontal split)
-			const propsLeaf = workspace.getLeftLeaf(true);
-			if (propsLeaf) {
-				await propsLeaf.setViewState({ type: 'file-properties', active: false });
-			}
-
-			// 5. If 极简信息栏 is also on, merge both leaves into one tab container
-			await new Promise(r => setTimeout(r, 50));
-			this.mergePropertiesLeaf();
 		} finally {
 			this.isApplying = false;
 		}
-	}
-
-	// ── Properties merge ──────────────────────────────────────────────────────
-
-	/**
-	 * When 极简信息栏 (simplifyPanel) is enabled, moves the file-properties
-	 * .workspace-leaf into the same .workspace-tab-container as the outline
-	 * leaf and applies a flex space-between layout so the two panels sit at
-	 * the top and bottom of the sidebar.
-	 */
-	mergePropertiesLeaf() {
-		if (!this.getSettings().simplifyPanel) {
-			this.unmergePropertiesLeaf();
-			return;
-		}
-
-		const outlineContent = document.querySelector<HTMLElement>(
-			'.workspace-leaf-content[data-type="outline"]',
-		);
-		const propsContent = document.querySelector<HTMLElement>(
-			'.workspace-leaf-content[data-type="file-properties"]',
-		);
-		if (!outlineContent || !propsContent) return;
-
-		const outlineLeafEl = outlineContent.closest<HTMLElement>('.workspace-leaf');
-		if (!outlineLeafEl) return;
-		const tabContainer = outlineLeafEl.parentElement;
-		if (!tabContainer?.classList.contains('workspace-tab-container')) return;
-
-		const propsLeafEl = propsContent.closest<HTMLElement>('.workspace-leaf');
-		if (!propsLeafEl) return;
-
-		// Move into outline's container if not already there
-		if (propsLeafEl.parentElement !== tabContainer) {
-			tabContainer.appendChild(propsLeafEl);
-		}
-
-		tabContainer.classList.add(SidebarLayoutManager.MERGE_CLASS);
-	}
-
-	private unmergePropertiesLeaf() {
-		document.querySelectorAll(`.${SidebarLayoutManager.MERGE_CLASS}`).forEach(el => {
-			el.classList.remove(SidebarLayoutManager.MERGE_CLASS);
-		});
 	}
 
 	// ── Public helpers ────────────────────────────────────────────────────────
@@ -115,7 +57,7 @@ export class SidebarLayoutManager {
 	 *      Catches leaves whose workspace-item tree position wasn't found in A
 	 *      (e.g. floating / detached DOM fragments that still reference a split).
 	 *
-	 *   C. Full iterateAllLeaves sweep for the two target types (outline, file-properties).
+	 *   C. Full iterateAllLeaves sweep for the outline type.
 	 *      Guards against leaves that survived A and B because their containerEl
 	 *      was missing or not yet attached to the document.
 	 *
@@ -147,12 +89,12 @@ export class SidebarLayoutManager {
 			try { this.forceDetach(leaf); } catch { /* leaf may already be detached */ }
 		}
 
-		// Strategy C — final sweep for the two target view types
+		// Strategy C — final sweep for the outline type
 		// (covers leaves whose containerEl was null/detached during A & B)
 		const stragglers: WorkspaceLeaf[] = [];
 		workspace.iterateAllLeaves(leaf => {
 			const type = leaf.getViewState().type;
-			if (type === 'outline' || type === 'file-properties') stragglers.push(leaf);
+			if (type === 'outline') stragglers.push(leaf);
 		});
 		for (const leaf of stragglers) {
 			try { this.forceDetach(leaf); } catch { /* leaf may already be detached */ }
