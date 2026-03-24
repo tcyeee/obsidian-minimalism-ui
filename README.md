@@ -10,7 +10,7 @@ Transform Obsidian into a minimal, macOS-native-style writing environment. All o
 
 ### 极简侧边栏
 
-Applies a macOS Finder-style frosted-glass look to the left sidebar (rounded corners, custom background). Also restructures the sidebar: the Outline panel and Properties metadata are merged into a single view — Outline on top, frontmatter properties below — so all note context is visible at a glance without switching panels.
+Applies a Typora-style frosted-glass look to the left sidebar (rounded corners, custom background). Also restructures the sidebar: the Outline panel and Properties metadata are merged into a single view — Outline on top, frontmatter properties below — so all note context is visible at a glance without switching panels.
 
 Toggling this option off restores the original sidebar layout.
 
