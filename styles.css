@@ -218,6 +218,13 @@
 	padding: 12px 16px 6px;
 }
 
+/* Properties + Outline 合并到同一 tab container，上下 space-between 排列 */
+.minimalism-ui-props-outline-container {
+	display: flex !important;
+	flex-direction: column !important;
+	justify-content: space-between !important;
+}
+
 /* ── 禁用笔记 Tab（隐藏笔记区域标签栏 + 自定义拖拽区） ──────────────── */
 
 .minimalism-ui-disable-note-tabs .workspace-split.mod-root .workspace-tab-header-container {
