@@ -68,6 +68,21 @@ export class TabCacheManager {
 	apply() {
 		this.remove();
 		this.leafQueue = [];
+
+		// 拦截 "ResizeObserver loop completed with undelivered notifications" 错误：
+		// CodeMirror 内部 ResizeObserver 级联迭代次数超出浏览器阈值时触发，
+		// 笔记样式等 CSS 改变行高/字体大小也会触发此问题。
+		// 浏览器抛出此错误事件（非致命，未送达的通知会推迟到下一帧自动处理），
+		// 但 Obsidian 的 window.onerror 会将它展示为用户可见的报错提示。
+		// 通过 capture phase 提前拦截，阻止其传播到 Obsidian 的全局 handler。
+		this.resizeObserverErrHandler = (e: ErrorEvent) => {
+			if (e.message === 'ResizeObserver loop completed with undelivered notifications.') {
+				e.stopImmediatePropagation();
+				e.preventDefault();
+			}
+		};
+		window.addEventListener('error', this.resizeObserverErrHandler, true);
+
 		if (!this.getSettings().disableNoteTabs) return;
 
 		// 拦截所有会新建/复用 leaf 的 getLeaf 调用（false/undefined/true/'tab'），
@@ -84,19 +99,6 @@ export class TabCacheManager {
 			}
 			return this.originalGetLeaf!(newLeaf);
 		};
-
-		// 拦截 "ResizeObserver loop completed with undelivered notifications" 错误：
-		// 切换到"冷" leaf 时，CodeMirror 内部 ResizeObserver 级联迭代次数超出浏览器阈值，
-		// 浏览器抛出此错误事件（非致命，未送达的通知会推迟到下一帧自动处理），
-		// 但 Obsidian 的 window.onerror 会将它展示为用户可见的报错提示。
-		// 通过 capture phase 提前拦截，阻止其传播到 Obsidian 的全局 handler。
-		this.resizeObserverErrHandler = (e: ErrorEvent) => {
-			if (e.message === 'ResizeObserver loop completed with undelivered notifications.') {
-				e.stopImmediatePropagation();
-				e.preventDefault();
-			}
-		};
-		window.addEventListener('error', this.resizeObserverErrHandler, true);
 
 		// 仅监听 active-leaf-change，避免 layout-change 引发的重入
 		this.tabLimitHandler = () => {
