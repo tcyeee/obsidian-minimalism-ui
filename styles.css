@@ -246,6 +246,18 @@
 .minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content {
 	flex: 0 0 auto !important;
 	overflow: visible !important;
+	padding: 0 16px 35px !important;
+}
+
+/* PROPERTIES 标题 */
+.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content::before {
+	content: 'PROPERTIES';
+	display: block;
+	font-size: 0.8rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	color: rgba(255, 255, 255, 0.88) !important;
+	padding: 12px 0 6px;
 }
 
 /* ── 禁用笔记 Tab（隐藏笔记区域标签栏 + 自定义拖拽区） ──────────────── */
