@@ -581,8 +581,39 @@ var SidebarLayoutManager = class {
       if (outlineLeaf) {
         await outlineLeaf.setViewState({ type: "outline", active: false });
       }
+      const propsLeaf = workspace.getLeftLeaf(true);
+      if (propsLeaf) {
+        await propsLeaf.setViewState({ type: "file-properties", active: true });
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      if (outlineLeaf && propsLeaf) {
+        this.injectMetadataIntoOutline(outlineLeaf, propsLeaf);
+      }
     } finally {
       this.isApplying = false;
+    }
+  }
+  // ── Private ───────────────────────────────────────────────────────────────
+  /**
+   * Moves `.metadata-content` (direct child of `.metadata-container`) from
+   * the Properties leaf into the Outline leaf's `.workspace-leaf-content`.
+   * The now-empty Properties workspace-tabs shell is hidden.
+   */
+  injectMetadataIntoOutline(outlineLeaf, propsLeaf) {
+    const outlineEl = outlineLeaf.containerEl;
+    const propsEl = propsLeaf.containerEl;
+    const metadataContent = propsEl.querySelector(
+      ".metadata-container > .metadata-content"
+    );
+    const outlineLeafContent = outlineEl.querySelector(
+      '.workspace-leaf-content[data-type="outline"]'
+    );
+    if (!metadataContent || !outlineLeafContent)
+      return;
+    outlineLeafContent.appendChild(metadataContent);
+    const propsWorkspaceTabs = propsEl.closest(".workspace-tabs");
+    if (propsWorkspaceTabs) {
+      propsWorkspaceTabs.style.display = "none";
     }
   }
   // ── Public helpers ────────────────────────────────────────────────────────
