@@ -34,6 +34,10 @@ export class SidebarLayoutManager {
 	async apply() {
 		if (!this.getSettings().macSidebar) return;
 		if (this.isApplying) return;
+		// Skip while any modal (e.g. the Settings panel) is open: workspace leaf
+		// operations like clearLeftSidebar() + setViewState({ active: true }) fire
+		// active-leaf-change which causes Obsidian to close the Settings modal.
+		if (document.querySelector('.modal-container')) return;
 		this.isApplying = true;
 
 		try {
