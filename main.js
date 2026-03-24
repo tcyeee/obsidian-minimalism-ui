@@ -570,6 +570,8 @@ var SidebarLayoutManager = class {
       return;
     if (this.isApplying)
       return;
+    if (document.querySelector(".modal-container"))
+      return;
     this.isApplying = true;
     try {
       const { workspace } = this.app;
