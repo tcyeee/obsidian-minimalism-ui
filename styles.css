@@ -323,11 +323,11 @@
 	display: none !important;
 }
 
-/* ── 隐藏右侧边栏及切换图标 ──────────────────────────────────────────── */
+/* ── 隐藏右侧边栏及切换图标（仅极简侧边栏开启时）──────────────────── */
 
-.workspace-split.mod-right-split,
-.sidebar-toggle-button.mod-right,
-.workspace-tab-header-tab-list {
+.minimalism-ui-mac-sidebar .workspace-split.mod-right-split,
+.minimalism-ui-mac-sidebar .sidebar-toggle-button.mod-right,
+.minimalism-ui-mac-sidebar .workspace-tab-header-tab-list {
 	display: none !important;
 }
 
