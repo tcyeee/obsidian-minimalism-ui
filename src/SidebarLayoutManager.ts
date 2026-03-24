@@ -34,10 +34,6 @@ export class SidebarLayoutManager {
 	async apply() {
 		if (!this.getSettings().macSidebar) return;
 		if (this.isApplying) return;
-		// Skip while any modal (e.g. the Settings panel) is open: workspace leaf
-		// operations like clearLeftSidebar() + setViewState({ active: true }) fire
-		// active-leaf-change which causes Obsidian to close the Settings modal.
-		if (document.querySelector('.modal-container')) return;
 		this.isApplying = true;
 
 		try {
@@ -56,17 +52,26 @@ export class SidebarLayoutManager {
 				await outlineLeaf.setViewState({ type: 'outline', active: false });
 			}
 
-			// 4. Properties leaf — active: true so Obsidian binds it to the
-			//    current file and fully initializes .metadata-content.
+			// 4. Properties leaf — use active: false to avoid triggering
+			//    active-leaf-change (which would close any open modal like Settings).
+			//    We manually fire 'file-open' afterward to initialize the view.
 			const propsLeaf = workspace.getLeftLeaf(true);
 			if (propsLeaf) {
-				await propsLeaf.setViewState({ type: 'file-properties', active: true });
+				await propsLeaf.setViewState({ type: 'file-properties', active: false });
 			}
 
 			// 5. Wait for Obsidian to finish rendering both views.
 			await new Promise(resolve => setTimeout(resolve, 100));
 
-			// 6. Extract .metadata-content and inject into Outline leaf.
+			// 6. Nudge Properties view to load the current file (since active: false
+			//    means Obsidian won't auto-bind it via active-leaf-change).
+			const activeFile = workspace.getActiveFile();
+			if (activeFile) {
+				workspace.trigger('file-open', activeFile);
+				await new Promise(resolve => setTimeout(resolve, 50));
+			}
+
+			// 7. Extract .metadata-content and inject into Outline leaf.
 			if (outlineLeaf && propsLeaf) {
 				this.injectMetadataIntoOutline(outlineLeaf, propsLeaf);
 			}
