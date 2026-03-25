@@ -929,13 +929,15 @@ body.minimalism-ui-note-style .bases-cards-property.mod-title {
 .minimalism-ui-note-style .markdown-reading-view .callout-content li,
 .minimalism-ui-note-style .markdown-reading-view .callout-content ul,
 .minimalism-ui-note-style .markdown-reading-view .callout-content ol {
-	font-size: 0.9rem !important;
-	opacity: 0.8 !important;
+	font-size: 0.8rem !important;
+	color: var(--text-muted) !important;
+	opacity: 0.9 !important;
 }
 
 /* 编辑视图（Live Preview）：callout 正文字色 */
 .minimalism-ui-note-style .cm-editor .cm-callout .cm-line:not(.cm-callout-title) {
-	font-size: 0.9rem !important;
-	opacity: 0.8 !important;
+	font-size: 0.8rem !important;
+	color: var(--text-muted) !important;
+	opacity: 0.9 !important;
 }
 
