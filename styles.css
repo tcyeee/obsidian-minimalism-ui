@@ -565,20 +565,6 @@
 	--line-height-normal: 1.6;
 }
 
-/* Outline 跳转：平滑滚动 */
-.minimalism-ui-note-style .markdown-preview-view {
-	scroll-behavior: smooth;
-}
-
-/* Outline 跳转：目标标题闪入动画 */
-@keyframes minimalism-ui-heading-flash {
-	0%   { opacity: 0.2; color: var(--color-accent); }
-	40%  { opacity: 1;   color: var(--color-accent); }
-	100% { opacity: 1;   color: inherit; }
-}
-.minimalism-ui-heading-flash {
-	animation: minimalism-ui-heading-flash 0.7s ease-out !important;
-}
 
 /* 阅读视图 */
 .minimalism-ui-note-style .markdown-reading-view .markdown-preview-section,
