@@ -909,3 +909,33 @@ body.minimalism-ui-note-style .bases-cards-property.mod-title {
 	opacity: 0.8 !important;
 }
 
+/* ── 笔记样式：无语言代码块透明度 ───────────────────────────────────── */
+
+/* 阅读视图：无语言标注的代码块内容 */
+.minimalism-ui-note-style .markdown-reading-view pre > code:not([class*="language-"]) {
+	opacity: 0.9 !important;
+}
+
+/* 编辑视图（Live Preview）：无语言标注的代码块行 */
+.minimalism-ui-note-style .cm-editor .HyperMD-codeblock:not([class*="language-"]) {
+	opacity: 0.9 !important;
+}
+
+/* ── 笔记样式：Callout ───────────────────────────────────────────────── */
+
+/* 阅读视图：callout 正文字色 */
+.minimalism-ui-note-style .markdown-reading-view .callout-content,
+.minimalism-ui-note-style .markdown-reading-view .callout-content p,
+.minimalism-ui-note-style .markdown-reading-view .callout-content li,
+.minimalism-ui-note-style .markdown-reading-view .callout-content ul,
+.minimalism-ui-note-style .markdown-reading-view .callout-content ol {
+	font-size: 0.9rem !important;
+	opacity: 0.8 !important;
+}
+
+/* 编辑视图（Live Preview）：callout 正文字色 */
+.minimalism-ui-note-style .cm-editor .cm-callout .cm-line:not(.cm-callout-title) {
+	font-size: 0.9rem !important;
+	opacity: 0.8 !important;
+}
+
