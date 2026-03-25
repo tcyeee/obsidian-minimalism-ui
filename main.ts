@@ -27,8 +27,6 @@ export default class MinimalismUIPlugin extends Plugin {
 	// is opening; SinglePageManager writes it during openHomePage().
 	private isOpeningHomePage = false;
 
-	private outlineNavHandler: ((e: MouseEvent) => void) | null = null;
-
 	private loadedFonts: FontFace[] = [];
 
 	async onload() {
@@ -51,7 +49,6 @@ export default class MinimalismUIPlugin extends Plugin {
 		await this.loadJetBrainsMono();
 		this.applyBodyClasses();
 		this.singlePage.apply();
-		this.applyOutlineAnimation();
 		this.tabCache.apply();
 		this.app.workspace.onLayoutReady(() => {
 			this.dragBar.apply();
@@ -77,7 +74,6 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.tabCache.remove();
 		this.dragBar.remove();
 		this.sidebarLayout.remove();
-		this.removeOutlineAnimation();
 	}
 
 	// ─── Sidebar Layout ───────────────────────────────────────────────────────
@@ -115,56 +111,6 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.tabCache.apply();
 		this.dragBar.apply();
 		this.singlePage.applyHomePage();
-		this.applyOutlineAnimation();
-	}
-
-	// ─── Outline Animation ────────────────────────────────────────────────────
-
-	applyOutlineAnimation() {
-		this.removeOutlineAnimation();
-		if (!this.settings.noteStyle) return;
-
-		this.outlineNavHandler = (e: MouseEvent) => {
-			const item = (e.target as Element).closest('.tree-item-inner');
-			if (!item?.closest('[data-type="outline"]')) return;
-			setTimeout(() => this.flashCurrentHeading(), 50);
-		};
-		document.addEventListener('click', this.outlineNavHandler, true);
-	}
-
-	private removeOutlineAnimation() {
-		if (this.outlineNavHandler) {
-			document.removeEventListener('click', this.outlineNavHandler, true);
-			this.outlineNavHandler = null;
-		}
-	}
-
-	private flashCurrentHeading() {
-		const leaf = this.app.workspace.getMostRecentLeaf();
-		if (!leaf) return;
-
-		const scrollEl = leaf.view.containerEl.querySelector<HTMLElement>('.markdown-preview-view');
-		if (!scrollEl) return;
-
-		const containerRect = scrollEl.getBoundingClientRect();
-		const headings = scrollEl.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6');
-
-		let target: HTMLElement | null = null;
-		let minDist = Infinity;
-
-		for (const h of Array.from(headings)) {
-			const dist = Math.abs(h.getBoundingClientRect().top - containerRect.top);
-			if (dist < minDist) {
-				minDist = dist;
-				target = h;
-			}
-		}
-
-		if (target) {
-			const el = target;
-			el.classList.add('minimalism-ui-heading-flash');
-			el.addEventListener('animationend', () => el.classList.remove('minimalism-ui-heading-flash'), { once: true });
-		}
 	}
 
 	// ─── Fonts ────────────────────────────────────────────────────────────────
