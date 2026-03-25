@@ -803,6 +803,15 @@ body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar-track {
 	border: 1px solid #DADCDE !important;
 }
 
+/* 编辑视图：table-editor 外边框
+   用 outline 而非 border，避免被内部 overflow:hidden 裁切或被内置样式覆盖 */
+.minimalism-ui-note-style .cm-editor .table-editor {
+	border-radius: 5px !important;
+	overflow: hidden !important;
+	outline: 1px solid #DADCDE !important;
+	outline-offset: 0px !important;
+}
+
 .minimalism-ui-note-style .el-table table {
 	margin: 0 !important;
 	width: 100% !important;
@@ -919,6 +928,12 @@ body.minimalism-ui-note-style .bases-cards-property.mod-title {
 /* 编辑视图（Live Preview）：无语言标注的代码块行 */
 .minimalism-ui-note-style .cm-editor .HyperMD-codeblock:not([class*="language-"]) {
 	opacity: 0.9 !important;
+}
+
+/* 编辑视图：代码块起始行（语言名称）和结束行文字变浅灰 */
+.minimalism-ui-note-style .cm-editor .HyperMD-codeblock-begin,
+.minimalism-ui-note-style .cm-editor .HyperMD-codeblock-end {
+	color: var(--text-faint) !important;
 }
 
 /* ── 笔记样式：Callout ───────────────────────────────────────────────── */
