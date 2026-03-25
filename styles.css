@@ -576,8 +576,13 @@
 .minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h4,
 .minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h5,
 .minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h6 {
-	font-family: 'JetBrains Mono', 'Chinese Quote', 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
-	line-height: 1.6 !important;
+	/* JetBrains Mono 只覆盖 ASCII（英文+数字），中文字符自动 fallback 到语雀同款字体栈 */
+	font-family: 'JetBrains Mono NL', 'JetBrains Mono', 'Chinese Quote', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+	line-height: 1.74 !important;
+	word-break: break-word !important;
+	word-wrap: break-word !important;
+	font-variant-ligatures: none !important;
+	text-indent: 0 !important;
 }
 
 /* 正文缩小 1px（不影响标题，标题由 --hX-size 变量控制） */
@@ -591,9 +596,11 @@
 .minimalism-ui-note-style .cm-editor .cm-content,
 .minimalism-ui-note-style .cm-editor .cm-line,
 .minimalism-ui-note-style .cm-editor .cm-scroller {
-	font-family: 'JetBrains Mono', 'Chinese Quote', 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+	font-family: 'JetBrains Mono NL', 'JetBrains Mono', 'Chinese Quote', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
 	font-size: 15px !important;
-	line-height: 1.6 !important;
+	line-height: 1.74 !important;
+	word-break: break-word !important;
+	font-variant-ligatures: none !important;
 }
 
 /* 编辑视图标题：还原为与预览模式一致的 --hX-size 字号 */
