@@ -102,13 +102,15 @@ var TabCacheManager = class {
       const rootLeaves = [];
       this.app.workspace.iterateRootLeaves((l) => rootLeaves.push(l));
       this.leafQueue = this.leafQueue.filter((l) => rootLeaves.includes(l));
-      const max = this.getSettings().enableLeafCache ? 10 : Infinity;
+      const max = 10;
       if (this.leafQueue.length > max) {
         this.isEvicting = true;
         try {
           while (this.leafQueue.length > max) {
             const oldest = this.leafQueue.shift();
             oldest.detach();
+            this.navHistory = this.navHistory.filter((l) => l !== oldest);
+            this.navFuture = this.navFuture.filter((l) => l !== oldest);
           }
         } finally {
           this.isEvicting = false;
@@ -157,7 +159,15 @@ var TabCacheManager = class {
       });
     };
     this.app.workspace.on("active-leaf-change", this.navAnimateHandler);
-    this.app.workspace.iterateRootLeaves((leaf) => this.patchLeafHistory(leaf));
+    this.app.workspace.iterateRootLeaves((leaf) => {
+      this.patchLeafHistory(leaf);
+      this.leafQueue.push(leaf);
+    });
+    const mostRecent = this.app.workspace.getMostRecentLeaf();
+    if (mostRecent) {
+      this.leafQueue = this.leafQueue.filter((l) => l !== mostRecent);
+      this.leafQueue.push(mostRecent);
+    }
     const appCmds = this.app.commands.commands;
     const backCmd = appCmds["app:go-back"];
     const fwdCmd = appCmds["app:go-forward"];
@@ -233,8 +243,6 @@ var TabCacheManager = class {
       this.origGoForward = null;
     }
     this.leafQueue = [];
-    this.navHistory = [];
-    this.navFuture = [];
     this.navJumpTarget = null;
     this.pendingInterceptLeaves.clear();
   }

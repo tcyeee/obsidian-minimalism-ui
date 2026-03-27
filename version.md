@@ -66,7 +66,7 @@ The zip extracts to an `obsidian-minimalism-ui/` folder that includes `main.js`,
 - **Minimal Info Bar** — Hides all secondary sidebar panels (file list, search, bookmarks, etc.).
 - **Note Style** — Source Han Sans for Chinese, JetBrains Mono for code/numbers; redesigned blockquotes, tables, code blocks; rounded corners with deep-blue accent.
 - **Home Note** — Auto-opens a specified note on startup and returns to it when all tabs are closed.
-- **Single-Page Mode** — One note at a time with smart cache (up to 10 notes) and independent navigation history (back / forward).
+- **Single-Page Mode** — One note at a time with smart cache (up to 30 notes) and independent navigation history (back / forward).
 - **Page Transition (Beta)** — Slide-in animation when navigating: left for back, right for forward.
 
 ---
@@ -75,6 +75,6 @@ The zip extracts to an `obsidian-minimalism-ui/` folder that includes `main.js`,
 - **极简信息栏** — 隐藏所有侧边栏二级面板（文件列表、搜索、书签等）。
 - **笔记样式** — 中文使用思源黑体，代码/数字使用 JetBrains Mono；引用块、表格、代码块视觉重构；整体圆角，深蓝主色调。
 - **笔记首页** — 启动时自动打开指定笔记，所有标签页关闭后自动跳回。
-- **单页模式** — 一次只看一篇笔记，智能缓存最多 10 篇，维护独立的前进/后退导航历史。
+- **单页模式** — 一次只看一篇笔记，智能缓存最多 30 篇，维护独立的前进/后退导航历史。
 - **页面加载动画（Beta）** — 前进/后退切换时内容区滑入动画：后退左滑，前进右滑。
 
