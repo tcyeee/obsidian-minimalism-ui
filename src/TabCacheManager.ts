@@ -63,7 +63,7 @@ export class TabCacheManager {
 		private app: App,
 		private getSettings: () => MinimalismUISettings,
 		private isOpeningHomePage: () => boolean,
-	) {}
+	) { }
 
 	apply() {
 		this.remove();
@@ -117,13 +117,16 @@ export class TabCacheManager {
 
 			// 淘汰超出缓存数量的最旧 leaf
 			// isEvicting 防止 detach() 触发的 active-leaf-change 引发重入
-			const max = this.getSettings().enableLeafCache ? 10 : Infinity;
+			// tabLimitHandler 仅在 disableNoteTabs=true 时注册，故此处固定上限为 30
+			const max = 30;
 			if (this.leafQueue.length > max) {
 				this.isEvicting = true;
 				try {
 					while (this.leafQueue.length > max) {
 						const oldest = this.leafQueue.shift()!;
 						oldest.detach();
+						this.navHistory = this.navHistory.filter(l => l !== oldest);
+						this.navFuture = this.navFuture.filter(l => l !== oldest);
 					}
 				} finally {
 					this.isEvicting = false;
@@ -173,8 +176,17 @@ export class TabCacheManager {
 		};
 		this.app.workspace.on('active-leaf-change', this.navAnimateHandler);
 
-		// 对已有 leaf 补充 history 拦截
-		this.app.workspace.iterateRootLeaves(leaf => this.patchLeafHistory(leaf));
+		// 对已有 leaf 补充 history 拦截，同时用当前所有 root leaf 初始化缓存队列。
+		// 确保单页模式启用前已打开的 tab 也受 LRU 限制，最近活跃的 leaf 排到队尾。
+		this.app.workspace.iterateRootLeaves(leaf => {
+			this.patchLeafHistory(leaf);
+			this.leafQueue.push(leaf);
+		});
+		const mostRecent = this.app.workspace.getMostRecentLeaf();
+		if (mostRecent) {
+			this.leafQueue = this.leafQueue.filter(l => l !== mostRecent);
+			this.leafQueue.push(mostRecent);
+		}
 
 		// Patch 内置的 app:go-back / app:go-forward command，
 		// 使快捷键在焦点位于 OUTLINE / PROPERTIES 等侧边栏面板时同样生效。
@@ -183,7 +195,7 @@ export class TabCacheManager {
 		// 替换 callback 与 checkCallback 两个入口，直接调用我们的导航方法即可解决。
 		const appCmds = (this.app as unknown as AppInternal).commands.commands;
 		const backCmd = appCmds['app:go-back'];
-		const fwdCmd  = appCmds['app:go-forward'];
+		const fwdCmd = appCmds['app:go-forward'];
 		if (backCmd) {
 			this.origGoBack = { callback: backCmd.callback, checkCallback: backCmd.checkCallback };
 			delete backCmd.callback;
@@ -251,8 +263,6 @@ export class TabCacheManager {
 			this.origGoForward = null;
 		}
 		this.leafQueue = [];
-		this.navHistory = [];
-		this.navFuture = [];
 		this.navJumpTarget = null;
 		this.pendingInterceptLeaves.clear();
 	}
@@ -311,7 +321,7 @@ export class TabCacheManager {
 		}
 		// 快照：若找不到可用的目标 leaf，回滚所有状态变更，避免 navFuture 被污染
 		const snapHistory = [...this.navHistory];
-		const snapFuture  = [...this.navFuture];
+		const snapFuture = [...this.navFuture];
 		while (this.navHistory.length >= 2) {
 			const current = this.navHistory.pop()!;
 			this.navFuture.unshift(current);
@@ -331,7 +341,7 @@ export class TabCacheManager {
 		}
 		// 未能完成导航（所有历史 leaf 均已淘汰），回滚
 		this.navHistory = snapHistory;
-		this.navFuture  = snapFuture;
+		this.navFuture = snapFuture;
 	}
 
 	private navigateForward() {
@@ -342,7 +352,7 @@ export class TabCacheManager {
 		}
 		// 快照：若所有 forward leaf 均已淘汰，回滚，避免 navHistory 被多余条目污染
 		const snapHistory = [...this.navHistory];
-		const snapFuture  = [...this.navFuture];
+		const snapFuture = [...this.navFuture];
 		while (this.navFuture.length > 0) {
 			const next = this.navFuture.shift()!;
 			if ((next as LeafInternal).parent) {
@@ -361,7 +371,7 @@ export class TabCacheManager {
 		}
 		// 未能完成导航，回滚
 		this.navHistory = snapHistory;
-		this.navFuture  = snapFuture;
+		this.navFuture = snapFuture;
 	}
 
 	patchLeafHistory(leaf: WorkspaceLeaf) {
