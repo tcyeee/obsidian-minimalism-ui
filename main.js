@@ -61,6 +61,7 @@ var TabCacheManager = class {
     this.navAnimateHandler = null;
     this.pendingAnimationCls = null;
     this.navTimer = null;
+    this.animEndListeners = /* @__PURE__ */ new WeakMap();
     this.resizeObserverErrHandler = null;
     this.historyPatches = /* @__PURE__ */ new Map();
     this.origGoBack = null;
@@ -102,7 +103,7 @@ var TabCacheManager = class {
       const rootLeaves = [];
       this.app.workspace.iterateRootLeaves((l) => rootLeaves.push(l));
       this.leafQueue = this.leafQueue.filter((l) => rootLeaves.includes(l));
-      const max = 10;
+      const max = 30;
       if (this.leafQueue.length > max) {
         this.isEvicting = true;
         try {
@@ -153,8 +154,13 @@ var TabCacheManager = class {
           return;
         el.classList.remove("minimalism-ui-slide-from-left", "minimalism-ui-slide-from-right");
         requestAnimationFrame(() => {
+          const oldListener = this.animEndListeners.get(el);
+          if (oldListener)
+            el.removeEventListener("animationend", oldListener);
+          const listener = () => el.classList.remove(cls);
+          el.addEventListener("animationend", listener, { once: true });
+          this.animEndListeners.set(el, listener);
           el.classList.add(cls);
-          el.addEventListener("animationend", () => el.classList.remove(cls), { once: true });
         });
       });
     };

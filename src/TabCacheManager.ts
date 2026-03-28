@@ -51,6 +51,7 @@ export class TabCacheManager {
 	private navAnimateHandler: ((leaf: WorkspaceLeaf | null) => void) | null = null;
 	private pendingAnimationCls: 'minimalism-ui-slide-from-left' | 'minimalism-ui-slide-from-right' | null = null;
 	private navTimer: ReturnType<typeof setTimeout> | null = null;
+	private animEndListeners = new WeakMap<Element, () => void>();
 	private resizeObserverErrHandler: ((e: ErrorEvent) => void) | null = null;
 	private historyPatches = new Map<WorkspaceLeaf, HistoryPatch>();
 	private origGoBack: ObsidianCommand | null = null;
@@ -169,8 +170,13 @@ export class TabCacheManager {
 				if (!el) return;
 				el.classList.remove('minimalism-ui-slide-from-left', 'minimalism-ui-slide-from-right');
 				requestAnimationFrame(() => {
+					// 清理上一次未触发的 animationend listener，防止快速翻页时 listener 累积
+					const oldListener = this.animEndListeners.get(el);
+					if (oldListener) el.removeEventListener('animationend', oldListener);
+					const listener = () => el.classList.remove(cls);
+					el.addEventListener('animationend', listener, { once: true });
+					this.animEndListeners.set(el, listener);
 					el.classList.add(cls);
-					el.addEventListener('animationend', () => el.classList.remove(cls), { once: true });
 				});
 			});
 		};
