@@ -949,3 +949,72 @@ body.minimalism-ui-note-style .bases-cards-property.mod-title {
 	opacity: 0.9 !important;
 }
 
+/* Mermaid 图表：超出笔记宽度时横向滚动，不缩放 */
+/* overflow-x: overlay 让滚动条浮在内容上，不占布局空间，不引起闪烁 */
+.minimalism-ui-note-style .markdown-reading-view .mermaid,
+.minimalism-ui-note-style .cm-editor .mermaid {
+	overflow-x: overlay !important;
+	overflow-y: visible !important;
+	max-width: 100% !important;
+}
+
+.minimalism-ui-note-style .markdown-reading-view .mermaid svg,
+.minimalism-ui-note-style .cm-editor .mermaid svg {
+	max-width: none !important;
+	height: auto !important;
+}
+
+/* Mermaid 滚动条：细条，悬停时才显色 */
+.minimalism-ui-note-style .mermaid::-webkit-scrollbar {
+	height: 3px;
+}
+
+.minimalism-ui-note-style .mermaid::-webkit-scrollbar-thumb {
+	background: transparent;
+	border-radius: 3px;
+}
+
+.minimalism-ui-note-style .mermaid:hover::-webkit-scrollbar-thumb {
+	background: rgba(128, 128, 128, 0.35);
+}
+
+.minimalism-ui-note-style .mermaid::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+/* Mermaid fit-view 状态（默认）：SVG 缩放至填满容器宽度，显示全图 */
+.minimalism-ui-note-style .mermaid.mermaid-fit-view {
+	overflow-x: hidden !important;
+}
+
+.minimalism-ui-note-style .mermaid.mermaid-fit-view svg {
+	width: 100% !important;
+	height: auto !important;
+	max-width: 100% !important;
+	cursor: zoom-in;
+}
+
+/* Mermaid 展开状态：超宽且未 fit，显示 zoom-out 光标提示可收回 */
+.minimalism-ui-note-style .mermaid.mermaid-overflows:not(.mermaid-fit-view) svg {
+	cursor: zoom-out;
+}
+
+/* Mermaid 节点：禁止换行，消除 p 标签 margin，字号与正文一致 */
+/* 注意：不改 padding，避免撑高 JS 预算好的 foreignObject */
+.minimalism-ui-note-style .mermaid .nodeLabel,
+.minimalism-ui-note-style .mermaid .nodeLabel p {
+	white-space: nowrap !important;
+	margin: 0 !important;
+	font-size: var(--font-text-size) !important;
+}
+
+/* foreignObject 宽度由 JS 固定，nowrap 文字可能超出被裁；改为 visible 防截断 */
+.minimalism-ui-note-style .mermaid foreignObject {
+	overflow: visible !important;
+}
+
+/* 兼容 SVG text 节点（部分图类型不用 foreignObject） */
+.minimalism-ui-note-style .mermaid svg text {
+	font-size: var(--font-text-size) !important;
+}
+

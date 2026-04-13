@@ -67,12 +67,16 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		new Setting(containerEl)
+		const noteStyleSetting = new Setting(containerEl)
 			.setName(t('noteStyle'))
-			.setDesc(t('noteStyleDesc'))
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.noteStyle)
 				.onChange(async v => { this.plugin.settings.noteStyle = v; await this.plugin.saveSettings(); }));
+		noteStyleSetting.descEl.createEl('span', { text: t('noteStyleDesc') });
+		const noteStyleList = noteStyleSetting.descEl.createEl('ul');
+		noteStyleList.createEl('li', { text: t('noteStyleItem1') });
+		noteStyleList.createEl('li', { text: t('noteStyleItem2') });
+		noteStyleList.createEl('li', { text: t('noteStyleItem3') });
 
 		new Setting(containerEl).setName(t('headingInteraction')).setHeading();
 
