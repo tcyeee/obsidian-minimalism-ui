@@ -10,7 +10,10 @@ const translations = {
 		hideTabBarDesc: '隐藏左侧属性栏的操作按钮，以及大纲、反向链接面板中的搜索框',
 
 		noteStyle: '笔记样式优化',
-		noteStyleDesc: '修改笔记部分主题样式',
+		noteStyleDesc: '对编辑器与阅读视图应用以下定制样式：',
+		noteStyleItem1: '字体：正文数字使用 JetBrains Mono 等宽字体混排',
+		noteStyleItem2: '引用块、表格、代码块：Forest 风格样式定制',
+		noteStyleItem3: 'Mermaid 图表：超宽图表默认缩放显示全图，点击后查看原始尺寸',
 
 		homePage: '笔记首页',
 		homePageDesc: '设置一个笔记作为首页。Obsidian 启动时自动打开，关闭所有标签后自动返回。',
@@ -35,7 +38,10 @@ const translations = {
 		hideTabBarDesc: 'Hide action buttons in the properties panel and search bars in the Outline / Backlinks panels.',
 
 		noteStyle: 'Note Style',
-		noteStyleDesc: 'Apply custom typography and block styles to the editor and reading view.',
+		noteStyleDesc: 'Apply the following custom styles to the editor and reading view:',
+		noteStyleItem1: 'Typography: JetBrains Mono for inline digits in body text',
+		noteStyleItem2: 'Blockquotes, tables, code blocks: Forest-style design',
+		noteStyleItem3: 'Mermaid diagrams: wide diagrams scale to fit by default; click to view at full size',
 
 		homePage: 'Home Note',
 		homePageDesc: 'A note that opens automatically on startup and whenever all tabs are closed.',

@@ -4,6 +4,7 @@ import { TabCacheManager } from './src/TabCacheManager';
 import { DragBarManager } from './src/DragBarManager';
 import { SinglePageManager } from './src/SinglePageManager';
 import { SidebarLayoutManager } from './src/SidebarLayoutManager';
+import { MermaidZoomManager } from './src/MermaidZoomManager';
 import { MinimalismUISettingTab } from './src/SettingTab';
 
 export type { MinimalismUISettings };
@@ -22,6 +23,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	private dragBar: DragBarManager;
 	private singlePage: SinglePageManager;
 	private sidebarLayout: SidebarLayoutManager;
+	private mermaidZoom: MermaidZoomManager;
 	// Shared flag between TabCacheManager and SinglePageManager.
 	// TabCacheManager reads it to skip getLeaf interception while the home page
 	// is opening; SinglePageManager writes it during openHomePage().
@@ -46,10 +48,12 @@ export default class MinimalismUIPlugin extends Plugin {
 			() => this.isOpeningHomePage,
 			(v) => { this.isOpeningHomePage = v; },
 		);
+		this.mermaidZoom = new MermaidZoomManager(this.app, () => this.settings);
 		await this.loadJetBrainsMono();
 		this.applyBodyClasses();
 		this.singlePage.apply();
 		this.tabCache.apply();
+		this.mermaidZoom.apply();
 		this.app.workspace.onLayoutReady(() => {
 			this.dragBar.apply();
 			this.singlePage.applyHomePage();
@@ -74,6 +78,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.tabCache.remove();
 		this.dragBar.remove();
 		this.sidebarLayout.remove();
+		this.mermaidZoom.remove();
 	}
 
 	// ─── Sidebar Layout ───────────────────────────────────────────────────────

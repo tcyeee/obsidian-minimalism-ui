@@ -730,6 +730,75 @@ var SidebarLayoutManager = class {
   }
 };
 
+// src/MermaidZoomManager.ts
+var MermaidZoomManager = class {
+  constructor(app, getSettings) {
+    this.mutationObs = null;
+    this.app = app;
+    this.getSettings = getSettings;
+    this.clickHandler = this.onClick.bind(this);
+  }
+  apply() {
+    document.addEventListener("click", this.clickHandler, true);
+    this.mutationObs = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const node of Array.from(m.addedNodes)) {
+          if (!(node instanceof Element))
+            continue;
+          if (node.classList.contains("mermaid")) {
+            this.scheduleMarkOverflow(node);
+          } else {
+            node.querySelectorAll(".mermaid").forEach((el) => this.scheduleMarkOverflow(el));
+          }
+        }
+      }
+    });
+    this.mutationObs.observe(document.body, { childList: true, subtree: true });
+    document.querySelectorAll(".mermaid").forEach((el) => this.scheduleMarkOverflow(el));
+  }
+  remove() {
+    var _a;
+    document.removeEventListener("click", this.clickHandler, true);
+    (_a = this.mutationObs) == null ? void 0 : _a.disconnect();
+    this.mutationObs = null;
+    document.querySelectorAll(".mermaid").forEach((el) => {
+      el.classList.remove("mermaid-fit-view", "mermaid-overflows");
+    });
+  }
+  // ─── Private ──────────────────────────────────────────────────────────────
+  onClick(e) {
+    if (!this.getSettings().noteStyle)
+      return;
+    const mermaidEl = e.target.closest(".mermaid");
+    if (!mermaidEl || !mermaidEl.classList.contains("mermaid-overflows"))
+      return;
+    if (mermaidEl.classList.contains("mermaid-fit-view")) {
+      mermaidEl.classList.remove("mermaid-fit-view");
+    } else {
+      mermaidEl.classList.add("mermaid-fit-view");
+    }
+  }
+  /** 等一帧再检查，确保 SVG 已完成渲染并写入 width 属性 */
+  scheduleMarkOverflow(el) {
+    requestAnimationFrame(() => this.markOverflow(el));
+  }
+  markOverflow(el) {
+    var _a;
+    const svg = el.querySelector("svg");
+    if (!svg)
+      return;
+    const naturalWidth = parseFloat((_a = svg.getAttribute("width")) != null ? _a : "0");
+    const containerWidth = el.clientWidth;
+    const overflows = naturalWidth > containerWidth + 2;
+    el.classList.toggle("mermaid-overflows", overflows);
+    if (overflows) {
+      el.classList.add("mermaid-fit-view");
+    } else {
+      el.classList.remove("mermaid-fit-view");
+    }
+  }
+};
+
 // src/SettingTab.ts
 var import_obsidian3 = require("obsidian");
 
@@ -743,7 +812,10 @@ var translations = {
     hideTabBar: "\u6781\u7B80\u4FE1\u606F\u680F",
     hideTabBarDesc: "\u9690\u85CF\u5DE6\u4FA7\u5C5E\u6027\u680F\u7684\u64CD\u4F5C\u6309\u94AE\uFF0C\u4EE5\u53CA\u5927\u7EB2\u3001\u53CD\u5411\u94FE\u63A5\u9762\u677F\u4E2D\u7684\u641C\u7D22\u6846",
     noteStyle: "\u7B14\u8BB0\u6837\u5F0F\u4F18\u5316",
-    noteStyleDesc: "\u4FEE\u6539\u7B14\u8BB0\u90E8\u5206\u4E3B\u9898\u6837\u5F0F",
+    noteStyleDesc: "\u5BF9\u7F16\u8F91\u5668\u4E0E\u9605\u8BFB\u89C6\u56FE\u5E94\u7528\u4EE5\u4E0B\u5B9A\u5236\u6837\u5F0F\uFF1A",
+    noteStyleItem1: "\u5B57\u4F53\uFF1A\u6B63\u6587\u6570\u5B57\u4F7F\u7528 JetBrains Mono \u7B49\u5BBD\u5B57\u4F53\u6DF7\u6392",
+    noteStyleItem2: "\u5F15\u7528\u5757\u3001\u8868\u683C\u3001\u4EE3\u7801\u5757\uFF1AForest \u98CE\u683C\u6837\u5F0F\u5B9A\u5236",
+    noteStyleItem3: "Mermaid \u56FE\u8868\uFF1A\u8D85\u5BBD\u56FE\u8868\u9ED8\u8BA4\u7F29\u653E\u663E\u793A\u5168\u56FE\uFF0C\u70B9\u51FB\u540E\u67E5\u770B\u539F\u59CB\u5C3A\u5BF8",
     homePage: "\u7B14\u8BB0\u9996\u9875",
     homePageDesc: "\u8BBE\u7F6E\u4E00\u4E2A\u7B14\u8BB0\u4F5C\u4E3A\u9996\u9875\u3002Obsidian \u542F\u52A8\u65F6\u81EA\u52A8\u6253\u5F00\uFF0C\u5173\u95ED\u6240\u6709\u6807\u7B7E\u540E\u81EA\u52A8\u8FD4\u56DE\u3002",
     homePagePlaceholder: "\u8F93\u5165\u7B14\u8BB0\u8DEF\u5F84\uFF0C\u4F8B\u5982\uFF1Asrc/Home.md",
@@ -762,7 +834,10 @@ var translations = {
     hideTabBar: "Minimal Info Bar",
     hideTabBarDesc: "Hide action buttons in the properties panel and search bars in the Outline / Backlinks panels.",
     noteStyle: "Note Style",
-    noteStyleDesc: "Apply custom typography and block styles to the editor and reading view.",
+    noteStyleDesc: "Apply the following custom styles to the editor and reading view:",
+    noteStyleItem1: "Typography: JetBrains Mono for inline digits in body text",
+    noteStyleItem2: "Blockquotes, tables, code blocks: Forest-style design",
+    noteStyleItem3: "Mermaid diagrams: wide diagrams scale to fit by default; click to view at full size",
     homePage: "Home Note",
     homePageDesc: "A note that opens automatically on startup and whenever all tabs are closed.",
     homePagePlaceholder: "Note path, e.g. src/Home.md",
@@ -826,10 +901,15 @@ var MinimalismUISettingTab = class extends import_obsidian3.PluginSettingTab {
       this.plugin.settings.simplifyPanel = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian3.Setting(containerEl).setName(t("noteStyle")).setDesc(t("noteStyleDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.noteStyle).onChange(async (v) => {
+    const noteStyleSetting = new import_obsidian3.Setting(containerEl).setName(t("noteStyle")).addToggle((toggle) => toggle.setValue(this.plugin.settings.noteStyle).onChange(async (v) => {
       this.plugin.settings.noteStyle = v;
       await this.plugin.saveSettings();
     }));
+    noteStyleSetting.descEl.createEl("span", { text: t("noteStyleDesc") });
+    const noteStyleList = noteStyleSetting.descEl.createEl("ul");
+    noteStyleList.createEl("li", { text: t("noteStyleItem1") });
+    noteStyleList.createEl("li", { text: t("noteStyleItem2") });
+    noteStyleList.createEl("li", { text: t("noteStyleItem3") });
     new import_obsidian3.Setting(containerEl).setName(t("headingInteraction")).setHeading();
     new import_obsidian3.Setting(containerEl).setName(t("homePage")).setDesc(t("homePageDesc")).addText((text) => {
       text.setPlaceholder(t("homePagePlaceholder")).setValue(this.plugin.settings.homePage);
@@ -891,10 +971,12 @@ var MinimalismUIPlugin = class extends import_obsidian4.Plugin {
         this.isOpeningHomePage = v;
       }
     );
+    this.mermaidZoom = new MermaidZoomManager(this.app, () => this.settings);
     await this.loadJetBrainsMono();
     this.applyBodyClasses();
     this.singlePage.apply();
     this.tabCache.apply();
+    this.mermaidZoom.apply();
     this.app.workspace.onLayoutReady(() => {
       this.dragBar.apply();
       this.singlePage.applyHomePage();
@@ -919,6 +1001,7 @@ var MinimalismUIPlugin = class extends import_obsidian4.Plugin {
     this.tabCache.remove();
     this.dragBar.remove();
     this.sidebarLayout.remove();
+    this.mermaidZoom.remove();
   }
   // ─── Sidebar Layout ───────────────────────────────────────────────────────
   async applyMacSidebarLayout() {
