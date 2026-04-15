@@ -214,9 +214,33 @@ export class SidebarLayoutManager {
 
 		graphLeafContent.classList.add(addedClass);
 
-		// Collapse the controls panel on init so it doesn't overlap the graph.
+		// Build a flex header: [LOCAL GRAPH title] — [graph-controls button].
+		// We create a real div so flexbox space-between works properly,
+		// avoiding the ::before + absolute-position hack.
+		const viewContent = graphLeafContent.querySelector<HTMLElement>('.view-content');
 		const graphControls = graphLeafContent.querySelector<HTMLElement>('.graph-controls');
-		if (graphControls) graphControls.classList.add('is-close');
+
+		const header = document.createElement('div');
+		header.className = 'minimalism-ui-graph-header';
+		const titleSpan = document.createElement('span');
+		titleSpan.textContent = 'LOCAL GRAPH';
+		header.appendChild(titleSpan);
+
+		if (graphControls) {
+			// Track the move so remove() restores controls to .view-content.
+			const ctrlOrigParent = graphControls.parentElement as HTMLElement;
+			const ctrlOrigNext   = graphControls.nextSibling;
+			graphControls.classList.add('is-close');
+			header.appendChild(graphControls);
+			this.injectedItems.push({ el: graphControls, originalParent: ctrlOrigParent, originalNextSibling: ctrlOrigNext });
+		}
+
+		if (viewContent) {
+			graphLeafContent.insertBefore(header, viewContent);
+		} else {
+			graphLeafContent.prepend(header);
+		}
+		this.createdEls.push(header);
 
 		outlineLeafContent.appendChild(graphLeafContent);
 		this.injectedItems.push({ el: graphLeafContent, originalParent, originalNextSibling, addedClass });

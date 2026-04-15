@@ -275,44 +275,49 @@
 }
 
 
-/* LOCAL GRAPH 标题（绝对定位，左侧，与 graph-controls 形成 between 效果） */
-.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .minimalism-ui-injected-graph::before {
-	content: 'LOCAL GRAPH';
-	position: absolute;
-	top: 0;
-	left: 16px;
-	padding: 8px 0 4px;
+/* LOCAL GRAPH 标题栏：flex row，space-between 排列标题与设置按钮 */
+.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .minimalism-ui-injected-graph {
+	display: flex;
+	flex-direction: column;
+}
+
+.minimalism-ui-mac-sidebar .minimalism-ui-graph-header {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: space-between;
+	padding: 6px 8px 4px 16px;
+	flex-shrink: 0;
+}
+
+.minimalism-ui-mac-sidebar .minimalism-ui-graph-header > span {
 	font-size: 0.8rem;
 	font-weight: 600;
 	letter-spacing: 0.06em;
-	color: rgba(255, 255, 255, 0.88) !important;
+	color: rgba(255, 255, 255, 0.88);
 	pointer-events: none;
-	z-index: 1;
 }
 
-/* graph-controls 设置按钮：绝对定位到标题右侧，去掉外边框 */
-.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .minimalism-ui-injected-graph .graph-controls {
-	position: absolute !important;
-	top: 4px !important;
-	right: 8px !important;
-	z-index: 2;
+/* graph-controls 设置按钮：始终绝对定位，避免 is-close 切换时 position 从 static
+   变为 absolute，触发 header 重排导致整个 LOCAL GRAPH 面板高度抖动。*/
+.minimalism-ui-mac-sidebar .minimalism-ui-graph-header .graph-controls {
 	background: transparent !important;
 	border: none !important;
 	box-shadow: none !important;
 	padding: 0 !important;
+	position: absolute !important;
+	right: 8px !important;
+	top: 30px !important;
+	z-index: 5 !important;
 }
 
 /* graph-controls 展开面板：固实背景，防止图形画布透显 */
-.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .minimalism-ui-injected-graph .graph-controls:not(.is-close) {
+.minimalism-ui-mac-sidebar .minimalism-ui-graph-header .graph-controls:not(.is-close) {
 	background: #0f2030 !important;
 	border: 1px solid rgba(91, 165, 220, 0.25) !important;
 	border-radius: 6px !important;
 	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
 	z-index: 10 !important;
-}
-
-/* 面板内文字颜色 */
-.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .minimalism-ui-injected-graph .graph-controls:not(.is-close) {
 	color: rgba(220, 232, 245, 0.9) !important;
 }
 
