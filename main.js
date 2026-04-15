@@ -726,18 +726,14 @@ var SidebarLayoutManager = class {
     graphLeafContent.classList.add(addedClass);
     const viewContent = graphLeafContent.querySelector(".view-content");
     const graphControls = graphLeafContent.querySelector(".graph-controls");
+    if (graphControls && !graphControls.classList.contains("is-close")) {
+      graphControls.classList.add("is-close");
+    }
     const header = document.createElement("div");
     header.className = "minimalism-ui-graph-header";
     const titleSpan = document.createElement("span");
     titleSpan.textContent = "LOCAL GRAPH";
     header.appendChild(titleSpan);
-    if (graphControls) {
-      const ctrlOrigParent = graphControls.parentElement;
-      const ctrlOrigNext = graphControls.nextSibling;
-      graphControls.classList.add("is-close");
-      header.appendChild(graphControls);
-      this.injectedItems.push({ el: graphControls, originalParent: ctrlOrigParent, originalNextSibling: ctrlOrigNext });
-    }
     if (viewContent) {
       graphLeafContent.insertBefore(header, viewContent);
     } else {

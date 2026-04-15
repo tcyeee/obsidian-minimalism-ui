@@ -214,26 +214,25 @@ export class SidebarLayoutManager {
 
 		graphLeafContent.classList.add(addedClass);
 
-		// Build a flex header: [LOCAL GRAPH title] — [graph-controls button].
-		// We create a real div so flexbox space-between works properly,
-		// avoiding the ::before + absolute-position hack.
+		// Build a title header for the LOCAL GRAPH section.
+		// NOTE: .graph-controls is intentionally NOT moved here. Moving it out of
+		// .view-content breaks Obsidian's built-in toggle mechanism: when the user
+		// clicks the gear button, Obsidian removes .is-close from .graph-controls,
+		// repositioning it outside the header bounds where overflow:hidden clips it,
+		// making both the settings panel and the button invisible.
+		// Leave .graph-controls in its original position so the toggle works natively.
 		const viewContent = graphLeafContent.querySelector<HTMLElement>('.view-content');
 		const graphControls = graphLeafContent.querySelector<HTMLElement>('.graph-controls');
+		// Ensure the settings panel starts collapsed.
+		if (graphControls && !graphControls.classList.contains('is-close')) {
+			graphControls.classList.add('is-close');
+		}
 
 		const header = document.createElement('div');
 		header.className = 'minimalism-ui-graph-header';
 		const titleSpan = document.createElement('span');
 		titleSpan.textContent = 'LOCAL GRAPH';
 		header.appendChild(titleSpan);
-
-		if (graphControls) {
-			// Track the move so remove() restores controls to .view-content.
-			const ctrlOrigParent = graphControls.parentElement as HTMLElement;
-			const ctrlOrigNext   = graphControls.nextSibling;
-			graphControls.classList.add('is-close');
-			header.appendChild(graphControls);
-			this.injectedItems.push({ el: graphControls, originalParent: ctrlOrigParent, originalNextSibling: ctrlOrigNext });
-		}
 
 		if (viewContent) {
 			graphLeafContent.insertBefore(header, viewContent);
