@@ -5,6 +5,24 @@
 
 ---
 
+## Version 1.1.2
+
+- Added local graph panel to sidebar with dark color theme, resizable layout, and header controls
+- Added option to show Properties panel in sidebar
+- Added zoom support for Mermaid diagrams
+- Increased tab cache size from 10 to 30
+- Fixed animation listener accumulation during rapid navigation
+- Improved font rendering and line height in note style
+
+- 侧边栏新增本地图谱面板，支持暗色主题、动态缩放与顶部控制栏
+- 新增在侧边栏显示属性面板的选项
+- Mermaid 图表新增缩放功能
+- 标签页缓存上限从 10 提升至 30
+- 修复快速导航时动画监听器堆积的问题
+- 优化笔记样式的字体渲染与行高
+
+---
+
 ## Version 1.1.1
 
 
