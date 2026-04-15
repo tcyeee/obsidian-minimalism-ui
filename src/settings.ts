@@ -1,5 +1,7 @@
 export interface MinimalismUISettings {
 	macSidebar: boolean;
+	showProperties: boolean;
+	showLocalGraph: boolean;
 	hideTabBar: boolean;
 	disablePinTab: boolean;
 	simplifyPanel: boolean;
@@ -12,6 +14,8 @@ export interface MinimalismUISettings {
 
 export const DEFAULT_SETTINGS: MinimalismUISettings = {
 	macSidebar: false,
+	showProperties: true,
+	showLocalGraph: false,
 	hideTabBar: false,
 	disablePinTab: true,
 	simplifyPanel: false,

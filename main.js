@@ -32,6 +32,8 @@ var import_obsidian4 = require("obsidian");
 // src/settings.ts
 var DEFAULT_SETTINGS = {
   macSidebar: false,
+  showProperties: true,
+  showLocalGraph: false,
   hideTabBar: false,
   disablePinTab: true,
   simplifyPanel: false,
@@ -577,18 +579,31 @@ var SidebarLayoutManager = class {
     // Guard against concurrent calls: each `apply()` awaits async ops, so a
     // second call arriving mid-flight would create duplicate leaves.
     this.isApplying = false;
-    // Saved state for reversible injection.
-    this.injectedState = null;
+    // Saved state for reversible injection — one record per injected element.
+    this.injectedItems = [];
+    this.hiddenShells = [];
+    // Elements created (not moved) by apply() — removed entirely on cleanup.
+    this.createdEls = [];
   }
   // ── Public ────────────────────────────────────────────────────────────────
-  /** Undo the DOM injection and restore the Properties leaf to its original state. */
+  /** Undo all DOM injections and restore leaves to their original state. */
   remove() {
-    if (!this.injectedState)
+    if (this.injectedItems.length === 0 && this.hiddenShells.length === 0 && this.createdEls.length === 0)
       return;
-    const { metadataContent, originalParent, originalNextSibling, hiddenTabs } = this.injectedState;
-    this.injectedState = null;
-    originalParent.insertBefore(metadataContent, originalNextSibling);
-    hiddenTabs.style.display = "";
+    for (const { el, originalParent, originalNextSibling, addedClass } of this.injectedItems) {
+      if (addedClass)
+        el.classList.remove(addedClass);
+      originalParent.insertBefore(el, originalNextSibling);
+    }
+    for (const shell of this.hiddenShells) {
+      shell.style.display = "";
+    }
+    for (const el of this.createdEls) {
+      el.remove();
+    }
+    this.injectedItems = [];
+    this.hiddenShells = [];
+    this.createdEls = [];
   }
   async apply() {
     this.remove();
@@ -600,6 +615,7 @@ var SidebarLayoutManager = class {
     try {
       const { workspace } = this.app;
       const leftSplit = workspace.leftSplit;
+      const { showProperties, showLocalGraph } = this.getSettings();
       this.clearLeftSidebar();
       if (leftSplit == null ? void 0 : leftSplit.collapsed)
         leftSplit.expand();
@@ -607,10 +623,22 @@ var SidebarLayoutManager = class {
       if (outlineLeaf) {
         await outlineLeaf.setViewState({ type: "outline", active: false });
       }
-      const propsLeaf = workspace.getLeftLeaf(true);
-      if (propsLeaf) {
-        await propsLeaf.setViewState({ type: "file-properties", active: false });
+      let graphLeaf = null;
+      if (showLocalGraph) {
+        graphLeaf = workspace.getLeftLeaf(true);
+        if (graphLeaf) {
+          await graphLeaf.setViewState({ type: "localgraph", active: false });
+        }
       }
+      let propsLeaf = null;
+      if (showProperties) {
+        propsLeaf = workspace.getLeftLeaf(true);
+        if (propsLeaf) {
+          await propsLeaf.setViewState({ type: "file-properties", active: false });
+        }
+      }
+      if (!showProperties && !showLocalGraph)
+        return;
       await new Promise((resolve) => setTimeout(resolve, 100));
       const activeFile = workspace.getActiveFile();
       if (activeFile) {
@@ -619,6 +647,9 @@ var SidebarLayoutManager = class {
       }
       if (outlineLeaf && propsLeaf) {
         this.injectMetadataIntoOutline(outlineLeaf, propsLeaf);
+      }
+      if (outlineLeaf && graphLeaf) {
+        this.injectLocalGraphIntoOutline(outlineLeaf, graphLeaf);
       }
     } finally {
       this.isApplying = false;
@@ -644,11 +675,48 @@ var SidebarLayoutManager = class {
     const originalParent = metadataContent.parentElement;
     const originalNextSibling = metadataContent.nextSibling;
     outlineLeafContent.appendChild(metadataContent);
+    this.injectedItems.push({ el: metadataContent, originalParent, originalNextSibling });
     const propsWorkspaceTabs = propsEl.closest(".workspace-tabs");
     if (propsWorkspaceTabs) {
       propsWorkspaceTabs.style.display = "none";
-      this.injectedState = { metadataContent, originalParent, originalNextSibling, hiddenTabs: propsWorkspaceTabs };
+      this.hiddenShells.push(propsWorkspaceTabs);
     }
+  }
+  /**
+   * Moves the Local Graph's `.view-content` from its leaf into the Outline
+   * leaf's `.workspace-leaf-content`, above the Properties panel.
+   * The class `minimalism-ui-injected-graph` is added for CSS targeting.
+   */
+  injectLocalGraphIntoOutline(outlineLeaf, graphLeaf) {
+    const outlineEl = outlineLeaf.containerEl;
+    const graphEl = graphLeaf.containerEl;
+    const graphViewContent = graphEl.querySelector(
+      '.workspace-leaf-content[data-type="localgraph"] .view-content'
+    );
+    const outlineLeafContent = outlineEl.querySelector(
+      '.workspace-leaf-content[data-type="outline"]'
+    );
+    if (!graphViewContent || !outlineLeafContent)
+      return;
+    const originalParent = graphViewContent.parentElement;
+    const originalNextSibling = graphViewContent.nextSibling;
+    const addedClass = "minimalism-ui-injected-graph";
+    graphViewContent.classList.add(addedClass);
+    const graphControls = graphViewContent.querySelector(".graph-controls");
+    if (graphControls)
+      graphControls.classList.add("is-close");
+    outlineLeafContent.appendChild(graphViewContent);
+    this.injectedItems.push({ el: graphViewContent, originalParent, originalNextSibling, addedClass });
+    const graphWorkspaceTabs = graphEl.closest(".workspace-tabs");
+    if (graphWorkspaceTabs) {
+      graphWorkspaceTabs.style.display = "none";
+      this.hiddenShells.push(graphWorkspaceTabs);
+    }
+    const bgDiv = document.createElement("div");
+    bgDiv.className = "minimalism-ui-graph-bg";
+    graphViewContent.insertBefore(bgDiv, graphViewContent.firstChild);
+    this.createdEls.push(bgDiv);
+    window.dispatchEvent(new Event("resize"));
   }
   // ── Public helpers ────────────────────────────────────────────────────────
   /**
@@ -809,6 +877,10 @@ var translations = {
     headingInteraction: "\u4EA4\u4E92\u8BBE\u7F6E",
     macSidebar: "\u6781\u7B80\u4FA7\u8FB9\u680F",
     macSidebarDesc: "\u4E3A\u5DE6\u4FA7\u8FB9\u680F\u5E94\u7528\u78E8\u7802\u73BB\u7483\u80CC\u666F\u4E0E\u5706\u89D2\u9AD8\u4EAE\uFF0C\u6253\u9020 macOS \u539F\u751F\u98CE\u683C\u3002",
+    showProperties: "\u663E\u793A\u5C5E\u6027\u9762\u677F",
+    showPropertiesDesc: "\u5728\u4FA7\u8FB9\u680F\u5DE6\u4E0B\u89D2\u663E\u793A\u5F53\u524D\u7B14\u8BB0\u7684\u5C5E\u6027\uFF08Properties\uFF09\u3002",
+    showLocalGraph: "\u663E\u793A\u672C\u5730\u5173\u7CFB\u56FE",
+    showLocalGraphDesc: "\u5728\u4FA7\u8FB9\u680F\u663E\u793A\u5F53\u524D\u7B14\u8BB0\u7684\u672C\u5730\u5173\u7CFB\u56FE\uFF08Local Graph\uFF09\uFF0C\u4F4D\u4E8E\u5C5E\u6027\u9762\u677F\u4E0A\u65B9\u3002",
     hideTabBar: "\u6781\u7B80\u4FE1\u606F\u680F",
     hideTabBarDesc: "\u9690\u85CF\u5DE6\u4FA7\u5C5E\u6027\u680F\u7684\u64CD\u4F5C\u6309\u94AE\uFF0C\u4EE5\u53CA\u5927\u7EB2\u3001\u53CD\u5411\u94FE\u63A5\u9762\u677F\u4E2D\u7684\u641C\u7D22\u6846",
     noteStyle: "\u7B14\u8BB0\u6837\u5F0F\u4F18\u5316",
@@ -831,6 +903,10 @@ var translations = {
     headingInteraction: "Interaction",
     macSidebar: "Minimal Sidebar",
     macSidebarDesc: "Apply a frosted-glass background and rounded highlights to the left sidebar for a macOS-native look.",
+    showProperties: "Show Properties",
+    showPropertiesDesc: "Display the current note's properties at the bottom of the sidebar.",
+    showLocalGraph: "Show Local Graph",
+    showLocalGraphDesc: "Display the local graph for the current note in the sidebar, above the properties panel.",
     hideTabBar: "Minimal Info Bar",
     hideTabBarDesc: "Hide action buttons in the properties panel and search bars in the Outline / Backlinks panels.",
     noteStyle: "Note Style",
@@ -894,8 +970,24 @@ var MinimalismUISettingTab = class extends import_obsidian3.PluginSettingTab {
       this.plugin.settings.macSidebar = v;
       await this.plugin.saveSettings();
       this.plugin.applyBodyClasses();
+      showPropertiesSetting.settingEl.toggle(v);
+      showLocalGraphSetting.settingEl.toggle(v);
       await this.plugin.applyMacSidebarLayout();
     }));
+    const showPropertiesSetting = new import_obsidian3.Setting(containerEl).setName(t("showProperties")).setDesc(t("showPropertiesDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showProperties).onChange(async (v) => {
+      this.plugin.settings.showProperties = v;
+      await this.plugin.saveSettings();
+      await this.plugin.applyMacSidebarLayout();
+    }));
+    showPropertiesSetting.settingEl.addClass("minimalism-ui-sub-setting");
+    showPropertiesSetting.settingEl.toggle(this.plugin.settings.macSidebar);
+    const showLocalGraphSetting = new import_obsidian3.Setting(containerEl).setName(t("showLocalGraph")).setDesc(t("showLocalGraphDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showLocalGraph).onChange(async (v) => {
+      this.plugin.settings.showLocalGraph = v;
+      await this.plugin.saveSettings();
+      await this.plugin.applyMacSidebarLayout();
+    }));
+    showLocalGraphSetting.settingEl.addClass("minimalism-ui-sub-setting");
+    showLocalGraphSetting.settingEl.toggle(this.plugin.settings.macSidebar);
     new import_obsidian3.Setting(containerEl).setName(t("hideTabBar")).setDesc(t("hideTabBarDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
       this.plugin.settings.hideTabBar = v;
       this.plugin.settings.simplifyPanel = v;

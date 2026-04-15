@@ -5,6 +5,10 @@ const translations = {
 
 		macSidebar: '极简侧边栏',
 		macSidebarDesc: '为左侧边栏应用磨砂玻璃背景与圆角高亮，打造 macOS 原生风格。',
+		showProperties: '显示属性面板',
+		showPropertiesDesc: '在侧边栏左下角显示当前笔记的属性（Properties）。',
+		showLocalGraph: '显示本地关系图',
+		showLocalGraphDesc: '在侧边栏显示当前笔记的本地关系图（Local Graph），位于属性面板上方。',
 
 		hideTabBar: '极简信息栏',
 		hideTabBarDesc: '隐藏左侧属性栏的操作按钮，以及大纲、反向链接面板中的搜索框',
@@ -33,6 +37,10 @@ const translations = {
 
 		macSidebar: 'Minimal Sidebar',
 		macSidebarDesc: 'Apply a frosted-glass background and rounded highlights to the left sidebar for a macOS-native look.',
+		showProperties: 'Show Properties',
+		showPropertiesDesc: 'Display the current note\'s properties at the bottom of the sidebar.',
+		showLocalGraph: 'Show Local Graph',
+		showLocalGraphDesc: 'Display the local graph for the current note in the sidebar, above the properties panel.',
 
 		hideTabBar: 'Minimal Info Bar',
 		hideTabBarDesc: 'Hide action buttons in the properties panel and search bars in the Outline / Backlinks panels.',

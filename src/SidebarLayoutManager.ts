@@ -24,13 +24,16 @@ export class SidebarLayoutManager {
 	// second call arriving mid-flight would create duplicate leaves.
 	private isApplying = false;
 
-	// Saved state for reversible injection.
-	private injectedState: {
-		metadataContent: HTMLElement;
+	// Saved state for reversible injection — one record per injected element.
+	private injectedItems: Array<{
+		el: HTMLElement;
 		originalParent: HTMLElement;
 		originalNextSibling: ChildNode | null;
-		hiddenTabs: HTMLElement;
-	} | null = null;
+		addedClass?: string;
+	}> = [];
+	private hiddenShells: HTMLElement[] = [];
+	// Elements created (not moved) by apply() — removed entirely on cleanup.
+	private createdEls: HTMLElement[] = [];
 
 	constructor(
 		private app: App,
@@ -39,13 +42,22 @@ export class SidebarLayoutManager {
 
 	// ── Public ────────────────────────────────────────────────────────────────
 
-	/** Undo the DOM injection and restore the Properties leaf to its original state. */
+	/** Undo all DOM injections and restore leaves to their original state. */
 	remove() {
-		if (!this.injectedState) return;
-		const { metadataContent, originalParent, originalNextSibling, hiddenTabs } = this.injectedState;
-		this.injectedState = null;
-		originalParent.insertBefore(metadataContent, originalNextSibling);
-		hiddenTabs.style.display = '';
+		if (this.injectedItems.length === 0 && this.hiddenShells.length === 0 && this.createdEls.length === 0) return;
+		for (const { el, originalParent, originalNextSibling, addedClass } of this.injectedItems) {
+			if (addedClass) el.classList.remove(addedClass);
+			originalParent.insertBefore(el, originalNextSibling);
+		}
+		for (const shell of this.hiddenShells) {
+			shell.style.display = '';
+		}
+		for (const el of this.createdEls) {
+			el.remove();
+		}
+		this.injectedItems = [];
+		this.hiddenShells = [];
+		this.createdEls = [];
 	}
 
 	async apply() {
@@ -57,6 +69,7 @@ export class SidebarLayoutManager {
 		try {
 			const { workspace } = this.app;
 			const leftSplit = workspace.leftSplit as unknown as WorkspaceSidedock;
+			const { showProperties, showLocalGraph } = this.getSettings();
 
 			// 1. Clear the entire left sidebar
 			this.clearLeftSidebar();
@@ -64,34 +77,52 @@ export class SidebarLayoutManager {
 			// 2. Expand left sidebar (may have auto-collapsed after clearing)
 			if (leftSplit?.collapsed) leftSplit.expand();
 
-			// 3. Outline leaf
+			// 3. Outline leaf (always present)
 			const outlineLeaf = workspace.getLeftLeaf(false);
 			if (outlineLeaf) {
 				await outlineLeaf.setViewState({ type: 'outline', active: false });
 			}
 
-			// 4. Properties leaf — use active: false to avoid triggering
-			//    active-leaf-change (which would close any open modal like Settings).
-			//    We manually fire 'file-open' afterward to initialize the view.
-			const propsLeaf = workspace.getLeftLeaf(true);
-			if (propsLeaf) {
-				await propsLeaf.setViewState({ type: 'file-properties', active: false });
+			// 4. Local Graph leaf (if enabled) — created before Properties so it
+			//    ends up above Properties in the injected flex column.
+			let graphLeaf: WorkspaceLeaf | null = null;
+			if (showLocalGraph) {
+				graphLeaf = workspace.getLeftLeaf(true);
+				if (graphLeaf) {
+					await graphLeaf.setViewState({ type: 'localgraph', active: false });
+				}
 			}
 
-			// 5. Wait for Obsidian to finish rendering both views.
+			// 5. Properties leaf (if enabled) — use active: false to avoid
+			//    triggering active-leaf-change (which would close open modals).
+			let propsLeaf: WorkspaceLeaf | null = null;
+			if (showProperties) {
+				propsLeaf = workspace.getLeftLeaf(true);
+				if (propsLeaf) {
+					await propsLeaf.setViewState({ type: 'file-properties', active: false });
+				}
+			}
+
+			if (!showProperties && !showLocalGraph) return;
+
+			// 6. Wait for Obsidian to finish rendering all views.
 			await new Promise(resolve => setTimeout(resolve, 100));
 
-			// 6. Nudge Properties view to load the current file (since active: false
-			//    means Obsidian won't auto-bind it via active-leaf-change).
+			// 7. Nudge views to load the current file (active: false skips auto-bind).
 			const activeFile = workspace.getActiveFile();
 			if (activeFile) {
 				workspace.trigger('file-open', activeFile);
 				await new Promise(resolve => setTimeout(resolve, 50));
 			}
 
-			// 7. Extract .metadata-content and inject into Outline leaf.
+			// 8. Inject Properties above Local Graph (appended first in flex column).
 			if (outlineLeaf && propsLeaf) {
 				this.injectMetadataIntoOutline(outlineLeaf, propsLeaf);
+			}
+
+			// 9. Inject Local Graph at the bottom (appended after properties).
+			if (outlineLeaf && graphLeaf) {
+				this.injectLocalGraphIntoOutline(outlineLeaf, graphLeaf);
 			}
 		} finally {
 			this.isApplying = false;
@@ -124,18 +155,70 @@ export class SidebarLayoutManager {
 
 		if (!metadataContent || !outlineLeafContent) return;
 
-		// Save state for reversible injection.
 		const originalParent = metadataContent.parentElement as HTMLElement;
 		const originalNextSibling = metadataContent.nextSibling;
 
 		outlineLeafContent.appendChild(metadataContent);
+		this.injectedItems.push({ el: metadataContent, originalParent, originalNextSibling });
 
 		// Hide the now-empty Properties workspace-tabs shell.
 		const propsWorkspaceTabs = propsEl.closest<HTMLElement>('.workspace-tabs');
 		if (propsWorkspaceTabs) {
 			propsWorkspaceTabs.style.display = 'none';
-			this.injectedState = { metadataContent, originalParent, originalNextSibling, hiddenTabs: propsWorkspaceTabs };
+			this.hiddenShells.push(propsWorkspaceTabs);
 		}
+	}
+
+	/**
+	 * Moves the Local Graph's `.view-content` from its leaf into the Outline
+	 * leaf's `.workspace-leaf-content`, above the Properties panel.
+	 * The class `minimalism-ui-injected-graph` is added for CSS targeting.
+	 */
+	private injectLocalGraphIntoOutline(outlineLeaf: WorkspaceLeaf, graphLeaf: WorkspaceLeaf) {
+		const outlineEl = (outlineLeaf as WorkspaceLeaf & { containerEl: HTMLElement }).containerEl;
+		const graphEl   = (graphLeaf  as WorkspaceLeaf & { containerEl: HTMLElement }).containerEl;
+
+		const graphViewContent = graphEl.querySelector<HTMLElement>(
+			'.workspace-leaf-content[data-type="localgraph"] .view-content',
+		);
+		const outlineLeafContent = outlineEl.querySelector<HTMLElement>(
+			'.workspace-leaf-content[data-type="outline"]',
+		);
+
+		if (!graphViewContent || !outlineLeafContent) return;
+
+		const originalParent = graphViewContent.parentElement as HTMLElement;
+		const originalNextSibling = graphViewContent.nextSibling;
+		const addedClass = 'minimalism-ui-injected-graph';
+
+		graphViewContent.classList.add(addedClass);
+
+		// Collapse the controls panel on init so it doesn't overlap the graph.
+		const graphControls = graphViewContent.querySelector<HTMLElement>('.graph-controls');
+		if (graphControls) graphControls.classList.add('is-close');
+
+		outlineLeafContent.appendChild(graphViewContent);
+		this.injectedItems.push({ el: graphViewContent, originalParent, originalNextSibling, addedClass });
+
+		// Hide the now-empty Local Graph workspace-tabs shell.
+		const graphWorkspaceTabs = graphEl.closest<HTMLElement>('.workspace-tabs');
+		if (graphWorkspaceTabs) {
+			graphWorkspaceTabs.style.display = 'none';
+			this.hiddenShells.push(graphWorkspaceTabs);
+		}
+
+		// The graph iframe renders with a white background internally, but the
+		// surrounding .view-content is transparent against the dark sidebar.
+		// Insert a light background div as the first child so the graph appears
+		// in a light "window" — black node labels become readable without touching
+		// the iframe's isolated document.
+		const bgDiv = document.createElement('div');
+		bgDiv.className = 'minimalism-ui-graph-bg';
+		graphViewContent.insertBefore(bgDiv, graphViewContent.firstChild);
+		this.createdEls.push(bgDiv);
+
+		// Notify the graph renderer of its new container size.
+		window.dispatchEvent(new Event('resize'));
 	}
 
 	// ── Public helpers ────────────────────────────────────────────────────────
