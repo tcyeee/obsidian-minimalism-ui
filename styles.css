@@ -262,22 +262,18 @@
 
 /* ── 注入的 Local Graph ───────────────────────────────────────────────── */
 
-/* 注入的 graph .view-content：固定高度，独立于 Outline 和 Properties */
+/* 注入的是整个 .workspace-leaf-content[data-type="localgraph"]（graph 的 containerEl），
+   而非仅 .view-content。这样 graph view 注册在 containerEl 上的鼠标事件监听器在 DOM
+   移动后仍然有效，避免交互失效。高度由 JS 按 4:3 动态设置，250px 仅作初始回退。
+   padding-top: 30px 为标题栏留出空间，内部 .view-content 整体下移，canvas 自然对齐，
+   无需额外的坐标补偿。*/
 .minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .minimalism-ui-injected-graph {
-	flex: 0 0 250px !important;
+	flex: 0 0 250px;
 	overflow: hidden !important;
 	position: relative !important;
 	padding-top: 30px !important;
 }
 
-/* 浅色背景窗口：垫在 graph iframe 下方，使黑色节点文字在深色侧边栏中可读 */
-.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .minimalism-ui-graph-bg {
-	position: absolute;
-	inset: 30px 0 0 0;   /* 顶部留出标题栏高度 */
-	background: #e8edf2;
-	border-radius: 6px;
-	z-index: 0;
-}
 
 /* LOCAL GRAPH 标题（绝对定位，左侧，与 graph-controls 形成 between 效果） */
 .minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .minimalism-ui-injected-graph::before {
@@ -320,6 +316,16 @@
 	color: rgba(220, 232, 245, 0.9) !important;
 }
 
+
+/* 注入的 graph 区域：白色背景（仅 .view-content，标题栏区域保持透明） */
+.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .minimalism-ui-injected-graph .view-content {
+	background: #ffffff !important;
+}
+
+/* --graph-color-background 控制 canvas WebGL 渲染器的清除色，需与 .view-content 背景一致 */
+.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .minimalism-ui-injected-graph {
+	--graph-color-background: #ffffff;
+}
 
 /* LOCAL GRAPH 深色背景颜色适配：节点/连线/文字适合 #123342 背景 */
 .minimalism-ui-mac-sidebar {
