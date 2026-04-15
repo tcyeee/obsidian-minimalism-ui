@@ -296,32 +296,23 @@
 	pointer-events: none;
 }
 
-/* graph-controls 设置按钮：始终绝对定位，避免 is-close 切换时 position 从 static
-   变为 absolute，触发 header 重排导致整个 LOCAL GRAPH 面板高度抖动。*/
-.minimalism-ui-mac-sidebar .minimalism-ui-graph-header .graph-controls {
+/* 设置按钮：去掉边框和背景 */
+.minimalism-ui-mac-sidebar .minimalism-ui-injected-graph .graph-controls {
 	background: transparent !important;
 	border: none !important;
 	box-shadow: none !important;
-	padding: 0 !important;
-	position: absolute !important;
-	right: 8px !important;
-	top: 50% !important;
-	transform: translateY(-50%) !important;
-	z-index: 5 !important;
 }
 
-/* graph-controls 展开面板：固实背景，防止图形画布透显 */
-.minimalism-ui-mac-sidebar .minimalism-ui-graph-header .graph-controls:not(.is-close) {
-	top: 100% !important;
-	transform: none !important;
-	background: #0f2030 !important;
-	border: 1px solid rgba(91, 165, 220, 0.25) !important;
+/* 设置面板展开时：深色背景，比侧边栏 #1B3241 更深 */
+.minimalism-ui-mac-sidebar .minimalism-ui-injected-graph .graph-controls:not(.is-close) {
+	background: #0f1e2b !important;
 	border-radius: 6px !important;
-	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
-	z-index: 10 !important;
-	color: rgba(220, 232, 245, 0.9) !important;
 }
 
+/* 去掉设置项的下边框 */
+.minimalism-ui-mac-sidebar .minimalism-ui-injected-graph .tree-item.graph-control-section {
+	border-bottom: none !important;
+}
 
 /* Graph 节点颜色通过 JS 注入（见 SidebarLayoutManager.applyGraphColors）。
    renderer.testCSS() 在 document.body 上临时创建 .graph-view.color-* 元素读色，
