@@ -823,25 +823,30 @@ body.minimalism-ui-note-style .cm-editor .cm-scroller .cm-content .cm-line.Hyper
 	background: transparent;
 }
 
-body.minimalism-ui-note-style .bases-view::-webkit-scrollbar,
+body.minimalism-ui-note-style .bases-view {
+	scrollbar-width: thin;
+	scrollbar-color: transparent transparent;
+}
+
+body.minimalism-ui-note-style .bases-view:hover {
+	scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
+}
+
 body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar {
 	width: 4px !important;
 	height: 4px !important;
 }
 
-body.minimalism-ui-note-style .bases-view::-webkit-scrollbar-thumb,
 body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar-thumb {
 	background: transparent !important;
 	border-radius: 999px;
 	transition: background 0.3s ease;
 }
 
-body.minimalism-ui-note-style .bases-view:hover::-webkit-scrollbar-thumb,
 body.minimalism-ui-note-style .bases-view:hover ::-webkit-scrollbar-thumb {
 	background: rgba(128, 128, 128, 0.4) !important;
 }
 
-body.minimalism-ui-note-style .bases-view::-webkit-scrollbar-track,
 body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar-track {
 	background: transparent !important;
 }
