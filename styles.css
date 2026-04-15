@@ -177,7 +177,7 @@
 
 /* ── 信息栏美化：左侧边栏顶部内边距 ─────────────────────────────────── */
 
-.minimalism-ui-simplify-panel .workspace-split.mod-left-split .workspace-leaf-content {
+.minimalism-ui-simplify-panel .workspace-split.mod-left-split .workspace-leaf-content:not([data-type="localgraph"]) {
 	padding-top: 35px;
 }
 
@@ -264,14 +264,11 @@
 
 /* 注入的是整个 .workspace-leaf-content[data-type="localgraph"]（graph 的 containerEl），
    而非仅 .view-content。这样 graph view 注册在 containerEl 上的鼠标事件监听器在 DOM
-   移动后仍然有效，避免交互失效。高度由 JS 按 4:3 动态设置，250px 仅作初始回退。
-   padding-top: 30px 为标题栏留出空间，内部 .view-content 整体下移，canvas 自然对齐，
-   无需额外的坐标补偿。*/
+   移动后仍然有效，避免交互失效。高度由 JS 按 4:3 动态设置，250px 仅作初始回退。*/
 .minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .minimalism-ui-injected-graph {
 	flex: 0 0 250px;
 	overflow: hidden !important;
 	position: relative !important;
-	padding-top: 30px !important;
 }
 
 
@@ -288,6 +285,7 @@
 	justify-content: space-between;
 	padding: 6px 8px 4px 16px;
 	flex-shrink: 0;
+	position: relative;
 }
 
 .minimalism-ui-mac-sidebar .minimalism-ui-graph-header > span {
@@ -307,12 +305,15 @@
 	padding: 0 !important;
 	position: absolute !important;
 	right: 8px !important;
-	top: 30px !important;
+	top: 50% !important;
+	transform: translateY(-50%) !important;
 	z-index: 5 !important;
 }
 
 /* graph-controls 展开面板：固实背景，防止图形画布透显 */
 .minimalism-ui-mac-sidebar .minimalism-ui-graph-header .graph-controls:not(.is-close) {
+	top: 100% !important;
+	transform: none !important;
 	background: #0f2030 !important;
 	border: 1px solid rgba(91, 165, 220, 0.25) !important;
 	border-radius: 6px !important;
