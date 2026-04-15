@@ -584,10 +584,15 @@ var SidebarLayoutManager = class {
     this.hiddenShells = [];
     // Elements created (not moved) by apply() — removed entirely on cleanup.
     this.createdEls = [];
+    // Workspace resize event ref — notifies the graph iframe renderer when sidebar width changes.
+    this.graphResizeRef = null;
+    this.injectedGraphLeaf = null;
+    this.graphResizeObserver = null;
   }
   // ── Public ────────────────────────────────────────────────────────────────
   /** Undo all DOM injections and restore leaves to their original state. */
   remove() {
+    var _a;
     if (this.injectedItems.length === 0 && this.hiddenShells.length === 0 && this.createdEls.length === 0)
       return;
     for (const { el, originalParent, originalNextSibling, addedClass } of this.injectedItems) {
@@ -601,6 +606,13 @@ var SidebarLayoutManager = class {
     for (const el of this.createdEls) {
       el.remove();
     }
+    if (this.graphResizeRef) {
+      this.app.workspace.offref(this.graphResizeRef);
+      this.graphResizeRef = null;
+    }
+    (_a = this.graphResizeObserver) == null ? void 0 : _a.disconnect();
+    this.graphResizeObserver = null;
+    this.injectedGraphLeaf = null;
     this.injectedItems = [];
     this.hiddenShells = [];
     this.createdEls = [];
@@ -683,40 +695,72 @@ var SidebarLayoutManager = class {
     }
   }
   /**
-   * Moves the Local Graph's `.view-content` from its leaf into the Outline
-   * leaf's `.workspace-leaf-content`, above the Properties panel.
+   * Moves the Local Graph's entire `.workspace-leaf-content` (the view's containerEl)
+   * into the Outline leaf's `.workspace-leaf-content`, above the Properties panel.
+   *
+   * Why the whole containerEl and not just .view-content:
+   *   Obsidian's graph view registers all mouse/wheel event listeners on
+   *   `this.containerEl` (.workspace-leaf-content[data-type="localgraph"]).
+   *   If only .view-content is moved, canvas events bubble up through the new
+   *   DOM parent (outline's containerEl) and never reach the original, now-hidden
+   *   localgraph containerEl — making the graph completely non-interactive.
+   *   Moving the containerEl itself keeps the event listeners wired up.
+   *
    * The class `minimalism-ui-injected-graph` is added for CSS targeting.
    */
   injectLocalGraphIntoOutline(outlineLeaf, graphLeaf) {
+    var _a, _b, _c;
     const outlineEl = outlineLeaf.containerEl;
     const graphEl = graphLeaf.containerEl;
-    const graphViewContent = graphEl.querySelector(
-      '.workspace-leaf-content[data-type="localgraph"] .view-content'
+    const graphLeafContent = graphEl.querySelector(
+      '.workspace-leaf-content[data-type="localgraph"]'
     );
     const outlineLeafContent = outlineEl.querySelector(
       '.workspace-leaf-content[data-type="outline"]'
     );
-    if (!graphViewContent || !outlineLeafContent)
+    if (!graphLeafContent || !outlineLeafContent)
       return;
-    const originalParent = graphViewContent.parentElement;
-    const originalNextSibling = graphViewContent.nextSibling;
+    const originalParent = graphLeafContent.parentElement;
+    const originalNextSibling = graphLeafContent.nextSibling;
     const addedClass = "minimalism-ui-injected-graph";
-    graphViewContent.classList.add(addedClass);
-    const graphControls = graphViewContent.querySelector(".graph-controls");
+    graphLeafContent.classList.add(addedClass);
+    const graphControls = graphLeafContent.querySelector(".graph-controls");
     if (graphControls)
       graphControls.classList.add("is-close");
-    outlineLeafContent.appendChild(graphViewContent);
-    this.injectedItems.push({ el: graphViewContent, originalParent, originalNextSibling, addedClass });
-    const graphWorkspaceTabs = graphEl.closest(".workspace-tabs");
+    outlineLeafContent.appendChild(graphLeafContent);
+    this.injectedItems.push({ el: graphLeafContent, originalParent, originalNextSibling, addedClass });
+    const graphWorkspaceTabs = (_a = graphEl.closest(".workspace-tabs")) != null ? _a : graphEl;
     if (graphWorkspaceTabs) {
       graphWorkspaceTabs.style.display = "none";
       this.hiddenShells.push(graphWorkspaceTabs);
     }
-    const bgDiv = document.createElement("div");
-    bgDiv.className = "minimalism-ui-graph-bg";
-    graphViewContent.insertBefore(bgDiv, graphViewContent.firstChild);
-    this.createdEls.push(bgDiv);
-    window.dispatchEvent(new Event("resize"));
+    this.injectedGraphLeaf = graphLeaf;
+    if (this.graphResizeRef) {
+      this.app.workspace.offref(this.graphResizeRef);
+      this.graphResizeRef = null;
+    }
+    (_b = this.graphResizeObserver) == null ? void 0 : _b.disconnect();
+    const leftSplitEl = this.app.workspace.leftSplit;
+    const observeTarget = (_c = leftSplitEl == null ? void 0 : leftSplitEl.containerEl) != null ? _c : document.querySelector(".workspace-split.mod-left-split");
+    if (observeTarget) {
+      this.graphResizeObserver = new ResizeObserver((entries) => {
+        var _a2, _b2, _c2;
+        const w = entries[0].contentRect.width;
+        if (w > 0) {
+          graphLeafContent.style.setProperty("flex-grow", "0", "important");
+          graphLeafContent.style.setProperty("flex-basis", `${Math.round(w * 3 / 4)}px`, "important");
+        }
+        (_c2 = (_b2 = (_a2 = this.injectedGraphLeaf) == null ? void 0 : _a2.view) == null ? void 0 : _b2.onResize) == null ? void 0 : _c2.call(_b2);
+      });
+      this.graphResizeObserver.observe(observeTarget);
+    }
+    setTimeout(() => {
+      const w = graphLeafContent.getBoundingClientRect().width;
+      if (w > 0) {
+        graphLeafContent.style.setProperty("flex-grow", "0", "important");
+        graphLeafContent.style.setProperty("flex-basis", `${Math.round(w * 3 / 4)}px`, "important");
+      }
+    }, 50);
   }
   // ── Public helpers ────────────────────────────────────────────────────────
   /**
