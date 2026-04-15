@@ -1,5 +1,7 @@
 {
   "macSidebar": true,
+  "showProperties": true,
+  "showLocalGraph": true,
   "hideTabBar": true,
   "disablePinTab": true,
   "simplifyPanel": true,

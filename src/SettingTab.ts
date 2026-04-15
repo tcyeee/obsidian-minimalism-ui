@@ -53,8 +53,36 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 					this.plugin.settings.macSidebar = v;
 					await this.plugin.saveSettings();
 					this.plugin.applyBodyClasses();
+					showPropertiesSetting.settingEl.toggle(v);
+					showLocalGraphSetting.settingEl.toggle(v);
 					await this.plugin.applyMacSidebarLayout();
 				}));
+
+		const showPropertiesSetting = new Setting(containerEl)
+			.setName(t('showProperties'))
+			.setDesc(t('showPropertiesDesc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.showProperties)
+				.onChange(async v => {
+					this.plugin.settings.showProperties = v;
+					await this.plugin.saveSettings();
+					await this.plugin.applyMacSidebarLayout();
+				}));
+		showPropertiesSetting.settingEl.addClass('minimalism-ui-sub-setting');
+		showPropertiesSetting.settingEl.toggle(this.plugin.settings.macSidebar);
+
+		const showLocalGraphSetting = new Setting(containerEl)
+			.setName(t('showLocalGraph'))
+			.setDesc(t('showLocalGraphDesc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.showLocalGraph)
+				.onChange(async v => {
+					this.plugin.settings.showLocalGraph = v;
+					await this.plugin.saveSettings();
+					await this.plugin.applyMacSidebarLayout();
+				}));
+		showLocalGraphSetting.settingEl.addClass('minimalism-ui-sub-setting');
+		showLocalGraphSetting.settingEl.toggle(this.plugin.settings.macSidebar);
 
 		new Setting(containerEl)
 			.setName(t('hideTabBar'))

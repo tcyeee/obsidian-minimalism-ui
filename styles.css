@@ -260,6 +260,80 @@
 	padding: 12px 0 6px;
 }
 
+/* ── 注入的 Local Graph ───────────────────────────────────────────────── */
+
+/* 注入的 graph .view-content：固定高度，独立于 Outline 和 Properties */
+.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .minimalism-ui-injected-graph {
+	flex: 0 0 250px !important;
+	overflow: hidden !important;
+	position: relative !important;
+	padding-top: 30px !important;
+}
+
+/* 浅色背景窗口：垫在 graph iframe 下方，使黑色节点文字在深色侧边栏中可读 */
+.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .minimalism-ui-graph-bg {
+	position: absolute;
+	inset: 30px 0 0 0;   /* 顶部留出标题栏高度 */
+	background: #e8edf2;
+	border-radius: 6px;
+	z-index: 0;
+}
+
+/* LOCAL GRAPH 标题（绝对定位，左侧，与 graph-controls 形成 between 效果） */
+.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .minimalism-ui-injected-graph::before {
+	content: 'LOCAL GRAPH';
+	position: absolute;
+	top: 0;
+	left: 16px;
+	padding: 8px 0 4px;
+	font-size: 0.8rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	color: rgba(255, 255, 255, 0.88) !important;
+	pointer-events: none;
+	z-index: 1;
+}
+
+/* graph-controls 设置按钮：绝对定位到标题右侧，去掉外边框 */
+.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .minimalism-ui-injected-graph .graph-controls {
+	position: absolute !important;
+	top: 4px !important;
+	right: 8px !important;
+	z-index: 2;
+	background: transparent !important;
+	border: none !important;
+	box-shadow: none !important;
+	padding: 0 !important;
+}
+
+/* graph-controls 展开面板：固实背景，防止图形画布透显 */
+.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .minimalism-ui-injected-graph .graph-controls:not(.is-close) {
+	background: #0f2030 !important;
+	border: 1px solid rgba(91, 165, 220, 0.25) !important;
+	border-radius: 6px !important;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
+	z-index: 10 !important;
+}
+
+/* 面板内文字颜色 */
+.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .minimalism-ui-injected-graph .graph-controls:not(.is-close) {
+	color: rgba(220, 232, 245, 0.9) !important;
+}
+
+
+/* LOCAL GRAPH 深色背景颜色适配：节点/连线/文字适合 #123342 背景 */
+.minimalism-ui-mac-sidebar {
+	--graph-color-fill: rgba(91, 165, 220, 0.9);
+	--graph-color-fill-focused: #5ba4f0;
+	--graph-color-fill-unresolved: rgba(180, 180, 180, 0.5);
+	--graph-color-fill-attachment: rgba(120, 195, 140, 0.85);
+	--graph-color-fill-tag: rgba(210, 165, 100, 0.85);
+	--graph-color-border: rgba(91, 165, 220, 0.4);
+	--graph-color-arrow: rgba(180, 210, 240, 0.6);
+	--graph-color-line: rgba(180, 210, 240, 0.35);
+	--graph-color-text: rgba(230, 235, 245, 0.9);
+}
+
 /* ── 禁用笔记 Tab（隐藏笔记区域标签栏 + 自定义拖拽区） ──────────────── */
 
 .minimalism-ui-disable-note-tabs .workspace-split.mod-root .workspace-tab-header-container {
@@ -521,6 +595,13 @@
 
 .minimalism-ui-slide-from-right {
 	animation: minimalism-slide-from-right 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* ── 子设置项：缩进显示，作为父选项的附属 ───────────────────────────── */
+
+.minimalism-ui-sub-setting {
+	padding-left: 32px !important;
+	border-top: none !important;
 }
 
 /* ── 单页模式：多行说明与其他单行设置项对齐 ─────────────────────────── */
