@@ -317,28 +317,9 @@
 }
 
 
-/* 注入的 graph 区域：白色背景（仅 .view-content，标题栏区域保持透明） */
-.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .minimalism-ui-injected-graph .view-content {
-	background: #ffffff !important;
-}
-
-/* --graph-color-background 控制 canvas WebGL 渲染器的清除色，需与 .view-content 背景一致 */
-.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .minimalism-ui-injected-graph {
-	--graph-color-background: #ffffff;
-}
-
-/* LOCAL GRAPH 深色背景颜色适配：节点/连线/文字适合 #123342 背景 */
-.minimalism-ui-mac-sidebar {
-	--graph-color-fill: rgba(91, 165, 220, 0.9);
-	--graph-color-fill-focused: #5ba4f0;
-	--graph-color-fill-unresolved: rgba(180, 180, 180, 0.5);
-	--graph-color-fill-attachment: rgba(120, 195, 140, 0.85);
-	--graph-color-fill-tag: rgba(210, 165, 100, 0.85);
-	--graph-color-border: rgba(91, 165, 220, 0.4);
-	--graph-color-arrow: rgba(180, 210, 240, 0.6);
-	--graph-color-line: rgba(180, 210, 240, 0.35);
-	--graph-color-text: rgba(230, 235, 245, 0.9);
-}
+/* Graph 节点颜色通过 JS 注入（见 SidebarLayoutManager.applyGraphColors）。
+   renderer.testCSS() 在 document.body 上临时创建 .graph-view.color-* 元素读色，
+   scoped CSS 无效，必须用全局规则 + JS 调用 testCSS() 实现。 */
 
 /* ── 禁用笔记 Tab（隐藏笔记区域标签栏 + 自定义拖拽区） ──────────────── */
 
