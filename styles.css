@@ -3,6 +3,8 @@
    macOS 原生风格 · 左侧固定信息面板
    ============================================================================= */
 
+.minimalism-ui-is-hidden { display: none !important; }
+
 /* ── 内嵌字体：JetBrains Mono NL（由 main.ts 通过 FontFace API 注册） ── */
 /* CSS url() 在 Obsidian 插件中受安全策略限制，字体文件通过 JS 程序化加载，此处无需声明 @font-face */
 
@@ -264,9 +266,9 @@
 
 /* 注入的是整个 .workspace-leaf-content[data-type="localgraph"]（graph 的 containerEl），
    而非仅 .view-content。这样 graph view 注册在 containerEl 上的鼠标事件监听器在 DOM
-   移动后仍然有效，避免交互失效。高度由 JS 按 4:3 动态设置，250px 仅作初始回退。*/
+   移动后仍然有效，避免交互失效。高度由 JS 按 4:3 动态设置（--minimalism-ui-graph-height），250px 仅作初始回退。*/
 .minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .minimalism-ui-injected-graph {
-	flex: 0 0 250px;
+	flex: 0 0 var(--minimalism-ui-graph-height, 250px) !important;
 	overflow: hidden !important;
 	position: relative !important;
 }
@@ -314,9 +316,18 @@
 	border-bottom: none !important;
 }
 
-/* Graph 节点颜色通过 JS 注入（见 SidebarLayoutManager.applyGraphColors）。
-   renderer.testCSS() 在 document.body 上临时创建 .graph-view.color-* 元素读色，
-   scoped CSS 无效，必须用全局规则 + JS 调用 testCSS() 实现。 */
+/* Graph 节点颜色：适配侧边栏深色背景 #1B3241。
+   renderer.testCSS() 在 document.body 上临时挂载 .graph-view.color-* 元素读色，
+   需使用 body 级选择器（body.class .graph-view.color-*）才能命中这些临时元素。*/
+body.minimalism-ui-mac-sidebar .graph-view.color-text          { color: rgba(205, 225, 245, 0.9) !important; }
+body.minimalism-ui-mac-sidebar .graph-view.color-fill          { color: rgba(91, 165, 220, 0.9) !important; }
+body.minimalism-ui-mac-sidebar .graph-view.color-fill-focused  { color: #5ba4f0 !important; }
+body.minimalism-ui-mac-sidebar .graph-view.color-fill-unresolved { color: rgba(160, 175, 190, 0.5) !important; }
+body.minimalism-ui-mac-sidebar .graph-view.color-fill-attachment { color: rgba(120, 195, 140, 0.85) !important; }
+body.minimalism-ui-mac-sidebar .graph-view.color-fill-tag      { color: rgba(210, 165, 100, 0.85) !important; }
+body.minimalism-ui-mac-sidebar .graph-view.color-circle        { color: rgba(91, 165, 220, 0.4) !important; }
+body.minimalism-ui-mac-sidebar .graph-view.color-arrow         { color: rgba(180, 210, 240, 0.6) !important; }
+body.minimalism-ui-mac-sidebar .graph-view.color-line          { color: rgba(180, 210, 240, 0.35) !important; }
 
 /* ── 禁用笔记 Tab（隐藏笔记区域标签栏 + 自定义拖拽区） ──────────────── */
 

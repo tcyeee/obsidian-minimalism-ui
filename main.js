@@ -601,7 +601,7 @@ var SidebarLayoutManager = class {
       originalParent.insertBefore(el, originalNextSibling);
     }
     for (const shell of this.hiddenShells) {
-      shell.style.display = "";
+      shell.classList.remove("minimalism-ui-is-hidden");
     }
     for (const el of this.createdEls) {
       el.remove();
@@ -690,7 +690,7 @@ var SidebarLayoutManager = class {
     this.injectedItems.push({ el: metadataContent, originalParent, originalNextSibling });
     const propsWorkspaceTabs = propsEl.closest(".workspace-tabs");
     if (propsWorkspaceTabs) {
-      propsWorkspaceTabs.style.display = "none";
+      propsWorkspaceTabs.classList.add("minimalism-ui-is-hidden");
       this.hiddenShells.push(propsWorkspaceTabs);
     }
   }
@@ -732,7 +732,7 @@ var SidebarLayoutManager = class {
     const header = document.createElement("div");
     header.className = "minimalism-ui-graph-header";
     const titleSpan = document.createElement("span");
-    titleSpan.textContent = "LOCAL GRAPH";
+    titleSpan.textContent = "Local graph";
     header.appendChild(titleSpan);
     if (viewContent) {
       graphLeafContent.insertBefore(header, viewContent);
@@ -744,7 +744,7 @@ var SidebarLayoutManager = class {
     this.injectedItems.push({ el: graphLeafContent, originalParent, originalNextSibling, addedClass });
     const graphWorkspaceTabs = (_a = graphEl.closest(".workspace-tabs")) != null ? _a : graphEl;
     if (graphWorkspaceTabs) {
-      graphWorkspaceTabs.style.display = "none";
+      graphWorkspaceTabs.classList.add("minimalism-ui-is-hidden");
       this.hiddenShells.push(graphWorkspaceTabs);
     }
     this.injectedGraphLeaf = graphLeaf;
@@ -760,8 +760,7 @@ var SidebarLayoutManager = class {
         var _a2, _b2, _c2;
         const w = entries[0].contentRect.width;
         if (w > 0) {
-          graphLeafContent.style.setProperty("flex-grow", "0", "important");
-          graphLeafContent.style.setProperty("flex-basis", `${Math.round(w * 3 / 4)}px`, "important");
+          graphLeafContent.setCssProps({ "--minimalism-ui-graph-height": `${Math.round(w * 3 / 4)}px` });
         }
         (_c2 = (_b2 = (_a2 = this.injectedGraphLeaf) == null ? void 0 : _a2.view) == null ? void 0 : _b2.onResize) == null ? void 0 : _c2.call(_b2);
       });
@@ -770,47 +769,15 @@ var SidebarLayoutManager = class {
     setTimeout(() => {
       const w = graphLeafContent.getBoundingClientRect().width;
       if (w > 0) {
-        graphLeafContent.style.setProperty("flex-grow", "0", "important");
-        graphLeafContent.style.setProperty("flex-basis", `${Math.round(w * 3 / 4)}px`, "important");
+        graphLeafContent.setCssProps({ "--minimalism-ui-graph-height": `${Math.round(w * 3 / 4)}px` });
       }
       this.applyGraphColors();
     }, 200);
   }
-  /**
-   * Sets Local Graph node colors to match the dark sidebar background (#1B3241).
-   *
-   * How Obsidian's graph renderer reads colors:
-   *   renderer.testCSS() temporarily creates .graph-view.color-* divs on
-   *   document.body, reads their getComputedStyle().color, then detaches them.
-   *   Scoped CSS (inside any container) cannot target these elements.
-   *
-   * Strategy: inject a global <style> → call testCSS() → remove the style.
-   *   This affects only the specific renderer we target, not other graph views
-   *   that have already called testCSS() at their own initialization time.
-   */
   applyGraphColors() {
     var _a, _b, _c;
     const renderer = (_b = (_a = this.injectedGraphLeaf) == null ? void 0 : _a.view) == null ? void 0 : _b.renderer;
-    if (!(renderer == null ? void 0 : renderer.testCSS))
-      return;
-    const STYLE_ID = "minimalism-ui-graph-colors";
-    (_c = document.getElementById(STYLE_ID)) == null ? void 0 : _c.remove();
-    const style = document.createElement("style");
-    style.id = STYLE_ID;
-    style.textContent = `
-			.graph-view.color-text         { color: rgba(205, 225, 245, 0.9) !important; }
-			.graph-view.color-fill         { color: rgba(91, 165, 220, 0.9) !important; }
-			.graph-view.color-fill-focused { color: #5ba4f0 !important; }
-			.graph-view.color-fill-unresolved { color: rgba(160, 175, 190, 0.5) !important; }
-			.graph-view.color-fill-attachment { color: rgba(120, 195, 140, 0.85) !important; }
-			.graph-view.color-fill-tag     { color: rgba(210, 165, 100, 0.85) !important; }
-			.graph-view.color-circle       { color: rgba(91, 165, 220, 0.4) !important; }
-			.graph-view.color-arrow        { color: rgba(180, 210, 240, 0.6) !important; }
-			.graph-view.color-line         { color: rgba(180, 210, 240, 0.35) !important; }
-		`;
-    document.head.appendChild(style);
-    renderer.testCSS();
-    style.remove();
+    (_c = renderer == null ? void 0 : renderer.testCSS) == null ? void 0 : _c.call(renderer);
   }
   // ── Public helpers ────────────────────────────────────────────────────────
   /**

@@ -54,7 +54,7 @@ export class SidebarLayoutManager {
 			originalParent.insertBefore(el, originalNextSibling);
 		}
 		for (const shell of this.hiddenShells) {
-			shell.style.display = '';
+			shell.classList.remove('minimalism-ui-is-hidden');
 		}
 		for (const el of this.createdEls) {
 			el.remove();
@@ -175,7 +175,7 @@ export class SidebarLayoutManager {
 		// Hide the now-empty Properties workspace-tabs shell.
 		const propsWorkspaceTabs = propsEl.closest<HTMLElement>('.workspace-tabs');
 		if (propsWorkspaceTabs) {
-			propsWorkspaceTabs.style.display = 'none';
+			propsWorkspaceTabs.classList.add('minimalism-ui-is-hidden');
 			this.hiddenShells.push(propsWorkspaceTabs);
 		}
 	}
@@ -231,7 +231,7 @@ export class SidebarLayoutManager {
 		const header = document.createElement('div');
 		header.className = 'minimalism-ui-graph-header';
 		const titleSpan = document.createElement('span');
-		titleSpan.textContent = 'LOCAL GRAPH';
+		titleSpan.textContent = 'Local graph';
 		header.appendChild(titleSpan);
 
 		if (viewContent) {
@@ -248,7 +248,7 @@ export class SidebarLayoutManager {
 		// already been moved out, so the shell is empty and safe to hide).
 		const graphWorkspaceTabs = graphEl.closest<HTMLElement>('.workspace-tabs') ?? graphEl;
 		if (graphWorkspaceTabs) {
-			graphWorkspaceTabs.style.display = 'none';
+			graphWorkspaceTabs.classList.add('minimalism-ui-is-hidden');
 			this.hiddenShells.push(graphWorkspaceTabs);
 		}
 
@@ -267,8 +267,7 @@ export class SidebarLayoutManager {
 			this.graphResizeObserver = new ResizeObserver((entries) => {
 				const w = entries[0].contentRect.width;
 				if (w > 0) {
-					graphLeafContent.style.setProperty('flex-grow', '0', 'important');
-					graphLeafContent.style.setProperty('flex-basis', `${Math.round(w * 3 / 4)}px`, 'important');
+					graphLeafContent.setCssProps({'--minimalism-ui-graph-height': `${Math.round(w * 3 / 4)}px`});
 				}
 				(this.injectedGraphLeaf?.view as { onResize?(): void } | undefined)?.onResize?.();
 			});
@@ -279,55 +278,16 @@ export class SidebarLayoutManager {
 		setTimeout(() => {
 			const w = graphLeafContent.getBoundingClientRect().width;
 			if (w > 0) {
-				graphLeafContent.style.setProperty('flex-grow', '0', 'important');
-				graphLeafContent.style.setProperty('flex-basis', `${Math.round(w * 3 / 4)}px`, 'important');
+				graphLeafContent.setCssProps({'--minimalism-ui-graph-height': `${Math.round(w * 3 / 4)}px`});
 			}
 			this.applyGraphColors();
 		}, 200);
 	}
 
-	/**
-	 * Sets Local Graph node colors to match the dark sidebar background (#1B3241).
-	 *
-	 * How Obsidian's graph renderer reads colors:
-	 *   renderer.testCSS() temporarily creates .graph-view.color-* divs on
-	 *   document.body, reads their getComputedStyle().color, then detaches them.
-	 *   Scoped CSS (inside any container) cannot target these elements.
-	 *
-	 * Strategy: inject a global <style> → call testCSS() → remove the style.
-	 *   This affects only the specific renderer we target, not other graph views
-	 *   that have already called testCSS() at their own initialization time.
-	 */
 	private applyGraphColors() {
 		const renderer = (this.injectedGraphLeaf?.view as Record<string, unknown> | undefined)?.renderer as
 			{ testCSS?(): void } | undefined;
-		if (!renderer?.testCSS) return;
-
-		const STYLE_ID = 'minimalism-ui-graph-colors';
-		document.getElementById(STYLE_ID)?.remove();
-
-		// Colors chosen for sidebar background #1B3241 (dark navy-teal).
-		// Text: light cool-white. Nodes: blue accent. Lines: muted blue.
-		const style = document.createElement('style');
-		style.id = STYLE_ID;
-		style.textContent = `
-			.graph-view.color-text         { color: rgba(205, 225, 245, 0.9) !important; }
-			.graph-view.color-fill         { color: rgba(91, 165, 220, 0.9) !important; }
-			.graph-view.color-fill-focused { color: #5ba4f0 !important; }
-			.graph-view.color-fill-unresolved { color: rgba(160, 175, 190, 0.5) !important; }
-			.graph-view.color-fill-attachment { color: rgba(120, 195, 140, 0.85) !important; }
-			.graph-view.color-fill-tag     { color: rgba(210, 165, 100, 0.85) !important; }
-			.graph-view.color-circle       { color: rgba(91, 165, 220, 0.4) !important; }
-			.graph-view.color-arrow        { color: rgba(180, 210, 240, 0.6) !important; }
-			.graph-view.color-line         { color: rgba(180, 210, 240, 0.35) !important; }
-		`;
-		document.head.appendChild(style);
-
-		// testCSS() reads the colors and calls this.changed() internally.
-		renderer.testCSS();
-
-		// Remove immediately — the colors are now stored in renderer.colors.
-		style.remove();
+		renderer?.testCSS?.();
 	}
 
 	// ── Public helpers ────────────────────────────────────────────────────────
