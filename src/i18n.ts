@@ -1,5 +1,10 @@
 const translations = {
 	zh: {
+		language: '语言',
+		languageAuto: '跟随系统',
+		languageZh: '中文',
+		languageEn: 'English',
+
 		headingAppearance: '外观设置',
 		headingInteraction: '交互设置',
 
@@ -32,6 +37,11 @@ const translations = {
 		navAnimationDesc: '前进或后退时，为目标页面播放滑入动画',
 	},
 	en: {
+		language: 'Language',
+		languageAuto: 'Follow system',
+		languageZh: '中文',
+		languageEn: 'English',
+
 		headingAppearance: 'Appearance',
 		headingInteraction: 'Interaction',
 
@@ -68,7 +78,14 @@ const translations = {
 type Lang = keyof typeof translations;
 type Key = keyof typeof translations['en'];
 
+let langOverride: Lang | null = null;
+
+export function setLang(lang: 'auto' | 'zh' | 'en') {
+	langOverride = lang === 'auto' ? null : lang as Lang;
+}
+
 function detectLang(): Lang {
+	if (langOverride) return langOverride;
 	const lang = document.documentElement.lang?.slice(0, 2) ?? 'en';
 	return (lang in translations ? lang : 'en') as Lang;
 }
