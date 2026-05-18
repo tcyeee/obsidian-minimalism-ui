@@ -318,16 +318,20 @@
 
 /* Graph 节点颜色：适配侧边栏深色背景 #1B3241。
    renderer.testCSS() 在 document.body 上临时挂载 .graph-view.color-* 元素读色，
-   需使用 body 级选择器（body.class .graph-view.color-*）才能命中这些临时元素。*/
-body.minimalism-ui-mac-sidebar .graph-view.color-text          { color: rgba(205, 225, 245, 0.9) !important; }
-body.minimalism-ui-mac-sidebar .graph-view.color-fill          { color: rgba(91, 165, 220, 0.9) !important; }
-body.minimalism-ui-mac-sidebar .graph-view.color-fill-focused  { color: #5ba4f0 !important; }
-body.minimalism-ui-mac-sidebar .graph-view.color-fill-unresolved { color: rgba(160, 175, 190, 0.5) !important; }
-body.minimalism-ui-mac-sidebar .graph-view.color-fill-attachment { color: rgba(120, 195, 140, 0.85) !important; }
-body.minimalism-ui-mac-sidebar .graph-view.color-fill-tag      { color: rgba(210, 165, 100, 0.85) !important; }
-body.minimalism-ui-mac-sidebar .graph-view.color-circle        { color: rgba(91, 165, 220, 0.4) !important; }
-body.minimalism-ui-mac-sidebar .graph-view.color-arrow         { color: rgba(180, 210, 240, 0.6) !important; }
-body.minimalism-ui-mac-sidebar .graph-view.color-line          { color: rgba(180, 210, 240, 0.35) !important; }
+   需使用 body 级选择器才能命中这些临时元素。
+   用 minimalism-ui-sidebar-graph-reading 而非 minimalism-ui-mac-sidebar 作 marker，
+   原因：后者会让所有 graph 实例（包括独立的 graph view）都读到这些颜色；
+   前者只在侧边栏 graph 的 renderer.testCSS() 执行期间被 JS 临时添加到 body，
+   独立 graph 调用自己的 testCSS() 时 marker 不存在，颜色不受影响。*/
+body.minimalism-ui-sidebar-graph-reading .graph-view.color-text          { color: rgba(205, 225, 245, 0.9) !important; }
+body.minimalism-ui-sidebar-graph-reading .graph-view.color-fill          { color: rgba(91, 165, 220, 0.9) !important; }
+body.minimalism-ui-sidebar-graph-reading .graph-view.color-fill-focused  { color: #5ba4f0 !important; }
+body.minimalism-ui-sidebar-graph-reading .graph-view.color-fill-unresolved { color: rgba(160, 175, 190, 0.5) !important; }
+body.minimalism-ui-sidebar-graph-reading .graph-view.color-fill-attachment { color: rgba(120, 195, 140, 0.85) !important; }
+body.minimalism-ui-sidebar-graph-reading .graph-view.color-fill-tag      { color: rgba(210, 165, 100, 0.85) !important; }
+body.minimalism-ui-sidebar-graph-reading .graph-view.color-circle        { color: rgba(91, 165, 220, 0.4) !important; }
+body.minimalism-ui-sidebar-graph-reading .graph-view.color-arrow         { color: rgba(180, 210, 240, 0.6) !important; }
+body.minimalism-ui-sidebar-graph-reading .graph-view.color-line          { color: rgba(180, 210, 240, 0.35) !important; }
 
 /* ── 禁用笔记 Tab（隐藏笔记区域标签栏 + 自定义拖拽区） ──────────────── */
 

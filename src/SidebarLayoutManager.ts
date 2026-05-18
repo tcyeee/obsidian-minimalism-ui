@@ -38,6 +38,9 @@ export class SidebarLayoutManager {
 	private graphResizeRef: EventRef | null = null;
 	private injectedGraphLeaf: WorkspaceLeaf | null = null;
 	private graphResizeObserver: ResizeObserver | null = null;
+	// Monkey-patched testCSS ref — restored on remove().
+	private patchedRenderer: { testCSS?(): void } | null = null;
+	private origTestCSS: (() => void) | null = null;
 
 	constructor(
 		private app: App,
@@ -66,6 +69,11 @@ export class SidebarLayoutManager {
 		this.graphResizeObserver?.disconnect();
 		this.graphResizeObserver = null;
 		this.injectedGraphLeaf = null;
+		if (this.patchedRenderer && this.origTestCSS) {
+			this.patchedRenderer.testCSS = this.origTestCSS;
+			this.patchedRenderer = null;
+			this.origTestCSS = null;
+		}
 		this.injectedItems = [];
 		this.hiddenShells = [];
 		this.createdEls = [];
@@ -287,7 +295,26 @@ export class SidebarLayoutManager {
 	private applyGraphColors() {
 		const renderer = (this.injectedGraphLeaf?.view as Record<string, unknown> | undefined)?.renderer as
 			{ testCSS?(): void } | undefined;
-		renderer?.testCSS?.();
+		if (!renderer?.testCSS) return;
+
+		// Restore any previous patch before re-patching (e.g. apply() called twice).
+		if (this.patchedRenderer && this.origTestCSS) {
+			this.patchedRenderer.testCSS = this.origTestCSS;
+		}
+
+		// Wrap testCSS to add a scoping marker on body only during the sidebar
+		// graph's color probe — standalone graphs call their own renderer.testCSS
+		// and will not have the marker, so their colors are unaffected.
+		const orig = renderer.testCSS.bind(renderer);
+		this.patchedRenderer = renderer;
+		this.origTestCSS = orig;
+		renderer.testCSS = () => {
+			document.body.classList.add('minimalism-ui-sidebar-graph-reading');
+			orig();
+			document.body.classList.remove('minimalism-ui-sidebar-graph-reading');
+		};
+
+		renderer.testCSS();
 	}
 
 	// ── Public helpers ────────────────────────────────────────────────────────
