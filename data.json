@@ -10,6 +10,7 @@
   "enableNavAnimation": true,
   "noteStyle": true,
   "homePage": "README.md",
+  "language": "zh",
   "autoPropertiesHeight": true,
   "leafCacheSize": 10,
   "hideNavButtons": false,
