@@ -10,6 +10,7 @@ export interface MinimalismUISettings {
 	enableNavAnimation: boolean;
 	noteStyle: boolean;
 	homePage: string;
+	language: 'auto' | 'zh' | 'en';
 }
 
 export const DEFAULT_SETTINGS: MinimalismUISettings = {
@@ -24,4 +25,5 @@ export const DEFAULT_SETTINGS: MinimalismUISettings = {
 	enableNavAnimation: false,
 	noteStyle: false,
 	homePage: '',
+	language: 'auto',
 };
