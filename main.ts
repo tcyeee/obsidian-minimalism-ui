@@ -6,6 +6,7 @@ import { SinglePageManager } from './src/SinglePageManager';
 import { SidebarLayoutManager } from './src/SidebarLayoutManager';
 import { MermaidZoomManager } from './src/MermaidZoomManager';
 import { MinimalismUISettingTab } from './src/SettingTab';
+import { setLang } from './src/i18n';
 
 export type { MinimalismUISettings };
 
@@ -33,6 +34,7 @@ export default class MinimalismUIPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+		setLang(this.settings.language);
 
 		this.tabCache = new TabCacheManager(
 			this.app,
@@ -64,6 +66,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	}
 
 	onunload() {
+		setLang('auto');
 		document.body.classList.remove(
 			'minimalism-ui-mac-sidebar',
 			'minimalism-ui-hide-tab-bar',
