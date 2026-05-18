@@ -588,6 +588,9 @@ var SidebarLayoutManager = class {
     this.graphResizeRef = null;
     this.injectedGraphLeaf = null;
     this.graphResizeObserver = null;
+    // Monkey-patched testCSS ref — restored on remove().
+    this.patchedRenderer = null;
+    this.origTestCSS = null;
   }
   // ── Public ────────────────────────────────────────────────────────────────
   /** Undo all DOM injections and restore leaves to their original state. */
@@ -613,6 +616,11 @@ var SidebarLayoutManager = class {
     (_a = this.graphResizeObserver) == null ? void 0 : _a.disconnect();
     this.graphResizeObserver = null;
     this.injectedGraphLeaf = null;
+    if (this.patchedRenderer && this.origTestCSS) {
+      this.patchedRenderer.testCSS = this.origTestCSS;
+      this.patchedRenderer = null;
+      this.origTestCSS = null;
+    }
     this.injectedItems = [];
     this.hiddenShells = [];
     this.createdEls = [];
@@ -775,9 +783,22 @@ var SidebarLayoutManager = class {
     }, 200);
   }
   applyGraphColors() {
-    var _a, _b, _c;
+    var _a, _b;
     const renderer = (_b = (_a = this.injectedGraphLeaf) == null ? void 0 : _a.view) == null ? void 0 : _b.renderer;
-    (_c = renderer == null ? void 0 : renderer.testCSS) == null ? void 0 : _c.call(renderer);
+    if (!(renderer == null ? void 0 : renderer.testCSS))
+      return;
+    if (this.patchedRenderer && this.origTestCSS) {
+      this.patchedRenderer.testCSS = this.origTestCSS;
+    }
+    const orig = renderer.testCSS.bind(renderer);
+    this.patchedRenderer = renderer;
+    this.origTestCSS = orig;
+    renderer.testCSS = () => {
+      document.body.classList.add("minimalism-ui-sidebar-graph-reading");
+      orig();
+      document.body.classList.remove("minimalism-ui-sidebar-graph-reading");
+    };
+    renderer.testCSS();
   }
   // ── Public helpers ────────────────────────────────────────────────────────
   /**
