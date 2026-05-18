@@ -1,6 +1,6 @@
 import { AbstractInputSuggest, App, PluginSettingTab, Setting, TFile } from 'obsidian';
 import type MinimalismUIPlugin from '../main';
-import { t } from './i18n';
+import { t, setLang } from './i18n';
 
 // ─── File Suggester ───────────────────────────────────────────────────────────
 
@@ -42,6 +42,21 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
+
+		new Setting(containerEl)
+			.setName(t('language'))
+			.addDropdown(drop => drop
+				.addOption('auto', t('languageAuto'))
+				.addOption('zh', t('languageZh'))
+				.addOption('en', t('languageEn'))
+				.setValue(this.plugin.settings.language)
+				.onChange(async (v: 'auto' | 'zh' | 'en') => {
+					this.plugin.settings.language = v;
+					setLang(v);
+					await this.plugin.saveSettings();
+					this.display();
+				}));
+
 		new Setting(containerEl).setName(t('headingAppearance')).setHeading();
 
 		new Setting(containerEl)
