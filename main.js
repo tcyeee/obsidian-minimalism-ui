@@ -41,7 +41,8 @@ var DEFAULT_SETTINGS = {
   enableLeafCache: false,
   enableNavAnimation: false,
   noteStyle: false,
-  homePage: ""
+  homePage: "",
+  language: "auto"
 };
 
 // src/TabCacheManager.ts
@@ -955,6 +956,10 @@ var import_obsidian3 = require("obsidian");
 // src/i18n.ts
 var translations = {
   zh: {
+    language: "\u8BED\u8A00",
+    languageAuto: "\u8DDF\u968F\u7CFB\u7EDF",
+    languageZh: "\u4E2D\u6587",
+    languageEn: "English",
     headingAppearance: "\u5916\u89C2\u8BBE\u7F6E",
     headingInteraction: "\u4EA4\u4E92\u8BBE\u7F6E",
     macSidebar: "\u6781\u7B80\u4FA7\u8FB9\u680F",
@@ -981,6 +986,10 @@ var translations = {
     navAnimationDesc: "\u524D\u8FDB\u6216\u540E\u9000\u65F6\uFF0C\u4E3A\u76EE\u6807\u9875\u9762\u64AD\u653E\u6ED1\u5165\u52A8\u753B"
   },
   en: {
+    language: "Language",
+    languageAuto: "Follow system",
+    languageZh: "\u4E2D\u6587",
+    languageEn: "English",
     headingAppearance: "Appearance",
     headingInteraction: "Interaction",
     macSidebar: "Minimal Sidebar",
@@ -1007,8 +1016,14 @@ var translations = {
     navAnimationDesc: "Play a slide-in animation when navigating back or forward."
   }
 };
+var langOverride = null;
+function setLang(lang) {
+  langOverride = lang === "auto" ? null : lang;
+}
 function detectLang() {
   var _a, _b;
+  if (langOverride)
+    return langOverride;
   const lang = (_b = (_a = document.documentElement.lang) == null ? void 0 : _a.slice(0, 2)) != null ? _b : "en";
   return lang in translations ? lang : "en";
 }
@@ -1047,6 +1062,12 @@ var MinimalismUISettingTab = class extends import_obsidian3.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
+    new import_obsidian3.Setting(containerEl).setName(t("language")).addDropdown((drop) => drop.addOption("auto", t("languageAuto")).addOption("zh", t("languageZh")).addOption("en", t("languageEn")).setValue(this.plugin.settings.language).onChange(async (v) => {
+      this.plugin.settings.language = v;
+      setLang(v);
+      await this.plugin.saveSettings();
+      this.display();
+    }));
     new import_obsidian3.Setting(containerEl).setName(t("headingAppearance")).setHeading();
     new import_obsidian3.Setting(containerEl).setName(t("macSidebar")).setDesc(t("macSidebarDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.macSidebar).onChange(async (v) => {
       this.plugin.settings.macSidebar = v;
@@ -1129,6 +1150,7 @@ var MinimalismUIPlugin = class extends import_obsidian4.Plugin {
   }
   async onload() {
     await this.loadSettings();
+    setLang(this.settings.language);
     this.tabCache = new TabCacheManager(
       this.app,
       () => this.settings,
@@ -1160,6 +1182,7 @@ var MinimalismUIPlugin = class extends import_obsidian4.Plugin {
     this.addSettingTab(new MinimalismUISettingTab(this.app, this));
   }
   onunload() {
+    setLang("auto");
     document.body.classList.remove(
       "minimalism-ui-mac-sidebar",
       "minimalism-ui-hide-tab-bar",
