@@ -42,6 +42,7 @@ var DEFAULT_SETTINGS = {
   enableNavAnimation: false,
   noteStyle: false,
   homePage: "",
+  filenamePrefixLength: 0,
   language: "auto"
 };
 
@@ -1074,7 +1075,9 @@ var translations = {
     singlePageDesc2: "2. \u542F\u7528\u9875\u9762\u7F13\u5B58\uFF0C\u5728\u5185\u5B58\u4E2D\u4FDD\u7559\u6700\u8FD1\u8BBF\u95EE\u7684 10 \u4E2A\u9875\u9762",
     singlePageDesc3: "3. \u7981\u7528 pin \u6807\u7B7E\u529F\u80FD\uFF0C\u907F\u514D\u591A\u4F59\u7684\u6807\u7B7E\u88AB\u56FA\u5B9A\u5728\u9876\u90E8\u3002",
     navAnimation: "\u9875\u9762\u52A0\u8F7D\u52A8\u753B (beta)",
-    navAnimationDesc: "\u524D\u8FDB\u6216\u540E\u9000\u65F6\uFF0C\u4E3A\u76EE\u6807\u9875\u9762\u64AD\u653E\u6ED1\u5165\u52A8\u753B"
+    navAnimationDesc: "\u524D\u8FDB\u6216\u540E\u9000\u65F6\uFF0C\u4E3A\u76EE\u6807\u9875\u9762\u64AD\u653E\u6ED1\u5165\u52A8\u753B",
+    filenamePrefixLength: "\u9690\u85CF\u6587\u4EF6\u540D\u524D\u7F00",
+    filenamePrefixLengthDesc: '\u5728\u6587\u4EF6\u6D4F\u89C8\u5668\u548C\u6807\u7B7E\u9875\u4E2D\u9690\u85CF\u6587\u4EF6\u540D\u5F00\u5934\u7684 N \u4E2A\u5B57\u7B26\uFF080 = \u4E0D\u9690\u85CF\uFF0C\u6700\u591A 20\uFF09\u3002\u9002\u7528\u4E8E\u65F6\u95F4\u6233\u524D\u7F00\u7B14\u8BB0\uFF0C\u5982\u9690\u85CF "202604111230-" \u524D 13 \u4E2A\u5B57\u7B26\u3002'
   },
   en: {
     language: "Language",
@@ -1104,7 +1107,9 @@ var translations = {
     singlePageDesc2: "2. Keep the 10 most recently visited notes cached in memory.",
     singlePageDesc3: "3. Disable tab pinning to prevent tabs from being pinned.",
     navAnimation: "Page Transition Animation (beta)",
-    navAnimationDesc: "Play a slide-in animation when navigating back or forward."
+    navAnimationDesc: "Play a slide-in animation when navigating back or forward.",
+    filenamePrefixLength: "Hide Filename Prefix",
+    filenamePrefixLengthDesc: 'Hide the first N characters of filenames in the file explorer and tabs (0 = off, max 20). Useful for timestamp-prefixed notes, e.g. hide the first 13 chars of "202604111230-".'
   }
 };
 var langOverride = null;
@@ -1226,6 +1231,20 @@ var MinimalismUISettingTab = class extends import_obsidian3.PluginSettingTab {
       this.plugin.settings.enableNavAnimation = v;
       await this.plugin.saveSettings();
     }));
+    new import_obsidian3.Setting(containerEl).setName(t("filenamePrefixLength")).setDesc(t("filenamePrefixLengthDesc")).addText((text) => {
+      text.inputEl.type = "number";
+      text.inputEl.min = "0";
+      text.inputEl.max = "20";
+      text.inputEl.style.width = "60px";
+      text.setValue(String(this.plugin.settings.filenamePrefixLength));
+      text.inputEl.addEventListener("change", async () => {
+        const raw = parseInt(text.inputEl.value, 10);
+        const clamped = isNaN(raw) ? 0 : Math.min(20, Math.max(0, raw));
+        text.setValue(String(clamped));
+        this.plugin.settings.filenamePrefixLength = clamped;
+        await this.plugin.saveSettings();
+      });
+    });
   }
 };
 

@@ -166,5 +166,23 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 					this.plugin.settings.enableNavAnimation = v;
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(containerEl)
+			.setName(t('filenamePrefixLength'))
+			.setDesc(t('filenamePrefixLengthDesc'))
+			.addText(text => {
+				text.inputEl.type = 'number';
+				text.inputEl.min = '0';
+				text.inputEl.max = '20';
+				text.inputEl.style.width = '60px';
+				text.setValue(String(this.plugin.settings.filenamePrefixLength));
+				text.inputEl.addEventListener('change', async () => {
+					const raw = parseInt(text.inputEl.value, 10);
+					const clamped = isNaN(raw) ? 0 : Math.min(20, Math.max(0, raw));
+					text.setValue(String(clamped));
+					this.plugin.settings.filenamePrefixLength = clamped;
+					await this.plugin.saveSettings();
+				});
+			});
 	}
 }
