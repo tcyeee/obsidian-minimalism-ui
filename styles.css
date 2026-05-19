@@ -375,14 +375,20 @@ body.minimalism-ui-sidebar-graph-reading .graph-view.color-line          { color
 	gap: 6px;
 }
 
-.minimalism-ui-drag-bar-title::before {
-	content: '';
+.minimalism-ui-drag-bar-count {
 	flex-shrink: 0;
-	width: 7px;
-	height: 7px;
-	border-radius: 50%;
-	background-color: var(--text-muted);
+	min-width: 16px;
+	height: 16px;
+	border-radius: 8px;
+	border: 1.5px solid var(--text-muted);
 	opacity: 0.5;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 0.6rem;
+	line-height: 1;
+	padding: 0 2px;
+	font-weight: normal;
 }
 
 /* status-bar 搬入 row1 后重置定位，推到最右侧 */
