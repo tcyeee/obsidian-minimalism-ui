@@ -404,6 +404,8 @@ body.minimalism-ui-sidebar-graph-reading .graph-view.color-line          { color
 	gap: 4px;
 	overflow: hidden;
 	-webkit-app-region: drag;
+	flex-shrink: 0;
+	min-height: 20px;
 }
 
 .minimalism-ui-breadcrumb-item {

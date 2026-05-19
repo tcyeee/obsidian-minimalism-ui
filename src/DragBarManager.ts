@@ -5,6 +5,8 @@ type WorkspaceSplitInternal = { containerEl: HTMLElement };
 type LeafWithFile = WorkspaceLeaf & { view?: { file?: { basename: string } } };
 
 const COMPACT_THRESHOLD = 15;
+const ROW1_HEIGHT = 35;
+const BREADCRUMB_HEIGHT = 20;
 
 export class DragBarManager {
 	private dragBar: HTMLElement | null = null;
@@ -127,9 +129,11 @@ export class DragBarManager {
 			const history = raw.filter(l => (l as LeafWithFile).view?.file != null);
 			if (history.length <= 1) {
 				breadcrumbEl.style.display = 'none';
+				if (this.dragBar) this.dragBar.style.removeProperty('min-height');
 				return;
 			}
 			breadcrumbEl.style.display = 'flex';
+			if (this.dragBar) this.dragBar.style.setProperty('min-height', `${ROW1_HEIGHT + BREADCRUMB_HEIGHT}px`, 'important');
 			const names = history.map(l => (l as LeafWithFile).view!.file!.basename);
 
 			if (history.length > COMPACT_THRESHOLD) {

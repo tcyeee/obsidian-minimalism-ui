@@ -378,6 +378,8 @@ var TabCacheManager = class {
 
 // src/DragBarManager.ts
 var COMPACT_THRESHOLD = 15;
+var ROW1_HEIGHT = 35;
+var BREADCRUMB_HEIGHT = 20;
 var DragBarManager = class {
   constructor(app, getSettings, navHistoryGetter = () => []) {
     this.app = app;
@@ -479,9 +481,13 @@ var DragBarManager = class {
       });
       if (history.length <= 1) {
         breadcrumbEl.style.display = "none";
+        if (this.dragBar)
+          this.dragBar.style.removeProperty("min-height");
         return;
       }
       breadcrumbEl.style.display = "flex";
+      if (this.dragBar)
+        this.dragBar.style.setProperty("min-height", `${ROW1_HEIGHT + BREADCRUMB_HEIGHT}px`, "important");
       const names = history.map((l) => l.view.file.basename);
       if (history.length > COMPACT_THRESHOLD) {
         renderCompact(breadcrumbEl, names, names.length - 2);
@@ -1046,7 +1052,7 @@ var translations = {
     languageZh: "\u4E2D\u6587",
     languageEn: "English",
     headingAppearance: "\u5916\u89C2\u8BBE\u7F6E",
-    headingInteraction: "\u4EA4\u4E92\u8BBE\u7F6E",
+    headingInteraction: "\u5355\u9875\u6A21\u5F0F\u8BBE\u7F6E",
     macSidebar: "\u6781\u7B80\u4FA7\u8FB9\u680F",
     macSidebarDesc: "\u4E3A\u5DE6\u4FA7\u8FB9\u680F\u5E94\u7528\u78E8\u7802\u73BB\u7483\u80CC\u666F\u4E0E\u5706\u89D2\u9AD8\u4EAE\uFF0C\u6253\u9020 macOS \u539F\u751F\u98CE\u683C\u3002",
     showProperties: "\u663E\u793A\u5C5E\u6027\u9762\u677F",
@@ -1063,7 +1069,7 @@ var translations = {
     homePage: "\u7B14\u8BB0\u9996\u9875",
     homePageDesc: "\u8BBE\u7F6E\u4E00\u4E2A\u7B14\u8BB0\u4F5C\u4E3A\u9996\u9875\u3002Obsidian \u542F\u52A8\u65F6\u81EA\u52A8\u6253\u5F00\uFF0C\u5173\u95ED\u6240\u6709\u6807\u7B7E\u540E\u81EA\u52A8\u8FD4\u56DE\u3002",
     homePagePlaceholder: "\u8F93\u5165\u7B14\u8BB0\u8DEF\u5F84\uFF0C\u4F8B\u5982\uFF1Asrc/Home.md",
-    singlePage: "\u5355\u9875\u6A21\u5F0F",
+    singlePage: "\u5F00\u542F\u5355\u9875\u6A21\u5F0F",
     singlePageDesc1: "1. \u9690\u85CF\u9876\u90E8\u6807\u7B7E\u680F\uFF0C\u6BCF\u6B21\u53EA\u5C55\u793A\u4E00\u7BC7\u7B14\u8BB0\u3002",
     singlePageDesc2: "2. \u542F\u7528\u9875\u9762\u7F13\u5B58\uFF0C\u5728\u5185\u5B58\u4E2D\u4FDD\u7559\u6700\u8FD1\u8BBF\u95EE\u7684 10 \u4E2A\u9875\u9762",
     singlePageDesc3: "3. \u7981\u7528 pin \u6807\u7B7E\u529F\u80FD\uFF0C\u907F\u514D\u591A\u4F59\u7684\u6807\u7B7E\u88AB\u56FA\u5B9A\u5728\u9876\u90E8\u3002",
@@ -1191,17 +1197,6 @@ var MinimalismUISettingTab = class extends import_obsidian3.PluginSettingTab {
     noteStyleList.createEl("li", { text: t("noteStyleItem2") });
     noteStyleList.createEl("li", { text: t("noteStyleItem3") });
     new import_obsidian3.Setting(containerEl).setName(t("headingInteraction")).setHeading();
-    new import_obsidian3.Setting(containerEl).setName(t("homePage")).setDesc(t("homePageDesc")).addText((text) => {
-      text.setPlaceholder(t("homePagePlaceholder")).setValue(this.plugin.settings.homePage);
-      new FileSuggest(this.app, text.inputEl).onPick((path) => {
-        this.plugin.settings.homePage = path;
-        void this.plugin.saveSettings();
-      });
-      text.inputEl.addEventListener("change", () => {
-        this.plugin.settings.homePage = text.inputEl.value.trim();
-        void this.plugin.saveSettings();
-      });
-    });
     const singlePageSetting = new import_obsidian3.Setting(containerEl).setName(t("singlePage"));
     singlePageSetting.settingEl.addClass("minimalism-ui-single-page-setting");
     singlePageSetting.addToggle((toggle) => toggle.setValue(this.plugin.settings.disableNoteTabs).onChange(async (v) => {
@@ -1216,6 +1211,17 @@ var MinimalismUISettingTab = class extends import_obsidian3.PluginSettingTab {
     singlePageSetting.descEl.createEl("br");
     singlePageSetting.descEl.createEl("span", { text: t("singlePageDesc3") });
     singlePageSetting.descEl.createEl("br");
+    new import_obsidian3.Setting(containerEl).setName(t("homePage")).setDesc(t("homePageDesc")).addText((text) => {
+      text.setPlaceholder(t("homePagePlaceholder")).setValue(this.plugin.settings.homePage);
+      new FileSuggest(this.app, text.inputEl).onPick((path) => {
+        this.plugin.settings.homePage = path;
+        void this.plugin.saveSettings();
+      });
+      text.inputEl.addEventListener("change", () => {
+        this.plugin.settings.homePage = text.inputEl.value.trim();
+        void this.plugin.saveSettings();
+      });
+    });
     new import_obsidian3.Setting(containerEl).setName(t("navAnimation")).setDesc(t("navAnimationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
       this.plugin.settings.enableNavAnimation = v;
       await this.plugin.saveSettings();
