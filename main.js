@@ -43,6 +43,7 @@ var DEFAULT_SETTINGS = {
   noteStyle: false,
   homePage: "",
   filenamePrefixLength: 0,
+  showBreadcrumb: false,
   language: "auto"
 };
 
@@ -626,6 +627,12 @@ var DragBarManager = class {
       el.appendChild(last);
     };
     const updateBreadcrumb = () => {
+      if (!this.getSettings().showBreadcrumb) {
+        breadcrumbEl.style.display = "none";
+        if (this.dragBar)
+          this.dragBar.style.removeProperty("min-height");
+        return;
+      }
       const raw = this.navHistoryGetter();
       const history = raw.filter((l) => {
         var _a;
@@ -1178,7 +1185,9 @@ var translations = {
     navAnimation: "\u9875\u9762\u52A0\u8F7D\u52A8\u753B (beta)",
     navAnimationDesc: "\u524D\u8FDB\u6216\u540E\u9000\u65F6\uFF0C\u4E3A\u76EE\u6807\u9875\u9762\u64AD\u653E\u6ED1\u5165\u52A8\u753B",
     filenamePrefixLength: "\u9690\u85CF\u6587\u4EF6\u540D\u524D\u7F00",
-    filenamePrefixLengthDesc: '\u5728\u6587\u4EF6\u6D4F\u89C8\u5668\u548C\u6807\u7B7E\u9875\u4E2D\u9690\u85CF\u6587\u4EF6\u540D\u5F00\u5934\u7684 N \u4E2A\u5B57\u7B26\uFF080 = \u4E0D\u9690\u85CF\uFF0C\u6700\u591A 20\uFF09\u3002\u9002\u7528\u4E8E\u65F6\u95F4\u6233\u524D\u7F00\u7B14\u8BB0\uFF0C\u5982\u9690\u85CF "202604111230-" \u524D 13 \u4E2A\u5B57\u7B26\u3002'
+    filenamePrefixLengthDesc: '\u5728\u6587\u4EF6\u6D4F\u89C8\u5668\u548C\u6807\u7B7E\u9875\u4E2D\u9690\u85CF\u6587\u4EF6\u540D\u5F00\u5934\u7684 N \u4E2A\u5B57\u7B26\uFF080 = \u4E0D\u9690\u85CF\uFF0C\u6700\u591A 20\uFF09\u3002\u9002\u7528\u4E8E\u65F6\u95F4\u6233\u524D\u7F00\u7B14\u8BB0\uFF0C\u5982\u9690\u85CF "202604111230-" \u524D 13 \u4E2A\u5B57\u7B26\u3002',
+    showBreadcrumb: "\u663E\u793A\u9762\u5305\u5C51\u5BFC\u822A",
+    showBreadcrumbDesc: "\u5728\u9876\u90E8\u62D6\u62FD\u680F\u663E\u793A\u5F53\u524D\u9875\u9762\u7684\u8BBF\u95EE\u8DEF\u5F84\uFF08\u9762\u5305\u5C51\uFF09\uFF0C\u65B9\u4FBF\u8FFD\u8E2A\u5BFC\u822A\u5386\u53F2\u3002"
   },
   en: {
     language: "Language",
@@ -1210,7 +1219,9 @@ var translations = {
     navAnimation: "Page Transition Animation (beta)",
     navAnimationDesc: "Play a slide-in animation when navigating back or forward.",
     filenamePrefixLength: "Hide Filename Prefix",
-    filenamePrefixLengthDesc: 'Hide the first N characters of filenames in the file explorer and tabs (0 = off, max 20). Useful for timestamp-prefixed notes, e.g. hide the first 13 chars of "202604111230-".'
+    filenamePrefixLengthDesc: 'Hide the first N characters of filenames in the file explorer and tabs (0 = off, max 20). Useful for timestamp-prefixed notes, e.g. hide the first 13 chars of "202604111230-".',
+    showBreadcrumb: "Show Breadcrumb",
+    showBreadcrumbDesc: "Show a breadcrumb trail in the drag bar to track your navigation history."
   }
 };
 var langOverride = null;
@@ -1346,6 +1357,10 @@ var MinimalismUISettingTab = class extends import_obsidian3.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
+    new import_obsidian3.Setting(containerEl).setName(t("showBreadcrumb")).setDesc(t("showBreadcrumbDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showBreadcrumb).onChange(async (v) => {
+      this.plugin.settings.showBreadcrumb = v;
+      await this.plugin.saveSettings();
+    }));
   }
 };
 

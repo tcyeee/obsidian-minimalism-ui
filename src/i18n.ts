@@ -38,6 +38,9 @@ const translations = {
 
 		filenamePrefixLength: '隐藏文件名前缀',
 		filenamePrefixLengthDesc: '在文件浏览器和标签页中隐藏文件名开头的 N 个字符（0 = 不隐藏，最多 20）。适用于时间戳前缀笔记，如隐藏 "202604111230-" 前 13 个字符。',
+
+		showBreadcrumb: '显示面包屑导航',
+		showBreadcrumbDesc: '在顶部拖拽栏显示当前页面的访问路径（面包屑），方便追踪导航历史。',
 	},
 	en: {
 		language: 'Language',
@@ -78,6 +81,9 @@ const translations = {
 
 		filenamePrefixLength: 'Hide Filename Prefix',
 		filenamePrefixLengthDesc: 'Hide the first N characters of filenames in the file explorer and tabs (0 = off, max 20). Useful for timestamp-prefixed notes, e.g. hide the first 13 chars of "202604111230-".',
+
+		showBreadcrumb: 'Show Breadcrumb',
+		showBreadcrumbDesc: 'Show a breadcrumb trail in the drag bar to track your navigation history.',
 	},
 } as const;
 

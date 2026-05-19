@@ -11,6 +11,7 @@ export interface MinimalismUISettings {
 	noteStyle: boolean;
 	homePage: string;
 	filenamePrefixLength: number;
+	showBreadcrumb: boolean;
 	language: 'auto' | 'zh' | 'en';
 }
 
@@ -27,5 +28,6 @@ export const DEFAULT_SETTINGS: MinimalismUISettings = {
 	noteStyle: false,
 	homePage: '',
 	filenamePrefixLength: 0,
+	showBreadcrumb: false,
 	language: 'auto',
 };
