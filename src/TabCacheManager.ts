@@ -7,11 +7,13 @@
  *    直接激活复用，丢弃空 leaf，避免重复打开与闪烁。
  *
  * 2. **LRU 淘汰** — 监听 `active-leaf-change`，维护 `leafQueue`（最近使用排末尾），
- *    超出上限（30）时 detach 最旧 leaf，同步清理导航历史。
+ *    超出上限（30）时 detach 最旧 leaf。
  *
- * 3. **跨 tab 导航栈** — 独立维护 `navHistory` / `navFuture`，patch 每个 leaf 的
+ * 3. **跨 tab 导航栈** — 独立维护 `navHistory`（文件路径数组）/ `navFuture`，patch 每个 leaf 的
  *    `history.back/forward/canGoBack/canGoForward`，以及内置命令 `app:go-back` /
- *    `app:go-forward` / `workspace:close`，使快捷键在任意焦点位置均可跨 tab 前进后退。
+ *    `app:go-forward`，使快捷键在任意焦点位置均可跨 tab 前进后退。
+ *    历史存储文件路径而非 leaf 引用，与 tab 生命周期完全解耦：tab 关闭、LRU 淘汰均不影响
+ *    导航历史；后退/前进时若无现有 leaf 则重新打开对应文件。
  *
  * 4. **入场动画** — 前进/后退时设置 `pendingAnimationCls`，在下一次 `active-leaf-change`
  *    触发后通过双重 rAF 为目标 leaf 的 `contentEl` 添加滑入动画 class。
@@ -68,20 +70,25 @@ export class TabCacheManager {
 	private isReusingLeaf = false;
 	private isEvicting = false;
 	private originalGetLeaf: ((newLeaf?: boolean | string) => WorkspaceLeaf) | null = null;
-	private navHistory: WorkspaceLeaf[] = [];
-	private navFuture: WorkspaceLeaf[] = [];
-	private navJumpTarget: WorkspaceLeaf | null = null;
+	// 导航历史存储文件路径，与 leaf 生命周期完全解耦
+	private navHistory: string[] = [];
+	private navFuture: string[] = [];
+	// 当前正在执行的后退/前进目标路径，用于阻止 navTrackHandler 将该激活记录为新导航
+	private navJumpPath: string | null = null;
 	private tabLimitHandler: (() => void) | null = null;
 	private navTrackHandler: ((leaf: WorkspaceLeaf | null) => void) | null = null;
 	private navAnimateHandler: ((leaf: WorkspaceLeaf | null) => void) | null = null;
 	private pendingAnimationCls: 'minimalism-ui-slide-from-left' | 'minimalism-ui-slide-from-right' | null = null;
+	// tab 关闭后 Obsidian 自动激活下一个 leaf 会触发 active-leaf-change，该标志阻止其被记录为新导航
+	private _isClosingTab = false;
 	private navTimer: ReturnType<typeof setTimeout> | null = null;
 	private animEndListeners = new WeakMap<Element, () => void>();
 	private resizeObserverErrHandler: ((e: ErrorEvent) => void) | null = null;
 	private historyPatches = new Map<WorkspaceLeaf, HistoryPatch>();
+	// root leaf detach 补丁：触发时设置 _isClosingTab，覆盖所有关闭路径（CMD+W、右键、X 按钮）
+	private rootDetachPatches = new Map<WorkspaceLeaf, () => void>();
 	private origGoBack: ObsidianCommand | null = null;
 	private origGoForward: ObsidianCommand | null = null;
-	private origCloseTab: ObsidianCommand | null = null;
 	// 由 getLeaf patch 新建、尚未调用 openFile 的空 leaf
 	private pendingInterceptLeaves = new Set<WorkspaceLeaf>();
 	// 首页打开期间为 true，避免 getLeaf 拦截器介入
@@ -147,16 +154,12 @@ export class TabCacheManager {
 
 			// 淘汰超出缓存数量的最旧 leaf
 			// isEvicting 防止 detach() 触发的 active-leaf-change 引发重入
-			// tabLimitHandler 仅在 disableNoteTabs=true 时注册，故此处固定上限为 30
 			const max = 30;
 			if (this.leafQueue.length > max) {
 				this.isEvicting = true;
 				try {
 					while (this.leafQueue.length > max) {
-						const oldest = this.leafQueue.shift()!;
-						oldest.detach();
-						this.navHistory = this.navHistory.filter(l => l !== oldest);
-						this.navFuture = this.navFuture.filter(l => l !== oldest);
+						this.leafQueue.shift()!.detach();
 					}
 				} finally {
 					this.isEvicting = false;
@@ -165,23 +168,34 @@ export class TabCacheManager {
 		};
 		this.app.workspace.on('active-leaf-change', this.tabLimitHandler);
 
-		// 记录跨 tab 导航历史，用于 back/forward 切换
+		// 记录跨 tab 导航历史（文件路径），用于 back/forward 切换。
+		// 检查顺序严格固定：
+		//   ① root leaf 判断必须最先——防止侧边栏事件提前消耗下方的一次性标志
+		//   ② navJumpPath 匹配——我们自己发起的后退/前进不应再次入栈
+		//   ③ _isClosingTab——tab 关闭后的自动激活不应入栈
+		//   ④ 路径去重 + 写入
 		this.navTrackHandler = (leaf: WorkspaceLeaf | null) => {
 			if (!leaf) return;
-			// 引用比较替代布尔守卫，不依赖事件是否同步触发
-			if (leaf === this.navJumpTarget) {
-				this.navJumpTarget = null;
-				return;
-			}
-			// 只跟踪主内容区的 leaf，排除左/右侧边栏 leaf（点击侧边栏也会触发此事件）
 			let isRootLeaf = false;
 			this.app.workspace.iterateRootLeaves(l => { if (l === leaf) isRootLeaf = true; });
 			if (!isRootLeaf) return;
 
+			const filePath = (leaf as LeafInternal).view?.file?.path;
+			if (!filePath) return;
+
+			if (this.navJumpPath !== null && filePath === this.navJumpPath) {
+				this.navJumpPath = null;
+				return;
+			}
+			if (this._isClosingTab) {
+				this._isClosingTab = false;
+				return;
+			}
+
 			const last = this.navHistory[this.navHistory.length - 1];
-			if (last === leaf) return;
-			this.navHistory.push(leaf);
-			this.navFuture = []; // 新导航清除 forward 历史
+			if (last === filePath) return;
+			this.navHistory.push(filePath);
+			this.navFuture = [];
 		};
 		this.app.workspace.on('active-leaf-change', this.navTrackHandler);
 
@@ -211,10 +225,11 @@ export class TabCacheManager {
 		};
 		this.app.workspace.on('active-leaf-change', this.navAnimateHandler);
 
-		// 对已有 leaf 补充 history 拦截，同时用当前所有 root leaf 初始化缓存队列。
+		// 对已有 leaf 补充 history 和 detach 拦截，同时用当前所有 root leaf 初始化缓存队列。
 		// 确保单页模式启用前已打开的 tab 也受 LRU 限制，最近活跃的 leaf 排到队尾。
 		this.app.workspace.iterateRootLeaves(leaf => {
 			this.patchLeafHistory(leaf);
+			this.patchRootLeafDetach(leaf);
 			this.leafQueue.push(leaf);
 		});
 		const mostRecent = this.app.workspace.getMostRecentLeaf();
@@ -249,29 +264,6 @@ export class TabCacheManager {
 				return true;
 			};
 		}
-		// Patch workspace:close (CMD+W) to remove the closing leaf from nav history
-		const closeCmd = appCmds['workspace:close'];
-		if (closeCmd) {
-			this.origCloseTab = { callback: closeCmd.callback, checkCallback: closeCmd.checkCallback };
-			const origCallback = closeCmd.callback;
-			const origCheckCallback = closeCmd.checkCallback;
-			delete closeCmd.callback;
-			closeCmd.checkCallback = (checking: boolean) => {
-				if (!checking) {
-					const active = this.app.workspace.getMostRecentLeaf();
-					if (active) {
-						this.navHistory = this.navHistory.filter(l => l !== active);
-						this.navFuture = this.navFuture.filter(l => l !== active);
-						if (this.navJumpTarget === active) this.navJumpTarget = null;
-					}
-					if (origCheckCallback) { origCheckCallback(false); return true; }
-					if (origCallback) { origCallback(); return true; }
-					return true;
-				}
-				if (origCheckCallback) return origCheckCallback(true) ?? true;
-				return true;
-			};
-		}
 
 		// 拦截侧边栏 leaf 的 detach，防止用户通过右键菜单关闭（pin guard）
 		if (this.getSettings().disablePinTab) {
@@ -299,6 +291,7 @@ export class TabCacheManager {
 			this.navAnimateHandler = null;
 		}
 		this.pendingAnimationCls = null;
+		this._isClosingTab = false;
 		if (this.navTimer !== null) {
 			clearTimeout(this.navTimer);
 			this.navTimer = null;
@@ -308,6 +301,7 @@ export class TabCacheManager {
 			this.resizeObserverErrHandler = null;
 		}
 		this.unpatchAllLeafHistories();
+		this.unpatchAllRootLeafDetaches();
 		const appCmds = (this.app as unknown as AppInternal).commands.commands;
 		if (this.origGoBack) {
 			const cmd = appCmds['app:go-back'];
@@ -327,15 +321,6 @@ export class TabCacheManager {
 			}
 			this.origGoForward = null;
 		}
-		if (this.origCloseTab) {
-			const cmd = appCmds['workspace:close'];
-			if (cmd) {
-				delete cmd.checkCallback;
-				if (this.origCloseTab.callback) cmd.callback = this.origCloseTab.callback;
-				if (this.origCloseTab.checkCallback) cmd.checkCallback = this.origCloseTab.checkCallback;
-			}
-			this.origCloseTab = null;
-		}
 		if (this.sidebarLayoutChangeHandler) {
 			this.app.workspace.off('layout-change', this.sidebarLayoutChangeHandler);
 			this.sidebarLayoutChangeHandler = null;
@@ -345,7 +330,7 @@ export class TabCacheManager {
 		}
 		this.sidebarDetachPatches.clear();
 		this.leafQueue = [];
-		this.navJumpTarget = null;
+		this.navJumpPath = null;
 		this.pendingInterceptLeaves.clear();
 	}
 
@@ -355,13 +340,16 @@ export class TabCacheManager {
 		return this.pendingInterceptLeaves.has(leaf);
 	}
 
-	getNavHistory(): WorkspaceLeaf[] {
+	getNavHistory(): string[] {
 		return this.navHistory;
 	}
 
 	// 对新建的空 leaf 注入一次性 openFile 拦截器：
 	// 在文件实际加载前检查缓存，若已有相同文件的 leaf 则直接复用，避免闪烁
 	private interceptLeafOpenFile(leaf: WorkspaceLeaf) {
+		// If the leaf was already detached during the getLeaf patch (e.g. openHomePage ran
+		// synchronously inside originalGetLeaf and discarded it), skip installation.
+		if (!(leaf as LeafInternal).parent) return;
 		this.pendingInterceptLeaves.add(leaf);
 		const origOpenFile = (leaf as LeafInternal).openFile.bind(leaf);
 		(leaf as LeafInternal).openFile = async (file: TFile, state?: unknown) => {
@@ -378,10 +366,9 @@ export class TabCacheManager {
 					}
 				});
 				if (existingLeaf) {
-					// 文件已在缓存中：激活已有 leaf，丢弃当前空 leaf，无需加载文件
-					// 先清除空 leaf 可能已被 active-leaf-change 写入的脏条目
-					this.navHistory = this.navHistory.filter(l => l !== leaf);
-					this.navFuture = this.navFuture.filter(l => l !== leaf);
+					// 文件已在缓存中：激活已有 leaf，丢弃当前空 leaf，无需加载文件。
+					// 空 leaf 无文件路径，navTrackHandler 的 !filePath 守卫已阻止其写入历史，
+					// 无需额外清理历史数组。
 					this.isReusingLeaf = true;
 					try {
 						this.leafQueue = this.leafQueue.filter(l => l !== existingLeaf);
@@ -391,60 +378,76 @@ export class TabCacheManager {
 					} finally {
 						this.isReusingLeaf = false;
 					}
-					// setActiveLeaf 触发的 active-leaf-change 会将 existingLeaf 写入 navHistory
+					// setActiveLeaf 触发的 active-leaf-change 会将 existingLeaf 的路径写入 navHistory
 					return;
 				}
 			}
 
-			// 文件不在缓存中：正常加载，并补充 history 拦截
+			// 文件不在缓存中：正常加载，补充 history 和 detach 拦截
 			this.patchLeafHistory(leaf);
+			this.patchRootLeafDetach(leaf);
 			const result = await origOpenFile(file, state);
 			// 兜底：active-leaf-change 在 tab 尚未进入 iterateRootLeaves 时可能跳过该 leaf，
-			// 文件加载完成后 leaf 已就位，此处确保其写入 navHistory
-			this.addToNavHistory(leaf);
+			// 文件加载完成后 leaf 已就位，此处确保路径写入 navHistory
+			this.addToNavHistory(file.path);
 			return result;
 		};
 	}
 
-	// 将 leaf 写入 navHistory（幂等：已是末尾则跳过，同时清除 forward 历史）
-	private addToNavHistory(leaf: WorkspaceLeaf) {
-		let isRootLeaf = false;
-		this.app.workspace.iterateRootLeaves(l => { if (l === leaf) isRootLeaf = true; });
-		if (!isRootLeaf) return;
+	// 将文件路径写入 navHistory（幂等：已是末尾则跳过，同时清除 forward 历史）
+	private addToNavHistory(filePath: string) {
 		const last = this.navHistory[this.navHistory.length - 1];
-		if (last === leaf) return;
-		this.navHistory.push(leaf);
+		if (last === filePath) return;
+		this.navHistory.push(filePath);
 		this.navFuture = [];
 	}
 
 	private navigateBack() {
-		// 取消上一次尚未执行的导航 timer，防止连续点击时多个 setActiveLeaf 并发触发，
-		// 导致 navJumpTarget 状态错乱，并引发 ResizeObserver loop 错误
+		// 取消上一次尚未执行的导航 timer，防止连续点击时多个 setActiveLeaf 并发触发
 		if (this.navTimer !== null) {
 			clearTimeout(this.navTimer);
 			this.navTimer = null;
 		}
-		// 快照：若找不到可用的目标 leaf，回滚所有状态变更，避免 navFuture 被污染
 		const snapHistory = [...this.navHistory];
 		const snapFuture = [...this.navFuture];
 		while (this.navHistory.length >= 2) {
 			const current = this.navHistory.pop()!;
 			this.navFuture.unshift(current);
-			const prev = this.navHistory[this.navHistory.length - 1];
-			if ((prev as LeafInternal).parent) {
-				this.navJumpTarget = prev;
-				this.pendingAnimationCls = 'minimalism-ui-slide-from-left';
+			const prevPath = this.navHistory[this.navHistory.length - 1];
+
+			const file = this.app.vault.getAbstractFileByPath(prevPath);
+			if (!(file instanceof TFile)) continue; // 文件已从 vault 删除，继续向前找
+
+			let targetLeaf: WorkspaceLeaf | null = null;
+			this.app.workspace.iterateRootLeaves(l => {
+				if (!targetLeaf && (l as LeafInternal).view?.file?.path === prevPath) targetLeaf = l;
+			});
+
+			this.navJumpPath = prevPath;
+			this.pendingAnimationCls = 'minimalism-ui-slide-from-left';
+
+			if (targetLeaf) {
+				const leaf = targetLeaf;
 				// 用 setTimeout(0) 推入新 task，彻底脱离当前渲染管线，
 				// 避免 setActiveLeaf 在 rAF/ResizeObserver 阶段触发布局，产生 loop 错误
 				this.navTimer = setTimeout(() => {
 					this.navTimer = null;
-					this.app.workspace.setActiveLeaf(prev, { focus: true });
+					this.app.workspace.setActiveLeaf(leaf, { focus: true });
 				}, 0);
-				return;
+			} else {
+				// 无现有 leaf 显示此文件（已被 LRU 淘汰或手动关闭），重新打开
+				this.navTimer = setTimeout(async () => {
+					this.navTimer = null;
+					const newLeaf = this.originalGetLeaf!('tab');
+					this.patchLeafHistory(newLeaf);
+					this.patchRootLeafDetach(newLeaf);
+					await (newLeaf as LeafInternal).openFile(file);
+					this.app.workspace.setActiveLeaf(newLeaf, { focus: true });
+				}, 0);
 			}
-			// leaf 已被淘汰，继续向前找
+			return;
 		}
-		// 未能完成导航（所有历史 leaf 均已淘汰），回滚
+		// 未能完成导航，回滚
 		this.navHistory = snapHistory;
 		this.navFuture = snapFuture;
 	}
@@ -455,24 +458,41 @@ export class TabCacheManager {
 			clearTimeout(this.navTimer);
 			this.navTimer = null;
 		}
-		// 快照：若所有 forward leaf 均已淘汰，回滚，避免 navHistory 被多余条目污染
 		const snapHistory = [...this.navHistory];
 		const snapFuture = [...this.navFuture];
 		while (this.navFuture.length > 0) {
-			const next = this.navFuture.shift()!;
-			if ((next as LeafInternal).parent) {
-				this.navHistory.push(next);
-				this.navJumpTarget = next;
-				this.pendingAnimationCls = 'minimalism-ui-slide-from-right';
-				// 用 setTimeout(0) 推入新 task，彻底脱离当前渲染管线，
-				// 避免 setActiveLeaf 在 rAF/ResizeObserver 阶段触发布局，产生 loop 错误
+			const nextPath = this.navFuture.shift()!;
+
+			const file = this.app.vault.getAbstractFileByPath(nextPath);
+			if (!(file instanceof TFile)) continue; // 文件已从 vault 删除，继续向后找
+
+			this.navHistory.push(nextPath);
+
+			let targetLeaf: WorkspaceLeaf | null = null;
+			this.app.workspace.iterateRootLeaves(l => {
+				if (!targetLeaf && (l as LeafInternal).view?.file?.path === nextPath) targetLeaf = l;
+			});
+
+			this.navJumpPath = nextPath;
+			this.pendingAnimationCls = 'minimalism-ui-slide-from-right';
+
+			if (targetLeaf) {
+				const leaf = targetLeaf;
 				this.navTimer = setTimeout(() => {
 					this.navTimer = null;
-					this.app.workspace.setActiveLeaf(next, { focus: true });
+					this.app.workspace.setActiveLeaf(leaf, { focus: true });
 				}, 0);
-				return;
+			} else {
+				this.navTimer = setTimeout(async () => {
+					this.navTimer = null;
+					const newLeaf = this.originalGetLeaf!('tab');
+					this.patchLeafHistory(newLeaf);
+					this.patchRootLeafDetach(newLeaf);
+					await (newLeaf as LeafInternal).openFile(file);
+					this.app.workspace.setActiveLeaf(newLeaf, { focus: true });
+				}, 0);
 			}
-			// leaf 已被淘汰，继续向后找
+			return;
 		}
 		// 未能完成导航，回滚
 		this.navHistory = snapHistory;
@@ -507,7 +527,37 @@ export class TabCacheManager {
 		this.historyPatches.clear();
 	}
 
-	// 拦截左侧边栏所有 leaf 的 detach，防止用户通过右键菜单关闭侧边栏面板
+	// root leaf detach 补丁：通过捕获所有关闭路径（CMD+W、右键、X 按钮、API 调用）
+	// 在 detach 前执行两件事：
+	//   1. 从 navHistory 移除该文件路径的最后一次出现，使历史指针与实际位置保持一致
+	//   2. 设置 _isClosingTab，阻止 navTrackHandler 将关闭后的自动激活记录为新导航
+	// isReusingLeaf / isEvicting 为 true 时豁免：属于插件内部操作而非用户关闭 tab
+	// navFuture 不修改：关闭 tab 不影响前进历史，已关闭的文件路径仍可通过前进重新打开
+	private patchRootLeafDetach(leaf: WorkspaceLeaf) {
+		if (this.rootDetachPatches.has(leaf)) return;
+		const original = (leaf as LeafInternal).detach.bind(leaf);
+		(leaf as LeafInternal).detach = () => {
+			if (!this.isReusingLeaf && !this.isEvicting) {
+				const closingPath = (leaf as LeafInternal).view?.file?.path;
+				if (closingPath) {
+					const idx = this.navHistory.lastIndexOf(closingPath);
+					if (idx !== -1) this.navHistory.splice(idx, 1);
+				}
+				this._isClosingTab = true;
+			}
+			original();
+		};
+		this.rootDetachPatches.set(leaf, original);
+	}
+
+	private unpatchAllRootLeafDetaches() {
+		for (const [leaf, original] of this.rootDetachPatches) {
+			(leaf as LeafInternal).detach = original;
+		}
+		this.rootDetachPatches.clear();
+	}
+
+	// 拦截左侧边栏所有 leaf 的 detach，防止用户通过右键菜单关闭（pin guard）
 	private patchSidebarLeafDetach() {
 		this.app.workspace.iterateAllLeaves(leaf => {
 			if (this.sidebarDetachPatches.has(leaf)) return;
@@ -529,7 +579,7 @@ export class TabCacheManager {
 		}
 	}
 
-	// 打开首页笔记：先置 _isOpeningHomePage 防止 getLeaf 拦截器介入，再补 history patch
+	// 打开首页笔记：先置 _isOpeningHomePage 防止 getLeaf 拦截器介入，再补 history / detach patch
 	async openHomePage() {
 		if (this._isOpeningHomePage) return;
 		const path = this.getSettings().homePage;
@@ -540,8 +590,24 @@ export class TabCacheManager {
 		this._isOpeningHomePage = true;
 		try {
 			const leaf = this.app.workspace.getLeaf(false);
+			// Dedup: file-open may fire synchronously inside originalGetLeaf('tab') before
+			// interceptLeafOpenFile installs its interceptor, so openHomePage can be reached
+			// with the interceptor not yet in place. Mirror the same dedup check here.
+			let existingLeaf: WorkspaceLeaf | null = null;
+			this.app.workspace.iterateRootLeaves(l => {
+				if (existingLeaf || l === leaf) return;
+				if ((l as LeafInternal).view?.file?.path === file.path) existingLeaf = l;
+			});
+			if (existingLeaf) {
+				this.leafQueue = this.leafQueue.filter(l => l !== existingLeaf);
+				this.leafQueue.push(existingLeaf);
+				this.app.workspace.setActiveLeaf(existingLeaf, { focus: true });
+				leaf.detach();
+				return;
+			}
 			await (leaf as LeafInternal).openFile(file);
 			this.patchLeafHistory(leaf);
+			this.patchRootLeafDetach(leaf);
 		} finally {
 			this._isOpeningHomePage = false;
 		}
