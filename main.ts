@@ -41,7 +41,11 @@ export default class MinimalismUIPlugin extends Plugin {
 			() => this.settings,
 			() => this.isOpeningHomePage,
 		);
-		this.dragBar = new DragBarManager(this.app, () => this.settings);
+		this.dragBar = new DragBarManager(
+			this.app,
+			() => this.settings,
+			() => this.tabCache.getNavHistory()
+		);
 		this.sidebarLayout = new SidebarLayoutManager(this.app, () => this.settings);
 		this.singlePage = new SinglePageManager(
 			this.app,
