@@ -1,17 +1,25 @@
-import { App, TAbstractFile } from 'obsidian';
+import { App, TAbstractFile, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from './settings';
 
 type WorkspaceSplitInternal = { containerEl: HTMLElement };
+type LeafWithFile = WorkspaceLeaf & { view?: { file?: { basename: string } } };
+
+const COMPACT_THRESHOLD = 15;
 
 export class DragBarManager {
 	private dragBar: HTMLElement | null = null;
 	private titleHandler: (() => void) | null = null;
+	private breadcrumbHandler: (() => void) | null = null;
 	private layoutHandler: (() => void) | null = null;
 	private renameHandler: ((file: TAbstractFile) => void) | null = null;
 	private statusBarOriginalParent: HTMLElement | null = null;
 	private statusBarOriginalNextSibling: Element | null = null;
 
-	constructor(private app: App, private getSettings: () => MinimalismUISettings) {}
+	constructor(
+		private app: App,
+		private getSettings: () => MinimalismUISettings,
+		private navHistoryGetter: () => WorkspaceLeaf[] = () => []
+	) {}
 
 	apply() {
 		this.remove();
@@ -25,9 +33,20 @@ export class DragBarManager {
 		this.dragBar = document.createElement('div');
 		this.dragBar.className = 'minimalism-ui-drag-bar';
 
+		// Row 1: title + status bar
+		const row1 = document.createElement('div');
+		row1.className = 'minimalism-ui-drag-bar-row1';
+		this.dragBar.appendChild(row1);
+
 		const titleEl = document.createElement('span');
 		titleEl.className = 'minimalism-ui-drag-bar-title';
-		this.dragBar.appendChild(titleEl);
+		row1.appendChild(titleEl);
+
+		// Row 2: breadcrumb
+		const breadcrumbEl = document.createElement('div');
+		breadcrumbEl.className = 'minimalism-ui-drag-bar-breadcrumb';
+		breadcrumbEl.style.display = 'none';
+		this.dragBar.appendChild(breadcrumbEl);
 
 		tabsEl.insertBefore(this.dragBar, tabsEl.firstChild);
 
@@ -37,7 +56,6 @@ export class DragBarManager {
 			titleEl.textContent = activeFile ? activeFile.basename : '';
 		};
 		updateTitle();
-
 		this.titleHandler = updateTitle;
 		this.app.workspace.on('active-leaf-change', updateTitle);
 
@@ -55,12 +73,86 @@ export class DragBarManager {
 		};
 		this.app.workspace.on('layout-change', this.layoutHandler);
 
-		// 将 status-bar 搬入拖拽区右侧
+		// 面包屑渲染辅助函数
+		const renderAll = (el: HTMLElement, names: string[]) => {
+			el.innerHTML = '';
+			names.forEach((name, i) => {
+				if (i > 0) {
+					const sep = document.createElement('span');
+					sep.className = 'minimalism-ui-breadcrumb-sep';
+					sep.textContent = '/';
+					el.appendChild(sep);
+				}
+				const item = document.createElement('span');
+				item.className = i === names.length - 1
+					? 'minimalism-ui-breadcrumb-item is-current'
+					: 'minimalism-ui-breadcrumb-item';
+				item.textContent = name;
+				el.appendChild(item);
+			});
+		};
+
+		const renderCompact = (el: HTMLElement, names: string[], collapsedCount: number) => {
+			el.innerHTML = '';
+
+			const first = document.createElement('span');
+			first.className = 'minimalism-ui-breadcrumb-item';
+			first.textContent = names[0];
+			el.appendChild(first);
+
+			const sep1 = document.createElement('span');
+			sep1.className = 'minimalism-ui-breadcrumb-sep';
+			sep1.textContent = '/';
+			el.appendChild(sep1);
+
+			const collapse = document.createElement('span');
+			collapse.className = 'minimalism-ui-breadcrumb-collapse';
+			collapse.textContent = `···${collapsedCount}···`;
+			el.appendChild(collapse);
+
+			const sep2 = document.createElement('span');
+			sep2.className = 'minimalism-ui-breadcrumb-sep';
+			sep2.textContent = '/';
+			el.appendChild(sep2);
+
+			const last = document.createElement('span');
+			last.className = 'minimalism-ui-breadcrumb-item is-current';
+			last.textContent = names[names.length - 1];
+			el.appendChild(last);
+		};
+
+		const updateBreadcrumb = () => {
+			const history = this.navHistoryGetter();
+			if (history.length <= 1) {
+				breadcrumbEl.style.display = 'none';
+				return;
+			}
+			breadcrumbEl.style.display = 'flex';
+			const names = history.map(l => (l as LeafWithFile).view?.file?.basename ?? '');
+
+			if (history.length > COMPACT_THRESHOLD) {
+				renderCompact(breadcrumbEl, names, names.length - 2);
+				return;
+			}
+
+			renderAll(breadcrumbEl, names);
+			requestAnimationFrame(() => {
+				if (!breadcrumbEl.isConnected) return;
+				if (breadcrumbEl.scrollWidth > breadcrumbEl.clientWidth) {
+					renderCompact(breadcrumbEl, names, names.length - 2);
+				}
+			});
+		};
+		updateBreadcrumb();
+		this.breadcrumbHandler = updateBreadcrumb;
+		this.app.workspace.on('active-leaf-change', updateBreadcrumb);
+
+		// 将 status-bar 搬入 row1 右侧
 		const statusBar = document.querySelector<HTMLElement>('.status-bar');
 		if (statusBar) {
 			this.statusBarOriginalParent = statusBar.parentElement;
 			this.statusBarOriginalNextSibling = statusBar.nextElementSibling;
-			this.dragBar.appendChild(statusBar);
+			row1.appendChild(statusBar);
 		}
 	}
 
@@ -68,6 +160,10 @@ export class DragBarManager {
 		if (this.titleHandler) {
 			this.app.workspace.off('active-leaf-change', this.titleHandler);
 			this.titleHandler = null;
+		}
+		if (this.breadcrumbHandler) {
+			this.app.workspace.off('active-leaf-change', this.breadcrumbHandler);
+			this.breadcrumbHandler = null;
 		}
 		if (this.renameHandler) {
 			this.app.vault.off('rename', this.renameHandler);
