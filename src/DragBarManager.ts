@@ -1,5 +1,6 @@
 import { App, TAbstractFile, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from './settings';
+import { LeafNameUtils } from './utils';
 
 type WorkspaceSplitInternal = { containerEl: HTMLElement };
 type LeafWithFile = WorkspaceLeaf & { view?: { file?: { basename: string } } };
@@ -55,7 +56,9 @@ export class DragBarManager {
 		// 更新标题
 		const updateTitle = () => {
 			const activeFile = this.app.workspace.getActiveFile();
-			titleEl.textContent = activeFile ? activeFile.basename : '';
+			titleEl.textContent = activeFile
+				? LeafNameUtils.stripPrefix(activeFile.basename, this.getSettings().filenamePrefixLength)
+				: '';
 		};
 		updateTitle();
 		this.titleHandler = updateTitle;
@@ -134,7 +137,10 @@ export class DragBarManager {
 			}
 			breadcrumbEl.style.display = 'flex';
 			if (this.dragBar) this.dragBar.style.setProperty('min-height', `${ROW1_HEIGHT + BREADCRUMB_HEIGHT}px`, 'important');
-			const names = history.map(l => (l as LeafWithFile).view!.file!.basename);
+			const prefixLen = this.getSettings().filenamePrefixLength;
+			const names = history.map(l =>
+				LeafNameUtils.stripPrefix((l as LeafWithFile).view!.file!.basename, prefixLen)
+			);
 
 			if (history.length > COMPACT_THRESHOLD) {
 				renderCompact(breadcrumbEl, names, names.length - 2);

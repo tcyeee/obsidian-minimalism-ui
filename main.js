@@ -377,6 +377,17 @@ var TabCacheManager = class {
   }
 };
 
+// src/utils.ts
+var LeafNameUtils = class {
+  static stripPrefix(name, prefixLength) {
+    if (prefixLength <= 0)
+      return name;
+    if (name.length + 1 > prefixLength)
+      return name.slice(prefixLength);
+    return name;
+  }
+};
+
 // src/DragBarManager.ts
 var COMPACT_THRESHOLD = 15;
 var ROW1_HEIGHT = 35;
@@ -417,7 +428,7 @@ var DragBarManager = class {
     tabsEl.insertBefore(this.dragBar, tabsEl.firstChild);
     const updateTitle = () => {
       const activeFile = this.app.workspace.getActiveFile();
-      titleEl.textContent = activeFile ? activeFile.basename : "";
+      titleEl.textContent = activeFile ? LeafNameUtils.stripPrefix(activeFile.basename, this.getSettings().filenamePrefixLength) : "";
     };
     updateTitle();
     this.titleHandler = updateTitle;
@@ -489,7 +500,10 @@ var DragBarManager = class {
       breadcrumbEl.style.display = "flex";
       if (this.dragBar)
         this.dragBar.style.setProperty("min-height", `${ROW1_HEIGHT + BREADCRUMB_HEIGHT}px`, "important");
-      const names = history.map((l) => l.view.file.basename);
+      const prefixLen = this.getSettings().filenamePrefixLength;
+      const names = history.map(
+        (l) => LeafNameUtils.stripPrefix(l.view.file.basename, prefixLen)
+      );
       if (history.length > COMPACT_THRESHOLD) {
         renderCompact(breadcrumbEl, names, names.length - 2);
         return;
