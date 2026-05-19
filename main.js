@@ -472,16 +472,17 @@ var DragBarManager = class {
       el.appendChild(last);
     };
     const updateBreadcrumb = () => {
-      const history = this.navHistoryGetter();
+      const raw = this.navHistoryGetter();
+      const history = raw.filter((l) => {
+        var _a;
+        return ((_a = l.view) == null ? void 0 : _a.file) != null;
+      });
       if (history.length <= 1) {
         breadcrumbEl.style.display = "none";
         return;
       }
       breadcrumbEl.style.display = "flex";
-      const names = history.map((l) => {
-        var _a, _b, _c;
-        return (_c = (_b = (_a = l.view) == null ? void 0 : _a.file) == null ? void 0 : _b.basename) != null ? _c : "";
-      });
+      const names = history.map((l) => l.view.file.basename);
       if (history.length > COMPACT_THRESHOLD) {
         renderCompact(breadcrumbEl, names, names.length - 2);
         return;

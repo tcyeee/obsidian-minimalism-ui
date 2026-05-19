@@ -122,13 +122,15 @@ export class DragBarManager {
 		};
 
 		const updateBreadcrumb = () => {
-			const history = this.navHistoryGetter();
+			const raw = this.navHistoryGetter();
+			// 过滤已关闭（view.file 为 null）的 leaf，避免面包屑出现空槽
+			const history = raw.filter(l => (l as LeafWithFile).view?.file != null);
 			if (history.length <= 1) {
 				breadcrumbEl.style.display = 'none';
 				return;
 			}
 			breadcrumbEl.style.display = 'flex';
-			const names = history.map(l => (l as LeafWithFile).view?.file?.basename ?? '');
+			const names = history.map(l => (l as LeafWithFile).view!.file!.basename);
 
 			if (history.length > COMPACT_THRESHOLD) {
 				renderCompact(breadcrumbEl, names, names.length - 2);
