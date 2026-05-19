@@ -56,6 +56,7 @@ export class TabCacheManager {
 	private historyPatches = new Map<WorkspaceLeaf, HistoryPatch>();
 	private origGoBack: ObsidianCommand | null = null;
 	private origGoForward: ObsidianCommand | null = null;
+	private origCloseTab: ObsidianCommand | null = null;
 	// 由 getLeaf patch 新建、尚未调用 openFile 的空 leaf
 	private pendingInterceptLeaves = new Set<WorkspaceLeaf>();
 
@@ -220,6 +221,29 @@ export class TabCacheManager {
 				return true;
 			};
 		}
+		// Patch workspace:close (CMD+W) to remove the closing leaf from nav history
+		const closeCmd = appCmds['workspace:close'];
+		if (closeCmd) {
+			this.origCloseTab = { callback: closeCmd.callback, checkCallback: closeCmd.checkCallback };
+			const origCallback = closeCmd.callback;
+			const origCheckCallback = closeCmd.checkCallback;
+			delete closeCmd.callback;
+			closeCmd.checkCallback = (checking: boolean) => {
+				if (!checking) {
+					const active = this.app.workspace.getMostRecentLeaf();
+					if (active) {
+						this.navHistory = this.navHistory.filter(l => l !== active);
+						this.navFuture = this.navFuture.filter(l => l !== active);
+						if (this.navJumpTarget === active) this.navJumpTarget = null;
+					}
+					if (origCheckCallback) { origCheckCallback(false); return true; }
+					if (origCallback) { origCallback(); return true; }
+					return true;
+				}
+				if (origCheckCallback) return origCheckCallback(true) ?? true;
+				return true;
+			};
+		}
 	}
 
 	remove() {
@@ -268,6 +292,15 @@ export class TabCacheManager {
 			}
 			this.origGoForward = null;
 		}
+		if (this.origCloseTab) {
+			const cmd = appCmds['workspace:close'];
+			if (cmd) {
+				delete cmd.checkCallback;
+				if (this.origCloseTab.callback) cmd.callback = this.origCloseTab.callback;
+				if (this.origCloseTab.checkCallback) cmd.checkCallback = this.origCloseTab.checkCallback;
+			}
+			this.origCloseTab = null;
+		}
 		this.leafQueue = [];
 		this.navJumpTarget = null;
 		this.pendingInterceptLeaves.clear();
@@ -303,6 +336,9 @@ export class TabCacheManager {
 				});
 				if (existingLeaf) {
 					// 文件已在缓存中：激活已有 leaf，丢弃当前空 leaf，无需加载文件
+					// 先清除空 leaf 可能已被 active-leaf-change 写入的脏条目
+					this.navHistory = this.navHistory.filter(l => l !== leaf);
+					this.navFuture = this.navFuture.filter(l => l !== leaf);
 					this.isReusingLeaf = true;
 					try {
 						this.leafQueue = this.leafQueue.filter(l => l !== existingLeaf);
@@ -312,14 +348,30 @@ export class TabCacheManager {
 					} finally {
 						this.isReusingLeaf = false;
 					}
+					// setActiveLeaf 触发的 active-leaf-change 会将 existingLeaf 写入 navHistory
 					return;
 				}
 			}
 
 			// 文件不在缓存中：正常加载，并补充 history 拦截
 			this.patchLeafHistory(leaf);
-			return await origOpenFile(file, state);
+			const result = await origOpenFile(file, state);
+			// 兜底：active-leaf-change 在 tab 尚未进入 iterateRootLeaves 时可能跳过该 leaf，
+			// 文件加载完成后 leaf 已就位，此处确保其写入 navHistory
+			this.addToNavHistory(leaf);
+			return result;
 		};
+	}
+
+	// 将 leaf 写入 navHistory（幂等：已是末尾则跳过，同时清除 forward 历史）
+	private addToNavHistory(leaf: WorkspaceLeaf) {
+		let isRootLeaf = false;
+		this.app.workspace.iterateRootLeaves(l => { if (l === leaf) isRootLeaf = true; });
+		if (!isRootLeaf) return;
+		const last = this.navHistory[this.navHistory.length - 1];
+		if (last === leaf) return;
+		this.navHistory.push(leaf);
+		this.navFuture = [];
 	}
 
 	private navigateBack() {

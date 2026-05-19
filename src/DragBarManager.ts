@@ -12,6 +12,7 @@ const BREADCRUMB_HEIGHT = 20;
 export class DragBarManager {
 	private dragBar: HTMLElement | null = null;
 	private titleHandler: (() => void) | null = null;
+	private countHandler: (() => void) | null = null;
 	private breadcrumbHandler: (() => void) | null = null;
 	private layoutHandler: (() => void) | null = null;
 	private renameHandler: ((file: TAbstractFile) => void) | null = null;
@@ -45,6 +46,13 @@ export class DragBarManager {
 		titleEl.className = 'minimalism-ui-drag-bar-title';
 		row1.appendChild(titleEl);
 
+		const countEl = document.createElement('span');
+		countEl.className = 'minimalism-ui-drag-bar-count';
+		titleEl.appendChild(countEl);
+
+		const textEl = document.createElement('span');
+		titleEl.appendChild(textEl);
+
 		// Row 2: breadcrumb
 		const breadcrumbEl = document.createElement('div');
 		breadcrumbEl.className = 'minimalism-ui-drag-bar-breadcrumb';
@@ -56,13 +64,23 @@ export class DragBarManager {
 		// 更新标题
 		const updateTitle = () => {
 			const activeFile = this.app.workspace.getActiveFile();
-			titleEl.textContent = activeFile
+			textEl.textContent = activeFile
 				? LeafNameUtils.stripPrefix(activeFile.basename, this.getSettings().filenamePrefixLength)
 				: '';
 		};
 		updateTitle();
 		this.titleHandler = updateTitle;
 		this.app.workspace.on('active-leaf-change', updateTitle);
+
+		// 更新 tab 计数徽章
+		const updateCount = () => {
+			let count = 0;
+			this.app.workspace.iterateRootLeaves(() => { count++; });
+			countEl.textContent = String(count);
+		};
+		updateCount();
+		this.countHandler = updateCount;
+		this.app.workspace.on('active-leaf-change', updateCount);
 
 		this.renameHandler = (file: TAbstractFile) => {
 			if (file === this.app.workspace.getActiveFile()) updateTitle();
@@ -75,6 +93,7 @@ export class DragBarManager {
 			const rootEl2 = (this.app.workspace.rootSplit as unknown as WorkspaceSplitInternal).containerEl;
 			const tabsEl2 = rootEl2.querySelector<HTMLElement>('.workspace-tabs');
 			if (tabsEl2) tabsEl2.insertBefore(this.dragBar, tabsEl2.firstChild);
+			updateCount();
 		};
 		this.app.workspace.on('layout-change', this.layoutHandler);
 
@@ -173,6 +192,10 @@ export class DragBarManager {
 		if (this.titleHandler) {
 			this.app.workspace.off('active-leaf-change', this.titleHandler);
 			this.titleHandler = null;
+		}
+		if (this.countHandler) {
+			this.app.workspace.off('active-leaf-change', this.countHandler);
+			this.countHandler = null;
 		}
 		if (this.breadcrumbHandler) {
 			this.app.workspace.off('active-leaf-change', this.breadcrumbHandler);

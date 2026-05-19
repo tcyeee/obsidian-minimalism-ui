@@ -70,6 +70,7 @@ var TabCacheManager = class {
     this.historyPatches = /* @__PURE__ */ new Map();
     this.origGoBack = null;
     this.origGoForward = null;
+    this.origCloseTab = null;
     // 由 getLeaf patch 新建、尚未调用 openFile 的空 leaf
     this.pendingInterceptLeaves = /* @__PURE__ */ new Set();
   }
@@ -201,6 +202,37 @@ var TabCacheManager = class {
         return true;
       };
     }
+    const closeCmd = appCmds["workspace:close"];
+    if (closeCmd) {
+      this.origCloseTab = { callback: closeCmd.callback, checkCallback: closeCmd.checkCallback };
+      const origCallback = closeCmd.callback;
+      const origCheckCallback = closeCmd.checkCallback;
+      delete closeCmd.callback;
+      closeCmd.checkCallback = (checking) => {
+        var _a;
+        if (!checking) {
+          const active = this.app.workspace.getMostRecentLeaf();
+          if (active) {
+            this.navHistory = this.navHistory.filter((l) => l !== active);
+            this.navFuture = this.navFuture.filter((l) => l !== active);
+            if (this.navJumpTarget === active)
+              this.navJumpTarget = null;
+          }
+          if (origCheckCallback) {
+            origCheckCallback(false);
+            return true;
+          }
+          if (origCallback) {
+            origCallback();
+            return true;
+          }
+          return true;
+        }
+        if (origCheckCallback)
+          return (_a = origCheckCallback(true)) != null ? _a : true;
+        return true;
+      };
+    }
   }
   remove() {
     if (this.originalGetLeaf) {
@@ -252,6 +284,17 @@ var TabCacheManager = class {
       }
       this.origGoForward = null;
     }
+    if (this.origCloseTab) {
+      const cmd = appCmds["workspace:close"];
+      if (cmd) {
+        delete cmd.checkCallback;
+        if (this.origCloseTab.callback)
+          cmd.callback = this.origCloseTab.callback;
+        if (this.origCloseTab.checkCallback)
+          cmd.checkCallback = this.origCloseTab.checkCallback;
+      }
+      this.origCloseTab = null;
+    }
     this.leafQueue = [];
     this.navJumpTarget = null;
     this.pendingInterceptLeaves.clear();
@@ -283,6 +326,8 @@ var TabCacheManager = class {
           }
         });
         if (existingLeaf) {
+          this.navHistory = this.navHistory.filter((l) => l !== leaf);
+          this.navFuture = this.navFuture.filter((l) => l !== leaf);
           this.isReusingLeaf = true;
           try {
             this.leafQueue = this.leafQueue.filter((l) => l !== existingLeaf);
@@ -296,8 +341,25 @@ var TabCacheManager = class {
         }
       }
       this.patchLeafHistory(leaf);
-      return await origOpenFile(file, state);
+      const result = await origOpenFile(file, state);
+      this.addToNavHistory(leaf);
+      return result;
     };
+  }
+  // 将 leaf 写入 navHistory（幂等：已是末尾则跳过，同时清除 forward 历史）
+  addToNavHistory(leaf) {
+    let isRootLeaf = false;
+    this.app.workspace.iterateRootLeaves((l) => {
+      if (l === leaf)
+        isRootLeaf = true;
+    });
+    if (!isRootLeaf)
+      return;
+    const last = this.navHistory[this.navHistory.length - 1];
+    if (last === leaf)
+      return;
+    this.navHistory.push(leaf);
+    this.navFuture = [];
   }
   navigateBack() {
     if (this.navTimer !== null) {
@@ -399,6 +461,7 @@ var DragBarManager = class {
     this.navHistoryGetter = navHistoryGetter;
     this.dragBar = null;
     this.titleHandler = null;
+    this.countHandler = null;
     this.breadcrumbHandler = null;
     this.layoutHandler = null;
     this.renameHandler = null;
@@ -421,6 +484,11 @@ var DragBarManager = class {
     const titleEl = document.createElement("span");
     titleEl.className = "minimalism-ui-drag-bar-title";
     row1.appendChild(titleEl);
+    const countEl = document.createElement("span");
+    countEl.className = "minimalism-ui-drag-bar-count";
+    titleEl.appendChild(countEl);
+    const textEl = document.createElement("span");
+    titleEl.appendChild(textEl);
     const breadcrumbEl = document.createElement("div");
     breadcrumbEl.className = "minimalism-ui-drag-bar-breadcrumb";
     breadcrumbEl.style.display = "none";
@@ -428,11 +496,21 @@ var DragBarManager = class {
     tabsEl.insertBefore(this.dragBar, tabsEl.firstChild);
     const updateTitle = () => {
       const activeFile = this.app.workspace.getActiveFile();
-      titleEl.textContent = activeFile ? LeafNameUtils.stripPrefix(activeFile.basename, this.getSettings().filenamePrefixLength) : "";
+      textEl.textContent = activeFile ? LeafNameUtils.stripPrefix(activeFile.basename, this.getSettings().filenamePrefixLength) : "";
     };
     updateTitle();
     this.titleHandler = updateTitle;
     this.app.workspace.on("active-leaf-change", updateTitle);
+    const updateCount = () => {
+      let count = 0;
+      this.app.workspace.iterateRootLeaves(() => {
+        count++;
+      });
+      countEl.textContent = String(count);
+    };
+    updateCount();
+    this.countHandler = updateCount;
+    this.app.workspace.on("active-leaf-change", updateCount);
     this.renameHandler = (file) => {
       if (file === this.app.workspace.getActiveFile())
         updateTitle();
@@ -445,6 +523,7 @@ var DragBarManager = class {
       const tabsEl2 = rootEl2.querySelector(".workspace-tabs");
       if (tabsEl2)
         tabsEl2.insertBefore(this.dragBar, tabsEl2.firstChild);
+      updateCount();
     };
     this.app.workspace.on("layout-change", this.layoutHandler);
     const renderAll = (el, names) => {
@@ -533,6 +612,10 @@ var DragBarManager = class {
     if (this.titleHandler) {
       this.app.workspace.off("active-leaf-change", this.titleHandler);
       this.titleHandler = null;
+    }
+    if (this.countHandler) {
+      this.app.workspace.off("active-leaf-change", this.countHandler);
+      this.countHandler = null;
     }
     if (this.breadcrumbHandler) {
       this.app.workspace.off("active-leaf-change", this.breadcrumbHandler);
