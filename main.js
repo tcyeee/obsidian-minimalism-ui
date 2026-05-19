@@ -260,6 +260,9 @@ var TabCacheManager = class {
   hasPendingIntercept(leaf) {
     return this.pendingInterceptLeaves.has(leaf);
   }
+  getNavHistory() {
+    return this.navHistory;
+  }
   // 对新建的空 leaf 注入一次性 openFile 拦截器：
   // 在文件实际加载前检查缓存，若已有相同文件的 leaf 则直接复用，避免闪烁
   interceptLeafOpenFile(leaf) {
