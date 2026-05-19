@@ -514,15 +514,12 @@ var LeafNameUtils = class {
 
 // src/DragBarManager.ts
 var COMPACT_THRESHOLD = 15;
-var ROW1_HEIGHT = 35;
-var BREADCRUMB_HEIGHT = 20;
 var DragBarManager = class {
   constructor(app, getSettings, navHistoryGetter = () => []) {
     this.app = app;
     this.getSettings = getSettings;
     this.navHistoryGetter = navHistoryGetter;
     this.dragBar = null;
-    this.titleHandler = null;
     this.countHandler = null;
     this.breadcrumbHandler = null;
     this.layoutHandler = null;
@@ -549,20 +546,10 @@ var DragBarManager = class {
     const countEl = document.createElement("span");
     countEl.className = "minimalism-ui-drag-bar-count";
     titleEl.appendChild(countEl);
-    const textEl = document.createElement("span");
-    titleEl.appendChild(textEl);
     const breadcrumbEl = document.createElement("div");
     breadcrumbEl.className = "minimalism-ui-drag-bar-breadcrumb";
-    breadcrumbEl.style.display = "none";
-    this.dragBar.appendChild(breadcrumbEl);
+    titleEl.appendChild(breadcrumbEl);
     tabsEl.insertBefore(this.dragBar, tabsEl.firstChild);
-    const updateTitle = () => {
-      const activeFile = this.app.workspace.getActiveFile();
-      textEl.textContent = activeFile ? LeafNameUtils.stripPrefix(activeFile.basename, this.getSettings().filenamePrefixLength) : "";
-    };
-    updateTitle();
-    this.titleHandler = updateTitle;
-    this.app.workspace.on("active-leaf-change", updateTitle);
     const updateCount = () => {
       let count = 0;
       this.app.workspace.iterateRootLeaves(() => {
@@ -575,7 +562,7 @@ var DragBarManager = class {
     this.app.workspace.on("active-leaf-change", updateCount);
     this.renameHandler = (file) => {
       if (file === this.app.workspace.getActiveFile())
-        updateTitle();
+        updateBreadcrumb();
     };
     this.app.vault.on("rename", this.renameHandler);
     this.layoutHandler = () => {
@@ -626,11 +613,20 @@ var DragBarManager = class {
       last.textContent = names[names.length - 1];
       el.appendChild(last);
     };
+    const showSingleFile = () => {
+      breadcrumbEl.innerHTML = "";
+      const activeFile = this.app.workspace.getActiveFile();
+      if (!activeFile)
+        return;
+      const item = document.createElement("span");
+      item.className = "minimalism-ui-breadcrumb-item is-current";
+      item.textContent = LeafNameUtils.stripPrefix(activeFile.basename, this.getSettings().filenamePrefixLength);
+      breadcrumbEl.appendChild(item);
+    };
     const updateBreadcrumb = () => {
+      const prefixLen = this.getSettings().filenamePrefixLength;
       if (!this.getSettings().showBreadcrumb) {
-        breadcrumbEl.style.display = "none";
-        if (this.dragBar)
-          this.dragBar.style.removeProperty("min-height");
+        showSingleFile();
         return;
       }
       const raw = this.navHistoryGetter();
@@ -639,15 +635,9 @@ var DragBarManager = class {
         return ((_a = l.view) == null ? void 0 : _a.file) != null;
       });
       if (history.length <= 1) {
-        breadcrumbEl.style.display = "none";
-        if (this.dragBar)
-          this.dragBar.style.removeProperty("min-height");
+        showSingleFile();
         return;
       }
-      breadcrumbEl.style.display = "flex";
-      if (this.dragBar)
-        this.dragBar.style.setProperty("min-height", `${ROW1_HEIGHT + BREADCRUMB_HEIGHT}px`, "important");
-      const prefixLen = this.getSettings().filenamePrefixLength;
       const names = history.map(
         (l) => LeafNameUtils.stripPrefix(l.view.file.basename, prefixLen)
       );
@@ -677,10 +667,6 @@ var DragBarManager = class {
     }
   }
   remove() {
-    if (this.titleHandler) {
-      this.app.workspace.off("active-leaf-change", this.titleHandler);
-      this.titleHandler = null;
-    }
     if (this.countHandler) {
       this.app.workspace.off("active-leaf-change", this.countHandler);
       this.countHandler = null;

@@ -6,12 +6,9 @@ type WorkspaceSplitInternal = { containerEl: HTMLElement };
 type LeafWithFile = WorkspaceLeaf & { view?: { file?: { basename: string } } };
 
 const COMPACT_THRESHOLD = 15;
-const ROW1_HEIGHT = 35;
-const BREADCRUMB_HEIGHT = 20;
 
 export class DragBarManager {
 	private dragBar: HTMLElement | null = null;
-	private titleHandler: (() => void) | null = null;
 	private countHandler: (() => void) | null = null;
 	private breadcrumbHandler: (() => void) | null = null;
 	private layoutHandler: (() => void) | null = null;
@@ -50,27 +47,12 @@ export class DragBarManager {
 		countEl.className = 'minimalism-ui-drag-bar-count';
 		titleEl.appendChild(countEl);
 
-		const textEl = document.createElement('span');
-		titleEl.appendChild(textEl);
-
-		// Row 2: breadcrumb
+		// Breadcrumb replaces filename text, lives inline inside titleEl
 		const breadcrumbEl = document.createElement('div');
 		breadcrumbEl.className = 'minimalism-ui-drag-bar-breadcrumb';
-		breadcrumbEl.style.display = 'none';
-		this.dragBar.appendChild(breadcrumbEl);
+		titleEl.appendChild(breadcrumbEl);
 
 		tabsEl.insertBefore(this.dragBar, tabsEl.firstChild);
-
-		// 更新标题
-		const updateTitle = () => {
-			const activeFile = this.app.workspace.getActiveFile();
-			textEl.textContent = activeFile
-				? LeafNameUtils.stripPrefix(activeFile.basename, this.getSettings().filenamePrefixLength)
-				: '';
-		};
-		updateTitle();
-		this.titleHandler = updateTitle;
-		this.app.workspace.on('active-leaf-change', updateTitle);
 
 		// 更新 tab 计数徽章
 		const updateCount = () => {
@@ -83,7 +65,7 @@ export class DragBarManager {
 		this.app.workspace.on('active-leaf-change', updateCount);
 
 		this.renameHandler = (file: TAbstractFile) => {
-			if (file === this.app.workspace.getActiveFile()) updateTitle();
+			if (file === this.app.workspace.getActiveFile()) updateBreadcrumb();
 		};
 		this.app.vault.on('rename', this.renameHandler);
 
@@ -145,23 +127,29 @@ export class DragBarManager {
 			el.appendChild(last);
 		};
 
+		const showSingleFile = () => {
+			breadcrumbEl.innerHTML = '';
+			const activeFile = this.app.workspace.getActiveFile();
+			if (!activeFile) return;
+			const item = document.createElement('span');
+			item.className = 'minimalism-ui-breadcrumb-item is-current';
+			item.textContent = LeafNameUtils.stripPrefix(activeFile.basename, this.getSettings().filenamePrefixLength);
+			breadcrumbEl.appendChild(item);
+		};
+
 		const updateBreadcrumb = () => {
+			const prefixLen = this.getSettings().filenamePrefixLength;
 			if (!this.getSettings().showBreadcrumb) {
-				breadcrumbEl.style.display = 'none';
-				if (this.dragBar) this.dragBar.style.removeProperty('min-height');
+				showSingleFile();
 				return;
 			}
 			const raw = this.navHistoryGetter();
 			// 过滤已关闭（view.file 为 null）的 leaf，避免面包屑出现空槽
 			const history = raw.filter(l => (l as LeafWithFile).view?.file != null);
 			if (history.length <= 1) {
-				breadcrumbEl.style.display = 'none';
-				if (this.dragBar) this.dragBar.style.removeProperty('min-height');
+				showSingleFile();
 				return;
 			}
-			breadcrumbEl.style.display = 'flex';
-			if (this.dragBar) this.dragBar.style.setProperty('min-height', `${ROW1_HEIGHT + BREADCRUMB_HEIGHT}px`, 'important');
-			const prefixLen = this.getSettings().filenamePrefixLength;
 			const names = history.map(l =>
 				LeafNameUtils.stripPrefix((l as LeafWithFile).view!.file!.basename, prefixLen)
 			);
@@ -194,10 +182,6 @@ export class DragBarManager {
 	}
 
 	remove() {
-		if (this.titleHandler) {
-			this.app.workspace.off('active-leaf-change', this.titleHandler);
-			this.titleHandler = null;
-		}
 		if (this.countHandler) {
 			this.app.workspace.off('active-leaf-change', this.countHandler);
 			this.countHandler = null;
