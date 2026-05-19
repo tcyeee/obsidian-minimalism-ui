@@ -1,9 +1,8 @@
-import { App, TAbstractFile, WorkspaceLeaf } from 'obsidian';
+import { App, TAbstractFile, TFile } from 'obsidian';
 import { MinimalismUISettings } from './settings';
 import { LeafNameUtils } from './utils';
 
 type WorkspaceSplitInternal = { containerEl: HTMLElement };
-type LeafWithFile = WorkspaceLeaf & { view?: { file?: { basename: string } } };
 
 const COMPACT_THRESHOLD = 15;
 
@@ -19,7 +18,7 @@ export class DragBarManager {
 	constructor(
 		private app: App,
 		private getSettings: () => MinimalismUISettings,
-		private navHistoryGetter: () => WorkspaceLeaf[] = () => []
+		private navHistoryGetter: () => string[] = () => []
 	) {}
 
 	apply() {
@@ -143,18 +142,20 @@ export class DragBarManager {
 				showSingleFile();
 				return;
 			}
-			const raw = this.navHistoryGetter();
-			// 过滤已关闭（view.file 为 null）的 leaf，避免面包屑出现空槽
-			const history = raw.filter(l => (l as LeafWithFile).view?.file != null);
-			if (history.length <= 1) {
+			const paths = this.navHistoryGetter();
+			if (paths.length <= 1) {
 				showSingleFile();
 				return;
 			}
-			const names = history.map(l =>
-				LeafNameUtils.stripPrefix((l as LeafWithFile).view!.file!.basename, prefixLen)
-			);
+			// 路径是稳定字符串，直接从 vault 查文件名，无需过滤关闭的 leaf
+			const names = paths.map(p => {
+				const f = this.app.vault.getAbstractFileByPath(p);
+				return f instanceof TFile
+					? LeafNameUtils.stripPrefix(f.basename, prefixLen)
+					: LeafNameUtils.stripPrefix(p, prefixLen);
+			});
 
-			if (history.length > COMPACT_THRESHOLD) {
+			if (paths.length > COMPACT_THRESHOLD) {
 				renderCompact(breadcrumbEl, names, names.length - 2);
 				return;
 			}
