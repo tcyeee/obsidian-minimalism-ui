@@ -138,7 +138,8 @@ export class DragBarManager {
 			renderAll(breadcrumbEl, names);
 			requestAnimationFrame(() => {
 				if (!breadcrumbEl.isConnected) return;
-				if (breadcrumbEl.scrollWidth > breadcrumbEl.clientWidth) {
+				if (breadcrumbEl.clientWidth === 0) return;
+				if (breadcrumbEl.scrollWidth > breadcrumbEl.clientWidth && names.length > 2) {
 					renderCompact(breadcrumbEl, names, names.length - 2);
 				}
 			});
