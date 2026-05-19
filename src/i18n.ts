@@ -6,7 +6,7 @@ const translations = {
 		languageEn: 'English',
 
 		headingAppearance: '外观设置',
-		headingInteraction: '交互设置',
+		headingInteraction: '单页模式设置',
 
 		macSidebar: '极简侧边栏',
 		macSidebarDesc: '为左侧边栏应用磨砂玻璃背景与圆角高亮，打造 macOS 原生风格。',
@@ -28,7 +28,7 @@ const translations = {
 		homePageDesc: '设置一个笔记作为首页。Obsidian 启动时自动打开，关闭所有标签后自动返回。',
 		homePagePlaceholder: '输入笔记路径，例如：src/Home.md',
 
-		singlePage: '单页模式',
+		singlePage: '开启单页模式',
 		singlePageDesc1: '1. 隐藏顶部标签栏，每次只展示一篇笔记。',
 		singlePageDesc2: '2. 启用页面缓存，在内存中保留最近访问的 10 个页面',
 		singlePageDesc3: '3. 禁用 pin 标签功能，避免多余的标签被固定在顶部。',

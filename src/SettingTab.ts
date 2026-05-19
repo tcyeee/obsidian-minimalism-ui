@@ -123,22 +123,6 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 
 		new Setting(containerEl).setName(t('headingInteraction')).setHeading();
 
-		new Setting(containerEl)
-			.setName(t('homePage'))
-			.setDesc(t('homePageDesc'))
-			.addText(text => {
-				text.setPlaceholder(t('homePagePlaceholder'))
-					.setValue(this.plugin.settings.homePage);
-				new FileSuggest(this.app, text.inputEl).onPick(path => {
-					this.plugin.settings.homePage = path;
-					void this.plugin.saveSettings();
-				});
-				text.inputEl.addEventListener('change', () => {
-					this.plugin.settings.homePage = text.inputEl.value.trim();
-					void this.plugin.saveSettings();
-				});
-			});
-
 		const singlePageSetting = new Setting(containerEl)
 			.setName(t('singlePage'));
 		singlePageSetting.settingEl.addClass('minimalism-ui-single-page-setting');
@@ -156,6 +140,22 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		singlePageSetting.descEl.createEl('br');
 		singlePageSetting.descEl.createEl('span', { text: t('singlePageDesc3') });
 		singlePageSetting.descEl.createEl('br');
+
+		new Setting(containerEl)
+			.setName(t('homePage'))
+			.setDesc(t('homePageDesc'))
+			.addText(text => {
+				text.setPlaceholder(t('homePagePlaceholder'))
+					.setValue(this.plugin.settings.homePage);
+				new FileSuggest(this.app, text.inputEl).onPick(path => {
+					this.plugin.settings.homePage = path;
+					void this.plugin.saveSettings();
+				});
+				text.inputEl.addEventListener('change', () => {
+					this.plugin.settings.homePage = text.inputEl.value.trim();
+					void this.plugin.saveSettings();
+				});
+			});
 
 		new Setting(containerEl)
 			.setName(t('navAnimation'))
