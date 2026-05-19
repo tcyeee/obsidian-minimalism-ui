@@ -398,6 +398,7 @@ body.minimalism-ui-sidebar-graph-reading .graph-view.color-line          { color
 /* Row 2: breadcrumb */
 .minimalism-ui-drag-bar-breadcrumb {
 	display: flex;
+	flex-direction: row;
 	align-items: center;
 	padding: 0 34px 5px;
 	gap: 4px;
