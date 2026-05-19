@@ -341,15 +341,21 @@ body.minimalism-ui-sidebar-graph-reading .graph-view.color-line          { color
 
 .minimalism-ui-drag-bar {
 	-webkit-app-region: drag;
-	height: 35px !important;
 	min-height: 35px !important;
-	max-height: 35px !important;
 	flex-grow: 0 !important;
 	flex-shrink: 0 !important;
 	display: flex;
-	align-items: center;
-	padding: 0 14px;
+	flex-direction: column;
 	user-select: none;
+}
+
+/* Row 1: title + status bar */
+.minimalism-ui-drag-bar-row1 {
+	display: flex;
+	align-items: center;
+	height: 35px;
+	padding: 0 14px;
+	flex-shrink: 0;
 }
 
 .minimalism-ui-drag-bar-title {
@@ -379,13 +385,49 @@ body.minimalism-ui-sidebar-graph-reading .graph-view.color-line          { color
 	opacity: 0.5;
 }
 
-/* status-bar 搬入拖拽区后重置定位，推到最右侧 */
-.minimalism-ui-drag-bar .status-bar {
+/* status-bar 搬入 row1 后重置定位，推到最右侧 */
+.minimalism-ui-drag-bar-row1 .status-bar {
 	position: static !important;
 	margin-left: auto;
 	background: transparent !important;
 	border: none !important;
 	padding: 0 !important;
+	-webkit-app-region: no-drag;
+}
+
+/* Row 2: breadcrumb */
+.minimalism-ui-drag-bar-breadcrumb {
+	display: flex;
+	align-items: center;
+	padding: 0 34px 5px;
+	gap: 4px;
+	overflow: hidden;
+	-webkit-app-region: drag;
+}
+
+.minimalism-ui-breadcrumb-item {
+	font-size: 0.65rem;
+	color: var(--text-faint);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 120px;
+	pointer-events: none;
+	-webkit-app-region: no-drag;
+	flex-shrink: 1;
+}
+
+.minimalism-ui-breadcrumb-item.is-current {
+	color: var(--text-muted);
+}
+
+.minimalism-ui-breadcrumb-sep,
+.minimalism-ui-breadcrumb-collapse {
+	font-size: 0.65rem;
+	color: var(--text-faint);
+	opacity: 0.4;
+	flex-shrink: 0;
+	pointer-events: none;
 	-webkit-app-region: no-drag;
 }
 
