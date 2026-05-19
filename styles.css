@@ -362,12 +362,7 @@ body.minimalism-ui-sidebar-graph-reading .graph-view.color-line          { color
 	-webkit-app-region: no-drag;
 	pointer-events: none;
 	padding-left: 20px;
-	font-size: 0.75rem;
-	color: var(--text-muted);
 	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	font-weight: bold;
 	max-width: 50%;
 	position: relative;
 	display: flex;
@@ -401,21 +396,20 @@ body.minimalism-ui-sidebar-graph-reading .graph-view.color-line          { color
 	-webkit-app-region: no-drag;
 }
 
-/* Row 2: breadcrumb */
+/* Breadcrumb: inline inside title area */
 .minimalism-ui-drag-bar-breadcrumb {
 	display: flex;
 	flex-direction: row;
 	align-items: center;
-	padding: 0 34px 5px;
 	gap: 4px;
 	overflow: hidden;
+	flex: 1 1 0;
+	min-width: 0;
 	-webkit-app-region: drag;
-	flex-shrink: 0;
-	min-height: 20px;
 }
 
 .minimalism-ui-breadcrumb-item {
-	font-size: 0.65rem;
+	font-size: 0.72rem;
 	color: var(--text-faint);
 	white-space: nowrap;
 	overflow: hidden;
@@ -427,12 +421,14 @@ body.minimalism-ui-sidebar-graph-reading .graph-view.color-line          { color
 }
 
 .minimalism-ui-breadcrumb-item.is-current {
+	font-size: 0.75rem;
+	font-weight: 500;
 	color: var(--text-muted);
 }
 
 .minimalism-ui-breadcrumb-sep,
 .minimalism-ui-breadcrumb-collapse {
-	font-size: 0.65rem;
+	font-size: 0.72rem;
 	color: var(--text-faint);
 	opacity: 0.4;
 	flex-shrink: 0;
