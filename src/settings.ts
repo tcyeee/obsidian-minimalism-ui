@@ -10,6 +10,7 @@ export interface MinimalismUISettings {
 	enableNavAnimation: boolean;
 	noteStyle: boolean;
 	homePage: string;
+	filenamePrefixLength: number;
 	language: 'auto' | 'zh' | 'en';
 }
 
@@ -25,5 +26,6 @@ export const DEFAULT_SETTINGS: MinimalismUISettings = {
 	enableNavAnimation: false,
 	noteStyle: false,
 	homePage: '',
+	filenamePrefixLength: 0,
 	language: 'auto',
 };
