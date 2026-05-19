@@ -1,3 +1,26 @@
+/**
+ * TabCacheManager — 单页模式的核心控制器
+ *
+ * 职责：
+ * 1. **getLeaf 拦截** — monkey-patch `workspace.getLeaf()`，将所有常规导航强制走新建 tab 路径，
+ *    再注入一次性 `openFile` 拦截器，在文件实际加载前查重：若 workspace 中已有同路径 leaf，
+ *    直接激活复用，丢弃空 leaf，避免重复打开与闪烁。
+ *
+ * 2. **LRU 淘汰** — 监听 `active-leaf-change`，维护 `leafQueue`（最近使用排末尾），
+ *    超出上限（30）时 detach 最旧 leaf，同步清理导航历史。
+ *
+ * 3. **跨 tab 导航栈** — 独立维护 `navHistory` / `navFuture`，patch 每个 leaf 的
+ *    `history.back/forward/canGoBack/canGoForward`，以及内置命令 `app:go-back` /
+ *    `app:go-forward` / `workspace:close`，使快捷键在任意焦点位置均可跨 tab 前进后退。
+ *
+ * 4. **入场动画** — 前进/后退时设置 `pendingAnimationCls`，在下一次 `active-leaf-change`
+ *    触发后通过双重 rAF 为目标 leaf 的 `contentEl` 添加滑入动画 class。
+ *
+ * 5. **ResizeObserver 错误抑制** — capture 阶段拦截 "ResizeObserver loop completed" 错误事件，
+ *    阻止其到达 Obsidian 的全局 error handler，避免向用户展示无害的浏览器内部警告。
+ *
+ * `apply()` 注册所有 patch 与监听器；`remove()` 完整还原，保证插件卸载后无残留副作用。
+ */
 import { App, TFile, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from './settings';
 
@@ -18,6 +41,8 @@ type LeafInternal = WorkspaceLeaf & {
 		contentEl?: HTMLElement;
 	};
 	parent?: unknown;
+	containerEl?: HTMLElement;
+	detach: () => void;
 };
 
 type HistoryPatch = {
@@ -59,12 +84,15 @@ export class TabCacheManager {
 	private origCloseTab: ObsidianCommand | null = null;
 	// 由 getLeaf patch 新建、尚未调用 openFile 的空 leaf
 	private pendingInterceptLeaves = new Set<WorkspaceLeaf>();
+	// 首页打开期间为 true，避免 getLeaf 拦截器介入
+	private _isOpeningHomePage = false;
+	// 侧边栏 leaf 的 detach 拦截（pin guard），key=leaf，value=原始 detach
+	private sidebarDetachPatches = new Map<WorkspaceLeaf, () => void>();
+	private sidebarLayoutChangeHandler: (() => void) | null = null;
 
-	// isOpeningHomePage 由 plugin 提供，避免首页打开时触发 getLeaf 拦截
 	constructor(
 		private app: App,
 		private getSettings: () => MinimalismUISettings,
-		private isOpeningHomePage: () => boolean,
 	) { }
 
 	apply() {
@@ -94,7 +122,7 @@ export class TabCacheManager {
 		this.originalGetLeaf = ws.getLeaf.bind(ws);
 		ws.getLeaf = (newLeaf?: boolean | string) => {
 			const shouldIntercept = newLeaf === false || newLeaf === undefined || newLeaf === true || newLeaf === 'tab';
-			if (shouldIntercept && !this.isReusingLeaf && !this.isOpeningHomePage()) {
+			if (shouldIntercept && !this.isReusingLeaf && !this._isOpeningHomePage) {
 				const leaf = this.originalGetLeaf!('tab');
 				this.interceptLeafOpenFile(leaf);
 				return leaf;
@@ -244,6 +272,13 @@ export class TabCacheManager {
 				return true;
 			};
 		}
+
+		// 拦截侧边栏 leaf 的 detach，防止用户通过右键菜单关闭（pin guard）
+		if (this.getSettings().disablePinTab) {
+			this.patchSidebarLeafDetach();
+			this.sidebarLayoutChangeHandler = () => this.patchSidebarLeafDetach();
+			this.app.workspace.on('layout-change', this.sidebarLayoutChangeHandler);
+		}
 	}
 
 	remove() {
@@ -301,6 +336,14 @@ export class TabCacheManager {
 			}
 			this.origCloseTab = null;
 		}
+		if (this.sidebarLayoutChangeHandler) {
+			this.app.workspace.off('layout-change', this.sidebarLayoutChangeHandler);
+			this.sidebarLayoutChangeHandler = null;
+		}
+		for (const [leaf, original] of this.sidebarDetachPatches) {
+			(leaf as LeafInternal).detach = original;
+		}
+		this.sidebarDetachPatches.clear();
 		this.leafQueue = [];
 		this.navJumpTarget = null;
 		this.pendingInterceptLeaves.clear();
@@ -462,5 +505,45 @@ export class TabCacheManager {
 			}
 		}
 		this.historyPatches.clear();
+	}
+
+	// 拦截左侧边栏所有 leaf 的 detach，防止用户通过右键菜单关闭侧边栏面板
+	private patchSidebarLeafDetach() {
+		this.app.workspace.iterateAllLeaves(leaf => {
+			if (this.sidebarDetachPatches.has(leaf)) return;
+			const leafEl = (leaf as LeafInternal).containerEl;
+			if (!leafEl?.closest('.workspace-split.mod-left-split')) return;
+			const original = (leaf as LeafInternal).detach.bind(leaf);
+			(leaf as LeafInternal).detach = () => { /* blocked */ };
+			this.sidebarDetachPatches.set(leaf, original);
+		});
+	}
+
+	// 绕过 patchSidebarLeafDetach 的阻断，强制 detach 一个 leaf（供 SidebarLayoutManager 调用）
+	forceDetachLeaf(leaf: WorkspaceLeaf) {
+		const original = this.sidebarDetachPatches.get(leaf);
+		if (original) {
+			original();
+		} else {
+			leaf.detach();
+		}
+	}
+
+	// 打开首页笔记：先置 _isOpeningHomePage 防止 getLeaf 拦截器介入，再补 history patch
+	async openHomePage() {
+		if (this._isOpeningHomePage) return;
+		const path = this.getSettings().homePage;
+		if (!path) return;
+		if (document.querySelector('.modal-container')) return;
+		const file = this.app.vault.getAbstractFileByPath(path);
+		if (!(file instanceof TFile)) return;
+		this._isOpeningHomePage = true;
+		try {
+			const leaf = this.app.workspace.getLeaf(false);
+			await (leaf as LeafInternal).openFile(file);
+			this.patchLeafHistory(leaf);
+		} finally {
+			this._isOpeningHomePage = false;
+		}
 	}
 }

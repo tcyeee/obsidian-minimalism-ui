@@ -1,25 +1,18 @@
-import { App, TFile, WorkspaceLeaf } from 'obsidian';
+import { App, TFile } from 'obsidian';
 import { MinimalismUISettings } from './settings';
 import { TabCacheManager } from './TabCacheManager';
 
-type LeafWithInternals = WorkspaceLeaf & {
-	containerEl?: HTMLElement;
-	detach: () => void;
-};
-
 /**
  * Manages single-page mode side-effects that live outside TabCacheManager:
- *   • Pin block  — prevents right-click pin and sidebar leaf detach
+ *   • Pin block  — prevents right-click pin on tab headers
  *   • Home page  — opens a designated note on startup / when all tabs close
  *
- * isOpeningHomePage is owned by main.ts (shared with TabCacheManager) and
- * injected via getter + setter to avoid a circular dependency.
+ * Sidebar leaf detach blocking and openHomePage() logic live in TabCacheManager
+ * because they directly operate on leaves.
  */
 export class SinglePageManager {
 	// ── Pin block ────────────────────────────────────────────────────────────
 	private pinBlockHandler: ((e: MouseEvent) => void) | null = null;
-	private layoutChangeHandler: (() => void) | null = null;
-	private detachPatches = new Map<WorkspaceLeaf, () => void>();
 
 	// ── Home page ────────────────────────────────────────────────────────────
 	private homePageHandler: ((file: TFile | null) => void) | null = null;
@@ -28,8 +21,6 @@ export class SinglePageManager {
 		private app: App,
 		private getSettings: () => MinimalismUISettings,
 		private tabCache: TabCacheManager,
-		private getIsOpeningHomePage: () => boolean,
-		private setIsOpeningHomePage: (v: boolean) => void,
 	) {}
 
 	// ── Pin block ─────────────────────────────────────────────────────────────
@@ -46,26 +37,7 @@ export class SinglePageManager {
 			}
 		};
 		document.addEventListener('contextmenu', this.pinBlockHandler, true);
-		this.patchSidebarLeafDetach();
-
-		// Re-patch whenever new leaves arrive in the left sidebar
-		// (e.g. after SidebarLayoutManager recreates outline/file-properties).
-		this.layoutChangeHandler = () => this.patchSidebarLeafDetach();
-		this.app.workspace.on('layout-change', this.layoutChangeHandler);
-	}
-
-	private patchSidebarLeafDetach() {
-		this.app.workspace.iterateAllLeaves(leaf => {
-			if (this.detachPatches.has(leaf)) return;
-			const leafEl = (leaf as LeafWithInternals).containerEl;
-			if (!leafEl?.closest('.workspace-split.mod-left-split')) return;
-			const original = (leaf as LeafWithInternals).detach.bind(leaf);
-			// Store the original on the leaf so SidebarLayoutManager can bypass
-			// this block when it needs to programmatically clear the sidebar.
-			(leaf as LeafWithInternals & { __minui_origDetach__?: () => void }).__minui_origDetach__ = original;
-			(leaf as LeafWithInternals).detach = () => { /* blocked */ };
-			this.detachPatches.set(leaf, original);
-		});
+		// Sidebar leaf detach blocking is managed by TabCacheManager.apply()
 	}
 
 	private removePinBlock() {
@@ -73,15 +45,6 @@ export class SinglePageManager {
 			document.removeEventListener('contextmenu', this.pinBlockHandler, true);
 			this.pinBlockHandler = null;
 		}
-		if (this.layoutChangeHandler) {
-			this.app.workspace.off('layout-change', this.layoutChangeHandler);
-			this.layoutChangeHandler = null;
-		}
-		for (const [leaf, original] of this.detachPatches) {
-			(leaf as LeafWithInternals).detach = original;
-			delete (leaf as LeafWithInternals & { __minui_origDetach__?: () => void }).__minui_origDetach__;
-		}
-		this.detachPatches.clear();
 	}
 
 	// ── Home page ─────────────────────────────────────────────────────────────
@@ -97,31 +60,14 @@ export class SinglePageManager {
 				// to avoid hijacking it with the home page.
 				const active = this.app.workspace.getMostRecentLeaf();
 				if (active && this.tabCache.hasPendingIntercept(active)) return;
-				void this.openHomePage();
+				void this.tabCache.openHomePage();
 			}
 		};
 		this.app.workspace.on('file-open', this.homePageHandler);
 	}
 
-	/** Open the home page in the current leaf. Must be called after layout is ready. */
 	async openHomePage() {
-		if (this.getIsOpeningHomePage()) return;
-		const path = this.getSettings().homePage;
-		if (!path) return;
-		// 如果当前有 Modal 打开（如设置窗口），跳过，避免抢占焦点导致 Modal 被关闭
-		if (document.querySelector('.modal-container')) return;
-		const file = this.app.vault.getAbstractFileByPath(path);
-		if (!(file instanceof TFile)) return;
-		this.setIsOpeningHomePage(true);
-		try {
-			const leaf = this.app.workspace.getLeaf(false);
-			await leaf.openFile(file);
-			// Home-page leaf bypasses the getLeaf interceptor, so patch its
-			// history manually to keep the cross-tab nav stack consistent.
-			this.tabCache.patchLeafHistory(leaf);
-		} finally {
-			this.setIsOpeningHomePage(false);
-		}
+		return this.tabCache.openHomePage();
 	}
 
 	private removeHomePage() {

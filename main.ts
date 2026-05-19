@@ -25,10 +25,6 @@ export default class MinimalismUIPlugin extends Plugin {
 	private singlePage: SinglePageManager;
 	private sidebarLayout: SidebarLayoutManager;
 	private mermaidZoom: MermaidZoomManager;
-	// Shared flag between TabCacheManager and SinglePageManager.
-	// TabCacheManager reads it to skip getLeaf interception while the home page
-	// is opening; SinglePageManager writes it during openHomePage().
-	private isOpeningHomePage = false;
 
 	private loadedFonts: FontFace[] = [];
 
@@ -39,20 +35,17 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.tabCache = new TabCacheManager(
 			this.app,
 			() => this.settings,
-			() => this.isOpeningHomePage,
 		);
 		this.dragBar = new DragBarManager(
 			this.app,
 			() => this.settings,
 			() => this.tabCache.getNavHistory()
 		);
-		this.sidebarLayout = new SidebarLayoutManager(this.app, () => this.settings);
+		this.sidebarLayout = new SidebarLayoutManager(this.app, () => this.settings, this.tabCache);
 		this.singlePage = new SinglePageManager(
 			this.app,
 			() => this.settings,
 			this.tabCache,
-			() => this.isOpeningHomePage,
-			(v) => { this.isOpeningHomePage = v; },
 		);
 		this.mermaidZoom = new MermaidZoomManager(this.app, () => this.settings);
 		await this.loadJetBrainsMono();

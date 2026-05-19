@@ -47,12 +47,11 @@ var DEFAULT_SETTINGS = {
 };
 
 // src/TabCacheManager.ts
+var import_obsidian = require("obsidian");
 var TabCacheManager = class {
-  // isOpeningHomePage 由 plugin 提供，避免首页打开时触发 getLeaf 拦截
-  constructor(app, getSettings, isOpeningHomePage) {
+  constructor(app, getSettings) {
     this.app = app;
     this.getSettings = getSettings;
-    this.isOpeningHomePage = isOpeningHomePage;
     this.leafQueue = [];
     this.isReusingLeaf = false;
     this.isEvicting = false;
@@ -73,6 +72,11 @@ var TabCacheManager = class {
     this.origCloseTab = null;
     // 由 getLeaf patch 新建、尚未调用 openFile 的空 leaf
     this.pendingInterceptLeaves = /* @__PURE__ */ new Set();
+    // 首页打开期间为 true，避免 getLeaf 拦截器介入
+    this._isOpeningHomePage = false;
+    // 侧边栏 leaf 的 detach 拦截（pin guard），key=leaf，value=原始 detach
+    this.sidebarDetachPatches = /* @__PURE__ */ new Map();
+    this.sidebarLayoutChangeHandler = null;
   }
   apply() {
     this.remove();
@@ -90,7 +94,7 @@ var TabCacheManager = class {
     this.originalGetLeaf = ws.getLeaf.bind(ws);
     ws.getLeaf = (newLeaf) => {
       const shouldIntercept = newLeaf === false || newLeaf === void 0 || newLeaf === true || newLeaf === "tab";
-      if (shouldIntercept && !this.isReusingLeaf && !this.isOpeningHomePage()) {
+      if (shouldIntercept && !this.isReusingLeaf && !this._isOpeningHomePage) {
         const leaf = this.originalGetLeaf("tab");
         this.interceptLeafOpenFile(leaf);
         return leaf;
@@ -233,6 +237,11 @@ var TabCacheManager = class {
         return true;
       };
     }
+    if (this.getSettings().disablePinTab) {
+      this.patchSidebarLeafDetach();
+      this.sidebarLayoutChangeHandler = () => this.patchSidebarLeafDetach();
+      this.app.workspace.on("layout-change", this.sidebarLayoutChangeHandler);
+    }
   }
   remove() {
     if (this.originalGetLeaf) {
@@ -295,6 +304,14 @@ var TabCacheManager = class {
       }
       this.origCloseTab = null;
     }
+    if (this.sidebarLayoutChangeHandler) {
+      this.app.workspace.off("layout-change", this.sidebarLayoutChangeHandler);
+      this.sidebarLayoutChangeHandler = null;
+    }
+    for (const [leaf, original] of this.sidebarDetachPatches) {
+      leaf.detach = original;
+    }
+    this.sidebarDetachPatches.clear();
     this.leafQueue = [];
     this.navJumpTarget = null;
     this.pendingInterceptLeaves.clear();
@@ -436,6 +453,50 @@ var TabCacheManager = class {
       }
     }
     this.historyPatches.clear();
+  }
+  // 拦截左侧边栏所有 leaf 的 detach，防止用户通过右键菜单关闭侧边栏面板
+  patchSidebarLeafDetach() {
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      if (this.sidebarDetachPatches.has(leaf))
+        return;
+      const leafEl = leaf.containerEl;
+      if (!(leafEl == null ? void 0 : leafEl.closest(".workspace-split.mod-left-split")))
+        return;
+      const original = leaf.detach.bind(leaf);
+      leaf.detach = () => {
+      };
+      this.sidebarDetachPatches.set(leaf, original);
+    });
+  }
+  // 绕过 patchSidebarLeafDetach 的阻断，强制 detach 一个 leaf（供 SidebarLayoutManager 调用）
+  forceDetachLeaf(leaf) {
+    const original = this.sidebarDetachPatches.get(leaf);
+    if (original) {
+      original();
+    } else {
+      leaf.detach();
+    }
+  }
+  // 打开首页笔记：先置 _isOpeningHomePage 防止 getLeaf 拦截器介入，再补 history patch
+  async openHomePage() {
+    if (this._isOpeningHomePage)
+      return;
+    const path = this.getSettings().homePage;
+    if (!path)
+      return;
+    if (document.querySelector(".modal-container"))
+      return;
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof import_obsidian.TFile))
+      return;
+    this._isOpeningHomePage = true;
+    try {
+      const leaf = this.app.workspace.getLeaf(false);
+      await leaf.openFile(file);
+      this.patchLeafHistory(leaf);
+    } finally {
+      this._isOpeningHomePage = false;
+    }
   }
 };
 
@@ -649,18 +710,13 @@ var DragBarManager = class {
 };
 
 // src/SinglePageManager.ts
-var import_obsidian = require("obsidian");
 var SinglePageManager = class {
-  constructor(app, getSettings, tabCache, getIsOpeningHomePage, setIsOpeningHomePage) {
+  constructor(app, getSettings, tabCache) {
     this.app = app;
     this.getSettings = getSettings;
     this.tabCache = tabCache;
-    this.getIsOpeningHomePage = getIsOpeningHomePage;
-    this.setIsOpeningHomePage = setIsOpeningHomePage;
     // ── Pin block ────────────────────────────────────────────────────────────
     this.pinBlockHandler = null;
-    this.layoutChangeHandler = null;
-    this.detachPatches = /* @__PURE__ */ new Map();
     // ── Home page ────────────────────────────────────────────────────────────
     this.homePageHandler = null;
   }
@@ -677,38 +733,12 @@ var SinglePageManager = class {
       }
     };
     document.addEventListener("contextmenu", this.pinBlockHandler, true);
-    this.patchSidebarLeafDetach();
-    this.layoutChangeHandler = () => this.patchSidebarLeafDetach();
-    this.app.workspace.on("layout-change", this.layoutChangeHandler);
-  }
-  patchSidebarLeafDetach() {
-    this.app.workspace.iterateAllLeaves((leaf) => {
-      if (this.detachPatches.has(leaf))
-        return;
-      const leafEl = leaf.containerEl;
-      if (!(leafEl == null ? void 0 : leafEl.closest(".workspace-split.mod-left-split")))
-        return;
-      const original = leaf.detach.bind(leaf);
-      leaf.__minui_origDetach__ = original;
-      leaf.detach = () => {
-      };
-      this.detachPatches.set(leaf, original);
-    });
   }
   removePinBlock() {
     if (this.pinBlockHandler) {
       document.removeEventListener("contextmenu", this.pinBlockHandler, true);
       this.pinBlockHandler = null;
     }
-    if (this.layoutChangeHandler) {
-      this.app.workspace.off("layout-change", this.layoutChangeHandler);
-      this.layoutChangeHandler = null;
-    }
-    for (const [leaf, original] of this.detachPatches) {
-      leaf.detach = original;
-      delete leaf.__minui_origDetach__;
-    }
-    this.detachPatches.clear();
   }
   // ── Home page ─────────────────────────────────────────────────────────────
   /** Register the file-open listener. Must be called after layout is ready. */
@@ -721,31 +751,13 @@ var SinglePageManager = class {
         const active = this.app.workspace.getMostRecentLeaf();
         if (active && this.tabCache.hasPendingIntercept(active))
           return;
-        void this.openHomePage();
+        void this.tabCache.openHomePage();
       }
     };
     this.app.workspace.on("file-open", this.homePageHandler);
   }
-  /** Open the home page in the current leaf. Must be called after layout is ready. */
   async openHomePage() {
-    if (this.getIsOpeningHomePage())
-      return;
-    const path = this.getSettings().homePage;
-    if (!path)
-      return;
-    if (document.querySelector(".modal-container"))
-      return;
-    const file = this.app.vault.getAbstractFileByPath(path);
-    if (!(file instanceof import_obsidian.TFile))
-      return;
-    this.setIsOpeningHomePage(true);
-    try {
-      const leaf = this.app.workspace.getLeaf(false);
-      await leaf.openFile(file);
-      this.tabCache.patchLeafHistory(leaf);
-    } finally {
-      this.setIsOpeningHomePage(false);
-    }
+    return this.tabCache.openHomePage();
   }
   removeHomePage() {
     if (this.homePageHandler) {
@@ -763,9 +775,10 @@ var SinglePageManager = class {
 // src/SidebarLayoutManager.ts
 var import_obsidian2 = require("obsidian");
 var SidebarLayoutManager = class {
-  constructor(app, getSettings) {
+  constructor(app, getSettings, tabCache) {
     this.app = app;
     this.getSettings = getSettings;
+    this.tabCache = tabCache;
     // Guard against concurrent calls: each `apply()` awaits async ops, so a
     // second call arriving mid-flight would create duplicate leaves.
     this.isApplying = false;
@@ -1007,8 +1020,8 @@ var SidebarLayoutManager = class {
    *
    * Results from all three are de-duplicated via a Set before detaching.
    *
-   * NOTE: SinglePageManager may patch leaf.detach() to a no-op when disablePinTab
-   * is enabled. We bypass this by calling the original stored as __minui_origDetach__.
+   * NOTE: TabCacheManager patches leaf.detach() for sidebar leaves when disablePinTab
+   * is enabled. We bypass this via tabCache.forceDetachLeaf().
    */
   clearLeftSidebar() {
     const { workspace } = this.app;
@@ -1042,17 +1055,8 @@ var SidebarLayoutManager = class {
       }
     }
   }
-  /**
-   * Detaches a leaf, bypassing SinglePageManager's pin-block patch if active.
-   * SinglePageManager stores the original detach as __minui_origDetach__ on the leaf.
-   */
   forceDetach(leaf) {
-    const orig = leaf.__minui_origDetach__;
-    if (orig) {
-      orig();
-    } else {
-      leaf.detach();
-    }
+    this.tabCache.forceDetachLeaf(leaf);
   }
   /**
    * Recursively collects all WorkspaceLeaf instances from a workspace item
@@ -1349,10 +1353,6 @@ var MinimalismUISettingTab = class extends import_obsidian3.PluginSettingTab {
 var MinimalismUIPlugin = class extends import_obsidian4.Plugin {
   constructor() {
     super(...arguments);
-    // Shared flag between TabCacheManager and SinglePageManager.
-    // TabCacheManager reads it to skip getLeaf interception while the home page
-    // is opening; SinglePageManager writes it during openHomePage().
-    this.isOpeningHomePage = false;
     this.loadedFonts = [];
   }
   async onload() {
@@ -1360,23 +1360,18 @@ var MinimalismUIPlugin = class extends import_obsidian4.Plugin {
     setLang(this.settings.language);
     this.tabCache = new TabCacheManager(
       this.app,
-      () => this.settings,
-      () => this.isOpeningHomePage
+      () => this.settings
     );
     this.dragBar = new DragBarManager(
       this.app,
       () => this.settings,
       () => this.tabCache.getNavHistory()
     );
-    this.sidebarLayout = new SidebarLayoutManager(this.app, () => this.settings);
+    this.sidebarLayout = new SidebarLayoutManager(this.app, () => this.settings, this.tabCache);
     this.singlePage = new SinglePageManager(
       this.app,
       () => this.settings,
-      this.tabCache,
-      () => this.isOpeningHomePage,
-      (v) => {
-        this.isOpeningHomePage = v;
-      }
+      this.tabCache
     );
     this.mermaidZoom = new MermaidZoomManager(this.app, () => this.settings);
     await this.loadJetBrainsMono();
