@@ -146,6 +146,11 @@ export class DragBarManager {
 		};
 
 		const updateBreadcrumb = () => {
+			if (!this.getSettings().showBreadcrumb) {
+				breadcrumbEl.style.display = 'none';
+				if (this.dragBar) this.dragBar.style.removeProperty('min-height');
+				return;
+			}
 			const raw = this.navHistoryGetter();
 			// 过滤已关闭（view.file 为 null）的 leaf，避免面包屑出现空槽
 			const history = raw.filter(l => (l as LeafWithFile).view?.file != null);

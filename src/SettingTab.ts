@@ -184,5 +184,15 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				});
 			});
+
+			new Setting(containerEl)
+				.setName(t('showBreadcrumb'))
+				.setDesc(t('showBreadcrumbDesc'))
+				.addToggle(toggle => toggle
+					.setValue(this.plugin.settings.showBreadcrumb)
+					.onChange(async v => {
+						this.plugin.settings.showBreadcrumb = v;
+						await this.plugin.saveSettings();
+					}));
 	}
 }

@@ -11,6 +11,7 @@
   "noteStyle": true,
   "homePage": "README.md",
   "filenamePrefixLength": 13,
+  "showBreadcrumb": true,
   "language": "zh",
   "autoPropertiesHeight": true,
   "leafCacheSize": 10,
