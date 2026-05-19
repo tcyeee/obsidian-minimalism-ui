@@ -424,6 +424,9 @@ body.minimalism-ui-sidebar-graph-reading .graph-view.color-line          { color
 	font-size: 0.75rem;
 	font-weight: 500;
 	color: var(--text-muted);
+	max-width: none;
+	overflow: visible;
+	text-overflow: clip;
 }
 
 .minimalism-ui-breadcrumb-sep,
