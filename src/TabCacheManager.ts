@@ -236,6 +236,14 @@ export class TabCacheManager {
 		if (mostRecent) {
 			this.leafQueue = this.leafQueue.filter(l => l !== mostRecent);
 			this.leafQueue.push(mostRecent);
+			// Seed navHistory with the current file when apply() is called mid-session:
+			// workspace restore fires active-leaf-change automatically, but a mid-session
+			// re-apply does not, leaving navHistory empty so the first back press finds
+			// length < 2 and silently fails.
+			if (this.navHistory.length === 0) {
+				const seedPath = (mostRecent as LeafInternal).view?.file?.path;
+				if (seedPath) this.navHistory.push(seedPath);
+			}
 		}
 
 		// Patch 内置的 app:go-back / app:go-forward command，
