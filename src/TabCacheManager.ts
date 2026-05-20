@@ -23,7 +23,7 @@
  *
  * `apply()` 注册所有 patch 与监听器；`remove()` 完整还原，保证插件卸载后无残留副作用。
  */
-import { App, TFile, WorkspaceLeaf } from 'obsidian';
+import { App, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from './settings';
 
 type WorkspaceInternal = {
@@ -96,6 +96,7 @@ export class TabCacheManager {
 	// 侧边栏 leaf 的 detach 拦截（pin guard），key=leaf，value=原始 detach
 	private sidebarDetachPatches = new Map<WorkspaceLeaf, () => void>();
 	private sidebarLayoutChangeHandler: (() => void) | null = null;
+	private renameHandler: ((file: TAbstractFile, oldPath: string) => void) | null = null;
 
 	constructor(
 		private app: App,
@@ -273,6 +274,16 @@ export class TabCacheManager {
 			};
 		}
 
+		// 笔记重命名时同步更新 navHistory / navFuture 中的路径，防止旧路径导致后退/前进跳过该条目
+		this.renameHandler = (file: TAbstractFile, oldPath: string) => {
+			if (!(file instanceof TFile)) return;
+			const newPath = file.path;
+			this.navHistory = this.navHistory.map(p => p === oldPath ? newPath : p);
+			this.navFuture = this.navFuture.map(p => p === oldPath ? newPath : p);
+			if (this.navJumpPath === oldPath) this.navJumpPath = newPath;
+		};
+		this.app.vault.on('rename', this.renameHandler);
+
 		// 拦截侧边栏 leaf 的 detach，防止用户通过右键菜单关闭（pin guard）
 		if (this.getSettings().disablePinTab) {
 			this.patchSidebarLeafDetach();
@@ -332,6 +343,10 @@ export class TabCacheManager {
 		if (this.sidebarLayoutChangeHandler) {
 			this.app.workspace.off('layout-change', this.sidebarLayoutChangeHandler);
 			this.sidebarLayoutChangeHandler = null;
+		}
+		if (this.renameHandler) {
+			this.app.vault.off('rename', this.renameHandler);
+			this.renameHandler = null;
 		}
 		for (const [leaf, original] of this.sidebarDetachPatches) {
 			(leaf as LeafInternal).detach = original;
@@ -552,6 +567,37 @@ export class TabCacheManager {
 					if (idx !== -1) this.navHistory.splice(idx, 1);
 				}
 				this._isClosingTab = true;
+
+				// After close, actively navigate to the top of navHistory so the user
+				// lands on the previously-viewed note rather than Obsidian's arbitrary
+				// adjacent-leaf choice.
+				const prevPath = this.navHistory[this.navHistory.length - 1];
+				if (prevPath) {
+					this.navJumpPath = prevPath;
+					if (this.navTimer !== null) {
+						clearTimeout(this.navTimer);
+						this.navTimer = null;
+					}
+					this.navTimer = setTimeout(async () => {
+						this.navTimer = null;
+						let targetLeaf: WorkspaceLeaf | null = null;
+						this.app.workspace.iterateRootLeaves(l => {
+							if (!targetLeaf && (l as LeafInternal).view?.file?.path === prevPath) targetLeaf = l;
+						});
+						if (targetLeaf) {
+							this.app.workspace.setActiveLeaf(targetLeaf, { focus: true });
+						} else if (this.originalGetLeaf) {
+							const file = this.app.vault.getAbstractFileByPath(prevPath);
+							if (file instanceof TFile) {
+								const newLeaf = this.originalGetLeaf('tab');
+								this.patchLeafHistory(newLeaf);
+								this.patchRootLeafDetach(newLeaf);
+								await (newLeaf as LeafInternal).openFile(file);
+								this.app.workspace.setActiveLeaf(newLeaf, { focus: true });
+							}
+						}
+					}, 0);
+				}
 			}
 			original();
 		};
