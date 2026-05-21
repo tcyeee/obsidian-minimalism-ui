@@ -5,6 +5,38 @@
 
 ---
 
+## Version 1.2.1
+
+- Fixed navigation history retaining stale entries after closing tabs
+- Fixed navigation history not updating when a file is renamed
+- Fixed navigation history not seeding correctly when plugin is enabled mid-session
+
+- 修复关闭标签页后导航历史残留失效条目的问题
+- 修复文件重命名后导航历史未同步更新的问题
+- 修复插件在 Obsidian 运行中途启用时导航历史未正确初始化的问题
+
+---
+
+## Version 1.2.0
+
+- Added breadcrumb row in the drag bar showing recent navigation history
+- Added setting to strip filename timestamp prefix from breadcrumb display
+- Added language toggle setting (Chinese / English)
+- Added tab count indicator in the drag bar
+- Fixed breadcrumb overflow detection crashing on zero-width container
+- Fixed stale leaves with no file leaking into breadcrumb history
+- Improved graph node label visibility in the local graph panel
+
+- 拖拽栏新增面包屑行，展示最近导航历史
+- 新增文件名前缀剥离设置，在面包屑中隐藏时间戳前缀
+- 新增语言切换设置（中文 / 英文）
+- 拖拽栏新增当前打开的标签页数量显示
+- 修复面包屑溢出检测在容器宽度为零时崩溃的问题
+- 修复无文件的失效 leaf 泄漏进面包屑历史的问题
+- 优化本地图谱节点标签的可见性
+
+---
+
 ## Version 1.1.2
 
 ### Installation
