@@ -2,7 +2,9 @@
 
 <kbd>中文</kbd> · <kbd>[English](README.md)</kbd>
 
-将 Obsidian 改造为极简、macOS 原生风格的写作环境。所有选项均在 **设置 → 第三方插件 → Minimalism UI** 中管理。
+将 Obsidian 改造为极简、类似Typora风格的写作环境。所有选项均在 **设置 → 第三方插件 → Minimalism UI** 中管理。
+
+![](./public/img.png)
 
 ---
 

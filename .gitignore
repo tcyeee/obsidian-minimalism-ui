@@ -29,3 +29,7 @@ yarn-error.log*
 
 
 tmp/
+docs/
+.claude/
+AGENTS.md
+CLAUDE.md

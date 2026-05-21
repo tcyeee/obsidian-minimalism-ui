@@ -2,8 +2,9 @@
 
 <kbd>[中文](README.zh.md)</kbd> · <kbd>English</kbd>
 
-Transform Obsidian into a minimal, macOS-native-style writing environment. All options are in **Settings → Community Plugins → Minimalism UI**.
+Transform Obsidian into a minimal, Typora-style writing environment. All options are in **Settings → Community Plugins → Minimalism UI**.
 
+![](./public/img.png)
 ---
 
 ## Features
