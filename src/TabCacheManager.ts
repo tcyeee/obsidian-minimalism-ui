@@ -186,6 +186,7 @@ export class TabCacheManager {
 
 			if (this.navJumpPath !== null && filePath === this.navJumpPath) {
 				this.navJumpPath = null;
+				this._isClosingTab = false;
 				return;
 			}
 			if (this._isClosingTab) {
@@ -411,8 +412,13 @@ export class TabCacheManager {
 			this.patchRootLeafDetach(leaf);
 			const result = await origOpenFile(file, state);
 			// 兜底：active-leaf-change 在 tab 尚未进入 iterateRootLeaves 时可能跳过该 leaf，
-			// 文件加载完成后 leaf 已就位，此处确保路径写入 navHistory
-			this.addToNavHistory(file.path);
+			// 文件加载完成后 leaf 已就位，此处确保路径写入 navHistory。
+			// 仅在 leaf 仍挂载时写入：若用户在 openFile 异步加载期间快速关闭了该 tab，
+			// parent 已为 null，detach 时 view.file 尚未就位无法清理，此处若仍写入
+			// 会在历史中留下永远无法清除的残留条目。
+			if ((leaf as LeafInternal).parent) {
+				this.addToNavHistory(file.path);
+			}
 			return result;
 		};
 	}
@@ -431,15 +437,18 @@ export class TabCacheManager {
 			clearTimeout(this.navTimer);
 			this.navTimer = null;
 		}
-		const snapHistory = [...this.navHistory];
-		const snapFuture = [...this.navFuture];
+		// 从倒数第二个位置开始向前清除已删除文件的条目，保持当前页（末尾）不动，
+		// 找到第一个有效前驱后执行导航。不做 rollback：死条目永久丢弃，避免反复卡死。
 		while (this.navHistory.length >= 2) {
+			const prevPath = this.navHistory[this.navHistory.length - 2];
+			const file = this.app.vault.getAbstractFileByPath(prevPath);
+			if (!(file instanceof TFile)) {
+				this.navHistory.splice(this.navHistory.length - 2, 1);
+				continue;
+			}
+
 			const current = this.navHistory.pop()!;
 			this.navFuture.unshift(current);
-			const prevPath = this.navHistory[this.navHistory.length - 1];
-
-			const file = this.app.vault.getAbstractFileByPath(prevPath);
-			if (!(file instanceof TFile)) continue; // 文件已从 vault 删除，继续向前找
 
 			let targetLeaf: WorkspaceLeaf | null = null;
 			this.app.workspace.iterateRootLeaves(l => {
@@ -470,9 +479,7 @@ export class TabCacheManager {
 			}
 			return;
 		}
-		// 未能完成导航，回滚
-		this.navHistory = snapHistory;
-		this.navFuture = snapFuture;
+		// 无有效前驱，导航无法执行；死条目已就地清除，无需回滚
 	}
 
 	private navigateForward() {
@@ -481,13 +488,13 @@ export class TabCacheManager {
 			clearTimeout(this.navTimer);
 			this.navTimer = null;
 		}
-		const snapHistory = [...this.navHistory];
-		const snapFuture = [...this.navFuture];
+		// shift 出的死条目直接丢弃（不回滚）：与 navigateBack 保持一致，
+		// 避免死条目因回滚永远无法清除。
 		while (this.navFuture.length > 0) {
 			const nextPath = this.navFuture.shift()!;
 
 			const file = this.app.vault.getAbstractFileByPath(nextPath);
-			if (!(file instanceof TFile)) continue; // 文件已从 vault 删除，继续向后找
+			if (!(file instanceof TFile)) continue; // 文件已从 vault 删除，丢弃并继续
 
 			this.navHistory.push(nextPath);
 
@@ -517,9 +524,7 @@ export class TabCacheManager {
 			}
 			return;
 		}
-		// 未能完成导航，回滚
-		this.navHistory = snapHistory;
-		this.navFuture = snapFuture;
+		// navFuture 已空或全为死条目；死条目已丢弃，无需回滚
 	}
 
 	patchLeafHistory(leaf: WorkspaceLeaf) {
