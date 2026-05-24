@@ -716,7 +716,6 @@ body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h
 	word-break: break-word;
 	word-wrap: break-word;
 	font-variant-ligatures: none;
-	text-indent: 0;
 }
 
 /* 正文缩小 1px（不影响标题，标题由 --hX-size 变量控制） */

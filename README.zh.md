@@ -73,7 +73,7 @@
 ## 开发
 
 ```bash
-git clone https://github.com/your-username/obsidian-minimalism-ui.git
+git clone https://github.com/tcyeee/obsidian-minimalism-ui.git
 cd obsidian-minimalism-ui
 npm install
 
@@ -88,6 +88,14 @@ ln -s $(pwd) ~/your-vault/.obsidian/plugins/obsidian-minimalism-ui
 ```
 
 修改 `main.ts` 后，运行 `npm run build`，然后在 Obsidian 中重新加载插件（在社区插件列表中按 **Ctrl/Cmd+R**）。
+
+---
+
+## 权限说明
+
+| API | 调用位置 | 用途 |
+|---|---|---|
+| `vault.getMarkdownFiles()` | 设置页面 — 文件路径输入框 | 在用户输入笔记首页路径时提供自动补全建议。仅在用户按键时触发，不会在启动时或后台静默调用。 |
 
 ---
 

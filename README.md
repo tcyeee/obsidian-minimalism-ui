@@ -72,7 +72,7 @@ The zip extracts to an `obsidian-minimalism-ui/` folder that includes `main.js`,
 ## Development
 
 ```bash
-git clone https://github.com/your-username/obsidian-minimalism-ui.git
+git clone https://github.com/tcyeee/obsidian-minimalism-ui.git
 cd obsidian-minimalism-ui
 npm install
 
@@ -87,6 +87,14 @@ ln -s $(pwd) ~/your-vault/.obsidian/plugins/obsidian-minimalism-ui
 ```
 
 After editing `main.ts`, run `npm run build` and reload the plugin in Obsidian (**Ctrl/Cmd+R** in the community plugins list).
+
+---
+
+## Permissions
+
+| API | Where used | Why |
+|---|---|---|
+| `vault.getMarkdownFiles()` | Settings tab — file path input | Provides autocomplete suggestions when the user types a path for the Home Note setting. Called only on user keystroke; never runs on startup or in the background. |
 
 ---
 
