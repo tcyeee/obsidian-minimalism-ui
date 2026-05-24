@@ -81,7 +81,7 @@ export class TabCacheManager {
 	private pendingAnimationCls: 'minimalism-ui-slide-from-left' | 'minimalism-ui-slide-from-right' | null = null;
 	// tab 关闭后 Obsidian 自动激活下一个 leaf 会触发 active-leaf-change，该标志阻止其被记录为新导航
 	private _isClosingTab = false;
-	private navTimer: ReturnType<typeof setTimeout> | null = null;
+	private navTimer: number | null = null;
 	private animEndListeners = new WeakMap<Element, () => void>();
 	private resizeObserverErrHandler: ((e: ErrorEvent) => void) | null = null;
 	private historyPatches = new Map<WorkspaceLeaf, HistoryPatch>();
@@ -313,7 +313,7 @@ export class TabCacheManager {
 		this.pendingAnimationCls = null;
 		this._isClosingTab = false;
 		if (this.navTimer !== null) {
-			clearTimeout(this.navTimer);
+			activeWindow.clearTimeout(this.navTimer);
 			this.navTimer = null;
 		}
 		if (this.resizeObserverErrHandler) {
@@ -375,7 +375,7 @@ export class TabCacheManager {
 		// synchronously inside originalGetLeaf and discarded it), skip installation.
 		if (!(leaf as LeafInternal).parent) return;
 		this.pendingInterceptLeaves.add(leaf);
-		const origOpenFile = (leaf as LeafInternal).openFile.bind(leaf);
+		const origOpenFile: (file: TFile, state?: unknown) => Promise<void> = (leaf as LeafInternal).openFile.bind(leaf);
 		(leaf as LeafInternal).openFile = async (file: TFile, state?: unknown) => {
 			// 一次性拦截：立即还原，防止后续调用被意外拦截
 			(leaf as LeafInternal).openFile = origOpenFile;
@@ -434,7 +434,7 @@ export class TabCacheManager {
 	private navigateBack() {
 		// 取消上一次尚未执行的导航 timer，防止连续点击时多个 setActiveLeaf 并发触发
 		if (this.navTimer !== null) {
-			clearTimeout(this.navTimer);
+			activeWindow.clearTimeout(this.navTimer);
 			this.navTimer = null;
 		}
 		// 从倒数第二个位置开始向前清除已删除文件的条目，保持当前页（末尾）不动，
@@ -462,13 +462,13 @@ export class TabCacheManager {
 				const leaf = targetLeaf;
 				// 用 setTimeout(0) 推入新 task，彻底脱离当前渲染管线，
 				// 避免 setActiveLeaf 在 rAF/ResizeObserver 阶段触发布局，产生 loop 错误
-				this.navTimer = setTimeout(() => {
+				this.navTimer = activeWindow.setTimeout(() => {
 					this.navTimer = null;
 					this.app.workspace.setActiveLeaf(leaf, { focus: true });
 				}, 0);
 			} else {
 				// 无现有 leaf 显示此文件（已被 LRU 淘汰或手动关闭），重新打开
-				this.navTimer = setTimeout(async () => {
+				this.navTimer = activeWindow.setTimeout(async () => {
 					this.navTimer = null;
 					const newLeaf = this.originalGetLeaf!('tab');
 					this.patchLeafHistory(newLeaf);
@@ -485,7 +485,7 @@ export class TabCacheManager {
 	private navigateForward() {
 		// 取消上一次尚未执行的导航 timer，防止连续点击时多个 setActiveLeaf 并发触发
 		if (this.navTimer !== null) {
-			clearTimeout(this.navTimer);
+			activeWindow.clearTimeout(this.navTimer);
 			this.navTimer = null;
 		}
 		// shift 出的死条目直接丢弃（不回滚）：与 navigateBack 保持一致，
@@ -508,12 +508,12 @@ export class TabCacheManager {
 
 			if (targetLeaf) {
 				const leaf = targetLeaf;
-				this.navTimer = setTimeout(() => {
+				this.navTimer = activeWindow.setTimeout(() => {
 					this.navTimer = null;
 					this.app.workspace.setActiveLeaf(leaf, { focus: true });
 				}, 0);
 			} else {
-				this.navTimer = setTimeout(async () => {
+				this.navTimer = activeWindow.setTimeout(async () => {
 					this.navTimer = null;
 					const newLeaf = this.originalGetLeaf!('tab');
 					this.patchLeafHistory(newLeaf);
@@ -580,10 +580,10 @@ export class TabCacheManager {
 				if (prevPath) {
 					this.navJumpPath = prevPath;
 					if (this.navTimer !== null) {
-						clearTimeout(this.navTimer);
+						activeWindow.clearTimeout(this.navTimer);
 						this.navTimer = null;
 					}
-					this.navTimer = setTimeout(async () => {
+					this.navTimer = activeWindow.setTimeout(async () => {
 						this.navTimer = null;
 						let targetLeaf: WorkspaceLeaf | null = null;
 						this.app.workspace.iterateRootLeaves(l => {
@@ -643,7 +643,7 @@ export class TabCacheManager {
 		if (this._isOpeningHomePage) return;
 		const path = this.getSettings().homePage;
 		if (!path) return;
-		if (document.querySelector('.modal-container')) return;
+		if (activeDocument.querySelector('.modal-container')) return;
 		const file = this.app.vault.getAbstractFileByPath(path);
 		if (!(file instanceof TFile)) return;
 		this._isOpeningHomePage = true;

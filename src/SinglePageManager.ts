@@ -36,13 +36,13 @@ export class SinglePageManager {
 				e.preventDefault();
 			}
 		};
-		document.addEventListener('contextmenu', this.pinBlockHandler, true);
+		activeDocument.addEventListener('contextmenu', this.pinBlockHandler, true);
 		// Sidebar leaf detach blocking is managed by TabCacheManager.apply()
 	}
 
 	private removePinBlock() {
 		if (this.pinBlockHandler) {
-			document.removeEventListener('contextmenu', this.pinBlockHandler, true);
+			activeDocument.removeEventListener('contextmenu', this.pinBlockHandler, true);
 			this.pinBlockHandler = null;
 		}
 	}

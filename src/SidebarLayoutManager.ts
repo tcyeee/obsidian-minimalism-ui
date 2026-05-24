@@ -127,13 +127,13 @@ export class SidebarLayoutManager {
 			if (!showProperties && !showLocalGraph) return;
 
 			// 6. Wait for Obsidian to finish rendering all views.
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise(resolve => activeWindow.setTimeout(resolve, 100));
 
 			// 7. Nudge views to load the current file (active: false skips auto-bind).
 			const activeFile = workspace.getActiveFile();
 			if (activeFile) {
 				workspace.trigger('file-open', activeFile);
-				await new Promise(resolve => setTimeout(resolve, 50));
+				await new Promise(resolve => activeWindow.setTimeout(resolve, 50));
 			}
 
 			// 8. Inject Properties above Local Graph (appended first in flex column).
@@ -238,9 +238,9 @@ export class SidebarLayoutManager {
 			graphControls.classList.add('is-close');
 		}
 
-		const header = document.createElement('div');
+		const header = createDiv();
 		header.className = 'minimalism-ui-graph-header';
-		const titleSpan = document.createElement('span');
+		const titleSpan = createSpan();
 		titleSpan.textContent = 'Local graph';
 		header.appendChild(titleSpan);
 
@@ -272,7 +272,7 @@ export class SidebarLayoutManager {
 		}
 		this.graphResizeObserver?.disconnect();
 		const leftSplitEl = this.app.workspace.leftSplit as unknown as { containerEl?: HTMLElement };
-		const observeTarget = leftSplitEl?.containerEl ?? document.querySelector<HTMLElement>('.workspace-split.mod-left-split');
+		const observeTarget = leftSplitEl?.containerEl ?? activeDocument.querySelector<HTMLElement>('.workspace-split.mod-left-split');
 		if (observeTarget) {
 			this.graphResizeObserver = new ResizeObserver((entries) => {
 				const w = entries[0].contentRect.width;
@@ -285,7 +285,7 @@ export class SidebarLayoutManager {
 		}
 
 		// Set initial 4:3 height after layout has settled, then apply graph colors.
-		setTimeout(() => {
+		activeWindow.setTimeout(() => {
 			const w = graphLeafContent.getBoundingClientRect().width;
 			if (w > 0) {
 				graphLeafContent.setCssProps({'--minimalism-ui-graph-height': `${Math.round(w * 3 / 4)}px`});
@@ -311,9 +311,9 @@ export class SidebarLayoutManager {
 		this.patchedRenderer = renderer;
 		this.origTestCSS = orig;
 		renderer.testCSS = () => {
-			document.body.classList.add('minimalism-ui-sidebar-graph-reading');
+			activeDocument.body.classList.add('minimalism-ui-sidebar-graph-reading');
 			orig();
-			document.body.classList.remove('minimalism-ui-sidebar-graph-reading');
+			activeDocument.body.classList.remove('minimalism-ui-sidebar-graph-reading');
 		};
 
 		renderer.testCSS();

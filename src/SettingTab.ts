@@ -115,7 +115,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.noteStyle)
 				.onChange(async v => { this.plugin.settings.noteStyle = v; await this.plugin.saveSettings(); }));
-		noteStyleSetting.descEl.createEl('span', { text: t('noteStyleDesc') });
+		noteStyleSetting.descEl.createSpan({ text: t('noteStyleDesc') });
 		const noteStyleList = noteStyleSetting.descEl.createEl('ul');
 		noteStyleList.createEl('li', { text: t('noteStyleItem1') });
 		noteStyleList.createEl('li', { text: t('noteStyleItem2') });
@@ -134,11 +134,11 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				this.plugin.settings.enableLeafCache = v;
 				await this.plugin.saveSettings();
 			}));
-		singlePageSetting.descEl.createEl('span', { text: t('singlePageDesc1') });
+		singlePageSetting.descEl.createSpan({ text: t('singlePageDesc1') });
 		singlePageSetting.descEl.createEl('br');
-		singlePageSetting.descEl.createEl('span', { text: t('singlePageDesc2') });
+		singlePageSetting.descEl.createSpan({ text: t('singlePageDesc2') });
 		singlePageSetting.descEl.createEl('br');
-		singlePageSetting.descEl.createEl('span', { text: t('singlePageDesc3') });
+		singlePageSetting.descEl.createSpan({ text: t('singlePageDesc3') });
 		singlePageSetting.descEl.createEl('br');
 
 		new Setting(containerEl)
@@ -174,7 +174,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				text.inputEl.type = 'number';
 				text.inputEl.min = '0';
 				text.inputEl.max = '20';
-				text.inputEl.style.width = '60px';
+				text.inputEl.addClass('minimalism-ui-prefix-input');
 				text.setValue(String(this.plugin.settings.filenamePrefixLength));
 				text.inputEl.addEventListener('change', async () => {
 					const raw = parseInt(text.inputEl.value, 10);

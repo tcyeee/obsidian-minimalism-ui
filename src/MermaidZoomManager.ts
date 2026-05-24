@@ -28,7 +28,7 @@ export class MermaidZoomManager {
     }
 
     apply() {
-        document.addEventListener('click', this.clickHandler, true);
+        activeDocument.addEventListener('click', this.clickHandler, true);
 
         // 监听 DOM 变化：Mermaid 图表是异步渲染的，SVG 在笔记打开后才插入
         this.mutationObs = new MutationObserver((mutations) => {
@@ -43,17 +43,17 @@ export class MermaidZoomManager {
                 }
             }
         });
-        this.mutationObs.observe(document.body, { childList: true, subtree: true });
+        this.mutationObs.observe(activeDocument.body, { childList: true, subtree: true });
 
         // 处理已存在的图表
-        document.querySelectorAll<HTMLElement>('.mermaid').forEach(el => this.scheduleMarkOverflow(el));
+        activeDocument.querySelectorAll<HTMLElement>('.mermaid').forEach(el => this.scheduleMarkOverflow(el));
     }
 
     remove() {
-        document.removeEventListener('click', this.clickHandler, true);
+        activeDocument.removeEventListener('click', this.clickHandler, true);
         this.mutationObs?.disconnect();
         this.mutationObs = null;
-        document.querySelectorAll<HTMLElement>('.mermaid').forEach(el => {
+        activeDocument.querySelectorAll<HTMLElement>('.mermaid').forEach(el => {
             el.classList.remove('mermaid-fit-view', 'mermaid-overflows');
         });
     }

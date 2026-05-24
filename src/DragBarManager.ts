@@ -30,24 +30,24 @@ export class DragBarManager {
 		if (!tabsEl) return;
 
 		// 创建拖拽区
-		this.dragBar = document.createElement('div');
+		this.dragBar = createDiv();
 		this.dragBar.className = 'minimalism-ui-drag-bar';
 
 		// Row 1: title + status bar
-		const row1 = document.createElement('div');
+		const row1 = createDiv();
 		row1.className = 'minimalism-ui-drag-bar-row1';
 		this.dragBar.appendChild(row1);
 
-		const titleEl = document.createElement('span');
+		const titleEl = createSpan();
 		titleEl.className = 'minimalism-ui-drag-bar-title';
 		row1.appendChild(titleEl);
 
-		const countEl = document.createElement('span');
+		const countEl = createSpan();
 		countEl.className = 'minimalism-ui-drag-bar-count';
 		titleEl.appendChild(countEl);
 
 		// Breadcrumb replaces filename text, lives inline inside titleEl
-		const breadcrumbEl = document.createElement('div');
+		const breadcrumbEl = createDiv();
 		breadcrumbEl.className = 'minimalism-ui-drag-bar-breadcrumb';
 		titleEl.appendChild(breadcrumbEl);
 
@@ -83,12 +83,12 @@ export class DragBarManager {
 			el.innerHTML = '';
 			names.forEach((name, i) => {
 				if (i > 0) {
-					const sep = document.createElement('span');
+					const sep = createSpan();
 					sep.className = 'minimalism-ui-breadcrumb-sep';
 					sep.textContent = '/';
 					el.appendChild(sep);
 				}
-				const item = document.createElement('span');
+				const item = createSpan();
 				item.className = i === names.length - 1
 					? 'minimalism-ui-breadcrumb-item is-current'
 					: 'minimalism-ui-breadcrumb-item';
@@ -100,27 +100,27 @@ export class DragBarManager {
 		const renderCompact = (el: HTMLElement, names: string[], collapsedCount: number) => {
 			el.innerHTML = '';
 
-			const first = document.createElement('span');
+			const first = createSpan();
 			first.className = 'minimalism-ui-breadcrumb-item';
 			first.textContent = names[0];
 			el.appendChild(first);
 
-			const sep1 = document.createElement('span');
+			const sep1 = createSpan();
 			sep1.className = 'minimalism-ui-breadcrumb-sep';
 			sep1.textContent = '/';
 			el.appendChild(sep1);
 
-			const collapse = document.createElement('span');
+			const collapse = createSpan();
 			collapse.className = 'minimalism-ui-breadcrumb-collapse';
 			collapse.textContent = `···${collapsedCount}···`;
 			el.appendChild(collapse);
 
-			const sep2 = document.createElement('span');
+			const sep2 = createSpan();
 			sep2.className = 'minimalism-ui-breadcrumb-sep';
 			sep2.textContent = '/';
 			el.appendChild(sep2);
 
-			const last = document.createElement('span');
+			const last = createSpan();
 			last.className = 'minimalism-ui-breadcrumb-item is-current';
 			last.textContent = names[names.length - 1];
 			el.appendChild(last);
@@ -130,7 +130,7 @@ export class DragBarManager {
 			breadcrumbEl.innerHTML = '';
 			const activeFile = this.app.workspace.getActiveFile();
 			if (!activeFile) return;
-			const item = document.createElement('span');
+			const item = createSpan();
 			item.className = 'minimalism-ui-breadcrumb-item is-current';
 			item.textContent = LeafNameUtils.stripPrefix(activeFile.basename, this.getSettings().filenamePrefixLength);
 			breadcrumbEl.appendChild(item);
@@ -174,7 +174,7 @@ export class DragBarManager {
 		this.app.workspace.on('active-leaf-change', updateBreadcrumb);
 
 		// 将 status-bar 搬入 row1 右侧
-		const statusBar = document.querySelector<HTMLElement>('.status-bar');
+		const statusBar = activeDocument.querySelector<HTMLElement>('.status-bar');
 		if (statusBar) {
 			this.statusBarOriginalParent = statusBar.parentElement;
 			this.statusBarOriginalNextSibling = statusBar.nextElementSibling;
@@ -201,7 +201,7 @@ export class DragBarManager {
 		}
 		// 还原 status-bar 到原始位置
 		if (this.statusBarOriginalParent) {
-			const statusBar = document.querySelector<HTMLElement>('.status-bar');
+			const statusBar = activeDocument.querySelector<HTMLElement>('.status-bar');
 			if (statusBar) {
 				if (this.statusBarOriginalNextSibling) {
 					this.statusBarOriginalParent.insertBefore(statusBar, this.statusBarOriginalNextSibling);

@@ -44,14 +44,13 @@
   .markdown-source-view.mod-cm6 .cm-content td {
     border: 1px solid lightgray;
     padding: 6px 6px;
-    padding: auto;
     text-align: left;
     font-size: 0.8rem;
   }
 
   .markdown-preview-view th,
   .markdown-source-view.mod-cm6 .cm-content th {
-    background-color: #DDE0E7 !important;
+    background-color: #DDE0E7;
   }
 }
 

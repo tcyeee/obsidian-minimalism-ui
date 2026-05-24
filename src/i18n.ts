@@ -98,7 +98,7 @@ export function setLang(lang: 'auto' | 'zh' | 'en') {
 
 function detectLang(): Lang {
 	if (langOverride) return langOverride;
-	const lang = document.documentElement.lang?.slice(0, 2) ?? 'en';
+	const lang = activeDocument.documentElement.lang?.slice(0, 2) ?? 'en';
 	return (lang in translations ? lang : 'en') as Lang;
 }
 

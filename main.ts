@@ -64,7 +64,7 @@ export default class MinimalismUIPlugin extends Plugin {
 
 	onunload() {
 		setLang('auto');
-		document.body.classList.remove(
+		activeDocument.body.classList.remove(
 			'minimalism-ui-mac-sidebar',
 			'minimalism-ui-hide-tab-bar',
 			'minimalism-ui-disable-pin',
@@ -72,7 +72,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			'minimalism-ui-disable-note-tabs',
 			'minimalism-ui-note-style',
 		);
-		for (const font of this.loadedFonts) (document.fonts as unknown as MutableFontFaceSet).delete(font);
+		for (const font of this.loadedFonts) (activeDocument.fonts as unknown as MutableFontFaceSet).delete(font);
 		this.loadedFonts = [];
 		this.singlePage.remove();
 		this.tabCache.remove();
@@ -94,7 +94,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	// ─── Body Classes ─────────────────────────────────────────────────────────
 
 	applyBodyClasses() {
-		const cls = document.body.classList;
+		const cls = activeDocument.body.classList;
 		cls.toggle('minimalism-ui-mac-sidebar', this.settings.macSidebar);
 		cls.toggle('minimalism-ui-hide-tab-bar', this.settings.hideTabBar);
 		cls.toggle('minimalism-ui-disable-pin', this.settings.disablePinTab);
@@ -130,7 +130,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		const face = new FontFace(family, `url('${this.fontPath(file)}')`, desc);
 		try {
 			await face.load();
-			(document.fonts as unknown as MutableFontFaceSet).add(face);
+			(activeDocument.fonts as unknown as MutableFontFaceSet).add(face);
 			this.loadedFonts.push(face);
 		} catch {
 			// 字体文件不存在时静默跳过

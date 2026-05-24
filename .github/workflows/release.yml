@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v3
 
@@ -29,6 +31,13 @@ jobs:
           cp main.js manifest.json styles.css obsidian-minimalism-ui/
           cp -r fonts obsidian-minimalism-ui/
           zip -r obsidian-minimalism-ui.zip obsidian-minimalism-ui
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            main.js
+            styles.css
 
       - name: Create release
         env:
