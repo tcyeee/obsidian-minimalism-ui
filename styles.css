@@ -114,17 +114,17 @@ body.minimalism-ui-mac-sidebar .workspace-tabs[data-properties-auto-height] {
 }
 
 /* 属性栏分割线 */
+/* TODO 这里如果不加上important效果就会被覆盖,但是加上就会被obsidian的检查警告 */
 body.minimalism-ui-mac-sidebar .workspace-leaf-resize-handle {
-	border: none;
-	border-top: 1px dashed rgba(255, 255, 255, 0.15);
-	background: transparent;
-	background-color: #123342;
+	border: none !important;
+	border-top: 1px dashed rgba(255, 255, 255, 0.15) !important;
 }
 
 /* 侧边栏底部 vault profile 背景色 */
+/* TODO 这里如果不加上important效果就会被覆盖,但是加上就会被obsidian的检查警告 */
 body.minimalism-ui-mac-sidebar .workspace-sidedock-vault-profile {
-	background-color: #123342;
-	border-top:none;
+	background-color: #123342 !important;
+	border-top:none !important;
 }
 
 /* 内容区背景透明，露出侧边栏底色 */
@@ -299,16 +299,18 @@ body.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .min
 }
 
 /* 设置按钮：去掉边框和背景 */
+/* TODO 这里如果不加上important效果就会被覆盖,但是加上就会被obsidian的检查警告 */
 body.minimalism-ui-mac-sidebar .minimalism-ui-injected-graph .graph-controls {
-	background: transparent;
-	border: none;
-	box-shadow: none;
+	background: transparent !important;
+	border: none !important;
+	box-shadow: none !important;
 }
 
 /* 设置面板展开时：深色背景，比侧边栏 #1B3241 更深 */
+/* TODO 这里如果不加上important效果就会被覆盖,但是加上就会被obsidian的检查警告 */
 body.minimalism-ui-mac-sidebar .minimalism-ui-injected-graph .graph-controls:not(.is-close) {
-	background: #0f1e2b;
-	border-radius: 6px;
+	background: #0f1e2b !important;
+	border-radius: 6px !important;
 }
 
 /* 去掉设置项的下边框 */
