@@ -3,7 +3,7 @@
    macOS 原生风格 · 左侧固定信息面板
    ============================================================================= */
 
-.workspace .minimalism-ui-is-hidden { display: none; }
+.workspace-split.mod-left-split .minimalism-ui-is-hidden { display: none; }
 
 /* ── 内嵌字体：JetBrains Mono NL（由 main.ts 通过 FontFace API 注册） ── */
 /* CSS url() 在 Obsidian 插件中受安全策略限制，字体文件通过 JS 程序化加载，此处无需声明 @font-face */
@@ -91,6 +91,11 @@ body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split * {
 	color: rgba(196, 196, 196, 0.88);
 }
 
+/* 隐藏左侧边栏各 panel 之间的拖拽分隔条 */
+body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-leaf-resize-handle {
+	display: none;
+}
+
 /* 隐藏 Properties 面板每条信息间的分割线 */
 body.minimalism-ui-mac-sidebar .metadata-content .metadata-property-key,
 body.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value {
@@ -113,18 +118,11 @@ body.minimalism-ui-mac-sidebar .workspace-tabs[data-properties-auto-height] {
 	overflow: hidden;
 }
 
-/* 属性栏分割线 */
-/* TODO 这里如果不加上important效果就会被覆盖,但是加上就会被obsidian的检查警告 */
-body.minimalism-ui-mac-sidebar .workspace-leaf-resize-handle {
-	border: none !important;
-	border-top: 1px dashed rgba(255, 255, 255, 0.15) !important;
-}
-
 /* 侧边栏底部 vault profile 背景色 */
-/* TODO 这里如果不加上important效果就会被覆盖,但是加上就会被obsidian的检查警告 */
-body.minimalism-ui-mac-sidebar .workspace-sidedock-vault-profile {
-	background-color: #123342 !important;
-	border-top:none !important;
+/* 通过叠加父级类名提升 specificity，避免使用 !important */
+body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-sidedock-vault-profile {
+	background-color: #123342;
+	border-top: none;
 }
 
 /* 内容区背景透明，露出侧边栏底色 */
@@ -301,16 +299,16 @@ body.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .min
 /* 设置按钮：去掉边框和背景 */
 /* TODO 这里如果不加上important效果就会被覆盖,但是加上就会被obsidian的检查警告 */
 body.minimalism-ui-mac-sidebar .minimalism-ui-injected-graph .graph-controls {
-	background: transparent !important;
-	border: none !important;
-	box-shadow: none !important;
+	background: transparent;
+	border: none;
+	box-shadow: none;
 }
 
 /* 设置面板展开时：深色背景，比侧边栏 #1B3241 更深 */
 /* TODO 这里如果不加上important效果就会被覆盖,但是加上就会被obsidian的检查警告 */
 body.minimalism-ui-mac-sidebar .minimalism-ui-injected-graph .graph-controls:not(.is-close) {
-	background: #0f1e2b !important;
-	border-radius: 6px !important;
+	background: #0f1e2b;
+	border-radius: 6px;
 }
 
 /* 去掉设置项的下边框 */
@@ -951,18 +949,18 @@ body.minimalism-ui-note-style .el-table table {
 }
 
 .minimalism-ui-note-style .markdown-reading-view table thead,
-.minimalism-ui-note-style .cm-editor table thead {
+.minimalism-ui-note-style .table-wrapper table.table-editor thead {
 	font-weight: 900;
 	background-color: rgba(0, 153, 123, 0.03);
 }
 
 .minimalism-ui-note-style .markdown-reading-view table tr:nth-child(even),
-.minimalism-ui-note-style .cm-editor table tr:nth-child(even) {
+.minimalism-ui-note-style .table-wrapper table.table-editor tr:nth-child(even) {
 	background-color: rgba(0, 153, 123, 0.03);
 }
 
 .minimalism-ui-note-style .markdown-reading-view table tbody tr,
-.minimalism-ui-note-style .cm-editor table tbody tr {
+.minimalism-ui-note-style .table-wrapper table.table-editor tbody tr {
 	border-bottom: 1px solid #DADCDE;
 }
 
@@ -970,8 +968,8 @@ body.minimalism-ui-note-style .el-table table {
 body.minimalism-ui-note-style .markdown-reading-view table th,
 body.minimalism-ui-note-style .markdown-reading-view table td,
 body.minimalism-ui-note-style .markdown-reading-view .el-table .ltr,
-body.minimalism-ui-note-style .cm-editor table th,
-body.minimalism-ui-note-style .cm-editor table td {
+body.minimalism-ui-note-style .table-wrapper table.table-editor th,
+body.minimalism-ui-note-style .table-wrapper table.table-editor td {
 	font-family: 'JetBrains Mono', -apple-system, sans-serif;
 	font-size: calc(var(--font-text-size, 16px) - 3px);
 	color: rgb(107, 107, 107);
@@ -980,19 +978,33 @@ body.minimalism-ui-note-style .cm-editor table td {
 /* 所有单元格：内边距 + 列分隔线（左边框，首列除外） */
 body.minimalism-ui-note-style .markdown-reading-view table th,
 body.minimalism-ui-note-style .markdown-reading-view table td,
-body.minimalism-ui-note-style .markdown-reading-view .el-table .ltr,
-body.minimalism-ui-note-style .cm-editor table th,
-body.minimalism-ui-note-style .cm-editor table td {
+body.minimalism-ui-note-style .markdown-reading-view .el-table .ltr {
 	padding: 10px 13px;
 	border-left: 1px solid #DADCDE;
+}
+
+/* 编辑模式：.table-editor 是 table 元素本身的 class，需用 table.table-editor 匹配 */
+body.minimalism-ui-note-style .table-wrapper table.table-editor th,
+body.minimalism-ui-note-style .table-wrapper table.table-editor td {
+	padding: 10px 13px;
+	border-left: 1px solid #DADCDE;
+}
+
+
+/* 聚焦单元格内的 CM 编辑器字体大小与未聚焦单元格保持一致 */
+body.minimalism-ui-note-style .table-wrapper table.table-editor td .cm-editor,
+body.minimalism-ui-note-style .table-wrapper table.table-editor td .cm-editor .cm-content,
+body.minimalism-ui-note-style .table-wrapper table.table-editor td .cm-editor .cm-line,
+body.minimalism-ui-note-style .table-wrapper table.table-editor td .cm-editor .cm-scroller {
+	font-size: calc(var(--font-text-size, 16px) - 3px);
 }
 
 /* 首列去掉左边框（由 el-table 外边框提供） */
 body.minimalism-ui-note-style .markdown-reading-view table th:first-of-type,
 body.minimalism-ui-note-style .markdown-reading-view table td:first-of-type,
 body.minimalism-ui-note-style .markdown-reading-view .el-table .ltr:first-of-type,
-body.minimalism-ui-note-style .cm-editor table th:first-of-type,
-body.minimalism-ui-note-style .cm-editor table td:first-of-type {
+body.minimalism-ui-note-style .table-wrapper table.table-editor th:first-of-type,
+body.minimalism-ui-note-style .table-wrapper table.table-editor td:first-of-type {
 	border-left: none;
 }
 
@@ -1000,8 +1012,8 @@ body.minimalism-ui-note-style .cm-editor table td:first-of-type {
 body.minimalism-ui-note-style .markdown-reading-view table th:last-of-type,
 body.minimalism-ui-note-style .markdown-reading-view table td:last-of-type,
 body.minimalism-ui-note-style .markdown-reading-view .el-table .ltr:last-of-type,
-body.minimalism-ui-note-style .cm-editor table th:last-of-type,
-body.minimalism-ui-note-style .cm-editor table td:last-of-type {
+body.minimalism-ui-note-style .table-wrapper table.table-editor th:last-of-type,
+body.minimalism-ui-note-style .table-wrapper table.table-editor td:last-of-type {
 	border-right: none;
 }
 
@@ -1009,23 +1021,23 @@ body.minimalism-ui-note-style .cm-editor table td:last-of-type {
 body.minimalism-ui-note-style .markdown-reading-view table thead tr:first-of-type th,
 body.minimalism-ui-note-style .markdown-reading-view table tr:first-of-type td,
 body.minimalism-ui-note-style .markdown-reading-view table tr:first-of-type th,
-body.minimalism-ui-note-style .cm-editor table thead tr:first-of-type th,
-body.minimalism-ui-note-style .cm-editor table tr:first-of-type td,
-body.minimalism-ui-note-style .cm-editor table tr:first-of-type th {
+body.minimalism-ui-note-style .table-wrapper table.table-editor thead tr:first-of-type th,
+body.minimalism-ui-note-style .table-wrapper table.table-editor tr:first-of-type td,
+body.minimalism-ui-note-style .table-wrapper table.table-editor tr:first-of-type th {
 	border-top: none;
 }
 
 /* 末行单元格去掉底边框（由 el-table 外边框提供） */
 body.minimalism-ui-note-style .markdown-reading-view table tbody tr:last-of-type td,
 body.minimalism-ui-note-style .markdown-reading-view table tbody tr:last-of-type th,
-body.minimalism-ui-note-style .cm-editor table tbody tr:last-of-type td,
-body.minimalism-ui-note-style .cm-editor table tbody tr:last-of-type th {
+body.minimalism-ui-note-style .table-wrapper table.table-editor tbody tr:last-of-type td,
+body.minimalism-ui-note-style .table-wrapper table.table-editor tbody tr:last-of-type th {
 	border-bottom: none;
 }
 
 /* tr 级别的末行底边框也去掉 */
 body.minimalism-ui-note-style .markdown-reading-view table tbody tr:last-of-type,
-body.minimalism-ui-note-style .cm-editor table tbody tr:last-of-type {
+body.minimalism-ui-note-style .table-wrapper table.table-editor tbody tr:last-of-type {
 	border-bottom: none;
 }
 
