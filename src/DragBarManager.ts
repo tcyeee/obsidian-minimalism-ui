@@ -8,7 +8,6 @@ const COMPACT_THRESHOLD = 15;
 
 export class DragBarManager {
 	private dragBar: HTMLElement | null = null;
-	private countHandler: (() => void) | null = null;
 	private breadcrumbHandler: (() => void) | null = null;
 	private layoutHandler: (() => void) | null = null;
 	private renameHandler: ((file: TAbstractFile) => void) | null = null;
@@ -42,9 +41,10 @@ export class DragBarManager {
 		titleEl.className = 'minimalism-ui-drag-bar-title';
 		row1.appendChild(titleEl);
 
-		const countEl = createSpan();
-		countEl.className = 'minimalism-ui-drag-bar-count';
-		titleEl.appendChild(countEl);
+		// 面包屑前的装饰小圆点（不再显示 tab 数量）
+		const dotEl = createSpan();
+		dotEl.className = 'minimalism-ui-drag-bar-count';
+		titleEl.appendChild(dotEl);
 
 		// Breadcrumb replaces filename text, lives inline inside titleEl
 		const breadcrumbEl = createDiv();
@@ -52,16 +52,6 @@ export class DragBarManager {
 		titleEl.appendChild(breadcrumbEl);
 
 		tabsEl.insertBefore(this.dragBar, tabsEl.firstChild);
-
-		// 更新 tab 计数徽章
-		const updateCount = () => {
-			let count = 0;
-			this.app.workspace.iterateRootLeaves(() => { count++; });
-			countEl.textContent = String(count);
-		};
-		updateCount();
-		this.countHandler = updateCount;
-		this.app.workspace.on('active-leaf-change', updateCount);
 
 		this.renameHandler = (file: TAbstractFile) => {
 			if (file === this.app.workspace.getActiveFile()) updateBreadcrumb();
@@ -74,7 +64,6 @@ export class DragBarManager {
 			const rootEl2 = (this.app.workspace.rootSplit as unknown as WorkspaceSplitInternal).containerEl;
 			const tabsEl2 = rootEl2.querySelector<HTMLElement>('.workspace-tabs');
 			if (tabsEl2) tabsEl2.insertBefore(this.dragBar, tabsEl2.firstChild);
-			updateCount();
 		};
 		this.app.workspace.on('layout-change', this.layoutHandler);
 
@@ -183,10 +172,6 @@ export class DragBarManager {
 	}
 
 	remove() {
-		if (this.countHandler) {
-			this.app.workspace.off('active-leaf-change', this.countHandler);
-			this.countHandler = null;
-		}
 		if (this.breadcrumbHandler) {
 			this.app.workspace.off('active-leaf-change', this.breadcrumbHandler);
 			this.breadcrumbHandler = null;

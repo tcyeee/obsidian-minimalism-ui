@@ -577,7 +577,6 @@ var DragBarManager = class {
     this.getSettings = getSettings;
     this.navHistoryGetter = navHistoryGetter;
     this.dragBar = null;
-    this.countHandler = null;
     this.breadcrumbHandler = null;
     this.layoutHandler = null;
     this.renameHandler = null;
@@ -598,23 +597,13 @@ var DragBarManager = class {
     const titleEl = createSpan();
     titleEl.className = "minimalism-ui-drag-bar-title";
     row1.appendChild(titleEl);
-    const countEl = createSpan();
-    countEl.className = "minimalism-ui-drag-bar-count";
-    titleEl.appendChild(countEl);
+    const dotEl = createSpan();
+    dotEl.className = "minimalism-ui-drag-bar-count";
+    titleEl.appendChild(dotEl);
     const breadcrumbEl = createDiv();
     breadcrumbEl.className = "minimalism-ui-drag-bar-breadcrumb";
     titleEl.appendChild(breadcrumbEl);
     tabsEl.insertBefore(this.dragBar, tabsEl.firstChild);
-    const updateCount = () => {
-      let count = 0;
-      this.app.workspace.iterateRootLeaves(() => {
-        count++;
-      });
-      countEl.textContent = String(count);
-    };
-    updateCount();
-    this.countHandler = updateCount;
-    this.app.workspace.on("active-leaf-change", updateCount);
     this.renameHandler = (file) => {
       if (file === this.app.workspace.getActiveFile()) updateBreadcrumb();
     };
@@ -624,7 +613,6 @@ var DragBarManager = class {
       const rootEl2 = this.app.workspace.rootSplit.containerEl;
       const tabsEl2 = rootEl2.querySelector(".workspace-tabs");
       if (tabsEl2) tabsEl2.insertBefore(this.dragBar, tabsEl2.firstChild);
-      updateCount();
     };
     this.app.workspace.on("layout-change", this.layoutHandler);
     const renderAll = (el, names) => {
@@ -713,10 +701,6 @@ var DragBarManager = class {
     }
   }
   remove() {
-    if (this.countHandler) {
-      this.app.workspace.off("active-leaf-change", this.countHandler);
-      this.countHandler = null;
-    }
     if (this.breadcrumbHandler) {
       this.app.workspace.off("active-leaf-change", this.breadcrumbHandler);
       this.breadcrumbHandler = null;
