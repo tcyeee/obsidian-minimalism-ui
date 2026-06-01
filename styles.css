@@ -363,6 +363,7 @@ body.minimalism-ui-disable-note-tabs .workspace-split.mod-root .workspace-tab-he
 	overflow: hidden;
 	max-width: 50%;
 	position: relative;
+	top: 2px;
 	display: flex;
 	align-items: center;
 	gap: 6px;
