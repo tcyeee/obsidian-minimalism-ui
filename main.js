@@ -27,7 +27,7 @@ __export(main_exports, {
   default: () => MinimalismUIPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian5 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 
 // src/settings.ts
 var DEFAULT_SETTINGS = {
@@ -48,7 +48,188 @@ var DEFAULT_SETTINGS = {
 };
 
 // src/TabCacheManager.ts
+var import_obsidian2 = require("obsidian");
+
+// src/NavigationHistory.ts
 var import_obsidian = require("obsidian");
+var NavigationHistory = class {
+  constructor(app, getSettings, activateOrOpen) {
+    this.app = app;
+    this.getSettings = getSettings;
+    this.activateOrOpen = activateOrOpen;
+    this.history = [];
+    this.future = [];
+    // 当前正在执行的后退/前进目标路径，用于阻止 record 将该激活记录为新导航
+    this.jumpPath = null;
+    // tab 关闭后 Obsidian 自动激活下一个 leaf 会触发 active-leaf-change，该标志阻止其被记录为新导航
+    this.isClosingTab = false;
+    this.timer = null;
+    this.pendingAnimationCls = null;
+    this.animEndListeners = /* @__PURE__ */ new WeakMap();
+  }
+  getHistory() {
+    return this.history;
+  }
+  isEmpty() {
+    return this.history.length === 0;
+  }
+  canGoBack() {
+    return this.history.length >= 2;
+  }
+  canGoForward() {
+    return this.future.length > 0;
+  }
+  // apply() 中途启用时用当前文件兜底初始化，避免首次后退因历史为空而静默失败
+  seed(filePath) {
+    if (this.history.length === 0) this.history.push(filePath);
+  }
+  // active-leaf-change 触发时记录导航历史。检查顺序严格固定：
+  //   ① jumpPath 匹配——我们自己发起的后退/前进不应再次入栈
+  //   ② isClosingTab——tab 关闭后的自动激活不应入栈
+  //   ③ 路径去重 + 写入
+  // 调用方（TabCacheManager）须先确认这是 root leaf 且有 filePath，再调用本方法，
+  // 否则一次性标志会被侧边栏等无关激活提前消耗。
+  record(filePath) {
+    if (this.jumpPath !== null && filePath === this.jumpPath) {
+      this.jumpPath = null;
+      this.isClosingTab = false;
+      return;
+    }
+    if (this.isClosingTab) {
+      this.isClosingTab = false;
+      return;
+    }
+    this.push(filePath);
+  }
+  // 将文件路径写入 history（幂等：已是末尾则跳过，同时清除 forward 历史）
+  push(filePath) {
+    const last = this.history[this.history.length - 1];
+    if (last === filePath) return;
+    this.history.push(filePath);
+    this.future = [];
+  }
+  // 笔记重命名时同步更新 history / future 中的路径，防止旧路径导致后退/前进跳过该条目
+  handleRename(oldPath, newPath) {
+    this.history = this.history.map((p) => p === oldPath ? newPath : p);
+    this.future = this.future.map((p) => p === oldPath ? newPath : p);
+    if (this.jumpPath === oldPath) this.jumpPath = newPath;
+  }
+  back() {
+    this.cancelTimer();
+    while (this.history.length >= 2) {
+      const prevPath = this.history[this.history.length - 2];
+      const file = this.app.vault.getAbstractFileByPath(prevPath);
+      if (!(file instanceof import_obsidian.TFile)) {
+        this.history.splice(this.history.length - 2, 1);
+        continue;
+      }
+      const current = this.history.pop();
+      this.future.unshift(current);
+      this.jumpPath = prevPath;
+      this.pendingAnimationCls = "minimalism-ui-slide-from-left";
+      this.scheduleActivate(prevPath);
+      return;
+    }
+  }
+  forward() {
+    this.cancelTimer();
+    while (this.future.length > 0) {
+      const nextPath = this.future.shift();
+      const file = this.app.vault.getAbstractFileByPath(nextPath);
+      if (!(file instanceof import_obsidian.TFile)) continue;
+      this.history.push(nextPath);
+      this.jumpPath = nextPath;
+      this.pendingAnimationCls = "minimalism-ui-slide-from-right";
+      this.scheduleActivate(nextPath);
+      return;
+    }
+  }
+  // tab 关闭时调用：从 history 移除该路径的最后一次出现，使历史指针与实际位置一致；
+  // 设置 isClosingTab 阻止关闭后的自动激活被记为新导航；并主动跳转到 history 顶部，
+  // 让用户落在上一篇笔记而非 Obsidian 任意选择的相邻 leaf。
+  // future 不修改：关闭 tab 不影响前进历史，已关闭的文件路径仍可通过前进重新打开。
+  onTabClosing(closingPath) {
+    if (closingPath) {
+      const idx = this.history.lastIndexOf(closingPath);
+      if (idx !== -1) this.history.splice(idx, 1);
+    }
+    this.isClosingTab = true;
+    const prevPath = this.history[this.history.length - 1];
+    if (prevPath) {
+      this.jumpPath = prevPath;
+      this.scheduleActivate(prevPath);
+    }
+  }
+  // 前进/后退导航完成后，对已显示的目标 leaf 播放入场动画
+  animate(leaf) {
+    if (!this.pendingAnimationCls || !leaf) return;
+    const cls = this.pendingAnimationCls;
+    this.pendingAnimationCls = null;
+    if (!this.getSettings().enableNavAnimation) return;
+    requestAnimationFrame(() => {
+      var _a;
+      const el = (_a = leaf.view) == null ? void 0 : _a.contentEl;
+      if (!el) return;
+      el.classList.remove("minimalism-ui-slide-from-left", "minimalism-ui-slide-from-right");
+      requestAnimationFrame(() => {
+        const oldListener = this.animEndListeners.get(el);
+        if (oldListener) el.removeEventListener("animationend", oldListener);
+        const listener = () => el.classList.remove(cls);
+        el.addEventListener("animationend", listener, { once: true });
+        this.animEndListeners.set(el, listener);
+        el.classList.add(cls);
+      });
+    });
+  }
+  dispose() {
+    this.cancelTimer();
+    this.pendingAnimationCls = null;
+    this.isClosingTab = false;
+    this.jumpPath = null;
+  }
+  cancelTimer() {
+    if (this.timer !== null) {
+      activeWindow.clearTimeout(this.timer);
+      this.timer = null;
+    }
+  }
+  // 用 setTimeout(0) 推入新 task，彻底脱离当前渲染管线，
+  // 避免 setActiveLeaf 在 rAF/ResizeObserver 阶段触发布局，产生 loop 错误。
+  // 取消上一次尚未执行的 timer，防止连续点击时多个激活并发触发。
+  scheduleActivate(path) {
+    this.cancelTimer();
+    this.timer = activeWindow.setTimeout(() => {
+      this.timer = null;
+      this.activateOrOpen(path);
+    }, 0);
+  }
+};
+
+// src/ResizeObserverErrorSuppressor.ts
+var ResizeObserverErrorSuppressor = class {
+  constructor() {
+    this.handler = null;
+  }
+  apply() {
+    this.remove();
+    this.handler = (e) => {
+      if (e.message === "ResizeObserver loop completed with undelivered notifications.") {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("error", this.handler, true);
+  }
+  remove() {
+    if (this.handler) {
+      window.removeEventListener("error", this.handler, true);
+      this.handler = null;
+    }
+  }
+};
+
+// src/TabCacheManager.ts
+var MAX_CACHED_TABS = 30;
 var TabCacheManager = class {
   constructor(app, getSettings) {
     this.app = app;
@@ -57,22 +238,10 @@ var TabCacheManager = class {
     this.isReusingLeaf = false;
     this.isEvicting = false;
     this.originalGetLeaf = null;
-    // 导航历史存储文件路径，与 leaf 生命周期完全解耦
-    this.navHistory = [];
-    this.navFuture = [];
-    // 当前正在执行的后退/前进目标路径，用于阻止 navTrackHandler 将该激活记录为新导航
-    this.navJumpPath = null;
-    this.tabLimitHandler = null;
-    this.navTrackHandler = null;
-    this.navAnimateHandler = null;
-    this.pendingAnimationCls = null;
-    // tab 关闭后 Obsidian 自动激活下一个 leaf 会触发 active-leaf-change，该标志阻止其被记录为新导航
-    this._isClosingTab = false;
-    this.navTimer = null;
-    this.animEndListeners = /* @__PURE__ */ new WeakMap();
-    this.resizeObserverErrHandler = null;
+    this.resizeErrSuppressor = new ResizeObserverErrorSuppressor();
+    this.activeLeafChangeHandler = null;
     this.historyPatches = /* @__PURE__ */ new Map();
-    // root leaf detach 补丁：触发时设置 _isClosingTab，覆盖所有关闭路径（CMD+W、右键、X 按钮）
+    // root leaf detach 补丁：触发时通知 nav 并清理 patch 注册表，覆盖所有关闭路径（CMD+W、右键、X 按钮）
     this.rootDetachPatches = /* @__PURE__ */ new Map();
     this.origGoBack = null;
     this.origGoForward = null;
@@ -84,18 +253,13 @@ var TabCacheManager = class {
     this.sidebarDetachPatches = /* @__PURE__ */ new Map();
     this.sidebarLayoutChangeHandler = null;
     this.renameHandler = null;
+    this.nav = new NavigationHistory(app, getSettings, (path) => this.activateOrOpenFile(path));
   }
   apply() {
     var _a, _b;
     this.remove();
     this.leafQueue = [];
-    this.resizeObserverErrHandler = (e) => {
-      if (e.message === "ResizeObserver loop completed with undelivered notifications.") {
-        e.stopImmediatePropagation();
-        e.preventDefault();
-      }
-    };
-    window.addEventListener("error", this.resizeObserverErrHandler, true);
+    this.resizeErrSuppressor.apply();
     if (!this.getSettings().disableNoteTabs) return;
     const ws = this.app.workspace;
     this.originalGetLeaf = ws.getLeaf.bind(ws);
@@ -108,74 +272,12 @@ var TabCacheManager = class {
       }
       return this.originalGetLeaf(newLeaf);
     };
-    this.tabLimitHandler = () => {
-      if (this.isEvicting) return;
-      const active = this.app.workspace.getMostRecentLeaf();
-      if (!active) return;
-      this.leafQueue = this.leafQueue.filter((l) => l !== active);
-      this.leafQueue.push(active);
-      const rootLeaves = [];
-      this.app.workspace.iterateRootLeaves((l) => rootLeaves.push(l));
-      this.leafQueue = this.leafQueue.filter((l) => rootLeaves.includes(l));
-      const max = 30;
-      if (this.leafQueue.length > max) {
-        this.isEvicting = true;
-        try {
-          while (this.leafQueue.length > max) {
-            this.leafQueue.shift().detach();
-          }
-        } finally {
-          this.isEvicting = false;
-        }
-      }
+    this.activeLeafChangeHandler = (leaf) => {
+      this.handleTabLimit();
+      this.handleNavTrack(leaf);
+      this.nav.animate(leaf);
     };
-    this.app.workspace.on("active-leaf-change", this.tabLimitHandler);
-    this.navTrackHandler = (leaf) => {
-      var _a2, _b2;
-      if (!leaf) return;
-      let isRootLeaf = false;
-      this.app.workspace.iterateRootLeaves((l) => {
-        if (l === leaf) isRootLeaf = true;
-      });
-      if (!isRootLeaf) return;
-      const filePath = (_b2 = (_a2 = leaf.view) == null ? void 0 : _a2.file) == null ? void 0 : _b2.path;
-      if (!filePath) return;
-      if (this.navJumpPath !== null && filePath === this.navJumpPath) {
-        this.navJumpPath = null;
-        this._isClosingTab = false;
-        return;
-      }
-      if (this._isClosingTab) {
-        this._isClosingTab = false;
-        return;
-      }
-      const last = this.navHistory[this.navHistory.length - 1];
-      if (last === filePath) return;
-      this.navHistory.push(filePath);
-      this.navFuture = [];
-    };
-    this.app.workspace.on("active-leaf-change", this.navTrackHandler);
-    this.navAnimateHandler = (leaf) => {
-      if (!this.pendingAnimationCls || !leaf) return;
-      const cls = this.pendingAnimationCls;
-      this.pendingAnimationCls = null;
-      if (!this.getSettings().enableNavAnimation) return;
-      requestAnimationFrame(() => {
-        var _a2;
-        const el = (_a2 = leaf.view) == null ? void 0 : _a2.contentEl;
-        if (!el) return;
-        el.classList.remove("minimalism-ui-slide-from-left", "minimalism-ui-slide-from-right");
-        requestAnimationFrame(() => {
-          const oldListener = this.animEndListeners.get(el);
-          if (oldListener) el.removeEventListener("animationend", oldListener);
-          const listener = () => el.classList.remove(cls);
-          el.addEventListener("animationend", listener, { once: true });
-          this.animEndListeners.set(el, listener);
-          el.classList.add(cls);
-        });
-      });
-    };
-    this.app.workspace.on("active-leaf-change", this.navAnimateHandler);
+    this.app.workspace.on("active-leaf-change", this.activeLeafChangeHandler);
     this.app.workspace.iterateRootLeaves((leaf) => {
       this.patchLeafHistory(leaf);
       this.patchRootLeafDetach(leaf);
@@ -185,9 +287,9 @@ var TabCacheManager = class {
     if (mostRecent) {
       this.leafQueue = this.leafQueue.filter((l) => l !== mostRecent);
       this.leafQueue.push(mostRecent);
-      if (this.navHistory.length === 0) {
+      if (this.nav.isEmpty()) {
         const seedPath = (_b = (_a = mostRecent.view) == null ? void 0 : _a.file) == null ? void 0 : _b.path;
-        if (seedPath) this.navHistory.push(seedPath);
+        if (seedPath) this.nav.seed(seedPath);
       }
     }
     const appCmds = this.app.commands.commands;
@@ -197,8 +299,8 @@ var TabCacheManager = class {
       this.origGoBack = { callback: backCmd.callback, checkCallback: backCmd.checkCallback };
       delete backCmd.callback;
       backCmd.checkCallback = (checking) => {
-        if (checking) return this.navHistory.length >= 2;
-        this.navigateBack();
+        if (checking) return this.nav.canGoBack();
+        this.nav.back();
         return true;
       };
     }
@@ -206,17 +308,14 @@ var TabCacheManager = class {
       this.origGoForward = { callback: fwdCmd.callback, checkCallback: fwdCmd.checkCallback };
       delete fwdCmd.callback;
       fwdCmd.checkCallback = (checking) => {
-        if (checking) return this.navFuture.length > 0;
-        this.navigateForward();
+        if (checking) return this.nav.canGoForward();
+        this.nav.forward();
         return true;
       };
     }
     this.renameHandler = (file, oldPath) => {
-      if (!(file instanceof import_obsidian.TFile)) return;
-      const newPath = file.path;
-      this.navHistory = this.navHistory.map((p) => p === oldPath ? newPath : p);
-      this.navFuture = this.navFuture.map((p) => p === oldPath ? newPath : p);
-      if (this.navJumpPath === oldPath) this.navJumpPath = newPath;
+      if (!(file instanceof import_obsidian2.TFile)) return;
+      this.nav.handleRename(oldPath, file.path);
     };
     this.app.vault.on("rename", this.renameHandler);
     if (this.getSettings().disablePinTab) {
@@ -230,28 +329,12 @@ var TabCacheManager = class {
       this.app.workspace.getLeaf = this.originalGetLeaf;
       this.originalGetLeaf = null;
     }
-    if (this.tabLimitHandler) {
-      this.app.workspace.off("active-leaf-change", this.tabLimitHandler);
-      this.tabLimitHandler = null;
+    if (this.activeLeafChangeHandler) {
+      this.app.workspace.off("active-leaf-change", this.activeLeafChangeHandler);
+      this.activeLeafChangeHandler = null;
     }
-    if (this.navTrackHandler) {
-      this.app.workspace.off("active-leaf-change", this.navTrackHandler);
-      this.navTrackHandler = null;
-    }
-    if (this.navAnimateHandler) {
-      this.app.workspace.off("active-leaf-change", this.navAnimateHandler);
-      this.navAnimateHandler = null;
-    }
-    this.pendingAnimationCls = null;
-    this._isClosingTab = false;
-    if (this.navTimer !== null) {
-      activeWindow.clearTimeout(this.navTimer);
-      this.navTimer = null;
-    }
-    if (this.resizeObserverErrHandler) {
-      window.removeEventListener("error", this.resizeObserverErrHandler, true);
-      this.resizeObserverErrHandler = null;
-    }
+    this.nav.dispose();
+    this.resizeErrSuppressor.remove();
     this.unpatchAllLeafHistories();
     this.unpatchAllRootLeafDetaches();
     const appCmds = this.app.commands.commands;
@@ -286,7 +369,6 @@ var TabCacheManager = class {
     }
     this.sidebarDetachPatches.clear();
     this.leafQueue = [];
-    this.navJumpPath = null;
     this.pendingInterceptLeaves.clear();
   }
   // 检查指定 leaf 是否正处于等待 openFile 的 pending 状态
@@ -295,7 +377,65 @@ var TabCacheManager = class {
     return this.pendingInterceptLeaves.has(leaf);
   }
   getNavHistory() {
-    return this.navHistory;
+    return this.nav.getHistory();
+  }
+  // LRU：将当前 leaf 移到队尾（最近使用），清理已销毁的 leaf，淘汰超出上限的最旧 leaf。
+  // isEvicting 防止 detach() 触发的 active-leaf-change 引发重入。
+  handleTabLimit() {
+    if (this.isEvicting) return;
+    const active = this.app.workspace.getMostRecentLeaf();
+    if (!active) return;
+    this.leafQueue = this.leafQueue.filter((l) => l !== active);
+    this.leafQueue.push(active);
+    const rootLeaves = [];
+    this.app.workspace.iterateRootLeaves((l) => rootLeaves.push(l));
+    this.leafQueue = this.leafQueue.filter((l) => rootLeaves.includes(l));
+    if (this.leafQueue.length > MAX_CACHED_TABS) {
+      this.isEvicting = true;
+      try {
+        while (this.leafQueue.length > MAX_CACHED_TABS) {
+          this.leafQueue.shift().detach();
+        }
+      } finally {
+        this.isEvicting = false;
+      }
+    }
+  }
+  // 记录跨 tab 导航历史：只对 root leaf 且有 filePath 的激活生效，再交给 nav 处理一次性标志与去重。
+  // root leaf 判断必须先于 nav.record，防止侧边栏等无关激活提前消耗 nav 的一次性标志。
+  handleNavTrack(leaf) {
+    var _a, _b;
+    if (!leaf) return;
+    let isRootLeaf = false;
+    this.app.workspace.iterateRootLeaves((l) => {
+      if (l === leaf) isRootLeaf = true;
+    });
+    if (!isRootLeaf) return;
+    const filePath = (_b = (_a = leaf.view) == null ? void 0 : _a.file) == null ? void 0 : _b.path;
+    if (!filePath) return;
+    this.nav.record(filePath);
+  }
+  // 激活已显示目标路径的 root leaf；若无（已被 LRU 淘汰或手动关闭）则重新打开该文件。
+  // 供 NavigationHistory 的 back/forward/onTabClosing 回调调用，收敛此前散落 4 处的重复逻辑。
+  activateOrOpenFile(path) {
+    let targetLeaf = null;
+    this.app.workspace.iterateRootLeaves((l) => {
+      var _a, _b;
+      if (!targetLeaf && ((_b = (_a = l.view) == null ? void 0 : _a.file) == null ? void 0 : _b.path) === path) targetLeaf = l;
+    });
+    if (targetLeaf) {
+      this.app.workspace.setActiveLeaf(targetLeaf, { focus: true });
+      return;
+    }
+    if (!this.originalGetLeaf) return;
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof import_obsidian2.TFile)) return;
+    const newLeaf = this.originalGetLeaf("tab");
+    this.patchLeafHistory(newLeaf);
+    this.patchRootLeafDetach(newLeaf);
+    void newLeaf.openFile(file).then(() => {
+      this.app.workspace.setActiveLeaf(newLeaf, { focus: true });
+    });
   }
   // 对新建的空 leaf 注入一次性 openFile 拦截器：
   // 在文件实际加载前检查缓存，若已有相同文件的 leaf 则直接复用，避免闪烁
@@ -332,93 +472,10 @@ var TabCacheManager = class {
       this.patchRootLeafDetach(leaf);
       const result = await origOpenFile(file, state);
       if (leaf.parent) {
-        this.addToNavHistory(file.path);
+        this.nav.push(file.path);
       }
       return result;
     };
-  }
-  // 将文件路径写入 navHistory（幂等：已是末尾则跳过，同时清除 forward 历史）
-  addToNavHistory(filePath) {
-    const last = this.navHistory[this.navHistory.length - 1];
-    if (last === filePath) return;
-    this.navHistory.push(filePath);
-    this.navFuture = [];
-  }
-  navigateBack() {
-    if (this.navTimer !== null) {
-      activeWindow.clearTimeout(this.navTimer);
-      this.navTimer = null;
-    }
-    while (this.navHistory.length >= 2) {
-      const prevPath = this.navHistory[this.navHistory.length - 2];
-      const file = this.app.vault.getAbstractFileByPath(prevPath);
-      if (!(file instanceof import_obsidian.TFile)) {
-        this.navHistory.splice(this.navHistory.length - 2, 1);
-        continue;
-      }
-      const current = this.navHistory.pop();
-      this.navFuture.unshift(current);
-      let targetLeaf = null;
-      this.app.workspace.iterateRootLeaves((l) => {
-        var _a, _b;
-        if (!targetLeaf && ((_b = (_a = l.view) == null ? void 0 : _a.file) == null ? void 0 : _b.path) === prevPath) targetLeaf = l;
-      });
-      this.navJumpPath = prevPath;
-      this.pendingAnimationCls = "minimalism-ui-slide-from-left";
-      if (targetLeaf) {
-        const leaf = targetLeaf;
-        this.navTimer = activeWindow.setTimeout(() => {
-          this.navTimer = null;
-          this.app.workspace.setActiveLeaf(leaf, { focus: true });
-        }, 0);
-      } else {
-        this.navTimer = activeWindow.setTimeout(async () => {
-          this.navTimer = null;
-          const newLeaf = this.originalGetLeaf("tab");
-          this.patchLeafHistory(newLeaf);
-          this.patchRootLeafDetach(newLeaf);
-          await newLeaf.openFile(file);
-          this.app.workspace.setActiveLeaf(newLeaf, { focus: true });
-        }, 0);
-      }
-      return;
-    }
-  }
-  navigateForward() {
-    if (this.navTimer !== null) {
-      activeWindow.clearTimeout(this.navTimer);
-      this.navTimer = null;
-    }
-    while (this.navFuture.length > 0) {
-      const nextPath = this.navFuture.shift();
-      const file = this.app.vault.getAbstractFileByPath(nextPath);
-      if (!(file instanceof import_obsidian.TFile)) continue;
-      this.navHistory.push(nextPath);
-      let targetLeaf = null;
-      this.app.workspace.iterateRootLeaves((l) => {
-        var _a, _b;
-        if (!targetLeaf && ((_b = (_a = l.view) == null ? void 0 : _a.file) == null ? void 0 : _b.path) === nextPath) targetLeaf = l;
-      });
-      this.navJumpPath = nextPath;
-      this.pendingAnimationCls = "minimalism-ui-slide-from-right";
-      if (targetLeaf) {
-        const leaf = targetLeaf;
-        this.navTimer = activeWindow.setTimeout(() => {
-          this.navTimer = null;
-          this.app.workspace.setActiveLeaf(leaf, { focus: true });
-        }, 0);
-      } else {
-        this.navTimer = activeWindow.setTimeout(async () => {
-          this.navTimer = null;
-          const newLeaf = this.originalGetLeaf("tab");
-          this.patchLeafHistory(newLeaf);
-          this.patchRootLeafDetach(newLeaf);
-          await newLeaf.openFile(file);
-          this.app.workspace.setActiveLeaf(newLeaf, { focus: true });
-        }, 0);
-      }
-      return;
-    }
   }
   patchLeafHistory(leaf) {
     var _a, _b;
@@ -428,10 +485,10 @@ var TabCacheManager = class {
     const origForward = history.forward.bind(history);
     const origCanGoBack = (_a = history.canGoBack) == null ? void 0 : _a.bind(history);
     const origCanGoForward = (_b = history.canGoForward) == null ? void 0 : _b.bind(history);
-    history.back = () => this.navigateBack();
-    history.forward = () => this.navigateForward();
-    history.canGoBack = () => this.navHistory.length >= 2;
-    history.canGoForward = () => this.navFuture.length > 0;
+    history.back = () => this.nav.back();
+    history.forward = () => this.nav.forward();
+    history.canGoBack = () => this.nav.canGoBack();
+    history.canGoForward = () => this.nav.canGoForward();
     this.historyPatches.set(leaf, { back: origBack, forward: origForward, canGoBack: origCanGoBack, canGoForward: origCanGoForward });
   }
   unpatchAllLeafHistories() {
@@ -447,11 +504,9 @@ var TabCacheManager = class {
     this.historyPatches.clear();
   }
   // root leaf detach 补丁：通过捕获所有关闭路径（CMD+W、右键、X 按钮、API 调用）
-  // 在 detach 前执行两件事：
-  //   1. 从 navHistory 移除该文件路径的最后一次出现，使历史指针与实际位置保持一致
-  //   2. 设置 _isClosingTab，阻止 navTrackHandler 将关闭后的自动激活记录为新导航
-  // isReusingLeaf / isEvicting 为 true 时豁免：属于插件内部操作而非用户关闭 tab
-  // navFuture 不修改：关闭 tab 不影响前进历史，已关闭的文件路径仍可通过前进重新打开
+  // 在 detach 前通知 nav（移除历史条目、设置关闭标志、跳转到历史顶部），
+  // detach 后从 patch 注册表移除该 leaf，避免已销毁 leaf 在 Map 中无限累积（内存泄漏）。
+  // isReusingLeaf / isEvicting 为 true 时豁免 nav 通知：属于插件内部操作而非用户关闭 tab。
   patchRootLeafDetach(leaf) {
     if (this.rootDetachPatches.has(leaf)) return;
     const original = leaf.detach.bind(leaf);
@@ -459,41 +514,11 @@ var TabCacheManager = class {
       var _a, _b;
       if (!this.isReusingLeaf && !this.isEvicting) {
         const closingPath = (_b = (_a = leaf.view) == null ? void 0 : _a.file) == null ? void 0 : _b.path;
-        if (closingPath) {
-          const idx = this.navHistory.lastIndexOf(closingPath);
-          if (idx !== -1) this.navHistory.splice(idx, 1);
-        }
-        this._isClosingTab = true;
-        const prevPath = this.navHistory[this.navHistory.length - 1];
-        if (prevPath) {
-          this.navJumpPath = prevPath;
-          if (this.navTimer !== null) {
-            activeWindow.clearTimeout(this.navTimer);
-            this.navTimer = null;
-          }
-          this.navTimer = activeWindow.setTimeout(async () => {
-            this.navTimer = null;
-            let targetLeaf = null;
-            this.app.workspace.iterateRootLeaves((l) => {
-              var _a2, _b2;
-              if (!targetLeaf && ((_b2 = (_a2 = l.view) == null ? void 0 : _a2.file) == null ? void 0 : _b2.path) === prevPath) targetLeaf = l;
-            });
-            if (targetLeaf) {
-              this.app.workspace.setActiveLeaf(targetLeaf, { focus: true });
-            } else if (this.originalGetLeaf) {
-              const file = this.app.vault.getAbstractFileByPath(prevPath);
-              if (file instanceof import_obsidian.TFile) {
-                const newLeaf = this.originalGetLeaf("tab");
-                this.patchLeafHistory(newLeaf);
-                this.patchRootLeafDetach(newLeaf);
-                await newLeaf.openFile(file);
-                this.app.workspace.setActiveLeaf(newLeaf, { focus: true });
-              }
-            }
-          }, 0);
-        }
+        this.nav.onTabClosing(closingPath);
       }
       original();
+      this.rootDetachPatches.delete(leaf);
+      this.historyPatches.delete(leaf);
     };
     this.rootDetachPatches.set(leaf, original);
   }
@@ -531,7 +556,7 @@ var TabCacheManager = class {
     if (!path) return;
     if (activeDocument.querySelector(".modal-container")) return;
     const file = this.app.vault.getAbstractFileByPath(path);
-    if (!(file instanceof import_obsidian.TFile)) return;
+    if (!(file instanceof import_obsidian2.TFile)) return;
     this._isOpeningHomePage = true;
     try {
       const leaf = this.app.workspace.getLeaf(false);
@@ -558,7 +583,7 @@ var TabCacheManager = class {
 };
 
 // src/DragBarManager.ts
-var import_obsidian2 = require("obsidian");
+var import_obsidian3 = require("obsidian");
 
 // src/utils.ts
 var LeafNameUtils = class {
@@ -675,7 +700,7 @@ var DragBarManager = class {
       }
       const names = paths.map((p) => {
         const f = this.app.vault.getAbstractFileByPath(p);
-        return f instanceof import_obsidian2.TFile ? LeafNameUtils.stripPrefix(f.basename, prefixLen) : LeafNameUtils.stripPrefix(p, prefixLen);
+        return f instanceof import_obsidian3.TFile ? LeafNameUtils.stripPrefix(f.basename, prefixLen) : LeafNameUtils.stripPrefix(p, prefixLen);
       });
       if (paths.length > COMPACT_THRESHOLD) {
         renderCompact(breadcrumbEl, names, names.length - 2);
@@ -793,7 +818,7 @@ var SinglePageManager = class {
 };
 
 // src/SidebarLayoutManager.ts
-var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 var SidebarLayoutManager = class {
   constructor(app, getSettings, tabCache) {
     this.app = app;
@@ -1074,7 +1099,7 @@ var SidebarLayoutManager = class {
    */
   collectLeavesFromItem(item) {
     if (!item || typeof item !== "object") return [];
-    if (item instanceof import_obsidian3.WorkspaceLeaf) return [item];
+    if (item instanceof import_obsidian4.WorkspaceLeaf) return [item];
     const children = item.children;
     if (!Array.isArray(children)) return [];
     return children.flatMap((child) => this.collectLeavesFromItem(child));
@@ -1147,7 +1172,7 @@ var MermaidZoomManager = class {
 };
 
 // src/SettingTab.ts
-var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 
 // src/i18n.ts
 var translations = {
@@ -1235,7 +1260,7 @@ function t(key) {
 }
 
 // src/SettingTab.ts
-var FileSuggest = class extends import_obsidian4.AbstractInputSuggest {
+var FileSuggest = class extends import_obsidian5.AbstractInputSuggest {
   constructor() {
     super(...arguments);
     this.onPickCb = null;
@@ -1257,7 +1282,7 @@ var FileSuggest = class extends import_obsidian4.AbstractInputSuggest {
     this.close();
   }
 };
-var MinimalismUISettingTab = class extends import_obsidian4.PluginSettingTab {
+var MinimalismUISettingTab = class extends import_obsidian5.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -1265,14 +1290,14 @@ var MinimalismUISettingTab = class extends import_obsidian4.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian4.Setting(containerEl).setName(t("language")).addDropdown((drop) => drop.addOption("auto", t("languageAuto")).addOption("zh", t("languageZh")).addOption("en", t("languageEn")).setValue(this.plugin.settings.language).onChange(async (v) => {
+    new import_obsidian5.Setting(containerEl).setName(t("language")).addDropdown((drop) => drop.addOption("auto", t("languageAuto")).addOption("zh", t("languageZh")).addOption("en", t("languageEn")).setValue(this.plugin.settings.language).onChange(async (v) => {
       this.plugin.settings.language = v;
       setLang(v);
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian4.Setting(containerEl).setName(t("headingAppearance")).setHeading();
-    new import_obsidian4.Setting(containerEl).setName(t("macSidebar")).setDesc(t("macSidebarDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.macSidebar).onChange(async (v) => {
+    new import_obsidian5.Setting(containerEl).setName(t("headingAppearance")).setHeading();
+    new import_obsidian5.Setting(containerEl).setName(t("macSidebar")).setDesc(t("macSidebarDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.macSidebar).onChange(async (v) => {
       this.plugin.settings.macSidebar = v;
       await this.plugin.saveSettings();
       this.plugin.applyBodyClasses();
@@ -1280,26 +1305,26 @@ var MinimalismUISettingTab = class extends import_obsidian4.PluginSettingTab {
       showLocalGraphSetting.settingEl.toggle(v);
       await this.plugin.applyMacSidebarLayout();
     }));
-    const showPropertiesSetting = new import_obsidian4.Setting(containerEl).setName(t("showProperties")).setDesc(t("showPropertiesDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showProperties).onChange(async (v) => {
+    const showPropertiesSetting = new import_obsidian5.Setting(containerEl).setName(t("showProperties")).setDesc(t("showPropertiesDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showProperties).onChange(async (v) => {
       this.plugin.settings.showProperties = v;
       await this.plugin.saveSettings();
       await this.plugin.applyMacSidebarLayout();
     }));
     showPropertiesSetting.settingEl.addClass("minimalism-ui-sub-setting");
     showPropertiesSetting.settingEl.toggle(this.plugin.settings.macSidebar);
-    const showLocalGraphSetting = new import_obsidian4.Setting(containerEl).setName(t("showLocalGraph")).setDesc(t("showLocalGraphDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showLocalGraph).onChange(async (v) => {
+    const showLocalGraphSetting = new import_obsidian5.Setting(containerEl).setName(t("showLocalGraph")).setDesc(t("showLocalGraphDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showLocalGraph).onChange(async (v) => {
       this.plugin.settings.showLocalGraph = v;
       await this.plugin.saveSettings();
       await this.plugin.applyMacSidebarLayout();
     }));
     showLocalGraphSetting.settingEl.addClass("minimalism-ui-sub-setting");
     showLocalGraphSetting.settingEl.toggle(this.plugin.settings.macSidebar);
-    new import_obsidian4.Setting(containerEl).setName(t("hideTabBar")).setDesc(t("hideTabBarDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
+    new import_obsidian5.Setting(containerEl).setName(t("hideTabBar")).setDesc(t("hideTabBarDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
       this.plugin.settings.hideTabBar = v;
       this.plugin.settings.simplifyPanel = v;
       await this.plugin.saveSettings();
     }));
-    const noteStyleSetting = new import_obsidian4.Setting(containerEl).setName(t("noteStyle")).addToggle((toggle) => toggle.setValue(this.plugin.settings.noteStyle).onChange(async (v) => {
+    const noteStyleSetting = new import_obsidian5.Setting(containerEl).setName(t("noteStyle")).addToggle((toggle) => toggle.setValue(this.plugin.settings.noteStyle).onChange(async (v) => {
       this.plugin.settings.noteStyle = v;
       await this.plugin.saveSettings();
     }));
@@ -1308,8 +1333,8 @@ var MinimalismUISettingTab = class extends import_obsidian4.PluginSettingTab {
     noteStyleList.createEl("li", { text: t("noteStyleItem1") });
     noteStyleList.createEl("li", { text: t("noteStyleItem2") });
     noteStyleList.createEl("li", { text: t("noteStyleItem3") });
-    new import_obsidian4.Setting(containerEl).setName(t("headingInteraction")).setHeading();
-    const singlePageSetting = new import_obsidian4.Setting(containerEl).setName(t("singlePage"));
+    new import_obsidian5.Setting(containerEl).setName(t("headingInteraction")).setHeading();
+    const singlePageSetting = new import_obsidian5.Setting(containerEl).setName(t("singlePage"));
     singlePageSetting.settingEl.addClass("minimalism-ui-single-page-setting");
     singlePageSetting.addToggle((toggle) => toggle.setValue(this.plugin.settings.disableNoteTabs).onChange(async (v) => {
       this.plugin.settings.disableNoteTabs = v;
@@ -1323,7 +1348,7 @@ var MinimalismUISettingTab = class extends import_obsidian4.PluginSettingTab {
     singlePageSetting.descEl.createEl("br");
     singlePageSetting.descEl.createSpan({ text: t("singlePageDesc3") });
     singlePageSetting.descEl.createEl("br");
-    new import_obsidian4.Setting(containerEl).setName(t("homePage")).setDesc(t("homePageDesc")).addText((text) => {
+    new import_obsidian5.Setting(containerEl).setName(t("homePage")).setDesc(t("homePageDesc")).addText((text) => {
       text.setPlaceholder(t("homePagePlaceholder")).setValue(this.plugin.settings.homePage);
       new FileSuggest(this.app, text.inputEl).onPick((path) => {
         this.plugin.settings.homePage = path;
@@ -1334,11 +1359,11 @@ var MinimalismUISettingTab = class extends import_obsidian4.PluginSettingTab {
         void this.plugin.saveSettings();
       });
     });
-    new import_obsidian4.Setting(containerEl).setName(t("navAnimation")).setDesc(t("navAnimationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
+    new import_obsidian5.Setting(containerEl).setName(t("navAnimation")).setDesc(t("navAnimationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
       this.plugin.settings.enableNavAnimation = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian4.Setting(containerEl).setName(t("filenamePrefixLength")).setDesc(t("filenamePrefixLengthDesc")).addText((text) => {
+    new import_obsidian5.Setting(containerEl).setName(t("filenamePrefixLength")).setDesc(t("filenamePrefixLengthDesc")).addText((text) => {
       text.inputEl.type = "number";
       text.inputEl.min = "0";
       text.inputEl.max = "20";
@@ -1352,7 +1377,7 @@ var MinimalismUISettingTab = class extends import_obsidian4.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian4.Setting(containerEl).setName(t("showBreadcrumb")).setDesc(t("showBreadcrumbDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showBreadcrumb).onChange(async (v) => {
+    new import_obsidian5.Setting(containerEl).setName(t("showBreadcrumb")).setDesc(t("showBreadcrumbDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showBreadcrumb).onChange(async (v) => {
       this.plugin.settings.showBreadcrumb = v;
       await this.plugin.saveSettings();
     }));
@@ -1360,7 +1385,7 @@ var MinimalismUISettingTab = class extends import_obsidian4.PluginSettingTab {
 };
 
 // main.ts
-var MinimalismUIPlugin = class extends import_obsidian5.Plugin {
+var MinimalismUIPlugin = class extends import_obsidian6.Plugin {
   constructor() {
     super(...arguments);
     this.loadedFonts = [];
