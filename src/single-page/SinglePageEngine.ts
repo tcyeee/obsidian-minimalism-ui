@@ -33,6 +33,7 @@ import { MinimalismUISettings } from '../core/settings';
 import { AnimationClass, GLOBAL_GRAPH_KEY, NavigationHistory } from './NavigationHistory';
 import { ResizeObserverErrorSuppressor } from './ResizeObserverErrorSuppressor';
 import { LeafCache } from './LeafCache';
+import { GraphSidebarManager } from './GraphSidebarManager';
 
 type WorkspaceInternal = {
 	getLeaf: (newLeaf?: boolean | string) => WorkspaceLeaf;
@@ -69,6 +70,7 @@ export class SinglePageEngine {
 	private originalGetLeaf: ((newLeaf?: boolean | string) => WorkspaceLeaf) | null = null;
 	private nav: NavigationHistory;
 	private leafCache: LeafCache;
+	private graphSidebar: GraphSidebarManager;
 	private resizeErrSuppressor = new ResizeObserverErrorSuppressor();
 	private activeLeafChangeHandler: ((leaf: WorkspaceLeaf | null) => void) | null = null;
 	private historyPatches = new Map<WorkspaceLeaf, HistoryPatch>();
@@ -89,6 +91,7 @@ export class SinglePageEngine {
 	) {
 		this.nav = new NavigationHistory(app, getSettings, (path, animCls) => this.activateOrOpenFile(path, animCls));
 		this.leafCache = new LeafCache(app);
+		this.graphSidebar = new GraphSidebarManager(app);
 	}
 
 	apply() {
@@ -143,6 +146,8 @@ export class SinglePageEngine {
 				if (this.nav.isEmpty()) this.nav.seed(seedKey);
 				// 初始化当前活动 root leaf 键，避免首次后退时把“当前页”误判为无文件视图而原地重激活。
 				this.nav.markActiveRoot(seedKey);
+				// mid-session 启用时若当前就停在全局关系图上，同步收起左侧边栏，保持行为一致。
+				this.graphSidebar.handleRootNav(seedKey);
 			}
 		}
 
@@ -177,6 +182,8 @@ export class SinglePageEngine {
 		}
 		this.leafCache.reset();
 		this.pendingInterceptLeaves.clear();
+		// 若卸载 / 关闭单页模式时仍停在关系图上，恢复左侧边栏到进入前状态，避免残留收起状态。
+		this.graphSidebar.reset();
 	}
 
 	// 检查指定 leaf 是否正处于等待 openFile 的 pending 状态
@@ -204,6 +211,9 @@ export class SinglePageEngine {
 		if (!isRootLeaf) return;
 
 		const navKey = this.navKeyForLeaf(leaf);
+		// 进入/离开全局关系图时自动收起 / 恢复左侧边栏。在此处(已过 isRootLeaf 守卫)调用，
+		// 保证只对真正的 root 页面切换生效，侧边栏点击 / 过场空 leaf 不会误触发。
+		this.graphSidebar.handleRootNav(navKey);
 		// 先同步“当前活动 root leaf 路径”（无文件且非关系图的视图传 null），
 		// nav 据此判断后退时当前显示是否就是历史栈顶；必须先于 record（record 仅处理可入栈的条目）。
 		this.nav.markActiveRoot(navKey);

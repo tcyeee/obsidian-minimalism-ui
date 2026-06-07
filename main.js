@@ -462,6 +462,45 @@ var LeafCache = class {
   }
 };
 
+// src/single-page/GraphSidebarManager.ts
+var GraphSidebarManager = class {
+  constructor(app) {
+    this.app = app;
+    // 进入关系图前左侧边栏是否收起；null 表示当前不在关系图模式。
+    this.savedCollapsed = null;
+  }
+  get leftSplit() {
+    var _a;
+    return (_a = this.app.workspace.leftSplit) != null ? _a : null;
+  }
+  // 由引擎在 root leaf 切换时调用，navKey 为该 root leaf 的导航键(无文件视图为 null)。
+  handleRootNav(navKey) {
+    const isGraph = navKey === GLOBAL_GRAPH_KEY;
+    if (isGraph) {
+      this.enterGraph();
+    } else {
+      this.leaveGraph();
+    }
+  }
+  enterGraph() {
+    if (this.savedCollapsed !== null) return;
+    const split = this.leftSplit;
+    if (!split) return;
+    this.savedCollapsed = split.collapsed;
+    if (!split.collapsed) split.collapse();
+  }
+  leaveGraph() {
+    if (this.savedCollapsed === null) return;
+    const split = this.leftSplit;
+    if (split && this.savedCollapsed === false && split.collapsed) split.expand();
+    this.savedCollapsed = null;
+  }
+  // 插件卸载 / 关闭单页模式时调用：若仍在关系图模式，恢复到进入前状态，保证无残留。
+  reset() {
+    this.leaveGraph();
+  }
+};
+
 // src/single-page/SinglePageEngine.ts
 var SinglePageEngine = class {
   constructor(app, getSettings) {
@@ -484,6 +523,7 @@ var SinglePageEngine = class {
     this.renameHandler = null;
     this.nav = new NavigationHistory(app, getSettings, (path, animCls) => this.activateOrOpenFile(path, animCls));
     this.leafCache = new LeafCache(app);
+    this.graphSidebar = new GraphSidebarManager(app);
   }
   apply() {
     this.remove();
@@ -517,6 +557,7 @@ var SinglePageEngine = class {
       if (seedKey) {
         if (this.nav.isEmpty()) this.nav.seed(seedKey);
         this.nav.markActiveRoot(seedKey);
+        this.graphSidebar.handleRootNav(seedKey);
       }
     }
     this.nav.patchCommands();
@@ -546,6 +587,7 @@ var SinglePageEngine = class {
     }
     this.leafCache.reset();
     this.pendingInterceptLeaves.clear();
+    this.graphSidebar.reset();
   }
   // 检查指定 leaf 是否正处于等待 openFile 的 pending 状态
   // 供外部（HomePageManager）判断：若为 pending 则不应触发首页跳转
@@ -570,6 +612,7 @@ var SinglePageEngine = class {
     });
     if (!isRootLeaf) return;
     const navKey = this.navKeyForLeaf(leaf);
+    this.graphSidebar.handleRootNav(navKey);
     this.nav.markActiveRoot(navKey);
     if (!navKey) return;
     this.nav.record(navKey);
