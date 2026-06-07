@@ -1,6 +1,6 @@
 import { App, EventRef, WorkspaceLeaf } from 'obsidian';
-import { MinimalismUISettings } from './settings';
-import { TabCacheManager } from './TabCacheManager';
+import { MinimalismUISettings } from '../core/settings';
+import { PinManager } from '../tabs/PinManager';
 
 type WorkspaceSidedock = { collapsed: boolean; expand(): void; children?: unknown[] };
 
@@ -46,7 +46,7 @@ export class SidebarLayoutManager {
 	constructor(
 		private app: App,
 		private getSettings: () => MinimalismUISettings,
-		private tabCache: TabCacheManager,
+		private pinManager: PinManager,
 	) { }
 
 	// ── Public ────────────────────────────────────────────────────────────────
@@ -337,8 +337,8 @@ export class SidebarLayoutManager {
 	 *
 	 * Results from all three are de-duplicated via a Set before detaching.
 	 *
-	 * NOTE: TabCacheManager patches leaf.detach() for sidebar leaves when disablePinTab
-	 * is enabled. We bypass this via tabCache.forceDetachLeaf().
+	 * NOTE: PinManager patches leaf.detach() for sidebar leaves when disablePinTab
+	 * is enabled. We bypass this via pinManager.forceDetachLeaf().
 	 */
 	clearLeftSidebar() {
 		const { workspace } = this.app;
@@ -358,7 +358,7 @@ export class SidebarLayoutManager {
 			}
 		});
 
-		// Detach collected leaves, bypassing any SinglePageManager pin-block patch
+		// Detach collected leaves, bypassing any PinManager pin-block patch
 		for (const leaf of all) {
 			try { this.forceDetach(leaf); } catch { /* leaf may already be detached */ }
 		}
@@ -376,7 +376,7 @@ export class SidebarLayoutManager {
 	}
 
 	private forceDetach(leaf: WorkspaceLeaf) {
-		this.tabCache.forceDetachLeaf(leaf);
+		this.pinManager.forceDetachLeaf(leaf);
 	}
 
 	/**

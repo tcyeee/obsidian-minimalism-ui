@@ -7,18 +7,29 @@
  *
  * 同时负责前进/后退完成后的入场滑入动画（双重 rAF 推迟到渲染后再加 class）。
  *
- * 与 TabCacheManager 的协作边界：
+ * 与 SinglePageEngine 的协作边界：
  * - 本类只持有“文件路径”，不直接新建/激活 leaf；定位与打开 leaf 由 `activateOrOpen` 回调完成。
- * - 一次性标志 `jumpPath` / `isClosingTab` 都内聚在本类，由 TabCacheManager 在相应时机调用
+ * - 一次性标志 `jumpPath` / `isClosingTab` 都内聚在本类，由 SinglePageEngine 在相应时机调用
  *   `record` / `onTabClosing` 触发，避免标志散落在多个模块。
  */
 import { App, TFile, WorkspaceLeaf } from 'obsidian';
-import { MinimalismUISettings } from './settings';
+import { MinimalismUISettings } from '../core/settings';
 
 type AnimationClass = 'minimalism-ui-slide-from-left' | 'minimalism-ui-slide-from-right';
 
 type LeafView = WorkspaceLeaf & {
 	view?: { contentEl?: HTMLElement };
+};
+
+type ObsidianCommand = {
+	callback?: () => void;
+	checkCallback?: (checking: boolean) => boolean | void;
+};
+
+type AppInternal = App & {
+	commands: {
+		commands: Record<string, ObsidianCommand>;
+	};
 };
 
 export class NavigationHistory {
@@ -31,11 +42,13 @@ export class NavigationHistory {
 	private timer: number | null = null;
 	private pendingAnimationCls: AnimationClass | null = null;
 	private animEndListeners = new WeakMap<Element, () => void>();
+	private origGoBack: ObsidianCommand | null = null;
+	private origGoForward: ObsidianCommand | null = null;
 
 	constructor(
 		private app: App,
 		private getSettings: () => MinimalismUISettings,
-		// 激活已显示目标路径的 root leaf；若无则重新打开该文件（由 TabCacheManager 提供）
+		// 激活已显示目标路径的 root leaf；若无则重新打开该文件（由 SinglePageEngine 提供）
 		private activateOrOpen: (path: string) => void,
 	) { }
 
@@ -64,7 +77,7 @@ export class NavigationHistory {
 	//   ① jumpPath 匹配——我们自己发起的后退/前进不应再次入栈
 	//   ② isClosingTab——tab 关闭后的自动激活不应入栈
 	//   ③ 路径去重 + 写入
-	// 调用方（TabCacheManager）须先确认这是 root leaf 且有 filePath，再调用本方法，
+	// 调用方（SinglePageEngine）须先确认这是 root leaf 且有 filePath，再调用本方法，
 	// 否则一次性标志会被侧边栏等无关激活提前消耗。
 	record(filePath: string) {
 		if (this.jumpPath !== null && filePath === this.jumpPath) {
@@ -183,6 +196,57 @@ export class NavigationHistory {
 		this.pendingAnimationCls = null;
 		this.isClosingTab = false;
 		this.jumpPath = null;
+	}
+
+	// Patch 内置的 app:go-back / app:go-forward command，
+	// 使快捷键在焦点位于 OUTLINE / PROPERTIES 等侧边栏面板时同样生效。
+	// Obsidian 热键系统在 document 层全局触发 command，不受焦点限制；
+	// 唯一有焦点依赖的是 command 内部的 getActiveLeaf()?.history.back/forward()，
+	// 替换 callback 与 checkCallback 两个入口，直接调用我们的导航方法即可解决。
+	patchCommands() {
+		const appCmds = (this.app as unknown as AppInternal).commands.commands;
+		const backCmd = appCmds['app:go-back'];
+		const fwdCmd = appCmds['app:go-forward'];
+		if (backCmd) {
+			this.origGoBack = { callback: backCmd.callback, checkCallback: backCmd.checkCallback };
+			delete backCmd.callback;
+			backCmd.checkCallback = (checking: boolean) => {
+				if (checking) return this.canGoBack();
+				this.back();
+				return true;
+			};
+		}
+		if (fwdCmd) {
+			this.origGoForward = { callback: fwdCmd.callback, checkCallback: fwdCmd.checkCallback };
+			delete fwdCmd.callback;
+			fwdCmd.checkCallback = (checking: boolean) => {
+				if (checking) return this.canGoForward();
+				this.forward();
+				return true;
+			};
+		}
+	}
+
+	unpatchCommands() {
+		const appCmds = (this.app as unknown as AppInternal).commands.commands;
+		if (this.origGoBack) {
+			const cmd = appCmds['app:go-back'];
+			if (cmd) {
+				delete cmd.checkCallback;
+				if (this.origGoBack.callback) cmd.callback = this.origGoBack.callback;
+				if (this.origGoBack.checkCallback) cmd.checkCallback = this.origGoBack.checkCallback;
+			}
+			this.origGoBack = null;
+		}
+		if (this.origGoForward) {
+			const cmd = appCmds['app:go-forward'];
+			if (cmd) {
+				delete cmd.checkCallback;
+				if (this.origGoForward.callback) cmd.callback = this.origGoForward.callback;
+				if (this.origGoForward.checkCallback) cmd.checkCallback = this.origGoForward.checkCallback;
+			}
+			this.origGoForward = null;
+		}
 	}
 
 	private cancelTimer() {

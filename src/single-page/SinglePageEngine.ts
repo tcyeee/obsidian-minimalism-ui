@@ -1,13 +1,15 @@
 /**
- * TabCacheManager — 单页模式的核心协调器
+ * SinglePageEngine — 单页模式的核心引擎
+ *
+ * 不变量：**一个文件 ⇄ 一个 leaf**，并受 LRU 上限约束；导航栈与 leaf 生命周期解耦。
  *
  * 职责：
  * 1. **getLeaf 拦截** — monkey-patch `workspace.getLeaf()`，将所有常规导航强制走新建 tab 路径，
  *    再注入一次性 `openFile` 拦截器，在文件实际加载前查重：若 workspace 中已有同路径 leaf，
  *    直接激活复用，丢弃空 leaf，避免重复打开与闪烁。
  *
- * 2. **LRU 淘汰** — 监听 `active-leaf-change`，维护 `leafQueue`（最近使用排末尾），
- *    超出 `MAX_CACHED_TABS` 时 detach 最旧 leaf。
+ * 2. **LRU 淘汰** — 委托给 {@link LeafCache}：`active-leaf-change` 时调用其 `trackActive()`，
+ *    维护最近使用队列并在超额时 detach 最旧 leaf。
  *
  * 3. **跨 tab 导航栈** — 委托给 {@link NavigationHistory}：patch 每个 leaf 的
  *    `history.back/forward/canGoBack/canGoForward`，以及内置命令 `app:go-back` /
@@ -16,7 +18,10 @@
  *
  * 4. **ResizeObserver 错误抑制** — 委托给 {@link ResizeObserverErrorSuppressor}。
  *
- * 5. **侧边栏 pin guard / 首页跳转** — 拦截侧边栏 leaf detach，打开首页笔记。
+ * 5. **首页打开机制** — `openHomePage()` 安全地把指定笔记打开为 leaf（含去重）。
+ *    何时打开（启动 / 全部关闭）由 {@link HomePageManager} 决定，本类只提供机制。
+ *
+ * pin 相关拦截（右键 pin、侧边栏 leaf detach 守卫）不在本类，已收敛到 PinManager。
  *
  * `apply()` 注册所有 patch 与监听器；`remove()` 完整还原，保证插件卸载后无残留副作用。
  *
@@ -24,11 +29,10 @@
  * 避免依赖多个 listener 的注册顺序。
  */
 import { App, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
-import { MinimalismUISettings } from './settings';
+import { MinimalismUISettings } from '../core/settings';
 import { NavigationHistory } from './NavigationHistory';
 import { ResizeObserverErrorSuppressor } from './ResizeObserverErrorSuppressor';
-
-const MAX_CACHED_TABS = 30;
+import { LeafCache } from './LeafCache';
 
 type WorkspaceInternal = {
 	getLeaf: (newLeaf?: boolean | string) => WorkspaceLeaf;
@@ -58,37 +62,20 @@ type HistoryPatch = {
 	canGoForward: (() => boolean) | undefined;
 };
 
-type ObsidianCommand = {
-	callback?: () => void;
-	checkCallback?: (checking: boolean) => boolean | void;
-};
-
-type AppInternal = App & {
-	commands: {
-		commands: Record<string, ObsidianCommand>;
-	};
-};
-
-export class TabCacheManager {
-	private leafQueue: WorkspaceLeaf[] = [];
+export class SinglePageEngine {
 	private isReusingLeaf = false;
-	private isEvicting = false;
 	private originalGetLeaf: ((newLeaf?: boolean | string) => WorkspaceLeaf) | null = null;
 	private nav: NavigationHistory;
+	private leafCache: LeafCache;
 	private resizeErrSuppressor = new ResizeObserverErrorSuppressor();
 	private activeLeafChangeHandler: ((leaf: WorkspaceLeaf | null) => void) | null = null;
 	private historyPatches = new Map<WorkspaceLeaf, HistoryPatch>();
 	// root leaf detach 补丁：触发时通知 nav 并清理 patch 注册表，覆盖所有关闭路径（CMD+W、右键、X 按钮）
 	private rootDetachPatches = new Map<WorkspaceLeaf, () => void>();
-	private origGoBack: ObsidianCommand | null = null;
-	private origGoForward: ObsidianCommand | null = null;
 	// 由 getLeaf patch 新建、尚未调用 openFile 的空 leaf
 	private pendingInterceptLeaves = new Set<WorkspaceLeaf>();
 	// 首页打开期间为 true，避免 getLeaf 拦截器介入
 	private _isOpeningHomePage = false;
-	// 侧边栏 leaf 的 detach 拦截（pin guard），key=leaf，value=原始 detach
-	private sidebarDetachPatches = new Map<WorkspaceLeaf, () => void>();
-	private sidebarLayoutChangeHandler: (() => void) | null = null;
 	private renameHandler: ((file: TAbstractFile, oldPath: string) => void) | null = null;
 
 	constructor(
@@ -96,11 +83,12 @@ export class TabCacheManager {
 		private getSettings: () => MinimalismUISettings,
 	) {
 		this.nav = new NavigationHistory(app, getSettings, path => this.activateOrOpenFile(path));
+		this.leafCache = new LeafCache(app);
 	}
 
 	apply() {
 		this.remove();
-		this.leafQueue = [];
+		this.leafCache.reset();
 
 		this.resizeErrSuppressor.apply();
 
@@ -124,7 +112,7 @@ export class TabCacheManager {
 		// active-leaf-change 上按固定顺序触发三件事，单一 dispatcher 避免依赖 listener 注册顺序。
 		// 顺序要求：① root leaf 判断须在消费 nav 一次性标志之前（在 handleNavTrack 内保证）
 		this.activeLeafChangeHandler = (leaf: WorkspaceLeaf | null) => {
-			this.handleTabLimit();
+			this.leafCache.trackActive();
 			this.handleNavTrack(leaf);
 			this.nav.animate(leaf);
 		};
@@ -135,48 +123,21 @@ export class TabCacheManager {
 		this.app.workspace.iterateRootLeaves(leaf => {
 			this.patchLeafHistory(leaf);
 			this.patchRootLeafDetach(leaf);
-			this.leafQueue.push(leaf);
 		});
+		// 用当前所有 root leaf 初始化 LRU 缓存，最近活跃的 leaf 排到队尾。
+		this.leafCache.seed();
+		// Seed nav history with the current file when apply() is called mid-session:
+		// workspace restore fires active-leaf-change automatically, but a mid-session
+		// re-apply does not, leaving the history empty so the first back press finds
+		// length < 2 and silently fails.
 		const mostRecent = this.app.workspace.getMostRecentLeaf();
-		if (mostRecent) {
-			this.leafQueue = this.leafQueue.filter(l => l !== mostRecent);
-			this.leafQueue.push(mostRecent);
-			// Seed nav history with the current file when apply() is called mid-session:
-			// workspace restore fires active-leaf-change automatically, but a mid-session
-			// re-apply does not, leaving the history empty so the first back press finds
-			// length < 2 and silently fails.
-			if (this.nav.isEmpty()) {
-				const seedPath = (mostRecent as LeafInternal).view?.file?.path;
-				if (seedPath) this.nav.seed(seedPath);
-			}
+		if (mostRecent && this.nav.isEmpty()) {
+			const seedPath = (mostRecent as LeafInternal).view?.file?.path;
+			if (seedPath) this.nav.seed(seedPath);
 		}
 
-		// Patch 内置的 app:go-back / app:go-forward command，
-		// 使快捷键在焦点位于 OUTLINE / PROPERTIES 等侧边栏面板时同样生效。
-		// Obsidian 热键系统在 document 层全局触发 command，不受焦点限制；
-		// 唯一有焦点依赖的是 command 内部的 getActiveLeaf()?.history.back/forward()，
-		// 替换 callback 与 checkCallback 两个入口，直接调用我们的导航方法即可解决。
-		const appCmds = (this.app as unknown as AppInternal).commands.commands;
-		const backCmd = appCmds['app:go-back'];
-		const fwdCmd = appCmds['app:go-forward'];
-		if (backCmd) {
-			this.origGoBack = { callback: backCmd.callback, checkCallback: backCmd.checkCallback };
-			delete backCmd.callback;
-			backCmd.checkCallback = (checking: boolean) => {
-				if (checking) return this.nav.canGoBack();
-				this.nav.back();
-				return true;
-			};
-		}
-		if (fwdCmd) {
-			this.origGoForward = { callback: fwdCmd.callback, checkCallback: fwdCmd.checkCallback };
-			delete fwdCmd.callback;
-			fwdCmd.checkCallback = (checking: boolean) => {
-				if (checking) return this.nav.canGoForward();
-				this.nav.forward();
-				return true;
-			};
-		}
+		// 把内置的 app:go-back / app:go-forward 命令路由到我们的跨 tab 导航栈
+		this.nav.patchCommands();
 
 		// 笔记重命名时同步更新导航历史中的路径，防止旧路径导致后退/前进跳过该条目
 		this.renameHandler = (file: TAbstractFile, oldPath: string) => {
@@ -184,13 +145,6 @@ export class TabCacheManager {
 			this.nav.handleRename(oldPath, file.path);
 		};
 		this.app.vault.on('rename', this.renameHandler);
-
-		// 拦截侧边栏 leaf 的 detach，防止用户通过右键菜单关闭（pin guard）
-		if (this.getSettings().disablePinTab) {
-			this.patchSidebarLeafDetach();
-			this.sidebarLayoutChangeHandler = () => this.patchSidebarLeafDetach();
-			this.app.workspace.on('layout-change', this.sidebarLayoutChangeHandler);
-		}
 	}
 
 	remove() {
@@ -203,79 +157,26 @@ export class TabCacheManager {
 			this.activeLeafChangeHandler = null;
 		}
 		this.nav.dispose();
+		this.nav.unpatchCommands();
 		this.resizeErrSuppressor.remove();
 		this.unpatchAllLeafHistories();
 		this.unpatchAllRootLeafDetaches();
-		const appCmds = (this.app as unknown as AppInternal).commands.commands;
-		if (this.origGoBack) {
-			const cmd = appCmds['app:go-back'];
-			if (cmd) {
-				delete cmd.checkCallback;
-				if (this.origGoBack.callback) cmd.callback = this.origGoBack.callback;
-				if (this.origGoBack.checkCallback) cmd.checkCallback = this.origGoBack.checkCallback;
-			}
-			this.origGoBack = null;
-		}
-		if (this.origGoForward) {
-			const cmd = appCmds['app:go-forward'];
-			if (cmd) {
-				delete cmd.checkCallback;
-				if (this.origGoForward.callback) cmd.callback = this.origGoForward.callback;
-				if (this.origGoForward.checkCallback) cmd.checkCallback = this.origGoForward.checkCallback;
-			}
-			this.origGoForward = null;
-		}
-		if (this.sidebarLayoutChangeHandler) {
-			this.app.workspace.off('layout-change', this.sidebarLayoutChangeHandler);
-			this.sidebarLayoutChangeHandler = null;
-		}
 		if (this.renameHandler) {
 			this.app.vault.off('rename', this.renameHandler);
 			this.renameHandler = null;
 		}
-		for (const [leaf, original] of this.sidebarDetachPatches) {
-			(leaf as LeafInternal).detach = original;
-		}
-		this.sidebarDetachPatches.clear();
-		this.leafQueue = [];
+		this.leafCache.reset();
 		this.pendingInterceptLeaves.clear();
 	}
 
 	// 检查指定 leaf 是否正处于等待 openFile 的 pending 状态
-	// 供外部（homePageHandler）判断：若为 pending 则不应触发首页跳转
+	// 供外部（HomePageManager）判断：若为 pending 则不应触发首页跳转
 	hasPendingIntercept(leaf: WorkspaceLeaf): boolean {
 		return this.pendingInterceptLeaves.has(leaf);
 	}
 
 	getNavHistory(): string[] {
 		return this.nav.getHistory();
-	}
-
-	// LRU：将当前 leaf 移到队尾（最近使用），清理已销毁的 leaf，淘汰超出上限的最旧 leaf。
-	// isEvicting 防止 detach() 触发的 active-leaf-change 引发重入。
-	private handleTabLimit() {
-		if (this.isEvicting) return;
-		const active = this.app.workspace.getMostRecentLeaf();
-		if (!active) return;
-
-		this.leafQueue = this.leafQueue.filter(l => l !== active);
-		this.leafQueue.push(active);
-
-		// 移除队列中已不存在于 workspace 的 leaf
-		const rootLeaves: WorkspaceLeaf[] = [];
-		this.app.workspace.iterateRootLeaves(l => rootLeaves.push(l));
-		this.leafQueue = this.leafQueue.filter(l => rootLeaves.includes(l));
-
-		if (this.leafQueue.length > MAX_CACHED_TABS) {
-			this.isEvicting = true;
-			try {
-				while (this.leafQueue.length > MAX_CACHED_TABS) {
-					this.leafQueue.shift()!.detach();
-				}
-			} finally {
-				this.isEvicting = false;
-			}
-		}
 	}
 
 	// 记录跨 tab 导航历史：只对 root leaf 且有 filePath 的激活生效，再交给 nav 处理一次性标志与去重。
@@ -340,8 +241,7 @@ export class TabCacheManager {
 					// 无需额外清理历史数组。
 					this.isReusingLeaf = true;
 					try {
-						this.leafQueue = this.leafQueue.filter(l => l !== existingLeaf);
-						this.leafQueue.push(existingLeaf);
+						this.leafCache.touch(existingLeaf);
 						this.app.workspace.setActiveLeaf(existingLeaf, { focus: true });
 						leaf.detach();
 					} finally {
@@ -399,12 +299,12 @@ export class TabCacheManager {
 	// root leaf detach 补丁：通过捕获所有关闭路径（CMD+W、右键、X 按钮、API 调用）
 	// 在 detach 前通知 nav（移除历史条目、设置关闭标志、跳转到历史顶部），
 	// detach 后从 patch 注册表移除该 leaf，避免已销毁 leaf 在 Map 中无限累积（内存泄漏）。
-	// isReusingLeaf / isEvicting 为 true 时豁免 nav 通知：属于插件内部操作而非用户关闭 tab。
+	// isReusingLeaf / 缓存淘汰中（leafCache.isEvictingNow）时豁免 nav 通知：属于插件内部操作而非用户关闭 tab。
 	private patchRootLeafDetach(leaf: WorkspaceLeaf) {
 		if (this.rootDetachPatches.has(leaf)) return;
 		const original = (leaf as LeafInternal).detach.bind(leaf);
 		(leaf as LeafInternal).detach = () => {
-			if (!this.isReusingLeaf && !this.isEvicting) {
+			if (!this.isReusingLeaf && !this.leafCache.isEvictingNow()) {
 				const closingPath = (leaf as LeafInternal).view?.file?.path;
 				this.nav.onTabClosing(closingPath);
 			}
@@ -421,28 +321,6 @@ export class TabCacheManager {
 			(leaf as LeafInternal).detach = original;
 		}
 		this.rootDetachPatches.clear();
-	}
-
-	// 拦截左侧边栏所有 leaf 的 detach，防止用户通过右键菜单关闭（pin guard）
-	private patchSidebarLeafDetach() {
-		this.app.workspace.iterateAllLeaves(leaf => {
-			if (this.sidebarDetachPatches.has(leaf)) return;
-			const leafEl = (leaf as LeafInternal).containerEl;
-			if (!leafEl?.closest('.workspace-split.mod-left-split')) return;
-			const original = (leaf as LeafInternal).detach.bind(leaf);
-			(leaf as LeafInternal).detach = () => { /* blocked */ };
-			this.sidebarDetachPatches.set(leaf, original);
-		});
-	}
-
-	// 绕过 patchSidebarLeafDetach 的阻断，强制 detach 一个 leaf（供 SidebarLayoutManager 调用）
-	forceDetachLeaf(leaf: WorkspaceLeaf) {
-		const original = this.sidebarDetachPatches.get(leaf);
-		if (original) {
-			original();
-		} else {
-			leaf.detach();
-		}
 	}
 
 	// 打开首页笔记：先置 _isOpeningHomePage 防止 getLeaf 拦截器介入，再补 history / detach patch
@@ -465,8 +343,7 @@ export class TabCacheManager {
 				if ((l as LeafInternal).view?.file?.path === file.path) existingLeaf = l;
 			});
 			if (existingLeaf) {
-				this.leafQueue = this.leafQueue.filter(l => l !== existingLeaf);
-				this.leafQueue.push(existingLeaf);
+				this.leafCache.touch(existingLeaf);
 				this.app.workspace.setActiveLeaf(existingLeaf, { focus: true });
 				leaf.detach();
 				return;

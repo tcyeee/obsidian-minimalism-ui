@@ -1,4 +1,5 @@
 import { App } from 'obsidian';
+import { MinimalismUISettings } from '../core/settings';
 
 /**
  * MermaidZoomManager
@@ -17,11 +18,11 @@ import { App } from 'obsidian';
  */
 export class MermaidZoomManager {
     private readonly app: App;
-    private readonly getSettings: () => { noteStyle: boolean };
+    private readonly getSettings: () => MinimalismUISettings;
     private readonly clickHandler: (e: MouseEvent) => void;
     private mutationObs: MutationObserver | null = null;
 
-    constructor(app: App, getSettings: () => { noteStyle: boolean }) {
+    constructor(app: App, getSettings: () => MinimalismUISettings) {
         this.app = app;
         this.getSettings = getSettings;
         this.clickHandler = this.onClick.bind(this);

@@ -1,6 +1,6 @@
 import { AbstractInputSuggest, App, PluginSettingTab, Setting, TFile } from 'obsidian';
 import type MinimalismUIPlugin from '../main';
-import { t, setLang } from './i18n';
+import { t, setLang } from './core/i18n';
 
 // ─── File Suggester ───────────────────────────────────────────────────────────
 
@@ -131,7 +131,6 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 			.onChange(async v => {
 				this.plugin.settings.disableNoteTabs = v;
 				this.plugin.settings.disablePinTab = v;
-				this.plugin.settings.enableLeafCache = v;
 				await this.plugin.saveSettings();
 			}));
 		singlePageSetting.descEl.createSpan({ text: t('singlePageDesc1') });
