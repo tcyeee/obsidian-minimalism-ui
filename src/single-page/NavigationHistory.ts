@@ -17,6 +17,10 @@ import { MinimalismUISettings } from '../core/settings';
 
 export type AnimationClass = 'minimalism-ui-slide-from-left' | 'minimalism-ui-slide-from-right';
 
+// 全局关系图在路径式历史栈中的合成键。关系图无文件路径，用一个绝不会与 vault 内真实路径
+// 冲突的前缀作为占位 key，使其能像普通笔记一样入栈、去重、前进/后退与重开。
+export const GLOBAL_GRAPH_KEY = 'minimalism-ui:global-graph';
+
 type LeafView = WorkspaceLeaf & {
 	view?: { contentEl?: HTMLElement };
 };
@@ -35,6 +39,10 @@ type AppInternal = App & {
 export class NavigationHistory {
 	private history: string[] = [];
 	private future: string[] = [];
+	// 主区域当前活动 root leaf 显示的文件路径；无文件视图（如全局关系图）为 null。
+	// 由引擎在每次 root leaf 激活时通过 markActiveRoot 同步，使本类能判断“当前显示的是否就是历史栈顶”，
+	// 从而在无文件视图叠在栈顶之上时正确后退（回到栈顶文件，而非越过它弹到更早条目）。
+	private currentRootPath: string | null = null;
 	// 当前正在执行的后退/前进目标路径，用于阻止 record 将该激活记录为新导航
 	private jumpPath: string | null = null;
 	// tab 关闭后 Obsidian 自动激活下一个 leaf 会触发 active-leaf-change，该标志阻止其被记录为新导航
@@ -60,6 +68,10 @@ export class NavigationHistory {
 	}
 
 	canGoBack(): boolean {
+		// 当前显示的是叠在栈顶之上的无文件视图（如关系图）时，后退会回到栈顶文件本身，
+		// 即便历史只有一条也可后退，故此处放行。
+		const top = this.history[this.history.length - 1];
+		if (top !== undefined && this.currentRootPath !== top) return true;
 		return this.history.length >= 2;
 	}
 
@@ -70,6 +82,13 @@ export class NavigationHistory {
 	// apply() 中途启用时用当前文件兜底初始化，避免首次后退因历史为空而静默失败
 	seed(filePath: string) {
 		if (this.history.length === 0) this.history.push(filePath);
+	}
+
+	// 引擎在每次 root leaf 激活时调用，记录主区域当前显示的文件路径（无文件视图传 null）。
+	// 必须对所有 root leaf 激活生效（含关系图等无文件视图），back/canGoBack 依赖它判断
+	// 当前显示是否就是历史栈顶。
+	markActiveRoot(path: string | null) {
+		this.currentRootPath = path;
 	}
 
 	// active-leaf-change 触发时记录导航历史。检查顺序严格固定：
@@ -106,14 +125,32 @@ export class NavigationHistory {
 		if (this.jumpPath === oldPath) this.jumpPath = newPath;
 	}
 
+	// 历史条目是否仍可定位/重开：全局关系图键恒为真（随时可重开关系图）；
+	// 其余为文件路径，仅当 vault 中仍存在该文件时为真。死条目（已删除文件）返回 false。
+	private isReopenable(key: string): boolean {
+		if (key === GLOBAL_GRAPH_KEY) return true;
+		return this.app.vault.getAbstractFileByPath(key) instanceof TFile;
+	}
+
 	back() {
 		this.cancelTimer();
+		// 无文件视图（如搜索结果）叠在文件栈顶之上时，当前显示的并非栈顶文件：
+		// 此时后退应回到栈顶条目本身，而非越过栈顶弹出到更早条目（否则会跳到“上上页”）。
+		// 注：全局关系图现已作为真实条目入栈，此处 currentRootPath === top，不会触发本分支。
+		const top = this.history[this.history.length - 1];
+		if (top !== undefined && this.currentRootPath !== top) {
+			if (this.isReopenable(top)) {
+				this.jumpPath = top;
+				this.scheduleActivate(top, 'minimalism-ui-slide-from-left');
+				return;
+			}
+			// 栈顶条目已失效：交由下方循环按常规死条目逻辑处理
+		}
 		// 从倒数第二个位置开始向前清除已删除文件的条目，保持当前页（末尾）不动，
 		// 找到第一个有效前驱后执行导航。不做 rollback：死条目永久丢弃，避免反复卡死。
 		while (this.history.length >= 2) {
 			const prevPath = this.history[this.history.length - 2];
-			const file = this.app.vault.getAbstractFileByPath(prevPath);
-			if (!(file instanceof TFile)) {
+			if (!this.isReopenable(prevPath)) {
 				this.history.splice(this.history.length - 2, 1);
 				continue;
 			}
@@ -134,8 +171,7 @@ export class NavigationHistory {
 		while (this.future.length > 0) {
 			const nextPath = this.future.shift()!;
 
-			const file = this.app.vault.getAbstractFileByPath(nextPath);
-			if (!(file instanceof TFile)) continue; // 文件已从 vault 删除，丢弃并继续
+			if (!this.isReopenable(nextPath)) continue; // 文件已从 vault 删除，丢弃并继续
 
 			this.history.push(nextPath);
 
@@ -242,7 +278,7 @@ export class NavigationHistory {
 
 	private cancelTimer() {
 		if (this.timer !== null) {
-			activeWindow.clearTimeout(this.timer);
+			window.clearTimeout(this.timer);
 			this.timer = null;
 		}
 	}
@@ -252,7 +288,7 @@ export class NavigationHistory {
 	// 取消上一次尚未执行的 timer，防止连续点击时多个激活并发触发。
 	private scheduleActivate(path: string, animCls: AnimationClass | null = null) {
 		this.cancelTimer();
-		this.timer = activeWindow.setTimeout(() => {
+		this.timer = window.setTimeout(() => {
 			this.timer = null;
 			this.activateOrOpen(path, animCls);
 		}, 0);

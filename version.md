@@ -5,6 +5,22 @@
 
 ---
 
+## Version 1.2.5
+
+- Added Forest theme with dynamic theme switching
+- Added a "Go to home" button on Obsidian's empty view
+- Added table drag-handle styling and fixed table content clipping on overflow
+- Changed drag-bar tab indicator from a count number to a small dot
+- Fixed single-page navigation: home note now opens reliably on rapid CMD+W close, and the page transition animation no longer triggers from the wrong tab
+
+- 新增森林主题，支持动态切换主题
+- 在 Obsidian 空页面新增回到主页按钮
+- 新增表格拖拽手柄样式，修复表格内容溢出时被裁切的问题
+- 拖拽栏标签页指示从数字改为小圆点
+- 修复单页模式导航问题：快速 CMD+W 关闭时主页能稳定打开，页面切换动画不再由错误的标签页触发
+
+---
+
 ## Version 1.2.1
 
 - Fixed navigation history retaining stale entries after closing tabs

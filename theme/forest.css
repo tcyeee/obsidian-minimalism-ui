@@ -259,8 +259,10 @@ body.minimalism-ui-note-style .table-wrapper {
 	margin-left: 20px;
 }
 
-/* 解除 .table-wrapper 所有直接父容器的裁切，让把手可以延伸到表格外侧 */
-body.minimalism-ui-note-style .cm-editor :has(> .table-wrapper) {
+/* 解除 live preview 表格容器（.cm-table-widget，即 .table-wrapper 的直接父级）的裁切，
+   让把手可以延伸到表格外侧。
+   不用 :has(> .table-wrapper)：:has 会触发大范围选择器失效，有明显性能开销。 */
+body.minimalism-ui-note-style .cm-editor .cm-table-widget {
 	overflow: visible;
 }
 

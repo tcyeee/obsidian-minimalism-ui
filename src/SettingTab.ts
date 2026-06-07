@@ -161,12 +161,12 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				text.inputEl.max = '20';
 				text.inputEl.addClass('minimalism-ui-prefix-input');
 				text.setValue(String(this.plugin.settings.filenamePrefixLength));
-				text.inputEl.addEventListener('change', async () => {
+				text.inputEl.addEventListener('change', () => {
 					const raw = parseInt(text.inputEl.value, 10);
 					const clamped = isNaN(raw) ? 0 : Math.min(20, Math.max(0, raw));
 					text.setValue(String(clamped));
 					this.plugin.settings.filenamePrefixLength = clamped;
-					await this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 				});
 			});
 

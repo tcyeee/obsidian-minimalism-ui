@@ -38,6 +38,8 @@ const translations = {
 
 		filenamePrefixLength: '隐藏文件名时间戳前缀',
 		filenamePrefixLengthDesc: '适用于时间戳前缀笔记，如隐藏 "202604111230-test" 前 13 个字符，实际在导航栏中显示为 test（0 = 不隐藏，最多 20）。',
+
+		graphView: '关系图',
 	},
 	en: {
 		language: 'Language',
@@ -78,6 +80,8 @@ const translations = {
 
 		filenamePrefixLength: 'Hide Filename Timestamp Prefix',
 		filenamePrefixLengthDesc: 'For timestamp-prefixed notes. E.g. hide the first 13 characters of "202604111230-test" so it shows as "test" in the navigation (0 = off, max 20).',
+
+		graphView: 'Graph view',
 	},
 } as const;
 
@@ -87,7 +91,7 @@ type Key = keyof typeof translations['en'];
 let langOverride: Lang | null = null;
 
 export function setLang(lang: 'auto' | 'zh' | 'en') {
-	langOverride = lang === 'auto' ? null : lang as Lang;
+	langOverride = lang === 'auto' ? null : lang;
 }
 
 function detectLang(): Lang {

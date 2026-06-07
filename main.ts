@@ -10,6 +10,7 @@ import { HomePageManager } from './src/single-page/HomePageManager';
 import { EmptyViewButtonManager } from './src/single-page/EmptyViewButtonManager';
 import { DragBarManager } from './src/layout/DragBarManager';
 import { SidebarLayoutManager } from './src/layout/SidebarLayoutManager';
+import { SidebarSuggestFocusTracker } from './src/layout/SidebarSuggestFocusTracker';
 import { MermaidZoomManager } from './src/mermaid/MermaidZoomManager';
 import { MinimalismUISettingTab } from './src/SettingTab';
 import { setLang } from './src/core/i18n';
@@ -30,6 +31,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	private emptyViewButton: EmptyViewButtonManager;
 	private dragBar: DragBarManager;
 	private sidebarLayout: SidebarLayoutManager;
+	private sidebarSuggestFocus: SidebarSuggestFocusTracker;
 	private mermaidZoom: MermaidZoomManager;
 
 	// 所有功能单元，统一用于卸载，避免逐个手写 remove() 时遗漏。
@@ -49,6 +51,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.emptyViewButton = new EmptyViewButtonManager(this.app, settings, this.engine);
 		this.dragBar = new DragBarManager(this.app, settings, () => this.engine.getNavHistory());
 		this.sidebarLayout = new SidebarLayoutManager(this.app, settings, this.pinManager);
+		this.sidebarSuggestFocus = new SidebarSuggestFocusTracker();
 		this.mermaidZoom = new MermaidZoomManager(this.app);
 
 		this.features = [
@@ -61,6 +64,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			this.emptyViewButton,
 			this.dragBar,
 			this.sidebarLayout,
+			this.sidebarSuggestFocus,
 			this.mermaidZoom,
 		];
 
@@ -68,6 +72,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		await this.fontLoader.apply();
 		void this.themeLoader.apply();
 		this.bodyClasses.apply();
+		this.sidebarSuggestFocus.apply();
 		this.pinManager.apply();
 		this.engine.apply();
 		this.mermaidZoom.apply();
@@ -116,7 +121,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	// ─── Settings ─────────────────────────────────────────────────────────────
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, (await this.loadData()) as Partial<MinimalismUISettings>);
 	}
 
 	// 设置变更后重新应用对设置敏感的功能单元。

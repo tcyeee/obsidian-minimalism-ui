@@ -170,6 +170,7 @@ var import_obsidian3 = require("obsidian");
 
 // src/single-page/NavigationHistory.ts
 var import_obsidian2 = require("obsidian");
+var GLOBAL_GRAPH_KEY = "minimalism-ui:global-graph";
 var NavigationHistory = class {
   constructor(app, getSettings, activateOrOpen) {
     this.app = app;
@@ -177,6 +178,10 @@ var NavigationHistory = class {
     this.activateOrOpen = activateOrOpen;
     this.history = [];
     this.future = [];
+    // 主区域当前活动 root leaf 显示的文件路径；无文件视图（如全局关系图）为 null。
+    // 由引擎在每次 root leaf 激活时通过 markActiveRoot 同步，使本类能判断“当前显示的是否就是历史栈顶”，
+    // 从而在无文件视图叠在栈顶之上时正确后退（回到栈顶文件，而非越过它弹到更早条目）。
+    this.currentRootPath = null;
     // 当前正在执行的后退/前进目标路径，用于阻止 record 将该激活记录为新导航
     this.jumpPath = null;
     // tab 关闭后 Obsidian 自动激活下一个 leaf 会触发 active-leaf-change，该标志阻止其被记录为新导航
@@ -192,6 +197,8 @@ var NavigationHistory = class {
     return this.history.length === 0;
   }
   canGoBack() {
+    const top = this.history[this.history.length - 1];
+    if (top !== void 0 && this.currentRootPath !== top) return true;
     return this.history.length >= 2;
   }
   canGoForward() {
@@ -200,6 +207,12 @@ var NavigationHistory = class {
   // apply() 中途启用时用当前文件兜底初始化，避免首次后退因历史为空而静默失败
   seed(filePath) {
     if (this.history.length === 0) this.history.push(filePath);
+  }
+  // 引擎在每次 root leaf 激活时调用，记录主区域当前显示的文件路径（无文件视图传 null）。
+  // 必须对所有 root leaf 激活生效（含关系图等无文件视图），back/canGoBack 依赖它判断
+  // 当前显示是否就是历史栈顶。
+  markActiveRoot(path) {
+    this.currentRootPath = path;
   }
   // active-leaf-change 触发时记录导航历史。检查顺序严格固定：
   //   ① jumpPath 匹配——我们自己发起的后退/前进不应再次入栈
@@ -232,12 +245,25 @@ var NavigationHistory = class {
     this.future = this.future.map((p) => p === oldPath ? newPath : p);
     if (this.jumpPath === oldPath) this.jumpPath = newPath;
   }
+  // 历史条目是否仍可定位/重开：全局关系图键恒为真（随时可重开关系图）；
+  // 其余为文件路径，仅当 vault 中仍存在该文件时为真。死条目（已删除文件）返回 false。
+  isReopenable(key) {
+    if (key === GLOBAL_GRAPH_KEY) return true;
+    return this.app.vault.getAbstractFileByPath(key) instanceof import_obsidian2.TFile;
+  }
   back() {
     this.cancelTimer();
+    const top = this.history[this.history.length - 1];
+    if (top !== void 0 && this.currentRootPath !== top) {
+      if (this.isReopenable(top)) {
+        this.jumpPath = top;
+        this.scheduleActivate(top, "minimalism-ui-slide-from-left");
+        return;
+      }
+    }
     while (this.history.length >= 2) {
       const prevPath = this.history[this.history.length - 2];
-      const file = this.app.vault.getAbstractFileByPath(prevPath);
-      if (!(file instanceof import_obsidian2.TFile)) {
+      if (!this.isReopenable(prevPath)) {
         this.history.splice(this.history.length - 2, 1);
         continue;
       }
@@ -252,8 +278,7 @@ var NavigationHistory = class {
     this.cancelTimer();
     while (this.future.length > 0) {
       const nextPath = this.future.shift();
-      const file = this.app.vault.getAbstractFileByPath(nextPath);
-      if (!(file instanceof import_obsidian2.TFile)) continue;
+      if (!this.isReopenable(nextPath)) continue;
       this.history.push(nextPath);
       this.jumpPath = nextPath;
       this.scheduleActivate(nextPath, "minimalism-ui-slide-from-right");
@@ -346,7 +371,7 @@ var NavigationHistory = class {
   }
   cancelTimer() {
     if (this.timer !== null) {
-      activeWindow.clearTimeout(this.timer);
+      window.clearTimeout(this.timer);
       this.timer = null;
     }
   }
@@ -355,7 +380,7 @@ var NavigationHistory = class {
   // 取消上一次尚未执行的 timer，防止连续点击时多个激活并发触发。
   scheduleActivate(path, animCls = null) {
     this.cancelTimer();
-    this.timer = activeWindow.setTimeout(() => {
+    this.timer = window.setTimeout(() => {
       this.timer = null;
       this.activateOrOpen(path, animCls);
     }, 0);
@@ -461,7 +486,6 @@ var SinglePageEngine = class {
     this.leafCache = new LeafCache(app);
   }
   apply() {
-    var _a, _b;
     this.remove();
     this.leafCache.reset();
     this.resizeErrSuppressor.apply();
@@ -488,9 +512,12 @@ var SinglePageEngine = class {
     });
     this.leafCache.seed();
     const mostRecent = this.app.workspace.getMostRecentLeaf();
-    if (mostRecent && this.nav.isEmpty()) {
-      const seedPath = (_b = (_a = mostRecent.view) == null ? void 0 : _a.file) == null ? void 0 : _b.path;
-      if (seedPath) this.nav.seed(seedPath);
+    if (mostRecent) {
+      const seedKey = this.navKeyForLeaf(mostRecent);
+      if (seedKey) {
+        if (this.nav.isEmpty()) this.nav.seed(seedKey);
+        this.nav.markActiveRoot(seedKey);
+      }
     }
     this.nav.patchCommands();
     this.renameHandler = (file, oldPath) => {
@@ -536,16 +563,25 @@ var SinglePageEngine = class {
   // 记录跨 tab 导航历史：只对 root leaf 且有 filePath 的激活生效，再交给 nav 处理一次性标志与去重。
   // root leaf 判断必须先于 nav.record，防止侧边栏等无关激活提前消耗 nav 的一次性标志。
   handleNavTrack(leaf) {
-    var _a, _b;
     if (!leaf) return;
     let isRootLeaf = false;
     this.app.workspace.iterateRootLeaves((l) => {
       if (l === leaf) isRootLeaf = true;
     });
     if (!isRootLeaf) return;
+    const navKey = this.navKeyForLeaf(leaf);
+    this.nav.markActiveRoot(navKey);
+    if (!navKey) return;
+    this.nav.record(navKey);
+  }
+  // 把 root leaf 映射为导航栈中的键：有文件则用文件路径；全局关系图用合成键 GLOBAL_GRAPH_KEY；
+  // 其余无文件视图（搜索、本地关系图等）返回 null（不入栈，由 nav 的 currentRootPath 守卫兜底）。
+  navKeyForLeaf(leaf) {
+    var _a, _b, _c, _d;
     const filePath = (_b = (_a = leaf.view) == null ? void 0 : _a.file) == null ? void 0 : _b.path;
-    if (!filePath) return;
-    this.nav.record(filePath);
+    if (filePath) return filePath;
+    if (((_d = (_c = leaf.view) == null ? void 0 : _c.getViewType) == null ? void 0 : _d.call(_c)) === "graph") return GLOBAL_GRAPH_KEY;
+    return null;
   }
   // 激活已显示目标路径的 root leaf；若无（已被 LRU 淘汰或手动关闭）则重新打开该文件。
   // 供 NavigationHistory 的 back/forward/onTabClosing 回调调用，收敛此前散落 4 处的重复逻辑。
@@ -554,8 +590,7 @@ var SinglePageEngine = class {
   activateOrOpenFile(path, animCls) {
     let targetLeaf = null;
     this.app.workspace.iterateRootLeaves((l) => {
-      var _a, _b;
-      if (!targetLeaf && ((_b = (_a = l.view) == null ? void 0 : _a.file) == null ? void 0 : _b.path) === path) targetLeaf = l;
+      if (!targetLeaf && this.navKeyForLeaf(l) === path) targetLeaf = l;
     });
     if (targetLeaf) {
       this.app.workspace.setActiveLeaf(targetLeaf, { focus: true });
@@ -563,6 +598,16 @@ var SinglePageEngine = class {
       return;
     }
     if (!this.originalGetLeaf) return;
+    if (path === GLOBAL_GRAPH_KEY) {
+      const newLeaf2 = this.originalGetLeaf("tab");
+      this.patchLeafHistory(newLeaf2);
+      this.patchRootLeafDetach(newLeaf2);
+      void newLeaf2.setViewState({ type: "graph" }).then(() => {
+        this.app.workspace.setActiveLeaf(newLeaf2, { focus: true });
+        this.nav.playAnimation(newLeaf2, animCls);
+      });
+      return;
+    }
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!(file instanceof import_obsidian3.TFile)) return;
     const newLeaf = this.originalGetLeaf("tab");
@@ -579,8 +624,10 @@ var SinglePageEngine = class {
     if (!leaf.parent) return;
     this.pendingInterceptLeaves.add(leaf);
     const origOpenFile = leaf.openFile.bind(leaf);
+    const origSetViewState = leaf.setViewState.bind(leaf);
     leaf.openFile = async (file, state) => {
       leaf.openFile = origOpenFile;
+      leaf.setViewState = origSetViewState;
       this.pendingInterceptLeaves.delete(leaf);
       if (!this.isReusingLeaf) {
         let existingLeaf = null;
@@ -610,6 +657,33 @@ var SinglePageEngine = class {
         this.nav.push(file.path);
       }
       return result;
+    };
+    leaf.setViewState = async (state, eState) => {
+      if ((state == null ? void 0 : state.type) !== "graph" || this.isReusingLeaf) {
+        return origSetViewState(state, eState);
+      }
+      leaf.openFile = origOpenFile;
+      leaf.setViewState = origSetViewState;
+      this.pendingInterceptLeaves.delete(leaf);
+      let existingLeaf = null;
+      this.app.workspace.iterateRootLeaves((l) => {
+        if (existingLeaf || l === leaf) return;
+        if (this.navKeyForLeaf(l) === GLOBAL_GRAPH_KEY) existingLeaf = l;
+      });
+      if (existingLeaf) {
+        this.isReusingLeaf = true;
+        try {
+          this.leafCache.touch(existingLeaf);
+          this.app.workspace.setActiveLeaf(existingLeaf, { focus: true });
+          leaf.detach();
+        } finally {
+          this.isReusingLeaf = false;
+        }
+        return;
+      }
+      this.patchLeafHistory(leaf);
+      this.patchRootLeafDetach(leaf);
+      return origSetViewState(state, eState);
     };
   }
   patchLeafHistory(leaf) {
@@ -646,9 +720,9 @@ var SinglePageEngine = class {
     if (this.rootDetachPatches.has(leaf)) return;
     const original = leaf.detach.bind(leaf);
     leaf.detach = () => {
-      var _a, _b;
+      var _a;
       if (!this.isReusingLeaf && !this.leafCache.isEvictingNow()) {
-        const closingPath = (_b = (_a = leaf.view) == null ? void 0 : _a.file) == null ? void 0 : _b.path;
+        const closingPath = (_a = this.navKeyForLeaf(leaf)) != null ? _a : void 0;
         this.nav.onTabClosing(closingPath);
       }
       original();
@@ -839,7 +913,8 @@ var translations = {
     navAnimation: "\u9875\u9762\u52A0\u8F7D\u52A8\u753B",
     navAnimationDesc: "\u524D\u8FDB\u6216\u540E\u9000\u65F6\uFF0C\u4E3A\u76EE\u6807\u9875\u9762\u64AD\u653E\u6ED1\u5165\u52A8\u753B",
     filenamePrefixLength: "\u9690\u85CF\u6587\u4EF6\u540D\u65F6\u95F4\u6233\u524D\u7F00",
-    filenamePrefixLengthDesc: '\u9002\u7528\u4E8E\u65F6\u95F4\u6233\u524D\u7F00\u7B14\u8BB0\uFF0C\u5982\u9690\u85CF "202604111230-test" \u524D 13 \u4E2A\u5B57\u7B26\uFF0C\u5B9E\u9645\u5728\u5BFC\u822A\u680F\u4E2D\u663E\u793A\u4E3A test\uFF080 = \u4E0D\u9690\u85CF\uFF0C\u6700\u591A 20\uFF09\u3002'
+    filenamePrefixLengthDesc: '\u9002\u7528\u4E8E\u65F6\u95F4\u6233\u524D\u7F00\u7B14\u8BB0\uFF0C\u5982\u9690\u85CF "202604111230-test" \u524D 13 \u4E2A\u5B57\u7B26\uFF0C\u5B9E\u9645\u5728\u5BFC\u822A\u680F\u4E2D\u663E\u793A\u4E3A test\uFF080 = \u4E0D\u9690\u85CF\uFF0C\u6700\u591A 20\uFF09\u3002',
+    graphView: "\u5173\u7CFB\u56FE"
   },
   en: {
     language: "Language",
@@ -870,7 +945,8 @@ var translations = {
     navAnimation: "Page Transition Animation",
     navAnimationDesc: "Play a slide-in animation when navigating back or forward.",
     filenamePrefixLength: "Hide Filename Timestamp Prefix",
-    filenamePrefixLengthDesc: 'For timestamp-prefixed notes. E.g. hide the first 13 characters of "202604111230-test" so it shows as "test" in the navigation (0 = off, max 20).'
+    filenamePrefixLengthDesc: 'For timestamp-prefixed notes. E.g. hide the first 13 characters of "202604111230-test" so it shows as "test" in the navigation (0 = off, max 20).',
+    graphView: "Graph view"
   }
 };
 var langOverride = null;
@@ -899,7 +975,7 @@ var EmptyViewButtonManager = class {
   apply() {
     this.remove();
     if (!this.getSettings().homePage) return;
-    this.handler = () => requestAnimationFrame(() => this.inject());
+    this.handler = () => window.requestAnimationFrame(() => this.inject());
     this.app.workspace.on("layout-change", this.handler);
     this.app.workspace.on("active-leaf-change", this.handler);
     this.inject();
@@ -941,6 +1017,7 @@ var LeafNameUtils = class {
 
 // src/layout/BreadcrumbRenderer.ts
 var COMPACT_THRESHOLD = 15;
+var FILELESS_VIEW_TYPES = /* @__PURE__ */ new Set(["graph"]);
 var BreadcrumbRenderer = class {
   constructor(app, getSettings, navHistoryGetter) {
     this.app = app;
@@ -949,6 +1026,8 @@ var BreadcrumbRenderer = class {
     this.el = null;
     this.activeLeafHandler = null;
     this.renameHandler = null;
+    // 最近一次 active-leaf-change 的 leaf,用于判断当前是否停在无文件视图(如关系图)。
+    this.currentLeaf = null;
   }
   mount(parent) {
     this.unmount();
@@ -956,7 +1035,10 @@ var BreadcrumbRenderer = class {
     this.el.className = "minimalism-ui-drag-bar-breadcrumb";
     parent.appendChild(this.el);
     this.update();
-    this.activeLeafHandler = () => this.update();
+    this.activeLeafHandler = (leaf) => {
+      this.currentLeaf = leaf;
+      this.update();
+    };
     this.app.workspace.on("active-leaf-change", this.activeLeafHandler);
     this.renameHandler = (file) => {
       if (file === this.app.workspace.getActiveFile()) this.update();
@@ -973,26 +1055,65 @@ var BreadcrumbRenderer = class {
       this.renameHandler = null;
     }
     this.el = null;
+    this.currentLeaf = null;
   }
   update() {
     const el = this.el;
     if (!el) return;
-    const prefixLen = this.getSettings().filenamePrefixLength;
+    const filelessLabel = this.activeFilelessViewLabel();
     const paths = this.navHistoryGetter();
-    if (paths.length <= 1) {
+    if (filelessLabel === null && paths.length <= 1) {
       this.showSingleFile();
       return;
     }
-    const names = paths.map((p) => {
+    this.renderTrail(this.buildTrail(paths, filelessLabel));
+  }
+  // 纯函数(无 DOM):由历史路径 + 当前无文件视图标签算出面包屑文本序列。
+  // 全局关系图现已作为真实条目入栈,buildNames 会用 graph 标签渲染它;只有在它尚未落入历史
+  // (active-leaf-change 与 nav 记录之间的时序间隙)时,才用实时标签补在末尾,避免出现两个关系图项。
+  buildTrail(paths, filelessLabel) {
+    const names = this.buildNames(paths);
+    if (filelessLabel !== null && paths[paths.length - 1] !== GLOBAL_GRAPH_KEY) {
+      names.push(filelessLabel);
+    }
+    return names;
+  }
+  // 当前激活 leaf 若是无文件视图(graph 等),返回其本地化标题;否则返回 null。
+  activeFilelessViewLabel() {
+    var _a, _b;
+    const view = (_b = (_a = this.currentLeaf) != null ? _a : this.app.workspace.getMostRecentLeaf()) == null ? void 0 : _b.view;
+    if (!view || !FILELESS_VIEW_TYPES.has(view.getViewType())) return null;
+    return view.getDisplayText() || view.getViewType();
+  }
+  // 路径是稳定字符串,直接从 vault 查文件名,无需过滤关闭的 leaf。
+  // 全局关系图的合成键不是文件路径,映射为本地化的 graph 标签,避免被 stripPrefix 截成 ":global-graph"。
+  buildNames(paths) {
+    const prefixLen = this.getSettings().filenamePrefixLength;
+    return paths.map((p) => {
+      if (p === GLOBAL_GRAPH_KEY) return t("graphView");
       const f = this.app.vault.getAbstractFileByPath(p);
       return f instanceof import_obsidian4.TFile ? LeafNameUtils.stripPrefix(f.basename, prefixLen) : LeafNameUtils.stripPrefix(p, prefixLen);
     });
-    if (paths.length > COMPACT_THRESHOLD) {
+  }
+  // 渲染完整路径:单项→当前项;超阈值或溢出→折叠中间项;否则完整列出。
+  renderTrail(names) {
+    const el = this.el;
+    if (!el) return;
+    if (names.length === 0) return;
+    if (names.length === 1) {
+      el.innerHTML = "";
+      const item = createSpan();
+      item.className = "minimalism-ui-breadcrumb-item is-current";
+      item.textContent = names[0];
+      el.appendChild(item);
+      return;
+    }
+    if (names.length > COMPACT_THRESHOLD) {
       this.renderCompact(names, names.length - 2);
       return;
     }
     this.renderAll(names);
-    requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
       if (!el.isConnected) return;
       if (el.clientWidth === 0) return;
       if (el.scrollWidth > el.clientWidth && names.length > 2) {
@@ -1207,11 +1328,11 @@ var SidebarLayoutManager = class {
         }
       }
       if (!showProperties && !showLocalGraph) return;
-      await new Promise((resolve) => activeWindow.setTimeout(resolve, 100));
+      await new Promise((resolve) => window.setTimeout(resolve, 100));
       const activeFile = workspace.getActiveFile();
       if (activeFile) {
         workspace.trigger("file-open", activeFile);
-        await new Promise((resolve) => activeWindow.setTimeout(resolve, 50));
+        await new Promise((resolve) => window.setTimeout(resolve, 50));
       }
       if (outlineLeaf && propsLeaf) {
         this.injectMetadataIntoOutline(outlineLeaf, propsLeaf);
@@ -1320,7 +1441,7 @@ var SidebarLayoutManager = class {
       });
       this.graphResizeObserver.observe(observeTarget);
     }
-    activeWindow.setTimeout(() => {
+    window.setTimeout(() => {
       const w = graphLeafContent.getBoundingClientRect().width;
       if (w > 0) {
         graphLeafContent.setCssProps({ "--minimalism-ui-graph-height": `${Math.round(w * 3 / 4)}px` });
@@ -1412,6 +1533,38 @@ var SidebarLayoutManager = class {
   }
 };
 
+// src/layout/SidebarSuggestFocusTracker.ts
+var FOCUS_CLASS = "minimalism-ui-sidebar-prop-focus";
+var SIDEBAR_PROP_SELECTOR = ".workspace-split.mod-left-split .metadata-property-value";
+var SidebarSuggestFocusTracker = class {
+  constructor() {
+    this.onFocusIn = () => this.sync();
+    // focusout 先于焦点落定触发；下一个 tick 再读 activeElement，避免点击建议项时误判离焦。
+    this.onFocusOut = () => activeWindow.setTimeout(() => this.sync(), 0);
+    this.bound = false;
+  }
+  apply() {
+    if (this.bound) return;
+    activeDocument.addEventListener("focusin", this.onFocusIn);
+    activeDocument.addEventListener("focusout", this.onFocusOut);
+    this.bound = true;
+    this.sync();
+  }
+  remove() {
+    if (!this.bound) return;
+    activeDocument.removeEventListener("focusin", this.onFocusIn);
+    activeDocument.removeEventListener("focusout", this.onFocusOut);
+    this.bound = false;
+    activeDocument.body.classList.remove(FOCUS_CLASS);
+  }
+  sync() {
+    if (!this.bound) return;
+    const active = activeDocument.activeElement;
+    const focused = !!(active == null ? void 0 : active.closest(SIDEBAR_PROP_SELECTOR));
+    activeDocument.body.classList.toggle(FOCUS_CLASS, focused);
+  }
+};
+
 // src/mermaid/MermaidZoomManager.ts
 var MermaidZoomManager = class {
   constructor(app) {
@@ -1424,7 +1577,7 @@ var MermaidZoomManager = class {
     this.mutationObs = new MutationObserver((mutations) => {
       for (const m of mutations) {
         for (const node of Array.from(m.addedNodes)) {
-          if (!(node instanceof Element)) continue;
+          if (!node.instanceOf(Element)) continue;
           if (node.classList.contains("mermaid")) {
             this.scheduleMarkOverflow(node);
           } else {
@@ -1457,7 +1610,7 @@ var MermaidZoomManager = class {
   }
   /** 等一帧再检查，确保 SVG 已完成渲染并写入 width 属性 */
   scheduleMarkOverflow(el) {
-    requestAnimationFrame(() => this.markOverflow(el));
+    window.requestAnimationFrame(() => this.markOverflow(el));
   }
   markOverflow(el) {
     var _a;
@@ -1581,12 +1734,12 @@ var MinimalismUISettingTab = class extends import_obsidian6.PluginSettingTab {
       text.inputEl.max = "20";
       text.inputEl.addClass("minimalism-ui-prefix-input");
       text.setValue(String(this.plugin.settings.filenamePrefixLength));
-      text.inputEl.addEventListener("change", async () => {
+      text.inputEl.addEventListener("change", () => {
         const raw = parseInt(text.inputEl.value, 10);
         const clamped = isNaN(raw) ? 0 : Math.min(20, Math.max(0, raw));
         text.setValue(String(clamped));
         this.plugin.settings.filenamePrefixLength = clamped;
-        await this.plugin.saveSettings();
+        void this.plugin.saveSettings();
       });
     });
     new import_obsidian6.Setting(containerEl).setName(t("headingAnimation")).setHeading();
@@ -1618,6 +1771,7 @@ var MinimalismUIPlugin = class extends import_obsidian7.Plugin {
     this.emptyViewButton = new EmptyViewButtonManager(this.app, settings, this.engine);
     this.dragBar = new DragBarManager(this.app, settings, () => this.engine.getNavHistory());
     this.sidebarLayout = new SidebarLayoutManager(this.app, settings, this.pinManager);
+    this.sidebarSuggestFocus = new SidebarSuggestFocusTracker();
     this.mermaidZoom = new MermaidZoomManager(this.app);
     this.features = [
       this.bodyClasses,
@@ -1629,11 +1783,13 @@ var MinimalismUIPlugin = class extends import_obsidian7.Plugin {
       this.emptyViewButton,
       this.dragBar,
       this.sidebarLayout,
+      this.sidebarSuggestFocus,
       this.mermaidZoom
     ];
     await this.fontLoader.apply();
     void this.themeLoader.apply();
     this.bodyClasses.apply();
+    this.sidebarSuggestFocus.apply();
     this.pinManager.apply();
     this.engine.apply();
     this.mermaidZoom.apply();

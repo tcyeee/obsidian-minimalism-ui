@@ -1,8 +1,14 @@
-import { App, TAbstractFile, TFile } from 'obsidian';
+import { App, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
 import { LeafNameUtils } from '../core/utils';
+import { GLOBAL_GRAPH_KEY } from '../single-page/NavigationHistory';
+import { t } from '../core/i18n';
 
 const COMPACT_THRESHOLD = 15;
+
+// 无文件视图(如全局关系图)的 viewType,面包屑用它们的 getDisplayText() 作为当前项,
+// 而非沿用导航历史里残留的上一篇笔记名。
+const FILELESS_VIEW_TYPES = new Set(['graph']);
 
 /**
  * BreadcrumbRenderer — 顶部拖拽栏里的面包屑导航。
@@ -17,8 +23,10 @@ const COMPACT_THRESHOLD = 15;
  */
 export class BreadcrumbRenderer {
 	private el: HTMLElement | null = null;
-	private activeLeafHandler: (() => void) | null = null;
+	private activeLeafHandler: ((leaf: WorkspaceLeaf | null) => void) | null = null;
 	private renameHandler: ((file: TAbstractFile) => void) | null = null;
+	// 最近一次 active-leaf-change 的 leaf,用于判断当前是否停在无文件视图(如关系图)。
+	private currentLeaf: WorkspaceLeaf | null = null;
 
 	constructor(
 		private app: App,
@@ -35,7 +43,10 @@ export class BreadcrumbRenderer {
 
 		this.update();
 
-		this.activeLeafHandler = () => this.update();
+		this.activeLeafHandler = (leaf: WorkspaceLeaf | null) => {
+			this.currentLeaf = leaf;
+			this.update();
+		};
 		this.app.workspace.on('active-leaf-change', this.activeLeafHandler);
 
 		this.renameHandler = (file: TAbstractFile) => {
@@ -55,32 +66,77 @@ export class BreadcrumbRenderer {
 		}
 		// breadcrumbEl 是拖拽栏的子元素,由 DragBarManager 随拖拽栏一起移除。
 		this.el = null;
+		this.currentLeaf = null;
 	}
 
 	private update() {
 		const el = this.el;
 		if (!el) return;
-		const prefixLen = this.getSettings().filenamePrefixLength;
+
+		const filelessLabel = this.activeFilelessViewLabel();
 		const paths = this.navHistoryGetter();
-		if (paths.length <= 1) {
+
+		if (filelessLabel === null && paths.length <= 1) {
 			this.showSingleFile();
 			return;
 		}
-		// 路径是稳定字符串,直接从 vault 查文件名,无需过滤关闭的 leaf
-		const names = paths.map(p => {
+
+		this.renderTrail(this.buildTrail(paths, filelessLabel));
+	}
+
+	// 纯函数(无 DOM):由历史路径 + 当前无文件视图标签算出面包屑文本序列。
+	// 全局关系图现已作为真实条目入栈,buildNames 会用 graph 标签渲染它;只有在它尚未落入历史
+	// (active-leaf-change 与 nav 记录之间的时序间隙)时,才用实时标签补在末尾,避免出现两个关系图项。
+	private buildTrail(paths: string[], filelessLabel: string | null): string[] {
+		const names = this.buildNames(paths);
+		if (filelessLabel !== null && paths[paths.length - 1] !== GLOBAL_GRAPH_KEY) {
+			names.push(filelessLabel);
+		}
+		return names;
+	}
+
+	// 当前激活 leaf 若是无文件视图(graph 等),返回其本地化标题;否则返回 null。
+	private activeFilelessViewLabel(): string | null {
+		const view = (this.currentLeaf ?? this.app.workspace.getMostRecentLeaf())?.view;
+		if (!view || !FILELESS_VIEW_TYPES.has(view.getViewType())) return null;
+		return view.getDisplayText() || view.getViewType();
+	}
+
+	// 路径是稳定字符串,直接从 vault 查文件名,无需过滤关闭的 leaf。
+	// 全局关系图的合成键不是文件路径,映射为本地化的 graph 标签,避免被 stripPrefix 截成 ":global-graph"。
+	private buildNames(paths: string[]): string[] {
+		const prefixLen = this.getSettings().filenamePrefixLength;
+		return paths.map(p => {
+			if (p === GLOBAL_GRAPH_KEY) return t('graphView');
 			const f = this.app.vault.getAbstractFileByPath(p);
 			return f instanceof TFile
 				? LeafNameUtils.stripPrefix(f.basename, prefixLen)
 				: LeafNameUtils.stripPrefix(p, prefixLen);
 		});
+	}
 
-		if (paths.length > COMPACT_THRESHOLD) {
+	// 渲染完整路径:单项→当前项;超阈值或溢出→折叠中间项;否则完整列出。
+	private renderTrail(names: string[]) {
+		const el = this.el;
+		if (!el) return;
+		if (names.length === 0) return;
+
+		if (names.length === 1) {
+			el.innerHTML = '';
+			const item = createSpan();
+			item.className = 'minimalism-ui-breadcrumb-item is-current';
+			item.textContent = names[0];
+			el.appendChild(item);
+			return;
+		}
+
+		if (names.length > COMPACT_THRESHOLD) {
 			this.renderCompact(names, names.length - 2);
 			return;
 		}
 
 		this.renderAll(names);
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			if (!el.isConnected) return;
 			if (el.clientWidth === 0) return;
 			if (el.scrollWidth > el.clientWidth && names.length > 2) {

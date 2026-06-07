@@ -30,7 +30,7 @@
  */
 import { App, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
-import { AnimationClass, NavigationHistory } from './NavigationHistory';
+import { AnimationClass, GLOBAL_GRAPH_KEY, NavigationHistory } from './NavigationHistory';
 import { ResizeObserverErrorSuppressor } from './ResizeObserverErrorSuppressor';
 import { LeafCache } from './LeafCache';
 
@@ -40,6 +40,7 @@ type WorkspaceInternal = {
 
 type LeafInternal = WorkspaceLeaf & {
 	openFile: (file: TFile, state?: unknown) => Promise<void>;
+	setViewState: (state: { type: string;[k: string]: unknown }, eState?: unknown) => Promise<void>;
 	history?: {
 		back: () => void;
 		forward: () => void;
@@ -49,6 +50,7 @@ type LeafInternal = WorkspaceLeaf & {
 	view?: {
 		file?: TFile;
 		contentEl?: HTMLElement;
+		getViewType?: () => string;
 	};
 	parent?: unknown;
 	containerEl?: HTMLElement;
@@ -135,9 +137,13 @@ export class SinglePageEngine {
 		// re-apply does not, leaving the history empty so the first back press finds
 		// length < 2 and silently fails.
 		const mostRecent = this.app.workspace.getMostRecentLeaf();
-		if (mostRecent && this.nav.isEmpty()) {
-			const seedPath = (mostRecent as LeafInternal).view?.file?.path;
-			if (seedPath) this.nav.seed(seedPath);
+		if (mostRecent) {
+			const seedKey = this.navKeyForLeaf(mostRecent);
+			if (seedKey) {
+				if (this.nav.isEmpty()) this.nav.seed(seedKey);
+				// 初始化当前活动 root leaf 键，避免首次后退时把“当前页”误判为无文件视图而原地重激活。
+				this.nav.markActiveRoot(seedKey);
+			}
 		}
 
 		// 把内置的 app:go-back / app:go-forward 命令路由到我们的跨 tab 导航栈
@@ -197,9 +203,21 @@ export class SinglePageEngine {
 		this.app.workspace.iterateRootLeaves(l => { if (l === leaf) isRootLeaf = true; });
 		if (!isRootLeaf) return;
 
+		const navKey = this.navKeyForLeaf(leaf);
+		// 先同步“当前活动 root leaf 路径”（无文件且非关系图的视图传 null），
+		// nav 据此判断后退时当前显示是否就是历史栈顶；必须先于 record（record 仅处理可入栈的条目）。
+		this.nav.markActiveRoot(navKey);
+		if (!navKey) return;
+		this.nav.record(navKey);
+	}
+
+	// 把 root leaf 映射为导航栈中的键：有文件则用文件路径；全局关系图用合成键 GLOBAL_GRAPH_KEY；
+	// 其余无文件视图（搜索、本地关系图等）返回 null（不入栈，由 nav 的 currentRootPath 守卫兜底）。
+	private navKeyForLeaf(leaf: WorkspaceLeaf): string | null {
 		const filePath = (leaf as LeafInternal).view?.file?.path;
-		if (!filePath) return;
-		this.nav.record(filePath);
+		if (filePath) return filePath;
+		if ((leaf as LeafInternal).view?.getViewType?.() === 'graph') return GLOBAL_GRAPH_KEY;
+		return null;
 	}
 
 	// 激活已显示目标路径的 root leaf；若无（已被 LRU 淘汰或手动关闭）则重新打开该文件。
@@ -209,7 +227,7 @@ export class SinglePageEngine {
 	private activateOrOpenFile(path: string, animCls: AnimationClass | null) {
 		let targetLeaf: WorkspaceLeaf | null = null;
 		this.app.workspace.iterateRootLeaves(l => {
-			if (!targetLeaf && (l as LeafInternal).view?.file?.path === path) targetLeaf = l;
+			if (!targetLeaf && this.navKeyForLeaf(l) === path) targetLeaf = l;
 		});
 		if (targetLeaf) {
 			this.app.workspace.setActiveLeaf(targetLeaf, { focus: true });
@@ -217,6 +235,17 @@ export class SinglePageEngine {
 			return;
 		}
 		if (!this.originalGetLeaf) return;
+		// 关系图条目：缓存中已无关系图 leaf（被 LRU 淘汰或手动关闭），新开一个全局关系图重现该条目。
+		if (path === GLOBAL_GRAPH_KEY) {
+			const newLeaf = this.originalGetLeaf('tab');
+			this.patchLeafHistory(newLeaf);
+			this.patchRootLeafDetach(newLeaf);
+			void (newLeaf as LeafInternal).setViewState({ type: 'graph' }).then(() => {
+				this.app.workspace.setActiveLeaf(newLeaf, { focus: true });
+				this.nav.playAnimation(newLeaf, animCls);
+			});
+			return;
+		}
 		const file = this.app.vault.getAbstractFileByPath(path);
 		if (!(file instanceof TFile)) return;
 		const newLeaf = this.originalGetLeaf('tab');
@@ -237,9 +266,11 @@ export class SinglePageEngine {
 		if (!(leaf as LeafInternal).parent) return;
 		this.pendingInterceptLeaves.add(leaf);
 		const origOpenFile: (file: TFile, state?: unknown) => Promise<void> = (leaf as LeafInternal).openFile.bind(leaf);
+		const origSetViewState: (state: { type: string;[k: string]: unknown }, eState?: unknown) => Promise<void> = (leaf as LeafInternal).setViewState.bind(leaf);
 		(leaf as LeafInternal).openFile = async (file: TFile, state?: unknown) => {
-			// 一次性拦截：立即还原，防止后续调用被意外拦截
+			// 一次性拦截：立即还原两个入口，防止后续调用被意外拦截
 			(leaf as LeafInternal).openFile = origOpenFile;
+			(leaf as LeafInternal).setViewState = origSetViewState;
 			this.pendingInterceptLeaves.delete(leaf);
 
 			if (!this.isReusingLeaf) {
@@ -281,6 +312,42 @@ export class SinglePageEngine {
 			}
 			return result;
 		};
+
+		// 同一空 leaf 上的一次性 setViewState 拦截：仅针对全局关系图做单实例去重，
+		// 使关系图像文件一样“一份只开一个 tab”。其余视图类型透传，不消费一次性标志。
+		(leaf as LeafInternal).setViewState = async (state: { type: string;[k: string]: unknown }, eState?: unknown) => {
+			if (state?.type !== 'graph' || this.isReusingLeaf) {
+				return origSetViewState(state, eState);
+			}
+			// 命中全局关系图：还原两个入口并退出 pending
+			(leaf as LeafInternal).openFile = origOpenFile;
+			(leaf as LeafInternal).setViewState = origSetViewState;
+			this.pendingInterceptLeaves.delete(leaf);
+
+			let existingLeaf: WorkspaceLeaf | null = null;
+			this.app.workspace.iterateRootLeaves(l => {
+				if (existingLeaf || l === leaf) return;
+				if (this.navKeyForLeaf(l) === GLOBAL_GRAPH_KEY) existingLeaf = l;
+			});
+			if (existingLeaf) {
+				// 已存在全局关系图：激活复用，丢弃当前空 leaf，不再创建第二个关系图。
+				// setActiveLeaf 触发的 active-leaf-change 会把 GLOBAL_GRAPH_KEY 写入历史。
+				this.isReusingLeaf = true;
+				try {
+					this.leafCache.touch(existingLeaf);
+					this.app.workspace.setActiveLeaf(existingLeaf, { focus: true });
+					leaf.detach();
+				} finally {
+					this.isReusingLeaf = false;
+				}
+				return;
+			}
+
+			// 尚无关系图：正常创建，先补 history / detach 拦截再设置视图。
+			this.patchLeafHistory(leaf);
+			this.patchRootLeafDetach(leaf);
+			return origSetViewState(state, eState);
+		};
 	}
 
 	patchLeafHistory(leaf: WorkspaceLeaf) {
@@ -320,7 +387,8 @@ export class SinglePageEngine {
 		const original = (leaf as LeafInternal).detach.bind(leaf);
 		(leaf as LeafInternal).detach = () => {
 			if (!this.isReusingLeaf && !this.leafCache.isEvictingNow()) {
-				const closingPath = (leaf as LeafInternal).view?.file?.path;
+				// 关系图 tab 关闭时同样需移除其历史条目，故用 navKeyForLeaf 而非仅文件路径。
+				const closingPath = this.navKeyForLeaf(leaf) ?? undefined;
 				this.nav.onTabClosing(closingPath);
 			}
 			original();

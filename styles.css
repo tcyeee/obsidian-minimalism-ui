@@ -143,20 +143,21 @@ body.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value [conte
 /* 属性栏输入时的建议下拉（.suggestion-container）：
    该弹层由 Obsidian 直接 appendChild 到 document.body，没有可区分的 class，
    默认 background 用 var(--background-primary)（moonstone 浅色），浮在深色侧边栏上很突兀。
-   属性值输入时输入框保持焦点（建议弹层打开期间 .metadata-property-value 始终 :focus-within），
-   因此用 :has() + :focus-within 纯 CSS 精确命中“此刻为侧边栏属性而开”的那一个弹层，
+   过去用 body:has(... .metadata-property-value:focus-within) 命中此刻为侧边栏属性而开的弹层，
+   但 :has 会触发大范围选择器失效（性能警告）。改由 SidebarSuggestFocusTracker（JS）在焦点
+   落入左栏属性值时给 body 加 .minimalism-ui-sidebar-prop-focus，CSS 据此着色。
    配色对齐 localgraph 的设置面板 .graph-controls 展开态（#0f1e2b + 浅色文字）。*/
-body.minimalism-ui-mac-sidebar:has(.workspace-split.mod-left-split .metadata-property-value:focus-within) .suggestion-container {
+body.minimalism-ui-mac-sidebar.minimalism-ui-sidebar-prop-focus .suggestion-container {
 	background-color: #0f1e2b;
 	border: 1px solid rgba(255, 255, 255, 0.08);
 	box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
 }
 
-body.minimalism-ui-mac-sidebar:has(.workspace-split.mod-left-split .metadata-property-value:focus-within) .suggestion-container .suggestion-item {
+body.minimalism-ui-mac-sidebar.minimalism-ui-sidebar-prop-focus .suggestion-container .suggestion-item {
 	color: rgba(196, 196, 196, 0.88);
 }
 
-body.minimalism-ui-mac-sidebar:has(.workspace-split.mod-left-split .metadata-property-value:focus-within) .suggestion-container .suggestion-item.is-selected {
+body.minimalism-ui-mac-sidebar.minimalism-ui-sidebar-prop-focus .suggestion-container .suggestion-item.is-selected {
 	background-color: rgba(255, 255, 255, 0.08);
 }
 

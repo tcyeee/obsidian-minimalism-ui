@@ -32,7 +32,7 @@ export class MermaidZoomManager {
         this.mutationObs = new MutationObserver((mutations) => {
             for (const m of mutations) {
                 for (const node of Array.from(m.addedNodes)) {
-                    if (!(node instanceof Element)) continue;
+                    if (!node.instanceOf(Element)) continue;
                     if (node.classList.contains('mermaid')) {
                         this.scheduleMarkOverflow(node as HTMLElement);
                     } else {
@@ -73,7 +73,7 @@ export class MermaidZoomManager {
 
     /** 等一帧再检查，确保 SVG 已完成渲染并写入 width 属性 */
     private scheduleMarkOverflow(el: HTMLElement) {
-        requestAnimationFrame(() => this.markOverflow(el));
+        window.requestAnimationFrame(() => this.markOverflow(el));
     }
 
     private markOverflow(el: HTMLElement) {

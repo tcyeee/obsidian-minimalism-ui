@@ -27,7 +27,7 @@ export class EmptyViewButtonManager implements Feature {
 		if (!this.getSettings().homePage) return;
 
 		// onOpen 异步重建动作列表，延到下一帧再注入，确保原生按钮已就位（追加在其后）。
-		this.handler = () => requestAnimationFrame(() => this.inject());
+		this.handler = () => window.requestAnimationFrame(() => this.inject());
 		this.app.workspace.on('layout-change', this.handler);
 		this.app.workspace.on('active-leaf-change', this.handler);
 		this.inject();
