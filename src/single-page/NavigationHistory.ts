@@ -191,10 +191,14 @@ export class NavigationHistory {
 			const idx = this.history.lastIndexOf(closingPath);
 			if (idx !== -1) this.history.splice(idx, 1);
 		}
-		this.isClosingTab = true;
 
 		const prevPath = this.history[this.history.length - 1];
 		if (prevPath) {
+			// 仅当关闭后仍有前驱文件可跳转时，才置 isClosingTab 去吞掉 Obsidian 在关闭瞬间同步
+			// 激活相邻 leaf 触发的那一次 record。若关闭的是最后一个 tab（无前驱），关闭后落到的是
+			// 空 leaf（navKey 为 null，根本不会进入 record），此时置位只会让标志滞留，进而把随后由
+			// HomePageManager 自动打开的首页那次 record 误吞，导致首页不入导航历史栈。故无前驱时不置位。
+			this.isClosingTab = true;
 			this.jumpPath = prevPath;
 			this.scheduleActivate(prevPath);
 		}

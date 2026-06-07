@@ -91,8 +91,10 @@ body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split * {
 	color: rgba(196, 196, 196, 0.88);
 }
 
-/* 隐藏左侧边栏各 panel 之间的拖拽分隔条 */
-body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-leaf-resize-handle {
+/* 隐藏左侧边栏各 panel 之间的拖拽分隔条。
+   只命中嵌套 .workspace-split 内部的分隔条（堆叠面板之间），
+   不要碰 .mod-left-split 的直接子级 handle，那个是用来拖拽调整整个侧边栏宽度的。 */
+body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-split .workspace-leaf-resize-handle {
 	display: none;
 }
 

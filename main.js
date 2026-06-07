@@ -294,9 +294,9 @@ var NavigationHistory = class {
       const idx = this.history.lastIndexOf(closingPath);
       if (idx !== -1) this.history.splice(idx, 1);
     }
-    this.isClosingTab = true;
     const prevPath = this.history[this.history.length - 1];
     if (prevPath) {
+      this.isClosingTab = true;
       this.jumpPath = prevPath;
       this.scheduleActivate(prevPath);
     }
