@@ -202,6 +202,11 @@ export class SinglePageEngine {
 		return this.nav.getHistory();
 	}
 
+	// 面包屑点击:跳转到导航历史栈中指定下标的条目(语义等同连续后退)。
+	navigateHistoryTo(index: number) {
+		this.nav.jumpToIndex(index);
+	}
+
 	// 记录跨 tab 导航历史：只对 root leaf 且有 filePath 的激活生效，再交给 nav 处理一次性标志与去重。
 	// root leaf 判断必须先于 nav.record，防止侧边栏等无关激活提前消耗 nav 的一次性标志。
 	private handleNavTrack(leaf: WorkspaceLeaf | null) {

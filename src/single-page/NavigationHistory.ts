@@ -165,6 +165,22 @@ export class NavigationHistory {
 		// 无有效前驱，导航无法执行；死条目已就地清除，无需回滚
 	}
 
+	// 面包屑点击:跳转到历史栈中指定下标的条目,语义等同于连续后退。
+	// index+1..末尾的条目按原顺序整体移入 future 头部,前进键仍可逐级返回。
+	// 守卫:下标越界、点的就是当前栈顶、或目标已失效(死条目)时不做任何操作。
+	jumpToIndex(index: number) {
+		if (index < 0 || index >= this.history.length - 1) return;
+		const target = this.history[index];
+		if (!this.isReopenable(target)) return;
+
+		this.cancelTimer();
+		const removed = this.history.splice(index + 1);
+		this.future = removed.concat(this.future);
+
+		this.jumpPath = target;
+		this.scheduleActivate(target, 'minimalism-ui-slide-from-left');
+	}
+
 	forward() {
 		this.cancelTimer();
 		// shift 出的死条目直接丢弃（不回滚）：与 back 保持一致，避免死条目因回滚永远无法清除。

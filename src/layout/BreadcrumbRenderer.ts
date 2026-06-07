@@ -32,6 +32,8 @@ export class BreadcrumbRenderer {
 		private app: App,
 		private getSettings: () => MinimalismUISettings,
 		private navHistoryGetter: () => string[],
+		// 点击非当前面包屑条目时回调,参数为该条目在导航历史栈中的下标(语义=连续后退)。
+		private onNavigate: (index: number) => void = () => {},
 	) {}
 
 	mount(parent: HTMLElement) {
@@ -162,18 +164,8 @@ export class BreadcrumbRenderer {
 		if (!el) return;
 		el.innerHTML = '';
 		names.forEach((name, i) => {
-			if (i > 0) {
-				const sep = createSpan();
-				sep.className = 'minimalism-ui-breadcrumb-sep';
-				sep.textContent = '/';
-				el.appendChild(sep);
-			}
-			const item = createSpan();
-			item.className = i === names.length - 1
-				? 'minimalism-ui-breadcrumb-item is-current'
-				: 'minimalism-ui-breadcrumb-item';
-			item.textContent = name;
-			el.appendChild(item);
+			if (i > 0) el.appendChild(this.makeSep());
+			el.appendChild(this.makeItem(name, i, i === names.length - 1));
 		});
 	}
 
@@ -182,29 +174,37 @@ export class BreadcrumbRenderer {
 		if (!el) return;
 		el.innerHTML = '';
 
-		const first = createSpan();
-		first.className = 'minimalism-ui-breadcrumb-item';
-		first.textContent = names[0];
-		el.appendChild(first);
-
-		const sep1 = createSpan();
-		sep1.className = 'minimalism-ui-breadcrumb-sep';
-		sep1.textContent = '/';
-		el.appendChild(sep1);
+		// 首项下标恒为 0,可点;折叠的中间项与当前项不可点。
+		el.appendChild(this.makeItem(names[0], 0, false));
+		el.appendChild(this.makeSep());
 
 		const collapse = createSpan();
 		collapse.className = 'minimalism-ui-breadcrumb-collapse';
 		collapse.textContent = `···${collapsedCount}···`;
 		el.appendChild(collapse);
 
-		const sep2 = createSpan();
-		sep2.className = 'minimalism-ui-breadcrumb-sep';
-		sep2.textContent = '/';
-		el.appendChild(sep2);
+		el.appendChild(this.makeSep());
+		el.appendChild(this.makeItem(names[names.length - 1], names.length - 1, true));
+	}
 
-		const last = createSpan();
-		last.className = 'minimalism-ui-breadcrumb-item is-current';
-		last.textContent = names[names.length - 1];
-		el.appendChild(last);
+	private makeSep(): HTMLElement {
+		const sep = createSpan();
+		sep.className = 'minimalism-ui-breadcrumb-sep';
+		sep.textContent = '/';
+		return sep;
+	}
+
+	// 渲染下标与导航历史栈下标 1:1(末尾追加的无文件视图标签恒为当前项,不可点),
+	// 故非当前项可直接用 index 触发 onNavigate(连续后退到该条目)。
+	private makeItem(name: string, index: number, isCurrent: boolean): HTMLElement {
+		const item = createSpan();
+		item.className = isCurrent
+			? 'minimalism-ui-breadcrumb-item is-current'
+			: 'minimalism-ui-breadcrumb-item is-clickable';
+		item.textContent = name;
+		if (!isCurrent) {
+			item.addEventListener('click', () => this.onNavigate(index));
+		}
+		return item;
 	}
 }

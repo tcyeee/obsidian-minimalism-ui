@@ -49,7 +49,12 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.pinManager = new PinManager(this.app, settings);
 		this.homePage = new HomePageManager(this.app, settings, this.engine);
 		this.emptyViewButton = new EmptyViewButtonManager(this.app, settings, this.engine);
-		this.dragBar = new DragBarManager(this.app, settings, () => this.engine.getNavHistory());
+		this.dragBar = new DragBarManager(
+			this.app,
+			settings,
+			() => this.engine.getNavHistory(),
+			(index) => this.engine.navigateHistoryTo(index),
+		);
 		this.sidebarLayout = new SidebarLayoutManager(this.app, settings, this.pinManager);
 		this.sidebarSuggestFocus = new SidebarSuggestFocusTracker();
 		this.mermaidZoom = new MermaidZoomManager(this.app);

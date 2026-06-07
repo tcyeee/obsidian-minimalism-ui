@@ -21,8 +21,9 @@ export class DragBarManager {
 		private app: App,
 		private getSettings: () => MinimalismUISettings,
 		navHistoryGetter: () => string[] = () => [],
+		onBreadcrumbNavigate: (index: number) => void = () => {},
 	) {
-		this.breadcrumb = new BreadcrumbRenderer(app, getSettings, navHistoryGetter);
+		this.breadcrumb = new BreadcrumbRenderer(app, getSettings, navHistoryGetter, onBreadcrumbNavigate);
 	}
 
 	apply() {

@@ -274,6 +274,19 @@ var NavigationHistory = class {
       return;
     }
   }
+  // 面包屑点击:跳转到历史栈中指定下标的条目,语义等同于连续后退。
+  // index+1..末尾的条目按原顺序整体移入 future 头部,前进键仍可逐级返回。
+  // 守卫:下标越界、点的就是当前栈顶、或目标已失效(死条目)时不做任何操作。
+  jumpToIndex(index) {
+    if (index < 0 || index >= this.history.length - 1) return;
+    const target = this.history[index];
+    if (!this.isReopenable(target)) return;
+    this.cancelTimer();
+    const removed = this.history.splice(index + 1);
+    this.future = removed.concat(this.future);
+    this.jumpPath = target;
+    this.scheduleActivate(target, "minimalism-ui-slide-from-left");
+  }
   forward() {
     this.cancelTimer();
     while (this.future.length > 0) {
@@ -601,6 +614,10 @@ var SinglePageEngine = class {
   }
   getNavHistory() {
     return this.nav.getHistory();
+  }
+  // 面包屑点击:跳转到导航历史栈中指定下标的条目(语义等同连续后退)。
+  navigateHistoryTo(index) {
+    this.nav.jumpToIndex(index);
   }
   // 记录跨 tab 导航历史：只对 root leaf 且有 filePath 的激活生效，再交给 nav 处理一次性标志与去重。
   // root leaf 判断必须先于 nav.record，防止侧边栏等无关激活提前消耗 nav 的一次性标志。
@@ -1062,10 +1079,12 @@ var LeafNameUtils = class {
 var COMPACT_THRESHOLD = 15;
 var FILELESS_VIEW_TYPES = /* @__PURE__ */ new Set(["graph"]);
 var BreadcrumbRenderer = class {
-  constructor(app, getSettings, navHistoryGetter) {
+  constructor(app, getSettings, navHistoryGetter, onNavigate = () => {
+  }) {
     this.app = app;
     this.getSettings = getSettings;
     this.navHistoryGetter = navHistoryGetter;
+    this.onNavigate = onNavigate;
     this.el = null;
     this.activeLeafHandler = null;
     this.renameHandler = null;
@@ -1180,55 +1199,53 @@ var BreadcrumbRenderer = class {
     if (!el) return;
     el.innerHTML = "";
     names.forEach((name, i) => {
-      if (i > 0) {
-        const sep = createSpan();
-        sep.className = "minimalism-ui-breadcrumb-sep";
-        sep.textContent = "/";
-        el.appendChild(sep);
-      }
-      const item = createSpan();
-      item.className = i === names.length - 1 ? "minimalism-ui-breadcrumb-item is-current" : "minimalism-ui-breadcrumb-item";
-      item.textContent = name;
-      el.appendChild(item);
+      if (i > 0) el.appendChild(this.makeSep());
+      el.appendChild(this.makeItem(name, i, i === names.length - 1));
     });
   }
   renderCompact(names, collapsedCount) {
     const el = this.el;
     if (!el) return;
     el.innerHTML = "";
-    const first = createSpan();
-    first.className = "minimalism-ui-breadcrumb-item";
-    first.textContent = names[0];
-    el.appendChild(first);
-    const sep1 = createSpan();
-    sep1.className = "minimalism-ui-breadcrumb-sep";
-    sep1.textContent = "/";
-    el.appendChild(sep1);
+    el.appendChild(this.makeItem(names[0], 0, false));
+    el.appendChild(this.makeSep());
     const collapse = createSpan();
     collapse.className = "minimalism-ui-breadcrumb-collapse";
     collapse.textContent = `\xB7\xB7\xB7${collapsedCount}\xB7\xB7\xB7`;
     el.appendChild(collapse);
-    const sep2 = createSpan();
-    sep2.className = "minimalism-ui-breadcrumb-sep";
-    sep2.textContent = "/";
-    el.appendChild(sep2);
-    const last = createSpan();
-    last.className = "minimalism-ui-breadcrumb-item is-current";
-    last.textContent = names[names.length - 1];
-    el.appendChild(last);
+    el.appendChild(this.makeSep());
+    el.appendChild(this.makeItem(names[names.length - 1], names.length - 1, true));
+  }
+  makeSep() {
+    const sep = createSpan();
+    sep.className = "minimalism-ui-breadcrumb-sep";
+    sep.textContent = "/";
+    return sep;
+  }
+  // 渲染下标与导航历史栈下标 1:1(末尾追加的无文件视图标签恒为当前项,不可点),
+  // 故非当前项可直接用 index 触发 onNavigate(连续后退到该条目)。
+  makeItem(name, index, isCurrent) {
+    const item = createSpan();
+    item.className = isCurrent ? "minimalism-ui-breadcrumb-item is-current" : "minimalism-ui-breadcrumb-item is-clickable";
+    item.textContent = name;
+    if (!isCurrent) {
+      item.addEventListener("click", () => this.onNavigate(index));
+    }
+    return item;
   }
 };
 
 // src/layout/DragBarManager.ts
 var DragBarManager = class {
-  constructor(app, getSettings, navHistoryGetter = () => []) {
+  constructor(app, getSettings, navHistoryGetter = () => [], onBreadcrumbNavigate = () => {
+  }) {
     this.app = app;
     this.getSettings = getSettings;
     this.dragBar = null;
     this.layoutHandler = null;
     this.statusBarOriginalParent = null;
     this.statusBarOriginalNextSibling = null;
-    this.breadcrumb = new BreadcrumbRenderer(app, getSettings, navHistoryGetter);
+    this.breadcrumb = new BreadcrumbRenderer(app, getSettings, navHistoryGetter, onBreadcrumbNavigate);
   }
   apply() {
     this.remove();
@@ -1812,7 +1829,12 @@ var MinimalismUIPlugin = class extends import_obsidian7.Plugin {
     this.pinManager = new PinManager(this.app, settings);
     this.homePage = new HomePageManager(this.app, settings, this.engine);
     this.emptyViewButton = new EmptyViewButtonManager(this.app, settings, this.engine);
-    this.dragBar = new DragBarManager(this.app, settings, () => this.engine.getNavHistory());
+    this.dragBar = new DragBarManager(
+      this.app,
+      settings,
+      () => this.engine.getNavHistory(),
+      (index) => this.engine.navigateHistoryTo(index)
+    );
     this.sidebarLayout = new SidebarLayoutManager(this.app, settings, this.pinManager);
     this.sidebarSuggestFocus = new SidebarSuggestFocusTracker();
     this.mermaidZoom = new MermaidZoomManager(this.app);

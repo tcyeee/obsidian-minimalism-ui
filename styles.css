@@ -473,6 +473,18 @@ body.minimalism-ui-disable-note-tabs .workspace-split.mod-root .workspace-tab-he
 	text-overflow: clip;
 }
 
+.minimalism-ui-breadcrumb-item.is-clickable {
+	cursor: pointer;
+	pointer-events: auto;
+	-webkit-app-region: no-drag;
+	transition: color 0.12s ease;
+}
+
+.minimalism-ui-breadcrumb-item.is-clickable:hover {
+	color: var(--text-normal);
+	text-decoration: underline;
+}
+
 .minimalism-ui-breadcrumb-sep,
 .minimalism-ui-breadcrumb-collapse {
 	font-size: 0.72rem;
