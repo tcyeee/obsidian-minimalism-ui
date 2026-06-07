@@ -76,6 +76,10 @@ export class SinglePageEngine {
 	private pendingInterceptLeaves = new Set<WorkspaceLeaf>();
 	// 首页打开期间为 true，避免 getLeaf 拦截器介入
 	private _isOpeningHomePage = false;
+	// openHomePage 异步打开期间又收到“全部关闭”请求时置位。连续快速 CMD+W 会把正在打开的
+	// 首页 leaf 也关掉，触发新一轮 file-open(null) -> openHomePage，但此刻重入锁未释放，请求会被
+	// 直接丢弃，最终停在空页。置位后由当前这次的 finally 兜底补开，保证最终落在首页而非空页。
+	private _homePageReopenQueued = false;
 	private renameHandler: ((file: TAbstractFile, oldPath: string) => void) | null = null;
 
 	constructor(
@@ -331,13 +335,19 @@ export class SinglePageEngine {
 
 	// 打开首页笔记：先置 _isOpeningHomePage 防止 getLeaf 拦截器介入，再补 history / detach patch
 	async openHomePage() {
-		if (this._isOpeningHomePage) return;
+		// 重入：上一次首页打开仍在 await 中。不能直接丢弃请求——连续快速 CMD+W 可能把正在
+		// 打开的首页 leaf 也关掉，留下空页。置位待补开标志，由当前调用的 finally 兜底重试。
+		if (this._isOpeningHomePage) {
+			this._homePageReopenQueued = true;
+			return;
+		}
 		const path = this.getSettings().homePage;
 		if (!path) return;
 		if (activeDocument.querySelector('.modal-container')) return;
 		const file = this.app.vault.getAbstractFileByPath(path);
 		if (!(file instanceof TFile)) return;
 		this._isOpeningHomePage = true;
+		this._homePageReopenQueued = false;
 		try {
 			const leaf = this.app.workspace.getLeaf(false);
 			// Dedup: file-open may fire synchronously inside originalGetLeaf('tab') before
@@ -355,10 +365,21 @@ export class SinglePageEngine {
 				return;
 			}
 			await (leaf as LeafInternal).openFile(file);
-			this.patchLeafHistory(leaf);
-			this.patchRootLeafDetach(leaf);
+			// 打开期间该 leaf 可能已被快速 CMD+W 关掉（parent 为 null）。对已 detach 的 leaf
+			// 打补丁只会在注册表里留下永不回收的死 leaf，且首页并未真正就位——交由下方补偿重试处理。
+			if ((leaf as LeafInternal).parent) {
+				this.patchLeafHistory(leaf);
+				this.patchRootLeafDetach(leaf);
+			}
 		} finally {
 			this._isOpeningHomePage = false;
+			// 补偿重试：打开期间又收到过“全部关闭”请求（很可能把刚打开的首页也关了），此时
+			// 重新打开，保证最终落在首页而非空页。重试自身再被重入会再次置位，循环由用户的关闭
+			// 操作驱动；用户停手后最后一次重试不再被重入、得以成功就位，因而不会空转。
+			if (this._homePageReopenQueued) {
+				this._homePageReopenQueued = false;
+				void this.openHomePage();
+			}
 		}
 	}
 }

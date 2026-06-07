@@ -27,22 +27,18 @@ __export(main_exports, {
   default: () => MinimalismUIPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 
 // src/core/settings.ts
 var DEFAULT_SETTINGS = {
-  macSidebar: false,
   showProperties: true,
   showLocalGraph: false,
   hideTabBar: false,
-  disablePinTab: true,
-  simplifyPanel: false,
   disableNoteTabs: false,
   enableNavAnimation: false,
-  noteStyle: false,
+  theme: "forest",
   homePage: "",
   filenamePrefixLength: 0,
-  showBreadcrumb: false,
   language: "auto"
 };
 
@@ -95,6 +91,50 @@ var FontLoader = class {
   }
 };
 
+// src/core/ThemeLoader.ts
+var import_obsidian = require("obsidian");
+var STYLE_ATTR = "data-minimalism-theme";
+var ThemeLoader = class {
+  constructor(app, manifestDir, settings) {
+    this.app = app;
+    this.manifestDir = manifestDir;
+    this.settings = settings;
+  }
+  async apply() {
+    this.remove();
+    const name = this.settings().theme;
+    if (!name) return;
+    const path = (0, import_obsidian.normalizePath)(`${this.manifestDir}/theme/${name}.css`);
+    const adapter = this.app.vault.adapter;
+    let css;
+    try {
+      css = await adapter.read(path);
+    } catch (e) {
+      return;
+    }
+    const style = activeDocument.createElement("style");
+    style.setAttribute(STYLE_ATTR, name);
+    style.textContent = css;
+    activeDocument.head.appendChild(style);
+  }
+  remove() {
+    activeDocument.head.querySelectorAll(`style[${STYLE_ATTR}]`).forEach((el) => el.remove());
+  }
+  /** 列出 theme/ 目录下所有可选主题名（去掉 .css 后缀）。 */
+  async listThemes() {
+    const dir = (0, import_obsidian.normalizePath)(`${this.manifestDir}/theme`);
+    try {
+      const listing = await this.app.vault.adapter.list(dir);
+      return listing.files.map((p) => {
+        var _a;
+        return (_a = p.split("/").pop()) != null ? _a : "";
+      }).filter((f) => f.endsWith(".css")).map((f) => f.slice(0, -".css".length)).sort();
+    } catch (e) {
+      return [];
+    }
+  }
+};
+
 // src/core/BodyClassController.ts
 var BODY_CLASSES = [
   "minimalism-ui-mac-sidebar",
@@ -111,12 +151,12 @@ var BodyClassController = class {
   apply() {
     const s = this.getSettings();
     const cls = activeDocument.body.classList;
-    cls.toggle("minimalism-ui-mac-sidebar", s.macSidebar);
+    cls.add("minimalism-ui-mac-sidebar");
     cls.toggle("minimalism-ui-hide-tab-bar", s.hideTabBar);
-    cls.toggle("minimalism-ui-disable-pin", s.disablePinTab);
-    cls.toggle("minimalism-ui-simplify-panel", s.simplifyPanel);
+    cls.toggle("minimalism-ui-disable-pin", s.disableNoteTabs);
+    cls.toggle("minimalism-ui-simplify-panel", s.hideTabBar);
     cls.toggle("minimalism-ui-disable-note-tabs", s.disableNoteTabs);
-    cls.toggle("minimalism-ui-note-style", s.noteStyle);
+    cls.add("minimalism-ui-note-style");
   }
   remove() {
     activeDocument.body.classList.remove(...BODY_CLASSES);
@@ -124,10 +164,10 @@ var BodyClassController = class {
 };
 
 // src/single-page/SinglePageEngine.ts
-var import_obsidian2 = require("obsidian");
+var import_obsidian3 = require("obsidian");
 
 // src/single-page/NavigationHistory.ts
-var import_obsidian = require("obsidian");
+var import_obsidian2 = require("obsidian");
 var NavigationHistory = class {
   constructor(app, getSettings, activateOrOpen) {
     this.app = app;
@@ -195,7 +235,7 @@ var NavigationHistory = class {
     while (this.history.length >= 2) {
       const prevPath = this.history[this.history.length - 2];
       const file = this.app.vault.getAbstractFileByPath(prevPath);
-      if (!(file instanceof import_obsidian.TFile)) {
+      if (!(file instanceof import_obsidian2.TFile)) {
         this.history.splice(this.history.length - 2, 1);
         continue;
       }
@@ -211,7 +251,7 @@ var NavigationHistory = class {
     while (this.future.length > 0) {
       const nextPath = this.future.shift();
       const file = this.app.vault.getAbstractFileByPath(nextPath);
-      if (!(file instanceof import_obsidian.TFile)) continue;
+      if (!(file instanceof import_obsidian2.TFile)) continue;
       this.history.push(nextPath);
       this.jumpPath = nextPath;
       this.scheduleActivate(nextPath, "minimalism-ui-slide-from-right");
@@ -411,6 +451,10 @@ var SinglePageEngine = class {
     this.pendingInterceptLeaves = /* @__PURE__ */ new Set();
     // 首页打开期间为 true，避免 getLeaf 拦截器介入
     this._isOpeningHomePage = false;
+    // openHomePage 异步打开期间又收到“全部关闭”请求时置位。连续快速 CMD+W 会把正在打开的
+    // 首页 leaf 也关掉，触发新一轮 file-open(null) -> openHomePage，但此刻重入锁未释放，请求会被
+    // 直接丢弃，最终停在空页。置位后由当前这次的 finally 兜底补开，保证最终落在首页而非空页。
+    this._homePageReopenQueued = false;
     this.renameHandler = null;
     this.nav = new NavigationHistory(app, getSettings, (path, animCls) => this.activateOrOpenFile(path, animCls));
     this.leafCache = new LeafCache(app);
@@ -449,7 +493,7 @@ var SinglePageEngine = class {
     }
     this.nav.patchCommands();
     this.renameHandler = (file, oldPath) => {
-      if (!(file instanceof import_obsidian2.TFile)) return;
+      if (!(file instanceof import_obsidian3.TFile)) return;
       this.nav.handleRename(oldPath, file.path);
     };
     this.app.vault.on("rename", this.renameHandler);
@@ -514,7 +558,7 @@ var SinglePageEngine = class {
     }
     if (!this.originalGetLeaf) return;
     const file = this.app.vault.getAbstractFileByPath(path);
-    if (!(file instanceof import_obsidian2.TFile)) return;
+    if (!(file instanceof import_obsidian3.TFile)) return;
     const newLeaf = this.originalGetLeaf("tab");
     this.patchLeafHistory(newLeaf);
     this.patchRootLeafDetach(newLeaf);
@@ -615,13 +659,17 @@ var SinglePageEngine = class {
   }
   // 打开首页笔记：先置 _isOpeningHomePage 防止 getLeaf 拦截器介入，再补 history / detach patch
   async openHomePage() {
-    if (this._isOpeningHomePage) return;
+    if (this._isOpeningHomePage) {
+      this._homePageReopenQueued = true;
+      return;
+    }
     const path = this.getSettings().homePage;
     if (!path) return;
     if (activeDocument.querySelector(".modal-container")) return;
     const file = this.app.vault.getAbstractFileByPath(path);
-    if (!(file instanceof import_obsidian2.TFile)) return;
+    if (!(file instanceof import_obsidian3.TFile)) return;
     this._isOpeningHomePage = true;
+    this._homePageReopenQueued = false;
     try {
       const leaf = this.app.workspace.getLeaf(false);
       let existingLeaf = null;
@@ -637,10 +685,16 @@ var SinglePageEngine = class {
         return;
       }
       await leaf.openFile(file);
-      this.patchLeafHistory(leaf);
-      this.patchRootLeafDetach(leaf);
+      if (leaf.parent) {
+        this.patchLeafHistory(leaf);
+        this.patchRootLeafDetach(leaf);
+      }
     } finally {
       this._isOpeningHomePage = false;
+      if (this._homePageReopenQueued) {
+        this._homePageReopenQueued = false;
+        void this.openHomePage();
+      }
     }
   }
 };
@@ -658,7 +712,7 @@ var PinManager = class {
   apply() {
     this.remove();
     const s = this.getSettings();
-    if (s.disablePinTab) {
+    if (s.disableNoteTabs) {
       this.pinBlockHandler = (e) => {
         if (e.target.closest(".workspace-tab-header.tappable")) {
           e.stopImmediatePropagation();
@@ -666,8 +720,6 @@ var PinManager = class {
         }
       };
       activeDocument.addEventListener("contextmenu", this.pinBlockHandler, true);
-    }
-    if (s.disableNoteTabs && s.disablePinTab) {
       this.patchSidebarLeafDetach();
       this.sidebarLayoutChangeHandler = () => this.patchSidebarLeafDetach();
       this.app.workspace.on("layout-change", this.sidebarLayoutChangeHandler);
@@ -743,7 +795,7 @@ var HomePageManager = class {
 };
 
 // src/layout/BreadcrumbRenderer.ts
-var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 
 // src/core/utils.ts
 var LeafNameUtils = class {
@@ -793,10 +845,6 @@ var BreadcrumbRenderer = class {
     const el = this.el;
     if (!el) return;
     const prefixLen = this.getSettings().filenamePrefixLength;
-    if (!this.getSettings().showBreadcrumb) {
-      this.showSingleFile();
-      return;
-    }
     const paths = this.navHistoryGetter();
     if (paths.length <= 1) {
       this.showSingleFile();
@@ -804,7 +852,7 @@ var BreadcrumbRenderer = class {
     }
     const names = paths.map((p) => {
       const f = this.app.vault.getAbstractFileByPath(p);
-      return f instanceof import_obsidian3.TFile ? LeafNameUtils.stripPrefix(f.basename, prefixLen) : LeafNameUtils.stripPrefix(p, prefixLen);
+      return f instanceof import_obsidian4.TFile ? LeafNameUtils.stripPrefix(f.basename, prefixLen) : LeafNameUtils.stripPrefix(p, prefixLen);
     });
     if (paths.length > COMPACT_THRESHOLD) {
       this.renderCompact(names, names.length - 2);
@@ -944,7 +992,7 @@ var DragBarManager = class {
 };
 
 // src/layout/SidebarLayoutManager.ts
-var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 var SidebarLayoutManager = class {
   constructor(app, getSettings, pinManager) {
     this.app = app;
@@ -999,7 +1047,6 @@ var SidebarLayoutManager = class {
   }
   async apply() {
     this.remove();
-    if (!this.getSettings().macSidebar) return;
     if (this.isApplying) return;
     this.isApplying = true;
     try {
@@ -1182,8 +1229,8 @@ var SidebarLayoutManager = class {
    *
    * Results from all three are de-duplicated via a Set before detaching.
    *
-   * NOTE: PinManager patches leaf.detach() for sidebar leaves when disablePinTab
-   * is enabled. We bypass this via pinManager.forceDetachLeaf().
+   * NOTE: PinManager patches leaf.detach() for sidebar leaves when single-page
+   * mode (disableNoteTabs) is enabled. We bypass this via pinManager.forceDetachLeaf().
    */
   clearLeftSidebar() {
     const { workspace } = this.app;
@@ -1225,7 +1272,7 @@ var SidebarLayoutManager = class {
    */
   collectLeavesFromItem(item) {
     if (!item || typeof item !== "object") return [];
-    if (item instanceof import_obsidian4.WorkspaceLeaf) return [item];
+    if (item instanceof import_obsidian5.WorkspaceLeaf) return [item];
     const children = item.children;
     if (!Array.isArray(children)) return [];
     return children.flatMap((child) => this.collectLeavesFromItem(child));
@@ -1234,10 +1281,9 @@ var SidebarLayoutManager = class {
 
 // src/mermaid/MermaidZoomManager.ts
 var MermaidZoomManager = class {
-  constructor(app, getSettings) {
+  constructor(app) {
     this.mutationObs = null;
     this.app = app;
-    this.getSettings = getSettings;
     this.clickHandler = this.onClick.bind(this);
   }
   apply() {
@@ -1268,7 +1314,6 @@ var MermaidZoomManager = class {
   }
   // ─── Private ──────────────────────────────────────────────────────────────
   onClick(e) {
-    if (!this.getSettings().noteStyle) return;
     const mermaidEl = e.target.closest(".mermaid");
     if (!mermaidEl || !mermaidEl.classList.contains("mermaid-overflows")) return;
     if (mermaidEl.classList.contains("mermaid-fit-view")) {
@@ -1298,7 +1343,7 @@ var MermaidZoomManager = class {
 };
 
 // src/SettingTab.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 
 // src/core/i18n.ts
 var translations = {
@@ -1307,68 +1352,60 @@ var translations = {
     languageAuto: "\u8DDF\u968F\u7CFB\u7EDF",
     languageZh: "\u4E2D\u6587",
     languageEn: "English",
-    headingAppearance: "\u5916\u89C2\u8BBE\u7F6E",
-    headingInteraction: "\u5355\u9875\u6A21\u5F0F\u8BBE\u7F6E",
-    macSidebar: "\u6781\u7B80\u4FA7\u8FB9\u680F",
-    macSidebarDesc: "\u4E3A\u5DE6\u4FA7\u8FB9\u680F\u5E94\u7528\u78E8\u7802\u73BB\u7483\u80CC\u666F\u4E0E\u5706\u89D2\u9AD8\u4EAE\uFF0C\u6253\u9020 macOS \u539F\u751F\u98CE\u683C\u3002",
-    showProperties: "\u663E\u793A\u5C5E\u6027\u9762\u677F",
-    showPropertiesDesc: "\u5728\u4FA7\u8FB9\u680F\u5DE6\u4E0B\u89D2\u663E\u793A\u5F53\u524D\u7B14\u8BB0\u7684\u5C5E\u6027\uFF08Properties\uFF09\u3002",
-    showLocalGraph: "\u663E\u793A\u672C\u5730\u5173\u7CFB\u56FE",
-    showLocalGraphDesc: "\u5728\u4FA7\u8FB9\u680F\u663E\u793A\u5F53\u524D\u7B14\u8BB0\u7684\u672C\u5730\u5173\u7CFB\u56FE\uFF08Local Graph\uFF09\uFF0C\u4F4D\u4E8E\u5C5E\u6027\u9762\u677F\u4E0A\u65B9\u3002",
-    hideTabBar: "\u6781\u7B80\u4FE1\u606F\u680F",
-    hideTabBarDesc: "\u9690\u85CF\u5DE6\u4FA7\u5C5E\u6027\u680F\u7684\u64CD\u4F5C\u6309\u94AE\uFF0C\u4EE5\u53CA\u5927\u7EB2\u3001\u53CD\u5411\u94FE\u63A5\u9762\u677F\u4E2D\u7684\u641C\u7D22\u6846",
-    noteStyle: "\u7B14\u8BB0\u6837\u5F0F\u4F18\u5316",
-    noteStyleDesc: "\u5BF9\u7F16\u8F91\u5668\u4E0E\u9605\u8BFB\u89C6\u56FE\u5E94\u7528\u4EE5\u4E0B\u5B9A\u5236\u6837\u5F0F\uFF1A",
-    noteStyleItem1: "\u5B57\u4F53\uFF1A\u6B63\u6587\u6570\u5B57\u4F7F\u7528 JetBrains Mono \u7B49\u5BBD\u5B57\u4F53\u6DF7\u6392",
-    noteStyleItem2: "\u5F15\u7528\u5757\u3001\u8868\u683C\u3001\u4EE3\u7801\u5757\uFF1AForest \u98CE\u683C\u6837\u5F0F\u5B9A\u5236",
-    noteStyleItem3: "Mermaid \u56FE\u8868\uFF1A\u8D85\u5BBD\u56FE\u8868\u9ED8\u8BA4\u7F29\u653E\u663E\u793A\u5168\u56FE\uFF0C\u70B9\u51FB\u540E\u67E5\u770B\u539F\u59CB\u5C3A\u5BF8",
+    introTitle: "\u4F7F\u7528\u524D\u5FC5\u8BFB",
+    introDesc1: '\u672C\u63D2\u4EF6\u662F\u4E00\u6B3E"\u505A\u51CF\u6CD5"\u7684\u5DE5\u5177,\u8BBE\u8BA1\u7406\u5FF5\u4E0E\u4E3B\u6D41\u7528\u6CD5\u76F8\u6096:\u5B83\u53EA\u4FDD\u7559\u5DE6\u4FA7\u8FB9\u680F(\u81F3\u591A\u663E\u793A\u5927\u7EB2\u3001\u5C5E\u6027\u3001\u672C\u5730\u5173\u7CFB\u56FE),\u5E76\u88C1\u526A\u6389\u4E86\u5927\u91CF\u6838\u5FC3\u529F\u80FD,\u751A\u81F3\u5305\u62EC"\u6587\u4EF6\u5939"\u3002\u5B89\u88C5\u524D\u8BF7\u5148\u786E\u8BA4\u4F60\u8BA4\u540C\u8FD9\u5957\u6781\u7B80\u7406\u5FF5\u3002',
+    introDesc2: "\u8BF7\u6307\u5B9A\u4E00\u7BC7\u7B14\u8BB0\u4F5C\u4E3A\u9996\u9875\u3002\u5B83\u5982\u540C\u4E00\u68F5\u6811\u7684\u4E3B\u5E72,\u4F60\u5728\u5176\u4E0A\u7528\u53CC\u94FE\u4E0D\u65AD\u65B0\u5EFA\u7B14\u8BB0,\u8BA9\u77E5\u8BC6\u5F00\u679D\u6563\u53F6,\u6700\u7EC8\u957F\u6210\u53C2\u5929\u5927\u6811\u3002",
+    introDesc3: '\u7531\u4E8E\u653E\u5F03\u4E86"\u6587\u4EF6\u5939",\u51E0\u4E4E\u6240\u6709\u7B14\u8BB0\u90FD\u5E73\u94FA\u5728\u6839\u76EE\u5F55\u3002\u5EFA\u8BAE\u5F00\u542F\u65F6\u95F4\u6233\u524D\u7F00\u547D\u540D,\u4E3A\u6BCF\u7BC7\u7B14\u8BB0\u8D4B\u4E88\u552F\u4E00\u6807\u8BC6,\u4ECE\u800C\u907F\u514D\u91CD\u540D\u51B2\u7A81\u3002',
+    headingGeneral: "\u901A\u7528\u8BBE\u7F6E",
+    headingAppearance: "\u4FA7\u8FB9\u680F\u8BBE\u7F6E",
+    headingInteraction: "\u4EA4\u4E92\u8BBE\u7F6E",
+    headingAnimation: "\u52A8\u753B\u8BBE\u7F6E (beta)",
+    showProperties: "\u5C5E\u6027\u9762\u677F",
+    showLocalGraph: "\u672C\u5730\u5173\u7CFB\u56FE",
+    hideTabBar: "\u9690\u85CF\u5927\u7EB2\u6309\u94AE",
+    theme: "\u4E3B\u9898",
     homePage: "\u7B14\u8BB0\u9996\u9875",
     homePageDesc: "\u8BBE\u7F6E\u4E00\u4E2A\u7B14\u8BB0\u4F5C\u4E3A\u9996\u9875\u3002Obsidian \u542F\u52A8\u65F6\u81EA\u52A8\u6253\u5F00\uFF0C\u5173\u95ED\u6240\u6709\u6807\u7B7E\u540E\u81EA\u52A8\u8FD4\u56DE\u3002",
     homePagePlaceholder: "\u8F93\u5165\u7B14\u8BB0\u8DEF\u5F84\uFF0C\u4F8B\u5982\uFF1Asrc/Home.md",
     singlePage: "\u5F00\u542F\u5355\u9875\u6A21\u5F0F",
     singlePageDesc1: "1. \u9690\u85CF\u9876\u90E8\u6807\u7B7E\u680F\uFF0C\u6BCF\u6B21\u53EA\u5C55\u793A\u4E00\u7BC7\u7B14\u8BB0\u3002",
-    singlePageDesc2: "2. \u542F\u7528\u9875\u9762\u7F13\u5B58\uFF0C\u5728\u5185\u5B58\u4E2D\u4FDD\u7559\u6700\u8FD1\u8BBF\u95EE\u7684 10 \u4E2A\u9875\u9762",
-    singlePageDesc3: "3. \u7981\u7528 pin \u6807\u7B7E\u529F\u80FD\uFF0C\u907F\u514D\u591A\u4F59\u7684\u6807\u7B7E\u88AB\u56FA\u5B9A\u5728\u9876\u90E8\u3002",
-    navAnimation: "\u9875\u9762\u52A0\u8F7D\u52A8\u753B (beta)",
+    singlePageDesc2: "2. \u542F\u7528\u9875\u9762\u7F13\u5B58\uFF0C\u5728\u5185\u5B58\u4E2D\u4FDD\u7559\u6700\u8FD1\u8BBF\u95EE\u7684 10 \u4E2A\u9875\u9762\u3002",
+    singlePageDesc3: "3. \u7981\u6B62\u901A\u8FC7\u53F3\u952E\u83DC\u5355 pin\uFF08\u56FA\u5B9A\uFF09\u6807\u7B7E\u9875\u3002",
+    singlePageDesc4: "4. \u5728\u9876\u90E8\u62D6\u62FD\u680F\u663E\u793A\u8BBF\u95EE\u8DEF\u5F84\uFF08\u9762\u5305\u5C51\uFF09\uFF0C\u65B9\u4FBF\u8FFD\u8E2A\u5BFC\u822A\u5386\u53F2\u3002",
+    navAnimation: "\u9875\u9762\u52A0\u8F7D\u52A8\u753B",
     navAnimationDesc: "\u524D\u8FDB\u6216\u540E\u9000\u65F6\uFF0C\u4E3A\u76EE\u6807\u9875\u9762\u64AD\u653E\u6ED1\u5165\u52A8\u753B",
-    filenamePrefixLength: "\u9690\u85CF\u6587\u4EF6\u540D\u524D\u7F00",
-    filenamePrefixLengthDesc: '\u5728\u6587\u4EF6\u6D4F\u89C8\u5668\u548C\u6807\u7B7E\u9875\u4E2D\u9690\u85CF\u6587\u4EF6\u540D\u5F00\u5934\u7684 N \u4E2A\u5B57\u7B26\uFF080 = \u4E0D\u9690\u85CF\uFF0C\u6700\u591A 20\uFF09\u3002\u9002\u7528\u4E8E\u65F6\u95F4\u6233\u524D\u7F00\u7B14\u8BB0\uFF0C\u5982\u9690\u85CF "202604111230-" \u524D 13 \u4E2A\u5B57\u7B26\u3002',
-    showBreadcrumb: "\u663E\u793A\u9762\u5305\u5C51\u5BFC\u822A",
-    showBreadcrumbDesc: "\u5728\u9876\u90E8\u62D6\u62FD\u680F\u663E\u793A\u5F53\u524D\u9875\u9762\u7684\u8BBF\u95EE\u8DEF\u5F84\uFF08\u9762\u5305\u5C51\uFF09\uFF0C\u65B9\u4FBF\u8FFD\u8E2A\u5BFC\u822A\u5386\u53F2\u3002"
+    filenamePrefixLength: "\u9690\u85CF\u6587\u4EF6\u540D\u65F6\u95F4\u6233\u524D\u7F00",
+    filenamePrefixLengthDesc: '\u9002\u7528\u4E8E\u65F6\u95F4\u6233\u524D\u7F00\u7B14\u8BB0\uFF0C\u5982\u9690\u85CF "202604111230-test" \u524D 13 \u4E2A\u5B57\u7B26\uFF0C\u5B9E\u9645\u5728\u5BFC\u822A\u680F\u4E2D\u663E\u793A\u4E3A test\uFF080 = \u4E0D\u9690\u85CF\uFF0C\u6700\u591A 20\uFF09\u3002'
   },
   en: {
     language: "Language",
     languageAuto: "Follow system",
     languageZh: "\u4E2D\u6587",
     languageEn: "English",
-    headingAppearance: "Appearance",
+    introTitle: "Read this before you start",
+    introDesc1: "This plugin is all about subtraction, and its philosophy runs against mainstream usage: it keeps only the left sidebar (showing at most Outline, Properties, and Local Graph) and strips away many core features, including Folders. Make sure this minimalist philosophy suits you before installing.",
+    introDesc2: "Pick one note as your home page. Think of it as the trunk of a tree: keep creating notes from it through backlinks, letting your knowledge branch out until it grows into a towering tree.",
+    introDesc3: "Since folders are gone, almost every note lives in the vault root. Enable timestamp-prefixed filenames to give each note a unique identifier and avoid name clashes.",
+    headingGeneral: "General",
+    headingAppearance: "Sidebar",
     headingInteraction: "Interaction",
-    macSidebar: "Minimal Sidebar",
-    macSidebarDesc: "Apply a frosted-glass background and rounded highlights to the left sidebar for a macOS-native look.",
-    showProperties: "Show Properties",
-    showPropertiesDesc: "Display the current note's properties at the bottom of the sidebar.",
-    showLocalGraph: "Show Local Graph",
-    showLocalGraphDesc: "Display the local graph for the current note in the sidebar, above the properties panel.",
-    hideTabBar: "Minimal Info Bar",
-    hideTabBarDesc: "Hide action buttons in the properties panel and search bars in the Outline / Backlinks panels.",
-    noteStyle: "Note Style",
-    noteStyleDesc: "Apply the following custom styles to the editor and reading view:",
-    noteStyleItem1: "Typography: JetBrains Mono for inline digits in body text",
-    noteStyleItem2: "Blockquotes, tables, code blocks: Forest-style design",
-    noteStyleItem3: "Mermaid diagrams: wide diagrams scale to fit by default; click to view at full size",
+    headingAnimation: "Animation (beta)",
+    showProperties: "Properties",
+    showLocalGraph: "Local Graph",
+    hideTabBar: "Hide Outline Button",
+    theme: "Theme",
     homePage: "Home Note",
     homePageDesc: "A note that opens automatically on startup and whenever all tabs are closed.",
     homePagePlaceholder: "Note path, e.g. src/Home.md",
     singlePage: "Single-Page Mode",
     singlePageDesc1: "1. Hide the tab bar \u2014 show one note at a time.",
     singlePageDesc2: "2. Keep the 10 most recently visited notes cached in memory.",
-    singlePageDesc3: "3. Disable tab pinning to prevent tabs from being pinned.",
-    navAnimation: "Page Transition Animation (beta)",
+    singlePageDesc3: "3. Prevent pinning tabs via the right-click menu.",
+    singlePageDesc4: "4. Show a breadcrumb trail in the drag bar to track navigation history.",
+    navAnimation: "Page Transition Animation",
     navAnimationDesc: "Play a slide-in animation when navigating back or forward.",
-    filenamePrefixLength: "Hide Filename Prefix",
-    filenamePrefixLengthDesc: 'Hide the first N characters of filenames in the file explorer and tabs (0 = off, max 20). Useful for timestamp-prefixed notes, e.g. hide the first 13 chars of "202604111230-".',
-    showBreadcrumb: "Show Breadcrumb",
-    showBreadcrumbDesc: "Show a breadcrumb trail in the drag bar to track your navigation history."
+    filenamePrefixLength: "Hide Filename Timestamp Prefix",
+    filenamePrefixLengthDesc: 'For timestamp-prefixed notes. E.g. hide the first 13 characters of "202604111230-test" so it shows as "test" in the navigation (0 = off, max 20).'
   }
 };
 var langOverride = null;
@@ -1386,7 +1423,7 @@ function t(key) {
 }
 
 // src/SettingTab.ts
-var FileSuggest = class extends import_obsidian5.AbstractInputSuggest {
+var FileSuggest = class extends import_obsidian6.AbstractInputSuggest {
   constructor() {
     super(...arguments);
     this.onPickCb = null;
@@ -1408,7 +1445,7 @@ var FileSuggest = class extends import_obsidian5.AbstractInputSuggest {
     this.close();
   }
 };
-var MinimalismUISettingTab = class extends import_obsidian5.PluginSettingTab {
+var MinimalismUISettingTab = class extends import_obsidian6.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -1416,55 +1453,53 @@ var MinimalismUISettingTab = class extends import_obsidian5.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian5.Setting(containerEl).setName(t("language")).addDropdown((drop) => drop.addOption("auto", t("languageAuto")).addOption("zh", t("languageZh")).addOption("en", t("languageEn")).setValue(this.plugin.settings.language).onChange(async (v) => {
+    const intro = containerEl.createDiv({ cls: "minimalism-ui-intro" });
+    intro.createDiv({ cls: "minimalism-ui-intro-title", text: t("introTitle") });
+    intro.createEl("p", { text: t("introDesc1") });
+    intro.createEl("p", { text: t("introDesc2") });
+    intro.createEl("p", { text: t("introDesc3") });
+    new import_obsidian6.Setting(containerEl).setName(t("headingGeneral")).setHeading();
+    new import_obsidian6.Setting(containerEl).setName(t("language")).addDropdown((drop) => drop.addOption("auto", t("languageAuto")).addOption("zh", t("languageZh")).addOption("en", t("languageEn")).setValue(this.plugin.settings.language).onChange(async (v) => {
       this.plugin.settings.language = v;
       setLang(v);
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian5.Setting(containerEl).setName(t("headingAppearance")).setHeading();
-    new import_obsidian5.Setting(containerEl).setName(t("macSidebar")).setDesc(t("macSidebarDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.macSidebar).onChange(async (v) => {
-      this.plugin.settings.macSidebar = v;
+    new import_obsidian6.Setting(containerEl).setName(t("theme")).addDropdown((drop) => {
+      drop.addOption(this.plugin.settings.theme, this.plugin.settings.theme);
+      drop.setValue(this.plugin.settings.theme);
+      drop.onChange(async (v) => {
+        this.plugin.settings.theme = v;
+        await this.plugin.saveSettings();
+        await this.plugin.applyTheme();
+      });
+      void this.plugin.listThemes().then((names) => {
+        for (const name of names) {
+          if (name !== this.plugin.settings.theme) drop.addOption(name, name);
+        }
+        drop.setValue(this.plugin.settings.theme);
+      });
+    });
+    new import_obsidian6.Setting(containerEl).setName(t("headingAppearance")).setHeading();
+    new import_obsidian6.Setting(containerEl).setName(t("hideTabBar")).addToggle((toggle) => toggle.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
+      this.plugin.settings.hideTabBar = v;
       await this.plugin.saveSettings();
-      this.plugin.applyBodyClasses();
-      showPropertiesSetting.settingEl.toggle(v);
-      showLocalGraphSetting.settingEl.toggle(v);
-      await this.plugin.applyMacSidebarLayout();
     }));
-    const showPropertiesSetting = new import_obsidian5.Setting(containerEl).setName(t("showProperties")).setDesc(t("showPropertiesDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showProperties).onChange(async (v) => {
+    new import_obsidian6.Setting(containerEl).setName(t("showProperties")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showProperties).onChange(async (v) => {
       this.plugin.settings.showProperties = v;
       await this.plugin.saveSettings();
       await this.plugin.applyMacSidebarLayout();
     }));
-    showPropertiesSetting.settingEl.addClass("minimalism-ui-sub-setting");
-    showPropertiesSetting.settingEl.toggle(this.plugin.settings.macSidebar);
-    const showLocalGraphSetting = new import_obsidian5.Setting(containerEl).setName(t("showLocalGraph")).setDesc(t("showLocalGraphDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showLocalGraph).onChange(async (v) => {
+    new import_obsidian6.Setting(containerEl).setName(t("showLocalGraph")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showLocalGraph).onChange(async (v) => {
       this.plugin.settings.showLocalGraph = v;
       await this.plugin.saveSettings();
       await this.plugin.applyMacSidebarLayout();
     }));
-    showLocalGraphSetting.settingEl.addClass("minimalism-ui-sub-setting");
-    showLocalGraphSetting.settingEl.toggle(this.plugin.settings.macSidebar);
-    new import_obsidian5.Setting(containerEl).setName(t("hideTabBar")).setDesc(t("hideTabBarDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
-      this.plugin.settings.hideTabBar = v;
-      this.plugin.settings.simplifyPanel = v;
-      await this.plugin.saveSettings();
-    }));
-    const noteStyleSetting = new import_obsidian5.Setting(containerEl).setName(t("noteStyle")).addToggle((toggle) => toggle.setValue(this.plugin.settings.noteStyle).onChange(async (v) => {
-      this.plugin.settings.noteStyle = v;
-      await this.plugin.saveSettings();
-    }));
-    noteStyleSetting.descEl.createSpan({ text: t("noteStyleDesc") });
-    const noteStyleList = noteStyleSetting.descEl.createEl("ul");
-    noteStyleList.createEl("li", { text: t("noteStyleItem1") });
-    noteStyleList.createEl("li", { text: t("noteStyleItem2") });
-    noteStyleList.createEl("li", { text: t("noteStyleItem3") });
-    new import_obsidian5.Setting(containerEl).setName(t("headingInteraction")).setHeading();
-    const singlePageSetting = new import_obsidian5.Setting(containerEl).setName(t("singlePage"));
+    new import_obsidian6.Setting(containerEl).setName(t("headingInteraction")).setHeading();
+    const singlePageSetting = new import_obsidian6.Setting(containerEl).setName(t("singlePage"));
     singlePageSetting.settingEl.addClass("minimalism-ui-single-page-setting");
     singlePageSetting.addToggle((toggle) => toggle.setValue(this.plugin.settings.disableNoteTabs).onChange(async (v) => {
       this.plugin.settings.disableNoteTabs = v;
-      this.plugin.settings.disablePinTab = v;
       await this.plugin.saveSettings();
     }));
     singlePageSetting.descEl.createSpan({ text: t("singlePageDesc1") });
@@ -1473,7 +1508,9 @@ var MinimalismUISettingTab = class extends import_obsidian5.PluginSettingTab {
     singlePageSetting.descEl.createEl("br");
     singlePageSetting.descEl.createSpan({ text: t("singlePageDesc3") });
     singlePageSetting.descEl.createEl("br");
-    new import_obsidian5.Setting(containerEl).setName(t("homePage")).setDesc(t("homePageDesc")).addText((text) => {
+    singlePageSetting.descEl.createSpan({ text: t("singlePageDesc4") });
+    singlePageSetting.descEl.createEl("br");
+    new import_obsidian6.Setting(containerEl).setName(t("homePage")).setDesc(t("homePageDesc")).addText((text) => {
       text.setPlaceholder(t("homePagePlaceholder")).setValue(this.plugin.settings.homePage);
       new FileSuggest(this.app, text.inputEl).onPick((path) => {
         this.plugin.settings.homePage = path;
@@ -1484,11 +1521,7 @@ var MinimalismUISettingTab = class extends import_obsidian5.PluginSettingTab {
         void this.plugin.saveSettings();
       });
     });
-    new import_obsidian5.Setting(containerEl).setName(t("navAnimation")).setDesc(t("navAnimationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
-      this.plugin.settings.enableNavAnimation = v;
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian5.Setting(containerEl).setName(t("filenamePrefixLength")).setDesc(t("filenamePrefixLengthDesc")).addText((text) => {
+    new import_obsidian6.Setting(containerEl).setName(t("filenamePrefixLength")).setDesc(t("filenamePrefixLengthDesc")).addText((text) => {
       text.inputEl.type = "number";
       text.inputEl.min = "0";
       text.inputEl.max = "20";
@@ -1502,36 +1535,39 @@ var MinimalismUISettingTab = class extends import_obsidian5.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian5.Setting(containerEl).setName(t("showBreadcrumb")).setDesc(t("showBreadcrumbDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showBreadcrumb).onChange(async (v) => {
-      this.plugin.settings.showBreadcrumb = v;
+    new import_obsidian6.Setting(containerEl).setName(t("headingAnimation")).setHeading();
+    new import_obsidian6.Setting(containerEl).setName(t("navAnimation")).setDesc(t("navAnimationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
+      this.plugin.settings.enableNavAnimation = v;
       await this.plugin.saveSettings();
     }));
   }
 };
 
 // main.ts
-var MinimalismUIPlugin = class extends import_obsidian6.Plugin {
+var MinimalismUIPlugin = class extends import_obsidian7.Plugin {
   constructor() {
     super(...arguments);
     // 所有功能单元，统一用于卸载，避免逐个手写 remove() 时遗漏。
     this.features = [];
   }
   async onload() {
-    var _a;
+    var _a, _b;
     await this.loadSettings();
     setLang(this.settings.language);
     const settings = () => this.settings;
     this.bodyClasses = new BodyClassController(settings);
     this.fontLoader = new FontLoader(this.app, (_a = this.manifest.dir) != null ? _a : "");
+    this.themeLoader = new ThemeLoader(this.app, (_b = this.manifest.dir) != null ? _b : "", settings);
     this.engine = new SinglePageEngine(this.app, settings);
     this.pinManager = new PinManager(this.app, settings);
     this.homePage = new HomePageManager(this.app, settings, this.engine);
     this.dragBar = new DragBarManager(this.app, settings, () => this.engine.getNavHistory());
     this.sidebarLayout = new SidebarLayoutManager(this.app, settings, this.pinManager);
-    this.mermaidZoom = new MermaidZoomManager(this.app, settings);
+    this.mermaidZoom = new MermaidZoomManager(this.app);
     this.features = [
       this.bodyClasses,
       this.fontLoader,
+      this.themeLoader,
       this.engine,
       this.pinManager,
       this.homePage,
@@ -1540,6 +1576,7 @@ var MinimalismUIPlugin = class extends import_obsidian6.Plugin {
       this.mermaidZoom
     ];
     await this.fontLoader.apply();
+    void this.themeLoader.apply();
     this.bodyClasses.apply();
     this.pinManager.apply();
     this.engine.apply();
@@ -1558,15 +1595,20 @@ var MinimalismUIPlugin = class extends import_obsidian6.Plugin {
   }
   // ─── Sidebar Layout ───────────────────────────────────────────────────────
   async applyMacSidebarLayout() {
-    if (this.settings.macSidebar) {
-      await this.sidebarLayout.apply();
-    } else {
-      this.sidebarLayout.remove();
-    }
+    await this.sidebarLayout.apply();
   }
   // ─── Body Classes ─────────────────────────────────────────────────────────
   applyBodyClasses() {
     this.bodyClasses.apply();
+  }
+  // ─── Theme ────────────────────────────────────────────────────────────────
+  // 重新注入当前 theme 字段对应的主题 CSS（切换主题时调用）。
+  async applyTheme() {
+    await this.themeLoader.apply();
+  }
+  // 列出 theme/ 目录下所有可选主题名，供设置面板下拉框使用。
+  listThemes() {
+    return this.themeLoader.listThemes();
   }
   // ─── Settings ─────────────────────────────────────────────────────────────
   async loadSettings() {

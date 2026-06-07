@@ -7,15 +7,14 @@ type LeafInternal = WorkspaceLeaf & {
 };
 
 /**
- * PinManager — 收敛防 pin 相关逻辑：
+ * PinManager — 收敛防 pin 相关逻辑（均依赖 `disableNoteTabs`，即单页模式）：
  *
- *   1. **右键 pin 拦截**（仅依赖 `disablePinTab`）— capture 阶段拦掉 tab header 上的
- *      contextmenu，阻止用户通过右键菜单 pin 标签。
- *   2. **侧边栏 leaf detach 守卫**（依赖 `disableNoteTabs && disablePinTab`，即单页模式）
- *      — 把左侧边栏所有 leaf 的 `detach` patch 成 no-op，防止用户右键关闭侧边栏面板；
- *      新 leaf 在 layout-change 时补 patch。该守卫只在单页模式下启用：默认配置
- *      disablePinTab=true、disableNoteTabs=false，若只看 disablePinTab 会在开箱即用时
- *      就锁死左侧边栏所有面板、无法关闭。
+ *   1. **右键 pin 拦截** — capture 阶段拦掉 tab header 上的 contextmenu，
+ *      阻止用户通过右键菜单 pin 标签。
+ *   2. **侧边栏 leaf detach 守卫** — 把左侧边栏所有 leaf 的 `detach` patch 成 no-op，
+ *      防止用户右键关闭侧边栏面板；新 leaf 在 layout-change 时补 patch。
+ *
+ * 两者都是单页模式的固有行为，单页模式关闭时一并停用。
  *
  * `forceDetachLeaf` 供 {@link SidebarLayoutManager} 绕过守卫强制 detach（重建侧边栏时使用）。
  * 该方法在守卫未启用时也可调用——此时无 patch，退化为普通 `leaf.detach()`。
@@ -35,8 +34,9 @@ export class PinManager {
 		this.remove();
 		const s = this.getSettings();
 
-		// 1. 右键 pin 拦截（仅依赖 disablePinTab）
-		if (s.disablePinTab) {
+		// 禁用 pin 标签已并入单页模式：两项守卫均在单页模式下启用。
+		if (s.disableNoteTabs) {
+			// 1. 右键 pin 拦截
 			this.pinBlockHandler = (e: MouseEvent) => {
 				if ((e.target as Element).closest('.workspace-tab-header.tappable')) {
 					e.stopImmediatePropagation();
@@ -44,12 +44,8 @@ export class PinManager {
 				}
 			};
 			activeDocument.addEventListener('contextmenu', this.pinBlockHandler, true);
-		}
 
-		// 2. 侧边栏 leaf detach 守卫：仅在单页模式下启用（disableNoteTabs && disablePinTab）。
-		// 绑定到单页模式可还原旧行为，避免默认配置（disablePinTab 默认 true）就锁死侧边栏面板。
-		// 新 leaf 在 layout-change 时补 patch。
-		if (s.disableNoteTabs && s.disablePinTab) {
+			// 2. 侧边栏 leaf detach 守卫，新 leaf 在 layout-change 时补 patch。
 			this.patchSidebarLeafDetach();
 			this.sidebarLayoutChangeHandler = () => this.patchSidebarLeafDetach();
 			this.app.workspace.on('layout-change', this.sidebarLayoutChangeHandler);

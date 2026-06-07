@@ -83,7 +83,6 @@ export class SidebarLayoutManager {
 
 	async apply() {
 		this.remove();
-		if (!this.getSettings().macSidebar) return;
 		if (this.isApplying) return;
 		this.isApplying = true;
 
@@ -337,8 +336,8 @@ export class SidebarLayoutManager {
 	 *
 	 * Results from all three are de-duplicated via a Set before detaching.
 	 *
-	 * NOTE: PinManager patches leaf.detach() for sidebar leaves when disablePinTab
-	 * is enabled. We bypass this via pinManager.forceDetachLeaf().
+	 * NOTE: PinManager patches leaf.detach() for sidebar leaves when single-page
+	 * mode (disableNoteTabs) is enabled. We bypass this via pinManager.forceDetachLeaf().
 	 */
 	clearLeftSidebar() {
 		const { workspace } = this.app;

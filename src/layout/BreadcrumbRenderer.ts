@@ -61,10 +61,6 @@ export class BreadcrumbRenderer {
 		const el = this.el;
 		if (!el) return;
 		const prefixLen = this.getSettings().filenamePrefixLength;
-		if (!this.getSettings().showBreadcrumb) {
-			this.showSingleFile();
-			return;
-		}
 		const paths = this.navHistoryGetter();
 		if (paths.length <= 1) {
 			this.showSingleFile();

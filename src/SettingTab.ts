@@ -43,6 +43,14 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
+		const intro = containerEl.createDiv({ cls: 'minimalism-ui-intro' });
+		intro.createDiv({ cls: 'minimalism-ui-intro-title', text: t('introTitle') });
+		intro.createEl('p', { text: t('introDesc1') });
+		intro.createEl('p', { text: t('introDesc2') });
+		intro.createEl('p', { text: t('introDesc3') });
+
+		new Setting(containerEl).setName(t('headingGeneral')).setHeading();
+
 		new Setting(containerEl)
 			.setName(t('language'))
 			.addDropdown(drop => drop
@@ -57,25 +65,39 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 					this.display();
 				}));
 
+		new Setting(containerEl)
+			.setName(t('theme'))
+			.addDropdown(drop => {
+				// 先放入当前值，避免异步列目录完成前下拉框为空
+				drop.addOption(this.plugin.settings.theme, this.plugin.settings.theme);
+				drop.setValue(this.plugin.settings.theme);
+				drop.onChange(async v => {
+					this.plugin.settings.theme = v;
+					await this.plugin.saveSettings();
+					await this.plugin.applyTheme();
+				});
+				// 异步补全 theme/ 目录下的其他主题
+				void this.plugin.listThemes().then(names => {
+					for (const name of names) {
+						if (name !== this.plugin.settings.theme) drop.addOption(name, name);
+					}
+					drop.setValue(this.plugin.settings.theme);
+				});
+			});
+
 		new Setting(containerEl).setName(t('headingAppearance')).setHeading();
 
 		new Setting(containerEl)
-			.setName(t('macSidebar'))
-			.setDesc(t('macSidebarDesc'))
+			.setName(t('hideTabBar'))
 			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.macSidebar)
+				.setValue(this.plugin.settings.hideTabBar)
 				.onChange(async v => {
-					this.plugin.settings.macSidebar = v;
+					this.plugin.settings.hideTabBar = v;
 					await this.plugin.saveSettings();
-					this.plugin.applyBodyClasses();
-					showPropertiesSetting.settingEl.toggle(v);
-					showLocalGraphSetting.settingEl.toggle(v);
-					await this.plugin.applyMacSidebarLayout();
 				}));
 
-		const showPropertiesSetting = new Setting(containerEl)
+		new Setting(containerEl)
 			.setName(t('showProperties'))
-			.setDesc(t('showPropertiesDesc'))
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.showProperties)
 				.onChange(async v => {
@@ -83,12 +105,9 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					await this.plugin.applyMacSidebarLayout();
 				}));
-		showPropertiesSetting.settingEl.addClass('minimalism-ui-sub-setting');
-		showPropertiesSetting.settingEl.toggle(this.plugin.settings.macSidebar);
 
-		const showLocalGraphSetting = new Setting(containerEl)
+		new Setting(containerEl)
 			.setName(t('showLocalGraph'))
-			.setDesc(t('showLocalGraphDesc'))
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.showLocalGraph)
 				.onChange(async v => {
@@ -96,30 +115,6 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					await this.plugin.applyMacSidebarLayout();
 				}));
-		showLocalGraphSetting.settingEl.addClass('minimalism-ui-sub-setting');
-		showLocalGraphSetting.settingEl.toggle(this.plugin.settings.macSidebar);
-
-		new Setting(containerEl)
-			.setName(t('hideTabBar'))
-			.setDesc(t('hideTabBarDesc'))
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.hideTabBar)
-				.onChange(async v => {
-					this.plugin.settings.hideTabBar = v;
-					this.plugin.settings.simplifyPanel = v;
-					await this.plugin.saveSettings();
-				}));
-
-		const noteStyleSetting = new Setting(containerEl)
-			.setName(t('noteStyle'))
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.noteStyle)
-				.onChange(async v => { this.plugin.settings.noteStyle = v; await this.plugin.saveSettings(); }));
-		noteStyleSetting.descEl.createSpan({ text: t('noteStyleDesc') });
-		const noteStyleList = noteStyleSetting.descEl.createEl('ul');
-		noteStyleList.createEl('li', { text: t('noteStyleItem1') });
-		noteStyleList.createEl('li', { text: t('noteStyleItem2') });
-		noteStyleList.createEl('li', { text: t('noteStyleItem3') });
 
 		new Setting(containerEl).setName(t('headingInteraction')).setHeading();
 
@@ -130,7 +125,6 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 			.setValue(this.plugin.settings.disableNoteTabs)
 			.onChange(async v => {
 				this.plugin.settings.disableNoteTabs = v;
-				this.plugin.settings.disablePinTab = v;
 				await this.plugin.saveSettings();
 			}));
 		singlePageSetting.descEl.createSpan({ text: t('singlePageDesc1') });
@@ -138,6 +132,8 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		singlePageSetting.descEl.createSpan({ text: t('singlePageDesc2') });
 		singlePageSetting.descEl.createEl('br');
 		singlePageSetting.descEl.createSpan({ text: t('singlePageDesc3') });
+		singlePageSetting.descEl.createEl('br');
+		singlePageSetting.descEl.createSpan({ text: t('singlePageDesc4') });
 		singlePageSetting.descEl.createEl('br');
 
 		new Setting(containerEl)
@@ -157,16 +153,6 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName(t('navAnimation'))
-			.setDesc(t('navAnimationDesc'))
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableNavAnimation)
-				.onChange(async v => {
-					this.plugin.settings.enableNavAnimation = v;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
 			.setName(t('filenamePrefixLength'))
 			.setDesc(t('filenamePrefixLengthDesc'))
 			.addText(text => {
@@ -184,14 +170,16 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				});
 			});
 
-			new Setting(containerEl)
-				.setName(t('showBreadcrumb'))
-				.setDesc(t('showBreadcrumbDesc'))
-				.addToggle(toggle => toggle
-					.setValue(this.plugin.settings.showBreadcrumb)
-					.onChange(async v => {
-						this.plugin.settings.showBreadcrumb = v;
-						await this.plugin.saveSettings();
-					}));
+		new Setting(containerEl).setName(t('headingAnimation')).setHeading();
+
+		new Setting(containerEl)
+			.setName(t('navAnimation'))
+			.setDesc(t('navAnimationDesc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableNavAnimation)
+				.onChange(async v => {
+					this.plugin.settings.enableNavAnimation = v;
+					await this.plugin.saveSettings();
+				}));
 	}
 }

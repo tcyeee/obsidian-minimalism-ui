@@ -2,6 +2,7 @@ import { Plugin } from 'obsidian';
 import { MinimalismUISettings, DEFAULT_SETTINGS } from './src/core/settings';
 import { Feature } from './src/core/Feature';
 import { FontLoader } from './src/core/FontLoader';
+import { ThemeLoader } from './src/core/ThemeLoader';
 import { BodyClassController } from './src/core/BodyClassController';
 import { SinglePageEngine } from './src/single-page/SinglePageEngine';
 import { PinManager } from './src/tabs/PinManager';
@@ -21,6 +22,7 @@ export default class MinimalismUIPlugin extends Plugin {
 
 	private bodyClasses: BodyClassController;
 	private fontLoader: FontLoader;
+	private themeLoader: ThemeLoader;
 	private engine: SinglePageEngine;
 	private pinManager: PinManager;
 	private homePage: HomePageManager;
@@ -38,16 +40,18 @@ export default class MinimalismUIPlugin extends Plugin {
 		const settings = () => this.settings;
 		this.bodyClasses = new BodyClassController(settings);
 		this.fontLoader = new FontLoader(this.app, this.manifest.dir ?? '');
+		this.themeLoader = new ThemeLoader(this.app, this.manifest.dir ?? '', settings);
 		this.engine = new SinglePageEngine(this.app, settings);
 		this.pinManager = new PinManager(this.app, settings);
 		this.homePage = new HomePageManager(this.app, settings, this.engine);
 		this.dragBar = new DragBarManager(this.app, settings, () => this.engine.getNavHistory());
 		this.sidebarLayout = new SidebarLayoutManager(this.app, settings, this.pinManager);
-		this.mermaidZoom = new MermaidZoomManager(this.app, settings);
+		this.mermaidZoom = new MermaidZoomManager(this.app);
 
 		this.features = [
 			this.bodyClasses,
 			this.fontLoader,
+			this.themeLoader,
 			this.engine,
 			this.pinManager,
 			this.homePage,
@@ -58,6 +62,7 @@ export default class MinimalismUIPlugin extends Plugin {
 
 		// 立即生效的部分
 		await this.fontLoader.apply();
+		void this.themeLoader.apply();
 		this.bodyClasses.apply();
 		this.pinManager.apply();
 		this.engine.apply();
@@ -82,17 +87,25 @@ export default class MinimalismUIPlugin extends Plugin {
 	// ─── Sidebar Layout ───────────────────────────────────────────────────────
 
 	async applyMacSidebarLayout() {
-		if (this.settings.macSidebar) {
-			await this.sidebarLayout.apply();
-		} else {
-			this.sidebarLayout.remove();
-		}
+		await this.sidebarLayout.apply();
 	}
 
 	// ─── Body Classes ─────────────────────────────────────────────────────────
 
 	applyBodyClasses() {
 		this.bodyClasses.apply();
+	}
+
+	// ─── Theme ────────────────────────────────────────────────────────────────
+
+	// 重新注入当前 theme 字段对应的主题 CSS（切换主题时调用）。
+	async applyTheme() {
+		await this.themeLoader.apply();
+	}
+
+	// 列出 theme/ 目录下所有可选主题名，供设置面板下拉框使用。
+	listThemes(): Promise<string[]> {
+		return this.themeLoader.listThemes();
 	}
 
 	// ─── Settings ─────────────────────────────────────────────────────────────

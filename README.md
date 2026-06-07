@@ -5,6 +5,17 @@
 Transform Obsidian into a minimal, Typora-style writing environment. All options are in **Settings → Community Plugins → Minimalism UI**.
 
 ![](./public/img.png)
+
+---
+
+## Read This Before You Start
+
+> [!warning] Make sure this minimalist philosophy suits you before installing
+>
+> 1. This plugin is all about subtraction, and its philosophy runs against mainstream usage: it keeps only the left sidebar (showing at most Outline, Properties, and Local Graph) and strips away many core features, including Folders.
+> 2. Pick one note as your home page. Think of it as the trunk of a tree: keep creating notes from it through backlinks, letting your knowledge branch out until it grows into a towering tree.
+> 3. Since folders are gone, almost every note lives in the vault root. Enable timestamp-prefixed filenames to give each note a unique identifier and avoid name clashes.
+
 ---
 
 ## Features

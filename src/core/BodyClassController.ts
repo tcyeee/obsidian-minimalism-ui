@@ -21,12 +21,16 @@ export class BodyClassController implements Feature {
 	apply() {
 		const s = this.getSettings();
 		const cls = activeDocument.body.classList;
-		cls.toggle('minimalism-ui-mac-sidebar', s.macSidebar);
+		// 极简侧边栏全程默认开启，不再受设置开关控制
+		cls.add('minimalism-ui-mac-sidebar');
 		cls.toggle('minimalism-ui-hide-tab-bar', s.hideTabBar);
-		cls.toggle('minimalism-ui-disable-pin', s.disablePinTab);
-		cls.toggle('minimalism-ui-simplify-panel', s.simplifyPanel);
+		// 禁用 pin 标签已并入单页模式：单页模式开启时一并隐藏 pin 指示
+		cls.toggle('minimalism-ui-disable-pin', s.disableNoteTabs);
+		// 极简信息栏同时驱动 simplify-panel（二者一直同值，不再单独存字段）
+		cls.toggle('minimalism-ui-simplify-panel', s.hideTabBar);
 		cls.toggle('minimalism-ui-disable-note-tabs', s.disableNoteTabs);
-		cls.toggle('minimalism-ui-note-style', s.noteStyle);
+		// 笔记样式优化全程默认开启，不再受设置开关控制
+		cls.add('minimalism-ui-note-style');
 	}
 
 	remove() {

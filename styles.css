@@ -111,6 +111,55 @@ body.minimalism-ui-mac-sidebar .metadata-content .multi-select-container {
 	font-size: 0.75rem;
 }
 
+/* 属性获取焦点时，默认 2px 的外边框过粗，收窄为 1px */
+body.minimalism-ui-mac-sidebar .metadata-content .metadata-property {
+	--metadata-property-box-shadow-focus: 0 0 0 1px var(--background-modifier-border-focus);
+}
+
+/* 属性栏 tags 类型的 pill：默认被去掉了内边距与边框只剩纯文字，
+   这里恢复标签外观（圆角胶囊 + accent 配色），与正文 .minimalism-ui-tag 保持一致 */
+body.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value[data-property-type="tags"] .multi-select-pill {
+	--pill-padding-x: 8px;
+	--pill-padding-y: 2px;
+	--pill-border-width: 1px;
+	--pill-radius: 999px;
+	--pill-background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+	--pill-background-hover: color-mix(in srgb, var(--color-accent) 18%, transparent);
+	--pill-color: var(--color-accent);
+	--pill-color-hover: var(--color-accent);
+	--pill-border-color: color-mix(in srgb, var(--color-accent) 25%, transparent);
+	--pill-border-color-hover: color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+
+/* 属性栏输入框光标：侧边栏强制深色背景下，默认深色光标在深底上看不清。
+   改用与侧边栏文字一致的浅色，并在 .metadata-property-value 上再嵌套一层
+   input / [contenteditable] 选择器抬高 specificity，避免使用 !important */
+body.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value,
+body.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value input,
+body.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value [contenteditable] {
+	caret-color: rgba(196, 196, 196, 0.88);
+}
+
+/* 属性栏输入时的建议下拉（.suggestion-container）：
+   该弹层由 Obsidian 直接 appendChild 到 document.body，没有可区分的 class，
+   默认 background 用 var(--background-primary)（moonstone 浅色），浮在深色侧边栏上很突兀。
+   属性值输入时输入框保持焦点（建议弹层打开期间 .metadata-property-value 始终 :focus-within），
+   因此用 :has() + :focus-within 纯 CSS 精确命中“此刻为侧边栏属性而开”的那一个弹层，
+   配色对齐 localgraph 的设置面板 .graph-controls 展开态（#0f1e2b + 浅色文字）。*/
+body.minimalism-ui-mac-sidebar:has(.workspace-split.mod-left-split .metadata-property-value:focus-within) .suggestion-container {
+	background-color: #0f1e2b;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+}
+
+body.minimalism-ui-mac-sidebar:has(.workspace-split.mod-left-split .metadata-property-value:focus-within) .suggestion-container .suggestion-item {
+	color: rgba(196, 196, 196, 0.88);
+}
+
+body.minimalism-ui-mac-sidebar:has(.workspace-split.mod-left-split .metadata-property-value:focus-within) .suggestion-container .suggestion-item.is-selected {
+	background-color: rgba(255, 255, 255, 0.08);
+}
+
 
 /* 属性栏高度自动适配内容，切换笔记时平滑过渡 */
 body.minimalism-ui-mac-sidebar .workspace-tabs[data-properties-auto-height] {
@@ -642,14 +691,36 @@ body.minimalism-ui-mac-sidebar .workspace-tab-header-tab-list {
 	animation: minimalism-slide-from-right 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-/* ── 子设置项：缩进显示，作为父选项的附属 ───────────────────────────── */
+/* ── 单页模式：多行说明与其他单行设置项对齐 ─────────────────────────── */
 
-body .minimalism-ui-sub-setting {
-	padding-left: 32px;
-	border-top: none;
+/* ── 设置页顶部理念说明 ───────────────────────────────────────────────── */
+
+.minimalism-ui-intro {
+	margin-bottom: 18px;
+	padding: 14px 16px;
+	border: 1px solid var(--background-modifier-border);
+	border-left: 3px solid var(--interactive-accent);
+	border-radius: 8px;
+	background: var(--background-secondary);
 }
 
-/* ── 单页模式：多行说明与其他单行设置项对齐 ─────────────────────────── */
+.minimalism-ui-intro-title {
+	margin-bottom: 8px;
+	font-weight: 600;
+	font-size: var(--font-ui-medium);
+	color: var(--text-normal);
+}
+
+.minimalism-ui-intro p {
+	margin: 6px 0;
+	font-size: var(--font-ui-small);
+	line-height: 1.7;
+	color: var(--text-muted);
+}
+
+.minimalism-ui-intro p:last-child {
+	margin-bottom: 0;
+}
 
 .minimalism-ui-single-page-setting {
 	align-items: flex-start;
@@ -685,572 +756,7 @@ body.is-mac.minimalism-ui-mac-sidebar .titlebar-button-container.mod-left {
 	padding-top: 8px;
 }
 
-/* ── 笔记样式 ───────────────────────────────────────── */
-
-.minimalism-ui-note-style {
-	--line-height-normal: 1.6;
-}
-
-
-/* 阅读视图 */
-body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section,
-body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section p,
-body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section li,
-body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h1,
-body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h2,
-body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h3,
-body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h4,
-body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h5,
-body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h6 {
-	/* JetBrains Mono 只覆盖 ASCII（英文+数字），中文字符自动 fallback 到语雀同款字体栈 */
-	font-family: 'JetBrains Mono NL', 'JetBrains Mono', 'Chinese Quote', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-	line-height: 1.74;
-	word-break: break-word;
-	word-wrap: break-word;
-	font-variant-ligatures: none;
-}
-
-/* 正文缩小 1px（不影响标题，标题由 --hX-size 变量控制） */
-body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section p,
-body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section li {
-	font-size: 15px;
-}
-
-/* 编辑视图（CodeMirror 6） */
-body.minimalism-ui-note-style .cm-editor,
-body.minimalism-ui-note-style .cm-editor .cm-content,
-body.minimalism-ui-note-style .cm-editor .cm-line,
-body.minimalism-ui-note-style .cm-editor .cm-scroller {
-	font-family: 'JetBrains Mono NL', 'JetBrains Mono', 'Chinese Quote', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-	font-size: 15px;
-	line-height: 1.74;
-	word-break: break-word;
-	font-variant-ligatures: none;
-}
-
-/* 编辑视图标题：还原为与预览模式一致的 --hX-size 字号 */
-body.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-header-1 { font-size: var(--h1-size); }
-body.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-header-2 { font-size: var(--h2-size); }
-body.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-header-3 { font-size: var(--h3-size); }
-body.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-header-4 { font-size: var(--h4-size); }
-body.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-header-5 { font-size: var(--h5-size); }
-body.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-header-6 { font-size: var(--h6-size); }
-
-/* ── 笔记样式：引用块 Forest 风格 ────────────────────────────────────── */
-
-.minimalism-ui-note-style {
-	--blockquote-background-color: rgba(0, 153, 123, 0.05);
-	--blockquote-border-color: transparent;
-	--blockquote-border-thickness: 0px;
-	--blockquote-color: #81888D;
-	--blockquote-font-style: normal ;
-}
-
-/* 阅读视图 blockquote */
-body.minimalism-ui-note-style .markdown-reading-view blockquote {
-	position: relative;
-	padding: 1rem 1rem 1rem 1.3rem;
-	background-color: rgba(0, 153, 123, 0.05);
-	border-radius: 6px;
-	border: none;
-	line-height: 1.6;
-}
-
-.minimalism-ui-note-style .markdown-reading-view blockquote p {
-	color: #81888D;
-	font-size: 14px;
-	margin: 0;
-}
-
-.minimalism-ui-note-style .markdown-reading-view blockquote::before {
-	content: '';
-	position: absolute;
-	top: 0;
-	left: 0;
-	height: 100%;
-	width: 0.3rem;
-	background: #00997B;
-	border-top-left-radius: 6px;
-	border-bottom-left-radius: 6px;
-}
-
-/* 编辑视图（Live Preview）blockquote */
-body.minimalism-ui-note-style .cm-blockquote-border {
-	border-left: 0.3rem solid #00997B;
-}
-
-body.minimalism-ui-note-style .cm-editor .cm-scroller .cm-content .cm-line.HyperMD-quote {
-	background-color: rgba(0, 153, 123, 0.05);
-	color: #81888D;
-	font-size: 14px;
-	padding-top: 4px;
-	padding-bottom: 4px;
-	padding-left: 16px;
-	padding-right: 16px;
-}
-
-/* ── 笔记样式：内部链接去掉下划线 ───────────────────────────────────── */
-
-/* 覆盖 Obsidian 链接下划线 CSS 变量 */
-.minimalism-ui-note-style {
-	--link-decoration: none;
-	--link-decoration-hover: none;
-	--link-unresolved-decoration: none;
-}
-
-/* 阅读视图（兜底） */
-body.minimalism-ui-note-style .markdown-reading-view a.internal-link {
-	text-decoration: none;
-}
-
-/* 编辑视图（Live Preview）兜底 */
-body.minimalism-ui-note-style .cm-editor .cm-hmd-internal-link {
-	text-decoration: none;
-}
-
-/* ── 笔记样式：代码块字体大小 ────────────────────────────────────────── */
-
-/* 阅读视图：围栏代码块 & 行内代码 */
-body.minimalism-ui-note-style .markdown-reading-view pre,
-body.minimalism-ui-note-style .markdown-reading-view pre code {
-	font-size: 13px;
-}
-
-body.minimalism-ui-note-style .markdown-reading-view code {
-	font-size: 13px;
-}
-
-/* 阅读视图：行内代码背景色（排除代码块内的 code） */
-body.minimalism-ui-note-style .markdown-reading-view :not(pre) > code {
-	font-size: 0.8rem;	
-	color: #347698;
-	background-color: #F3F3F3;
-}
-
-/* 编辑视图（Live Preview）：围栏代码块 & 行内代码 */
-body.minimalism-ui-note-style .HyperMD-codeblock,
-body.minimalism-ui-note-style .cm-inline-code {
-	font-size: 0.8rem;
-}
-
-/* 编辑视图：行内代码背景色 */
-body.minimalism-ui-note-style .cm-inline-code {
-	font-size: 0.8rem;
-	color: #347698;
-	background-color: #F3F3F3;
-}
-
-/* 阅读视图：代码块圆角 */
-body.minimalism-ui-note-style .markdown-reading-view pre {
-	border-radius: 5px;
-}
-
-/* 阅读视图：分割线 */
-body.minimalism-ui-note-style .markdown-reading-view hr {
-	border: none;
-	border-top: 1px dashed var(--hr-color, #DADCDE);
-}
-
-/* 编辑视图：分割线 */
-body.minimalism-ui-note-style .cm-line.HyperMD-hr,
-body.minimalism-ui-note-style .cm-line.HyperMD-hr .cm-hr {
-	border: none;
-	border-top: 1px dashed var(--hr-color, #DADCDE);
-	color: transparent;
-}
-
-/* ── 笔记样式：滚动条 ────────────────────────────────────────────────── */
-
-.minimalism-ui-note-style .markdown-reading-view ::-webkit-scrollbar,
-.minimalism-ui-note-style .cm-scroller::-webkit-scrollbar {
-	width: 3px;
-}
-
-.minimalism-ui-note-style .markdown-reading-view ::-webkit-scrollbar-thumb,
-.minimalism-ui-note-style .cm-scroller::-webkit-scrollbar-thumb {
-	background: transparent;
-	border-radius: 999px;
-	transition: background 0.3s ease;
-}
-
-.minimalism-ui-note-style .markdown-reading-view:hover ::-webkit-scrollbar-thumb,
-.minimalism-ui-note-style .cm-scroller:hover::-webkit-scrollbar-thumb {
-	background: rgba(128, 128, 128, 0.4);
-}
-
-.minimalism-ui-note-style .markdown-reading-view ::-webkit-scrollbar-track,
-.minimalism-ui-note-style .cm-scroller::-webkit-scrollbar-track {
-	background: transparent;
-}
-
-body.minimalism-ui-note-style .bases-view {
-	scrollbar-width: thin;
-	scrollbar-color: transparent transparent;
-}
-
-body.minimalism-ui-note-style .bases-view:hover {
-	scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
-}
-
-body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar {
-	width: 4px;
-	height: 4px;
-}
-
-body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar-thumb {
-	background: transparent;
-	border-radius: 999px;
-	transition: background 0.3s ease;
-}
-
-body.minimalism-ui-note-style .bases-view:hover ::-webkit-scrollbar-thumb {
-	background: rgba(128, 128, 128, 0.4);
-}
-
-body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar-track {
-	background: transparent;
-}
-
-/* ── 笔记样式：表格 Forest 风格 ──────────────────────────────────────── */
-
-.minimalism-ui-note-style {
-	--table-border-color: #DADCDE;
-	--table-header-background: rgba(0, 153, 123, 0.03);
-	--table-row-alt-background: rgba(0, 153, 123, 0.03);
-}
-
-/* 阅读视图 */
-body.minimalism-ui-note-style .el-table {
-	border-radius: 5px;
-	overflow: hidden;
-	border: 1px solid #DADCDE;
-}
-
-/* 编辑视图：table-editor 外边框
-   overflow:visible 让拖拽把手可以延伸到表格外侧 */
-body.minimalism-ui-note-style .cm-editor .table-editor {
-	border-radius: 5px;
-	overflow: visible;
-	outline: 1px solid #DADCDE;
-	outline-offset: 0px;
-}
-
-body.minimalism-ui-note-style .table-wrapper {
-	overflow: visible;
-	/* 为外侧把手留出视觉空间 */
-	margin-top: 20px;
-	margin-left: 20px;
-}
-
-/* 解除 .table-wrapper 所有直接父容器的裁切，让把手可以延伸到表格外侧 */
-body.minimalism-ui-note-style .cm-editor :has(> .table-wrapper) {
-	overflow: visible;
-}
-
-body.minimalism-ui-note-style .el-table table {
-	margin: 0;
-	width: 100%;
-}
-
-.minimalism-ui-note-style .markdown-reading-view table thead,
-.minimalism-ui-note-style .table-wrapper table.table-editor thead {
-	font-weight: 900;
-	background-color: rgba(0, 153, 123, 0.03);
-}
-
-.minimalism-ui-note-style .markdown-reading-view table tr:nth-child(even),
-.minimalism-ui-note-style .table-wrapper table.table-editor tr:nth-child(even) {
-	background-color: rgba(0, 153, 123, 0.03);
-}
-
-.minimalism-ui-note-style .markdown-reading-view table tbody tr,
-.minimalism-ui-note-style .table-wrapper table.table-editor tbody tr {
-	border-bottom: 1px solid #DADCDE;
-}
-
-/* 所有单元格：字体、大小、颜色（阅读视图 + 编辑视图） */
-body.minimalism-ui-note-style .markdown-reading-view table th,
-body.minimalism-ui-note-style .markdown-reading-view table td,
-body.minimalism-ui-note-style .markdown-reading-view .el-table .ltr,
-body.minimalism-ui-note-style .table-wrapper table.table-editor th,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td {
-	font-family: 'JetBrains Mono', -apple-system, sans-serif;
-	font-size: calc(var(--font-text-size, 16px) - 3px);
-	color: rgb(107, 107, 107);
-}
-
-/* 所有单元格：内边距 + 列分隔线（左边框，首列除外） */
-body.minimalism-ui-note-style .markdown-reading-view table th,
-body.minimalism-ui-note-style .markdown-reading-view table td,
-body.minimalism-ui-note-style .markdown-reading-view .el-table .ltr {
-	padding: 10px 13px;
-	border-left: 1px solid #DADCDE;
-}
-
-/* 编辑模式：.table-editor 是 table 元素本身的 class，需用 table.table-editor 匹配 */
-body.minimalism-ui-note-style .table-wrapper table.table-editor th,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td {
-	padding: 10px 13px;
-	border-left: 1px solid #DADCDE;
-}
-
-
-/* 聚焦单元格内的 CM 编辑器字体大小与未聚焦单元格保持一致 */
-body.minimalism-ui-note-style .table-wrapper table.table-editor td .cm-editor,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td .cm-editor .cm-content,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td .cm-editor .cm-line,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td .cm-editor .cm-scroller {
-	font-size: calc(var(--font-text-size, 16px) - 3px);
-}
-
-/* 首列去掉左边框（由 el-table 外边框提供） */
-body.minimalism-ui-note-style .markdown-reading-view table th:first-of-type,
-body.minimalism-ui-note-style .markdown-reading-view table td:first-of-type,
-body.minimalism-ui-note-style .markdown-reading-view .el-table .ltr:first-of-type,
-body.minimalism-ui-note-style .table-wrapper table.table-editor th:first-of-type,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td:first-of-type {
-	border-left: none;
-}
-
-/* 末列去掉右边框（由 el-table 外边框提供） */
-body.minimalism-ui-note-style .markdown-reading-view table th:last-of-type,
-body.minimalism-ui-note-style .markdown-reading-view table td:last-of-type,
-body.minimalism-ui-note-style .markdown-reading-view .el-table .ltr:last-of-type,
-body.minimalism-ui-note-style .table-wrapper table.table-editor th:last-of-type,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td:last-of-type {
-	border-right: none;
-}
-
-/* 首行单元格去掉顶边框（由 el-table 外边框提供） */
-body.minimalism-ui-note-style .markdown-reading-view table thead tr:first-of-type th,
-body.minimalism-ui-note-style .markdown-reading-view table tr:first-of-type td,
-body.minimalism-ui-note-style .markdown-reading-view table tr:first-of-type th,
-body.minimalism-ui-note-style .table-wrapper table.table-editor thead tr:first-of-type th,
-body.minimalism-ui-note-style .table-wrapper table.table-editor tr:first-of-type td,
-body.minimalism-ui-note-style .table-wrapper table.table-editor tr:first-of-type th {
-	border-top: none;
-}
-
-/* 末行单元格去掉底边框（由 el-table 外边框提供） */
-body.minimalism-ui-note-style .markdown-reading-view table tbody tr:last-of-type td,
-body.minimalism-ui-note-style .markdown-reading-view table tbody tr:last-of-type th,
-body.minimalism-ui-note-style .table-wrapper table.table-editor tbody tr:last-of-type td,
-body.minimalism-ui-note-style .table-wrapper table.table-editor tbody tr:last-of-type th {
-	border-bottom: none;
-}
-
-/* tr 级别的末行底边框也去掉 */
-body.minimalism-ui-note-style .markdown-reading-view table tbody tr:last-of-type,
-body.minimalism-ui-note-style .table-wrapper table.table-editor tbody tr:last-of-type {
-	border-bottom: none;
-}
-
-/* ── 编辑模式：表格拖拽区域 ─────────────────────────────────────────────── */
-
-/* th/td 必须是 relative 定位，absolute 把手才能相对它们定位 */
-body.minimalism-ui-note-style .table-wrapper table.table-editor th,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td {
-	position: relative;
-}
-
-/* 列拖拽把手：悬浮在列头正上方（表格外侧），默认完全隐藏 */
-body.minimalism-ui-note-style .table-wrapper table.table-editor th .table-col-drag-handle {
-	position: absolute;
-	top: -18px;
-	left: 50%;
-	transform: translateX(-50%);
-	width: 40px;
-	height: 18px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	cursor: grab;
-	opacity: 0;
-	transition: opacity 0.15s;
-	border-radius: 6px 6px 0 0;
-	background: rgba(0, 0, 0, 0.08);
-	z-index: 10;
-}
-
-/* 鼠标悬停列头或把手时显示列拖拽把手 */
-body.minimalism-ui-note-style .table-wrapper table.table-editor th:hover .table-col-drag-handle,
-body.minimalism-ui-note-style .table-wrapper table.table-editor th .table-col-drag-handle:hover {
-	opacity: 1;
-	background: rgba(0, 153, 123, 0.2);
-}
-
-body.minimalism-ui-note-style .table-wrapper table.table-editor th .table-col-drag-handle .svg-icon {
-	width: 14px;
-	height: 10px;
-}
-
-/* 非首列的行拖拽把手直接隐藏，避免重复 */
-body.minimalism-ui-note-style .table-wrapper table.table-editor th:not(:first-child) .table-row-drag-handle,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td:not(:first-child) .table-row-drag-handle {
-	display: none;
-}
-
-/* 行拖拽把手：悬浮在首列左侧（表格外侧），默认完全隐藏 */
-body.minimalism-ui-note-style .table-wrapper table.table-editor th:first-child .table-row-drag-handle,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td:first-child .table-row-drag-handle {
-	position: absolute;
-	left: -18px;
-	top: 50%;
-	transform: translateY(-50%);
-	width: 18px;
-	height: 40px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	cursor: grab;
-	opacity: 0;
-	transition: opacity 0.15s;
-	border-radius: 6px 0 0 6px;
-	background: rgba(0, 0, 0, 0.08);
-	z-index: 10;
-}
-
-/* 鼠标悬停任意单元格时整行把手显示（通过 tr:hover 选择器实现） */
-body.minimalism-ui-note-style .table-wrapper table.table-editor tr:hover th:first-child .table-row-drag-handle,
-body.minimalism-ui-note-style .table-wrapper table.table-editor tr:hover td:first-child .table-row-drag-handle,
-body.minimalism-ui-note-style .table-wrapper table.table-editor th:first-child .table-row-drag-handle:hover,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td:first-child .table-row-drag-handle:hover {
-	opacity: 1;
-	background: rgba(0, 153, 123, 0.2);
-}
-
-body.minimalism-ui-note-style .table-wrapper table.table-editor th:first-child .table-row-drag-handle .svg-icon,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td:first-child .table-row-drag-handle .svg-icon {
-	width: 10px;
-	height: 14px;
-}
-
-/* ── 笔记样式：Bases 网格卡片标题 ──────────────────────────────────────── */
-
-body.minimalism-ui-note-style .bases-cards-property.mod-title {
-	font-weight: 400;
-}
-
-/* ── 笔记样式：脚注内容 ─────────────────────────────────────────────────── */
-
-/* 阅读视图 */
-body.minimalism-ui-note-style .markdown-reading-view section.footnotes,
-body.minimalism-ui-note-style .markdown-reading-view section.footnotes li,
-body.minimalism-ui-note-style .markdown-reading-view section.footnotes p {
-	font-size: 0.8rem;
-	opacity: 0.8;
-}
-
-/* 编辑视图 */
-body.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-footnote {
-	font-size: 0.8rem;
-	opacity: 0.8;
-}
-
-/* ── 笔记样式：无语言代码块透明度 ───────────────────────────────────── */
-
-/* 阅读视图：无语言标注的代码块内容 */
-body.minimalism-ui-note-style .markdown-reading-view pre > code:not([class*="language-"]) {
-	opacity: 0.9;
-}
-
-/* 编辑视图（Live Preview）：无语言标注的代码块行 */
-body.minimalism-ui-note-style .cm-editor .HyperMD-codeblock:not([class*="language-"]) {
-	opacity: 0.9;
-}
-
-/* 编辑视图：代码块起始行（语言名称）和结束行文字变浅灰 */
-body.minimalism-ui-note-style .cm-editor .HyperMD-codeblock-begin,
-body.minimalism-ui-note-style .cm-editor .HyperMD-codeblock-end {
-	color: var(--text-faint);
-}
-
-/* ── 笔记样式：Callout ───────────────────────────────────────────────── */
-
-/* 阅读视图：callout 正文字色 */
-body.minimalism-ui-note-style .markdown-reading-view .callout-content,
-body.minimalism-ui-note-style .markdown-reading-view .callout-content p,
-body.minimalism-ui-note-style .markdown-reading-view .callout-content li,
-body.minimalism-ui-note-style .markdown-reading-view .callout-content ul,
-body.minimalism-ui-note-style .markdown-reading-view .callout-content ol {
-	font-size: 0.9rem;
-	color: var(--text-muted);
-	opacity: 0.9;
-}
-
-/* 编辑视图（Live Preview）：callout 正文字色 */
-body.minimalism-ui-note-style .cm-editor .cm-callout .cm-line:not(.cm-callout-title) {
-	font-size: 0.9rem;
-	color: var(--text-muted);
-	opacity: 0.9;
-}
-
-/* Mermaid 图表：超出笔记宽度时横向滚动，不缩放 */
-/* overflow-x: overlay 让滚动条浮在内容上，不占布局空间，不引起闪烁 */
-body.minimalism-ui-note-style .markdown-reading-view .mermaid,
-body.minimalism-ui-note-style .cm-editor .mermaid {
-	overflow-x: overlay;
-	overflow-y: visible;
-	max-width: 100%;
-}
-
-body.minimalism-ui-note-style .markdown-reading-view .mermaid svg,
-body.minimalism-ui-note-style .cm-editor .mermaid svg {
-	max-width: none;
-	height: auto;
-}
-
-/* Mermaid 滚动条：细条，悬停时才显色 */
-.minimalism-ui-note-style .mermaid::-webkit-scrollbar {
-	height: 3px;
-}
-
-.minimalism-ui-note-style .mermaid::-webkit-scrollbar-thumb {
-	background: transparent;
-	border-radius: 3px;
-}
-
-.minimalism-ui-note-style .mermaid:hover::-webkit-scrollbar-thumb {
-	background: rgba(128, 128, 128, 0.35);
-}
-
-.minimalism-ui-note-style .mermaid::-webkit-scrollbar-track {
-	background: transparent;
-}
-
-/* Mermaid fit-view 状态（默认）：SVG 缩放至填满容器宽度，显示全图 */
-body.minimalism-ui-note-style .mermaid.mermaid-fit-view {
-	overflow-x: hidden;
-}
-
-body.minimalism-ui-note-style .mermaid.mermaid-fit-view svg {
-	width: 100%;
-	height: auto;
-	max-width: 100%;
-	cursor: zoom-in;
-}
-
-/* Mermaid 展开状态：超宽且未 fit，显示 zoom-out 光标提示可收回 */
-.minimalism-ui-note-style .mermaid.mermaid-overflows:not(.mermaid-fit-view) svg {
-	cursor: zoom-out;
-}
-
-/* Mermaid 节点：禁止换行，消除 p 标签 margin，字号与正文一致 */
-/* 注意：不改 padding，避免撑高 JS 预算好的 foreignObject */
-body.minimalism-ui-note-style .mermaid .nodeLabel,
-body.minimalism-ui-note-style .mermaid .nodeLabel p {
-	white-space: nowrap;
-	margin: 0;
-	font-size: var(--font-text-size);
-}
-
-/* foreignObject 宽度由 JS 固定，nowrap 文字可能超出被裁；改为 visible 防截断 */
-body.minimalism-ui-note-style .mermaid foreignObject {
-	overflow: visible;
-}
-
-/* 兼容 SVG text 节点（部分图类型不用 foreignObject） */
-body.minimalism-ui-note-style .mermaid svg text {
-	font-size: var(--font-text-size);
-}
-
+/* ── 笔记内容美学（Forest 等主题） ─────────────────────────────────────── */
+/* .minimalism-ui-note-style 的视觉样式已迁移到 theme/<name>.css，
+   由 ThemeLoader 在运行时按 data.json 的 theme 字段注入。
+   此处仅保留功能性/界面框架样式，主题文件只负责笔记内容的外观。 */
