@@ -25,6 +25,7 @@ const translations = {
 		homePage: '笔记首页',
 		homePageDesc: '设置一个笔记作为首页。Obsidian 启动时自动打开，关闭所有标签后自动返回。',
 		homePagePlaceholder: '输入笔记路径，例如：src/Home.md',
+		goHome: '回到主页',
 
 		singlePage: '开启单页模式',
 		singlePageDesc1: '1. 隐藏顶部标签栏，每次只展示一篇笔记。',
@@ -64,6 +65,7 @@ const translations = {
 		homePage: 'Home Note',
 		homePageDesc: 'A note that opens automatically on startup and whenever all tabs are closed.',
 		homePagePlaceholder: 'Note path, e.g. src/Home.md',
+		goHome: 'Back to Home',
 
 		singlePage: 'Single-Page Mode',
 		singlePageDesc1: '1. Hide the tab bar — show one note at a time.',

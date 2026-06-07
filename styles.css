@@ -511,6 +511,12 @@ body.minimalism-ui-mac-sidebar .workspace-tab-header-tab-list {
 	box-sizing: border-box;
 }
 
+/* ── 原生空页面（empty view）：配置首页后隐藏 Close 按钮，由“回到主页”取代 ── */
+
+.minimalism-ui-has-home .empty-state-action.mod-close {
+	display: none;
+}
+
 /* ── 空状态 ──────────────────────────────────────────────────────────── */
 
 .minimalism-ui-empty-state {

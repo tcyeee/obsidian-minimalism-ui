@@ -8,6 +8,7 @@ const BODY_CLASSES = [
 	'minimalism-ui-simplify-panel',
 	'minimalism-ui-disable-note-tabs',
 	'minimalism-ui-note-style',
+	'minimalism-ui-has-home',
 ] as const;
 
 /**
@@ -31,6 +32,8 @@ export class BodyClassController implements Feature {
 		cls.toggle('minimalism-ui-disable-note-tabs', s.disableNoteTabs);
 		// 笔记样式优化全程默认开启，不再受设置开关控制
 		cls.add('minimalism-ui-note-style');
+		// 配置了首页时，空页面隐藏原生 Close 按钮（由“回到主页”取代）
+		cls.toggle('minimalism-ui-has-home', !!s.homePage);
 	}
 
 	remove() {

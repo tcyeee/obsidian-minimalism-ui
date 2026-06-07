@@ -7,6 +7,7 @@ import { BodyClassController } from './src/core/BodyClassController';
 import { SinglePageEngine } from './src/single-page/SinglePageEngine';
 import { PinManager } from './src/tabs/PinManager';
 import { HomePageManager } from './src/single-page/HomePageManager';
+import { EmptyViewButtonManager } from './src/single-page/EmptyViewButtonManager';
 import { DragBarManager } from './src/layout/DragBarManager';
 import { SidebarLayoutManager } from './src/layout/SidebarLayoutManager';
 import { MermaidZoomManager } from './src/mermaid/MermaidZoomManager';
@@ -26,6 +27,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	private engine: SinglePageEngine;
 	private pinManager: PinManager;
 	private homePage: HomePageManager;
+	private emptyViewButton: EmptyViewButtonManager;
 	private dragBar: DragBarManager;
 	private sidebarLayout: SidebarLayoutManager;
 	private mermaidZoom: MermaidZoomManager;
@@ -44,6 +46,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.engine = new SinglePageEngine(this.app, settings);
 		this.pinManager = new PinManager(this.app, settings);
 		this.homePage = new HomePageManager(this.app, settings, this.engine);
+		this.emptyViewButton = new EmptyViewButtonManager(this.app, settings, this.engine);
 		this.dragBar = new DragBarManager(this.app, settings, () => this.engine.getNavHistory());
 		this.sidebarLayout = new SidebarLayoutManager(this.app, settings, this.pinManager);
 		this.mermaidZoom = new MermaidZoomManager(this.app);
@@ -55,6 +58,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			this.engine,
 			this.pinManager,
 			this.homePage,
+			this.emptyViewButton,
 			this.dragBar,
 			this.sidebarLayout,
 			this.mermaidZoom,
@@ -72,6 +76,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.app.workspace.onLayoutReady(() => {
 			this.dragBar.apply();
 			this.homePage.apply();
+			this.emptyViewButton.apply();
 			void this.homePage.openHomePage();
 			void this.sidebarLayout.apply();
 		});
@@ -123,5 +128,6 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.engine.apply();
 		this.dragBar.apply();
 		this.homePage.apply();
+		this.emptyViewButton.apply();
 	}
 }

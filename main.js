@@ -142,7 +142,8 @@ var BODY_CLASSES = [
   "minimalism-ui-disable-pin",
   "minimalism-ui-simplify-panel",
   "minimalism-ui-disable-note-tabs",
-  "minimalism-ui-note-style"
+  "minimalism-ui-note-style",
+  "minimalism-ui-has-home"
 ];
 var BodyClassController = class {
   constructor(getSettings) {
@@ -157,6 +158,7 @@ var BodyClassController = class {
     cls.toggle("minimalism-ui-simplify-panel", s.hideTabBar);
     cls.toggle("minimalism-ui-disable-note-tabs", s.disableNoteTabs);
     cls.add("minimalism-ui-note-style");
+    cls.toggle("minimalism-ui-has-home", !!s.homePage);
   }
   remove() {
     activeDocument.body.classList.remove(...BODY_CLASSES);
@@ -451,9 +453,8 @@ var SinglePageEngine = class {
     this.pendingInterceptLeaves = /* @__PURE__ */ new Set();
     // 首页打开期间为 true，避免 getLeaf 拦截器介入
     this._isOpeningHomePage = false;
-    // openHomePage 异步打开期间又收到“全部关闭”请求时置位。连续快速 CMD+W 会把正在打开的
-    // 首页 leaf 也关掉，触发新一轮 file-open(null) -> openHomePage，但此刻重入锁未释放，请求会被
-    // 直接丢弃，最终停在空页。置位后由当前这次的 finally 兜底补开，保证最终落在首页而非空页。
+    // openHomePage 异步打开 await 期间，首页 leaf 又被快速 CMD+W 关掉时置位（await 后 parent 为 null）。
+    // 此刻重入锁未释放，无法立即重开，置位后由当前这次的 finally 兜底补开，保证最终落在首页而非空页。
     this._homePageReopenQueued = false;
     this.renameHandler = null;
     this.nav = new NavigationHistory(app, getSettings, (path, animCls) => this.activateOrOpenFile(path, animCls));
@@ -523,6 +524,11 @@ var SinglePageEngine = class {
   // 供外部（HomePageManager）判断：若为 pending 则不应触发首页跳转
   hasPendingIntercept(leaf) {
     return this.pendingInterceptLeaves.has(leaf);
+  }
+  // 首页是否正在打开。供 HomePageManager 在 active-leaf-change 中过滤：openHomePage 自身的 getLeaf
+  // 会先产生一个临时空 leaf 并触发 active-leaf-change，此时不能再次触发打开（会无限重入）。
+  isOpeningHomePage() {
+    return this._isOpeningHomePage;
   }
   getNavHistory() {
     return this.nav.getHistory();
@@ -688,6 +694,8 @@ var SinglePageEngine = class {
       if (leaf.parent) {
         this.patchLeafHistory(leaf);
         this.patchRootLeafDetach(leaf);
+      } else {
+        this._homePageReopenQueued = true;
       }
     } finally {
       this._isOpeningHomePage = false;
@@ -768,29 +776,154 @@ var HomePageManager = class {
     this.app = app;
     this.getSettings = getSettings;
     this.engine = engine;
-    this.homePageHandler = null;
+    this.activeLeafHandler = null;
   }
-  /** Register the file-open listener. Must be called after layout is ready. */
+  /** Register the active-leaf-change listener. Must be called after layout is ready. */
   apply() {
     this.remove();
     if (!this.getSettings().homePage) return;
-    this.homePageHandler = (file) => {
-      if (!file) {
-        const active = this.app.workspace.getMostRecentLeaf();
-        if (active && this.engine.hasPendingIntercept(active)) return;
-        void this.engine.openHomePage();
-      }
-    };
-    this.app.workspace.on("file-open", this.homePageHandler);
+    this.activeLeafHandler = () => this.maybeOpenHomePage();
+    this.app.workspace.on("active-leaf-change", this.activeLeafHandler);
+  }
+  maybeOpenHomePage() {
+    if (this.engine.isOpeningHomePage()) return;
+    let hasFileLeaf = false;
+    this.app.workspace.iterateRootLeaves((l) => {
+      var _a;
+      if ((_a = l.view) == null ? void 0 : _a.file) hasFileLeaf = true;
+    });
+    if (hasFileLeaf) return;
+    const active = this.app.workspace.getMostRecentLeaf();
+    if (active && this.engine.hasPendingIntercept(active)) return;
+    void this.engine.openHomePage();
   }
   async openHomePage() {
     return this.engine.openHomePage();
   }
   remove() {
-    if (this.homePageHandler) {
-      this.app.workspace.off("file-open", this.homePageHandler);
-      this.homePageHandler = null;
+    if (this.activeLeafHandler) {
+      this.app.workspace.off("active-leaf-change", this.activeLeafHandler);
+      this.activeLeafHandler = null;
     }
+  }
+};
+
+// src/core/i18n.ts
+var translations = {
+  zh: {
+    language: "\u8BED\u8A00",
+    languageAuto: "\u8DDF\u968F\u7CFB\u7EDF",
+    languageZh: "\u4E2D\u6587",
+    languageEn: "English",
+    introTitle: "\u4F7F\u7528\u524D\u5FC5\u8BFB",
+    introDesc1: '\u672C\u63D2\u4EF6\u662F\u4E00\u6B3E"\u505A\u51CF\u6CD5"\u7684\u5DE5\u5177,\u8BBE\u8BA1\u7406\u5FF5\u4E0E\u4E3B\u6D41\u7528\u6CD5\u76F8\u6096:\u5B83\u53EA\u4FDD\u7559\u5DE6\u4FA7\u8FB9\u680F(\u81F3\u591A\u663E\u793A\u5927\u7EB2\u3001\u5C5E\u6027\u3001\u672C\u5730\u5173\u7CFB\u56FE),\u5E76\u88C1\u526A\u6389\u4E86\u5927\u91CF\u6838\u5FC3\u529F\u80FD,\u751A\u81F3\u5305\u62EC"\u6587\u4EF6\u5939"\u3002\u5B89\u88C5\u524D\u8BF7\u5148\u786E\u8BA4\u4F60\u8BA4\u540C\u8FD9\u5957\u6781\u7B80\u7406\u5FF5\u3002',
+    introDesc2: "\u8BF7\u6307\u5B9A\u4E00\u7BC7\u7B14\u8BB0\u4F5C\u4E3A\u9996\u9875\u3002\u5B83\u5982\u540C\u4E00\u68F5\u6811\u7684\u4E3B\u5E72,\u4F60\u5728\u5176\u4E0A\u7528\u53CC\u94FE\u4E0D\u65AD\u65B0\u5EFA\u7B14\u8BB0,\u8BA9\u77E5\u8BC6\u5F00\u679D\u6563\u53F6,\u6700\u7EC8\u957F\u6210\u53C2\u5929\u5927\u6811\u3002",
+    introDesc3: '\u7531\u4E8E\u653E\u5F03\u4E86"\u6587\u4EF6\u5939",\u51E0\u4E4E\u6240\u6709\u7B14\u8BB0\u90FD\u5E73\u94FA\u5728\u6839\u76EE\u5F55\u3002\u5EFA\u8BAE\u5F00\u542F\u65F6\u95F4\u6233\u524D\u7F00\u547D\u540D,\u4E3A\u6BCF\u7BC7\u7B14\u8BB0\u8D4B\u4E88\u552F\u4E00\u6807\u8BC6,\u4ECE\u800C\u907F\u514D\u91CD\u540D\u51B2\u7A81\u3002',
+    headingGeneral: "\u901A\u7528\u8BBE\u7F6E",
+    headingAppearance: "\u4FA7\u8FB9\u680F\u8BBE\u7F6E",
+    headingInteraction: "\u4EA4\u4E92\u8BBE\u7F6E",
+    headingAnimation: "\u52A8\u753B\u8BBE\u7F6E (beta)",
+    showProperties: "\u5C5E\u6027\u9762\u677F",
+    showLocalGraph: "\u672C\u5730\u5173\u7CFB\u56FE",
+    hideTabBar: "\u9690\u85CF\u5927\u7EB2\u6309\u94AE",
+    theme: "\u4E3B\u9898",
+    homePage: "\u7B14\u8BB0\u9996\u9875",
+    homePageDesc: "\u8BBE\u7F6E\u4E00\u4E2A\u7B14\u8BB0\u4F5C\u4E3A\u9996\u9875\u3002Obsidian \u542F\u52A8\u65F6\u81EA\u52A8\u6253\u5F00\uFF0C\u5173\u95ED\u6240\u6709\u6807\u7B7E\u540E\u81EA\u52A8\u8FD4\u56DE\u3002",
+    homePagePlaceholder: "\u8F93\u5165\u7B14\u8BB0\u8DEF\u5F84\uFF0C\u4F8B\u5982\uFF1Asrc/Home.md",
+    goHome: "\u56DE\u5230\u4E3B\u9875",
+    singlePage: "\u5F00\u542F\u5355\u9875\u6A21\u5F0F",
+    singlePageDesc1: "1. \u9690\u85CF\u9876\u90E8\u6807\u7B7E\u680F\uFF0C\u6BCF\u6B21\u53EA\u5C55\u793A\u4E00\u7BC7\u7B14\u8BB0\u3002",
+    singlePageDesc2: "2. \u542F\u7528\u9875\u9762\u7F13\u5B58\uFF0C\u5728\u5185\u5B58\u4E2D\u4FDD\u7559\u6700\u8FD1\u8BBF\u95EE\u7684 10 \u4E2A\u9875\u9762\u3002",
+    singlePageDesc3: "3. \u7981\u6B62\u901A\u8FC7\u53F3\u952E\u83DC\u5355 pin\uFF08\u56FA\u5B9A\uFF09\u6807\u7B7E\u9875\u3002",
+    singlePageDesc4: "4. \u5728\u9876\u90E8\u62D6\u62FD\u680F\u663E\u793A\u8BBF\u95EE\u8DEF\u5F84\uFF08\u9762\u5305\u5C51\uFF09\uFF0C\u65B9\u4FBF\u8FFD\u8E2A\u5BFC\u822A\u5386\u53F2\u3002",
+    navAnimation: "\u9875\u9762\u52A0\u8F7D\u52A8\u753B",
+    navAnimationDesc: "\u524D\u8FDB\u6216\u540E\u9000\u65F6\uFF0C\u4E3A\u76EE\u6807\u9875\u9762\u64AD\u653E\u6ED1\u5165\u52A8\u753B",
+    filenamePrefixLength: "\u9690\u85CF\u6587\u4EF6\u540D\u65F6\u95F4\u6233\u524D\u7F00",
+    filenamePrefixLengthDesc: '\u9002\u7528\u4E8E\u65F6\u95F4\u6233\u524D\u7F00\u7B14\u8BB0\uFF0C\u5982\u9690\u85CF "202604111230-test" \u524D 13 \u4E2A\u5B57\u7B26\uFF0C\u5B9E\u9645\u5728\u5BFC\u822A\u680F\u4E2D\u663E\u793A\u4E3A test\uFF080 = \u4E0D\u9690\u85CF\uFF0C\u6700\u591A 20\uFF09\u3002'
+  },
+  en: {
+    language: "Language",
+    languageAuto: "Follow system",
+    languageZh: "\u4E2D\u6587",
+    languageEn: "English",
+    introTitle: "Read this before you start",
+    introDesc1: "This plugin is all about subtraction, and its philosophy runs against mainstream usage: it keeps only the left sidebar (showing at most Outline, Properties, and Local Graph) and strips away many core features, including Folders. Make sure this minimalist philosophy suits you before installing.",
+    introDesc2: "Pick one note as your home page. Think of it as the trunk of a tree: keep creating notes from it through backlinks, letting your knowledge branch out until it grows into a towering tree.",
+    introDesc3: "Since folders are gone, almost every note lives in the vault root. Enable timestamp-prefixed filenames to give each note a unique identifier and avoid name clashes.",
+    headingGeneral: "General",
+    headingAppearance: "Sidebar",
+    headingInteraction: "Interaction",
+    headingAnimation: "Animation (beta)",
+    showProperties: "Properties",
+    showLocalGraph: "Local Graph",
+    hideTabBar: "Hide Outline Button",
+    theme: "Theme",
+    homePage: "Home Note",
+    homePageDesc: "A note that opens automatically on startup and whenever all tabs are closed.",
+    homePagePlaceholder: "Note path, e.g. src/Home.md",
+    goHome: "Back to Home",
+    singlePage: "Single-Page Mode",
+    singlePageDesc1: "1. Hide the tab bar \u2014 show one note at a time.",
+    singlePageDesc2: "2. Keep the 10 most recently visited notes cached in memory.",
+    singlePageDesc3: "3. Prevent pinning tabs via the right-click menu.",
+    singlePageDesc4: "4. Show a breadcrumb trail in the drag bar to track navigation history.",
+    navAnimation: "Page Transition Animation",
+    navAnimationDesc: "Play a slide-in animation when navigating back or forward.",
+    filenamePrefixLength: "Hide Filename Timestamp Prefix",
+    filenamePrefixLengthDesc: 'For timestamp-prefixed notes. E.g. hide the first 13 characters of "202604111230-test" so it shows as "test" in the navigation (0 = off, max 20).'
+  }
+};
+var langOverride = null;
+function setLang(lang) {
+  langOverride = lang === "auto" ? null : lang;
+}
+function detectLang() {
+  var _a, _b;
+  if (langOverride) return langOverride;
+  const lang = (_b = (_a = activeDocument.documentElement.lang) == null ? void 0 : _a.slice(0, 2)) != null ? _b : "en";
+  return lang in translations ? lang : "en";
+}
+function t(key) {
+  return translations[detectLang()][key];
+}
+
+// src/single-page/EmptyViewButtonManager.ts
+var HOME_ACTION_CLASS = "minimalism-ui-home-action";
+var EmptyViewButtonManager = class {
+  constructor(app, getSettings, engine) {
+    this.app = app;
+    this.getSettings = getSettings;
+    this.engine = engine;
+    this.handler = null;
+  }
+  apply() {
+    this.remove();
+    if (!this.getSettings().homePage) return;
+    this.handler = () => requestAnimationFrame(() => this.inject());
+    this.app.workspace.on("layout-change", this.handler);
+    this.app.workspace.on("active-leaf-change", this.handler);
+    this.inject();
+  }
+  inject() {
+    const lists = activeDocument.querySelectorAll(
+      ".empty-state .empty-state-action-list"
+    );
+    lists.forEach((list) => {
+      if (list.querySelector(`.${HOME_ACTION_CLASS}`)) return;
+      const btn = list.createDiv({
+        cls: `empty-state-action tappable ${HOME_ACTION_CLASS}`,
+        text: t("goHome")
+      });
+      btn.addEventListener("click", () => void this.engine.openHomePage());
+    });
+  }
+  remove() {
+    if (this.handler) {
+      this.app.workspace.off("layout-change", this.handler);
+      this.app.workspace.off("active-leaf-change", this.handler);
+      this.handler = null;
+    }
+    activeDocument.querySelectorAll(`.${HOME_ACTION_CLASS}`).forEach((el) => el.remove());
   }
 };
 
@@ -1344,85 +1477,6 @@ var MermaidZoomManager = class {
 
 // src/SettingTab.ts
 var import_obsidian6 = require("obsidian");
-
-// src/core/i18n.ts
-var translations = {
-  zh: {
-    language: "\u8BED\u8A00",
-    languageAuto: "\u8DDF\u968F\u7CFB\u7EDF",
-    languageZh: "\u4E2D\u6587",
-    languageEn: "English",
-    introTitle: "\u4F7F\u7528\u524D\u5FC5\u8BFB",
-    introDesc1: '\u672C\u63D2\u4EF6\u662F\u4E00\u6B3E"\u505A\u51CF\u6CD5"\u7684\u5DE5\u5177,\u8BBE\u8BA1\u7406\u5FF5\u4E0E\u4E3B\u6D41\u7528\u6CD5\u76F8\u6096:\u5B83\u53EA\u4FDD\u7559\u5DE6\u4FA7\u8FB9\u680F(\u81F3\u591A\u663E\u793A\u5927\u7EB2\u3001\u5C5E\u6027\u3001\u672C\u5730\u5173\u7CFB\u56FE),\u5E76\u88C1\u526A\u6389\u4E86\u5927\u91CF\u6838\u5FC3\u529F\u80FD,\u751A\u81F3\u5305\u62EC"\u6587\u4EF6\u5939"\u3002\u5B89\u88C5\u524D\u8BF7\u5148\u786E\u8BA4\u4F60\u8BA4\u540C\u8FD9\u5957\u6781\u7B80\u7406\u5FF5\u3002',
-    introDesc2: "\u8BF7\u6307\u5B9A\u4E00\u7BC7\u7B14\u8BB0\u4F5C\u4E3A\u9996\u9875\u3002\u5B83\u5982\u540C\u4E00\u68F5\u6811\u7684\u4E3B\u5E72,\u4F60\u5728\u5176\u4E0A\u7528\u53CC\u94FE\u4E0D\u65AD\u65B0\u5EFA\u7B14\u8BB0,\u8BA9\u77E5\u8BC6\u5F00\u679D\u6563\u53F6,\u6700\u7EC8\u957F\u6210\u53C2\u5929\u5927\u6811\u3002",
-    introDesc3: '\u7531\u4E8E\u653E\u5F03\u4E86"\u6587\u4EF6\u5939",\u51E0\u4E4E\u6240\u6709\u7B14\u8BB0\u90FD\u5E73\u94FA\u5728\u6839\u76EE\u5F55\u3002\u5EFA\u8BAE\u5F00\u542F\u65F6\u95F4\u6233\u524D\u7F00\u547D\u540D,\u4E3A\u6BCF\u7BC7\u7B14\u8BB0\u8D4B\u4E88\u552F\u4E00\u6807\u8BC6,\u4ECE\u800C\u907F\u514D\u91CD\u540D\u51B2\u7A81\u3002',
-    headingGeneral: "\u901A\u7528\u8BBE\u7F6E",
-    headingAppearance: "\u4FA7\u8FB9\u680F\u8BBE\u7F6E",
-    headingInteraction: "\u4EA4\u4E92\u8BBE\u7F6E",
-    headingAnimation: "\u52A8\u753B\u8BBE\u7F6E (beta)",
-    showProperties: "\u5C5E\u6027\u9762\u677F",
-    showLocalGraph: "\u672C\u5730\u5173\u7CFB\u56FE",
-    hideTabBar: "\u9690\u85CF\u5927\u7EB2\u6309\u94AE",
-    theme: "\u4E3B\u9898",
-    homePage: "\u7B14\u8BB0\u9996\u9875",
-    homePageDesc: "\u8BBE\u7F6E\u4E00\u4E2A\u7B14\u8BB0\u4F5C\u4E3A\u9996\u9875\u3002Obsidian \u542F\u52A8\u65F6\u81EA\u52A8\u6253\u5F00\uFF0C\u5173\u95ED\u6240\u6709\u6807\u7B7E\u540E\u81EA\u52A8\u8FD4\u56DE\u3002",
-    homePagePlaceholder: "\u8F93\u5165\u7B14\u8BB0\u8DEF\u5F84\uFF0C\u4F8B\u5982\uFF1Asrc/Home.md",
-    singlePage: "\u5F00\u542F\u5355\u9875\u6A21\u5F0F",
-    singlePageDesc1: "1. \u9690\u85CF\u9876\u90E8\u6807\u7B7E\u680F\uFF0C\u6BCF\u6B21\u53EA\u5C55\u793A\u4E00\u7BC7\u7B14\u8BB0\u3002",
-    singlePageDesc2: "2. \u542F\u7528\u9875\u9762\u7F13\u5B58\uFF0C\u5728\u5185\u5B58\u4E2D\u4FDD\u7559\u6700\u8FD1\u8BBF\u95EE\u7684 10 \u4E2A\u9875\u9762\u3002",
-    singlePageDesc3: "3. \u7981\u6B62\u901A\u8FC7\u53F3\u952E\u83DC\u5355 pin\uFF08\u56FA\u5B9A\uFF09\u6807\u7B7E\u9875\u3002",
-    singlePageDesc4: "4. \u5728\u9876\u90E8\u62D6\u62FD\u680F\u663E\u793A\u8BBF\u95EE\u8DEF\u5F84\uFF08\u9762\u5305\u5C51\uFF09\uFF0C\u65B9\u4FBF\u8FFD\u8E2A\u5BFC\u822A\u5386\u53F2\u3002",
-    navAnimation: "\u9875\u9762\u52A0\u8F7D\u52A8\u753B",
-    navAnimationDesc: "\u524D\u8FDB\u6216\u540E\u9000\u65F6\uFF0C\u4E3A\u76EE\u6807\u9875\u9762\u64AD\u653E\u6ED1\u5165\u52A8\u753B",
-    filenamePrefixLength: "\u9690\u85CF\u6587\u4EF6\u540D\u65F6\u95F4\u6233\u524D\u7F00",
-    filenamePrefixLengthDesc: '\u9002\u7528\u4E8E\u65F6\u95F4\u6233\u524D\u7F00\u7B14\u8BB0\uFF0C\u5982\u9690\u85CF "202604111230-test" \u524D 13 \u4E2A\u5B57\u7B26\uFF0C\u5B9E\u9645\u5728\u5BFC\u822A\u680F\u4E2D\u663E\u793A\u4E3A test\uFF080 = \u4E0D\u9690\u85CF\uFF0C\u6700\u591A 20\uFF09\u3002'
-  },
-  en: {
-    language: "Language",
-    languageAuto: "Follow system",
-    languageZh: "\u4E2D\u6587",
-    languageEn: "English",
-    introTitle: "Read this before you start",
-    introDesc1: "This plugin is all about subtraction, and its philosophy runs against mainstream usage: it keeps only the left sidebar (showing at most Outline, Properties, and Local Graph) and strips away many core features, including Folders. Make sure this minimalist philosophy suits you before installing.",
-    introDesc2: "Pick one note as your home page. Think of it as the trunk of a tree: keep creating notes from it through backlinks, letting your knowledge branch out until it grows into a towering tree.",
-    introDesc3: "Since folders are gone, almost every note lives in the vault root. Enable timestamp-prefixed filenames to give each note a unique identifier and avoid name clashes.",
-    headingGeneral: "General",
-    headingAppearance: "Sidebar",
-    headingInteraction: "Interaction",
-    headingAnimation: "Animation (beta)",
-    showProperties: "Properties",
-    showLocalGraph: "Local Graph",
-    hideTabBar: "Hide Outline Button",
-    theme: "Theme",
-    homePage: "Home Note",
-    homePageDesc: "A note that opens automatically on startup and whenever all tabs are closed.",
-    homePagePlaceholder: "Note path, e.g. src/Home.md",
-    singlePage: "Single-Page Mode",
-    singlePageDesc1: "1. Hide the tab bar \u2014 show one note at a time.",
-    singlePageDesc2: "2. Keep the 10 most recently visited notes cached in memory.",
-    singlePageDesc3: "3. Prevent pinning tabs via the right-click menu.",
-    singlePageDesc4: "4. Show a breadcrumb trail in the drag bar to track navigation history.",
-    navAnimation: "Page Transition Animation",
-    navAnimationDesc: "Play a slide-in animation when navigating back or forward.",
-    filenamePrefixLength: "Hide Filename Timestamp Prefix",
-    filenamePrefixLengthDesc: 'For timestamp-prefixed notes. E.g. hide the first 13 characters of "202604111230-test" so it shows as "test" in the navigation (0 = off, max 20).'
-  }
-};
-var langOverride = null;
-function setLang(lang) {
-  langOverride = lang === "auto" ? null : lang;
-}
-function detectLang() {
-  var _a, _b;
-  if (langOverride) return langOverride;
-  const lang = (_b = (_a = activeDocument.documentElement.lang) == null ? void 0 : _a.slice(0, 2)) != null ? _b : "en";
-  return lang in translations ? lang : "en";
-}
-function t(key) {
-  return translations[detectLang()][key];
-}
-
-// src/SettingTab.ts
 var FileSuggest = class extends import_obsidian6.AbstractInputSuggest {
   constructor() {
     super(...arguments);
@@ -1561,6 +1615,7 @@ var MinimalismUIPlugin = class extends import_obsidian7.Plugin {
     this.engine = new SinglePageEngine(this.app, settings);
     this.pinManager = new PinManager(this.app, settings);
     this.homePage = new HomePageManager(this.app, settings, this.engine);
+    this.emptyViewButton = new EmptyViewButtonManager(this.app, settings, this.engine);
     this.dragBar = new DragBarManager(this.app, settings, () => this.engine.getNavHistory());
     this.sidebarLayout = new SidebarLayoutManager(this.app, settings, this.pinManager);
     this.mermaidZoom = new MermaidZoomManager(this.app);
@@ -1571,6 +1626,7 @@ var MinimalismUIPlugin = class extends import_obsidian7.Plugin {
       this.engine,
       this.pinManager,
       this.homePage,
+      this.emptyViewButton,
       this.dragBar,
       this.sidebarLayout,
       this.mermaidZoom
@@ -1584,6 +1640,7 @@ var MinimalismUIPlugin = class extends import_obsidian7.Plugin {
     this.app.workspace.onLayoutReady(() => {
       this.dragBar.apply();
       this.homePage.apply();
+      this.emptyViewButton.apply();
       void this.homePage.openHomePage();
       void this.sidebarLayout.apply();
     });
@@ -1623,5 +1680,6 @@ var MinimalismUIPlugin = class extends import_obsidian7.Plugin {
     this.engine.apply();
     this.dragBar.apply();
     this.homePage.apply();
+    this.emptyViewButton.apply();
   }
 };

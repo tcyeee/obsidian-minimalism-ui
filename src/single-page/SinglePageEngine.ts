@@ -76,9 +76,8 @@ export class SinglePageEngine {
 	private pendingInterceptLeaves = new Set<WorkspaceLeaf>();
 	// 首页打开期间为 true，避免 getLeaf 拦截器介入
 	private _isOpeningHomePage = false;
-	// openHomePage 异步打开期间又收到“全部关闭”请求时置位。连续快速 CMD+W 会把正在打开的
-	// 首页 leaf 也关掉，触发新一轮 file-open(null) -> openHomePage，但此刻重入锁未释放，请求会被
-	// 直接丢弃，最终停在空页。置位后由当前这次的 finally 兜底补开，保证最终落在首页而非空页。
+	// openHomePage 异步打开 await 期间，首页 leaf 又被快速 CMD+W 关掉时置位（await 后 parent 为 null）。
+	// 此刻重入锁未释放，无法立即重开，置位后由当前这次的 finally 兜底补开，保证最终落在首页而非空页。
 	private _homePageReopenQueued = false;
 	private renameHandler: ((file: TAbstractFile, oldPath: string) => void) | null = null;
 
@@ -178,6 +177,12 @@ export class SinglePageEngine {
 	// 供外部（HomePageManager）判断：若为 pending 则不应触发首页跳转
 	hasPendingIntercept(leaf: WorkspaceLeaf): boolean {
 		return this.pendingInterceptLeaves.has(leaf);
+	}
+
+	// 首页是否正在打开。供 HomePageManager 在 active-leaf-change 中过滤：openHomePage 自身的 getLeaf
+	// 会先产生一个临时空 leaf 并触发 active-leaf-change，此时不能再次触发打开（会无限重入）。
+	isOpeningHomePage(): boolean {
+		return this._isOpeningHomePage;
 	}
 
 	getNavHistory(): string[] {
@@ -365,11 +370,15 @@ export class SinglePageEngine {
 				return;
 			}
 			await (leaf as LeafInternal).openFile(file);
-			// 打开期间该 leaf 可能已被快速 CMD+W 关掉（parent 为 null）。对已 detach 的 leaf
-			// 打补丁只会在注册表里留下永不回收的死 leaf，且首页并未真正就位——交由下方补偿重试处理。
 			if ((leaf as LeafInternal).parent) {
 				this.patchLeafHistory(leaf);
 				this.patchRootLeafDetach(leaf);
+			} else {
+				// 首页 leaf 在加载途中被快速 CMD+W 关掉了（parent 为 null）。此刻 HomePageManager 的
+				// active-leaf-change 检测被 _isOpeningHomePage 守卫挡住、不会兜底，故在此置位待补开
+				// 标志，由下方 finally 重试，保证最终落在首页而非空页。对已 detach 的 leaf 打补丁只会
+				// 在注册表里留下永不回收的死 leaf，故跳过。
+				this._homePageReopenQueued = true;
 			}
 		} finally {
 			this._isOpeningHomePage = false;
