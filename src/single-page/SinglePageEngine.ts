@@ -25,12 +25,12 @@
  *
  * `apply()` 注册所有 patch 与监听器；`remove()` 完整还原，保证插件卸载后无残留副作用。
  *
- * active-leaf-change 上的三件事（LRU、导航记录、入场动画）由单一 dispatcher 按固定顺序触发，
- * 避免依赖多个 listener 的注册顺序。
+ * active-leaf-change 上的两件事（LRU、导航记录）由单一 dispatcher 按固定顺序触发，避免依赖多个
+ * listener 的注册顺序；入场动画不在此触发，改由 activateOrOpenFile 在定位到目标 leaf 后直接调用。
  */
 import { App, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
-import { NavigationHistory } from './NavigationHistory';
+import { AnimationClass, NavigationHistory } from './NavigationHistory';
 import { ResizeObserverErrorSuppressor } from './ResizeObserverErrorSuppressor';
 import { LeafCache } from './LeafCache';
 
@@ -82,7 +82,7 @@ export class SinglePageEngine {
 		private app: App,
 		private getSettings: () => MinimalismUISettings,
 	) {
-		this.nav = new NavigationHistory(app, getSettings, path => this.activateOrOpenFile(path));
+		this.nav = new NavigationHistory(app, getSettings, (path, animCls) => this.activateOrOpenFile(path, animCls));
 		this.leafCache = new LeafCache(app);
 	}
 
@@ -109,12 +109,13 @@ export class SinglePageEngine {
 			return this.originalGetLeaf!(newLeaf);
 		};
 
-		// active-leaf-change 上按固定顺序触发三件事，单一 dispatcher 避免依赖 listener 注册顺序。
+		// active-leaf-change 上按固定顺序触发两件事，单一 dispatcher 避免依赖 listener 注册顺序。
 		// 顺序要求：① root leaf 判断须在消费 nav 一次性标志之前（在 handleNavTrack 内保证）
+		// 入场动画不在此触发：重开被淘汰文件时 originalGetLeaf('tab') 会先产生一个空 leaf 并触发
+		// active-leaf-change，若在此播动画会落到空 leaf 上。改由 activateOrOpenFile 用确定的目标 leaf 触发。
 		this.activeLeafChangeHandler = (leaf: WorkspaceLeaf | null) => {
 			this.leafCache.trackActive();
 			this.handleNavTrack(leaf);
-			this.nav.animate(leaf);
 		};
 		this.app.workspace.on('active-leaf-change', this.activeLeafChangeHandler);
 
@@ -194,13 +195,16 @@ export class SinglePageEngine {
 
 	// 激活已显示目标路径的 root leaf；若无（已被 LRU 淘汰或手动关闭）则重新打开该文件。
 	// 供 NavigationHistory 的 back/forward/onTabClosing 回调调用，收敛此前散落 4 处的重复逻辑。
-	private activateOrOpenFile(path: string) {
+	// animCls：前进/后退要播放的入场动画方向（onTabClosing 传 null 不播放）。在 setActiveLeaf
+	// 之后立即对确定的目标 leaf 同步触发动画，保证动画始终落在真正的目标页上、且在 paint 前生效。
+	private activateOrOpenFile(path: string, animCls: AnimationClass | null) {
 		let targetLeaf: WorkspaceLeaf | null = null;
 		this.app.workspace.iterateRootLeaves(l => {
 			if (!targetLeaf && (l as LeafInternal).view?.file?.path === path) targetLeaf = l;
 		});
 		if (targetLeaf) {
 			this.app.workspace.setActiveLeaf(targetLeaf, { focus: true });
+			this.nav.playAnimation(targetLeaf, animCls);
 			return;
 		}
 		if (!this.originalGetLeaf) return;
@@ -211,6 +215,8 @@ export class SinglePageEngine {
 		this.patchRootLeafDetach(newLeaf);
 		void (newLeaf as LeafInternal).openFile(file).then(() => {
 			this.app.workspace.setActiveLeaf(newLeaf, { focus: true });
+			// 重开路径：文件加载完成后目标 leaf 才就位，此时再播放动画，避免落到加载前一闪而过的空 leaf 上。
+			this.nav.playAnimation(newLeaf, animCls);
 		});
 	}
 

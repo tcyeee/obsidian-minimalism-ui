@@ -5,7 +5,7 @@
  * tab 关闭、LRU 淘汰均不影响导航历史；后退/前进时若无现有 leaf 显示目标文件，则通过
  * 注入的 `activateOrOpen` 回调重新打开。
  *
- * 同时负责前进/后退完成后的入场滑入动画（双重 rAF 推迟到渲染后再加 class）。
+ * 同时负责前进/后退完成后的入场滑入动画（playAnimation：由引擎在定位到目标 leaf 后同步触发）。
  *
  * 与 SinglePageEngine 的协作边界：
  * - 本类只持有“文件路径”，不直接新建/激活 leaf；定位与打开 leaf 由 `activateOrOpen` 回调完成。
@@ -15,7 +15,7 @@
 import { App, TFile, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
 
-type AnimationClass = 'minimalism-ui-slide-from-left' | 'minimalism-ui-slide-from-right';
+export type AnimationClass = 'minimalism-ui-slide-from-left' | 'minimalism-ui-slide-from-right';
 
 type LeafView = WorkspaceLeaf & {
 	view?: { contentEl?: HTMLElement };
@@ -40,16 +40,15 @@ export class NavigationHistory {
 	// tab 关闭后 Obsidian 自动激活下一个 leaf 会触发 active-leaf-change，该标志阻止其被记录为新导航
 	private isClosingTab = false;
 	private timer: number | null = null;
-	private pendingAnimationCls: AnimationClass | null = null;
-	private animEndListeners = new WeakMap<Element, () => void>();
 	private origGoBack: ObsidianCommand | null = null;
 	private origGoForward: ObsidianCommand | null = null;
 
 	constructor(
 		private app: App,
 		private getSettings: () => MinimalismUISettings,
-		// 激活已显示目标路径的 root leaf；若无则重新打开该文件（由 SinglePageEngine 提供）
-		private activateOrOpen: (path: string) => void,
+		// 激活已显示目标路径的 root leaf；若无则重新打开该文件（由 SinglePageEngine 提供）。
+		// animCls：定位到目标 leaf 后要播放的入场动画方向（无动画时为 null）。
+		private activateOrOpen: (path: string, animCls: AnimationClass | null) => void,
 	) { }
 
 	getHistory(): string[] {
@@ -123,8 +122,7 @@ export class NavigationHistory {
 			this.future.unshift(current);
 
 			this.jumpPath = prevPath;
-			this.pendingAnimationCls = 'minimalism-ui-slide-from-left';
-			this.scheduleActivate(prevPath);
+			this.scheduleActivate(prevPath, 'minimalism-ui-slide-from-left');
 			return;
 		}
 		// 无有效前驱，导航无法执行；死条目已就地清除，无需回滚
@@ -142,8 +140,7 @@ export class NavigationHistory {
 			this.history.push(nextPath);
 
 			this.jumpPath = nextPath;
-			this.pendingAnimationCls = 'minimalism-ui-slide-from-right';
-			this.scheduleActivate(nextPath);
+			this.scheduleActivate(nextPath, 'minimalism-ui-slide-from-right');
 			return;
 		}
 		// future 已空或全为死条目；死条目已丢弃，无需回滚
@@ -167,33 +164,27 @@ export class NavigationHistory {
 		}
 	}
 
-	// 前进/后退导航完成后，对已显示的目标 leaf 播放入场动画
-	animate(leaf: WorkspaceLeaf | null) {
-		if (!this.pendingAnimationCls || !leaf) return;
-		const cls = this.pendingAnimationCls;
-		this.pendingAnimationCls = null;
+	// 前进/后退导航完成后，对已定位的目标 leaf 同步播放入场动画。
+	// 由 SinglePageEngine 在 setActiveLeaf 之后用已知的目标 leaf 直接调用，不再依赖全局
+	// active-leaf-change 事件——后者会为每次激活（含重开时一闪而过的空 leaf）触发，快速切换时
+	// 动画会落到中间页/空 leaf 上。这里拿到的永远是真正的目标 leaf。
+	playAnimation(leaf: WorkspaceLeaf | null, cls: AnimationClass | null) {
+		if (!cls || !leaf) return;
 		if (!this.getSettings().enableNavAnimation) return;
-		// 用双重 rAF 推迟到浏览器完成 DOM 渲染后再加动画 class：
-		// 第一帧移除旧 class，第二帧添加新 class，避免同帧内强制重排触发 ResizeObserver loop 错误
-		requestAnimationFrame(() => {
-			const el = (leaf as LeafView).view?.contentEl;
-			if (!el) return;
-			el.classList.remove('minimalism-ui-slide-from-left', 'minimalism-ui-slide-from-right');
-			requestAnimationFrame(() => {
-				// 清理上一次未触发的 animationend listener，防止快速翻页时 listener 累积
-				const oldListener = this.animEndListeners.get(el);
-				if (oldListener) el.removeEventListener('animationend', oldListener);
-				const listener = () => el.classList.remove(cls);
-				el.addEventListener('animationend', listener, { once: true });
-				this.animEndListeners.set(el, listener);
-				el.classList.add(cls);
-			});
-		});
+		const el = (leaf as LeafView).view?.contentEl;
+		if (!el) return;
+		// 同步重启动画：移除两个方向的 class → 强制重排使移除生效 → 加目标 class。
+		// 全程在浏览器 paint 前完成，页面直接从起始态滑入，消除“先以最终态显示再跳回起始态”的闪烁。
+		// 动画只用 transform/opacity（合成层属性，不触发 layout/ResizeObserver），同步操作不会引发 RO loop。
+		// 动画结束后 class 残留无害（animation-fill-mode 默认 none，元素回到基础态）；重复导航靠这里的
+		// 移除+重排+添加重新触发，无需 animationend 监听清理。
+		el.classList.remove('minimalism-ui-slide-from-left', 'minimalism-ui-slide-from-right');
+		void el.offsetWidth;
+		el.classList.add(cls);
 	}
 
 	dispose() {
 		this.cancelTimer();
-		this.pendingAnimationCls = null;
 		this.isClosingTab = false;
 		this.jumpPath = null;
 	}
@@ -259,11 +250,11 @@ export class NavigationHistory {
 	// 用 setTimeout(0) 推入新 task，彻底脱离当前渲染管线，
 	// 避免 setActiveLeaf 在 rAF/ResizeObserver 阶段触发布局，产生 loop 错误。
 	// 取消上一次尚未执行的 timer，防止连续点击时多个激活并发触发。
-	private scheduleActivate(path: string) {
+	private scheduleActivate(path: string, animCls: AnimationClass | null = null) {
 		this.cancelTimer();
 		this.timer = activeWindow.setTimeout(() => {
 			this.timer = null;
-			this.activateOrOpen(path);
+			this.activateOrOpen(path, animCls);
 		}, 0);
 	}
 }

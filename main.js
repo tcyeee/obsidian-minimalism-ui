@@ -140,8 +140,6 @@ var NavigationHistory = class {
     // tab 关闭后 Obsidian 自动激活下一个 leaf 会触发 active-leaf-change，该标志阻止其被记录为新导航
     this.isClosingTab = false;
     this.timer = null;
-    this.pendingAnimationCls = null;
-    this.animEndListeners = /* @__PURE__ */ new WeakMap();
     this.origGoBack = null;
     this.origGoForward = null;
   }
@@ -204,8 +202,7 @@ var NavigationHistory = class {
       const current = this.history.pop();
       this.future.unshift(current);
       this.jumpPath = prevPath;
-      this.pendingAnimationCls = "minimalism-ui-slide-from-left";
-      this.scheduleActivate(prevPath);
+      this.scheduleActivate(prevPath, "minimalism-ui-slide-from-left");
       return;
     }
   }
@@ -217,8 +214,7 @@ var NavigationHistory = class {
       if (!(file instanceof import_obsidian.TFile)) continue;
       this.history.push(nextPath);
       this.jumpPath = nextPath;
-      this.pendingAnimationCls = "minimalism-ui-slide-from-right";
-      this.scheduleActivate(nextPath);
+      this.scheduleActivate(nextPath, "minimalism-ui-slide-from-right");
       return;
     }
   }
@@ -238,30 +234,22 @@ var NavigationHistory = class {
       this.scheduleActivate(prevPath);
     }
   }
-  // 前进/后退导航完成后，对已显示的目标 leaf 播放入场动画
-  animate(leaf) {
-    if (!this.pendingAnimationCls || !leaf) return;
-    const cls = this.pendingAnimationCls;
-    this.pendingAnimationCls = null;
+  // 前进/后退导航完成后，对已定位的目标 leaf 同步播放入场动画。
+  // 由 SinglePageEngine 在 setActiveLeaf 之后用已知的目标 leaf 直接调用，不再依赖全局
+  // active-leaf-change 事件——后者会为每次激活（含重开时一闪而过的空 leaf）触发，快速切换时
+  // 动画会落到中间页/空 leaf 上。这里拿到的永远是真正的目标 leaf。
+  playAnimation(leaf, cls) {
+    var _a;
+    if (!cls || !leaf) return;
     if (!this.getSettings().enableNavAnimation) return;
-    requestAnimationFrame(() => {
-      var _a;
-      const el = (_a = leaf.view) == null ? void 0 : _a.contentEl;
-      if (!el) return;
-      el.classList.remove("minimalism-ui-slide-from-left", "minimalism-ui-slide-from-right");
-      requestAnimationFrame(() => {
-        const oldListener = this.animEndListeners.get(el);
-        if (oldListener) el.removeEventListener("animationend", oldListener);
-        const listener = () => el.classList.remove(cls);
-        el.addEventListener("animationend", listener, { once: true });
-        this.animEndListeners.set(el, listener);
-        el.classList.add(cls);
-      });
-    });
+    const el = (_a = leaf.view) == null ? void 0 : _a.contentEl;
+    if (!el) return;
+    el.classList.remove("minimalism-ui-slide-from-left", "minimalism-ui-slide-from-right");
+    void el.offsetWidth;
+    el.classList.add(cls);
   }
   dispose() {
     this.cancelTimer();
-    this.pendingAnimationCls = null;
     this.isClosingTab = false;
     this.jumpPath = null;
   }
@@ -323,11 +311,11 @@ var NavigationHistory = class {
   // 用 setTimeout(0) 推入新 task，彻底脱离当前渲染管线，
   // 避免 setActiveLeaf 在 rAF/ResizeObserver 阶段触发布局，产生 loop 错误。
   // 取消上一次尚未执行的 timer，防止连续点击时多个激活并发触发。
-  scheduleActivate(path) {
+  scheduleActivate(path, animCls = null) {
     this.cancelTimer();
     this.timer = activeWindow.setTimeout(() => {
       this.timer = null;
-      this.activateOrOpen(path);
+      this.activateOrOpen(path, animCls);
     }, 0);
   }
 };
@@ -424,7 +412,7 @@ var SinglePageEngine = class {
     // 首页打开期间为 true，避免 getLeaf 拦截器介入
     this._isOpeningHomePage = false;
     this.renameHandler = null;
-    this.nav = new NavigationHistory(app, getSettings, (path) => this.activateOrOpenFile(path));
+    this.nav = new NavigationHistory(app, getSettings, (path, animCls) => this.activateOrOpenFile(path, animCls));
     this.leafCache = new LeafCache(app);
   }
   apply() {
@@ -447,7 +435,6 @@ var SinglePageEngine = class {
     this.activeLeafChangeHandler = (leaf) => {
       this.leafCache.trackActive();
       this.handleNavTrack(leaf);
-      this.nav.animate(leaf);
     };
     this.app.workspace.on("active-leaf-change", this.activeLeafChangeHandler);
     this.app.workspace.iterateRootLeaves((leaf) => {
@@ -512,7 +499,9 @@ var SinglePageEngine = class {
   }
   // 激活已显示目标路径的 root leaf；若无（已被 LRU 淘汰或手动关闭）则重新打开该文件。
   // 供 NavigationHistory 的 back/forward/onTabClosing 回调调用，收敛此前散落 4 处的重复逻辑。
-  activateOrOpenFile(path) {
+  // animCls：前进/后退要播放的入场动画方向（onTabClosing 传 null 不播放）。在 setActiveLeaf
+  // 之后立即对确定的目标 leaf 同步触发动画，保证动画始终落在真正的目标页上、且在 paint 前生效。
+  activateOrOpenFile(path, animCls) {
     let targetLeaf = null;
     this.app.workspace.iterateRootLeaves((l) => {
       var _a, _b;
@@ -520,6 +509,7 @@ var SinglePageEngine = class {
     });
     if (targetLeaf) {
       this.app.workspace.setActiveLeaf(targetLeaf, { focus: true });
+      this.nav.playAnimation(targetLeaf, animCls);
       return;
     }
     if (!this.originalGetLeaf) return;
@@ -530,6 +520,7 @@ var SinglePageEngine = class {
     this.patchRootLeafDetach(newLeaf);
     void newLeaf.openFile(file).then(() => {
       this.app.workspace.setActiveLeaf(newLeaf, { focus: true });
+      this.nav.playAnimation(newLeaf, animCls);
     });
   }
   // 对新建的空 leaf 注入一次性 openFile 拦截器：
