@@ -111,6 +111,15 @@ body.minimalism-ui-theme-newspaper .minimalism-ui-drag-bar {
 	background-color: #f3f2ee;
 }
 
+/* Canvas 白板：底色与纸张一致。canvas 背景由 body 级变量 --canvas-background
+   （默认 var(--background-primary)）驱动，.canvas-wrapper 读它；网点由
+   .canvas-background circle 的 fill: var(--canvas-dot-pattern) 控制。
+   这里只覆盖这两个变量、scoped 到 canvas leaf，让白板也是奶白纸感、网点换贴近纸色的暖灰。 */
+body.minimalism-ui-theme-newspaper .workspace-leaf-content[data-type="canvas"] {
+	--canvas-background: #f3f2ee;
+	--canvas-dot-pattern: #d8d6d0;
+}
+
 /* ── 正文字体 + 字色（两个视图都要覆盖） ─────────────────────────────── */
 
 /* 衬线字体栈：用户装了 PT Serif 就用，否则回退 Georgia / 宋体，中文走宋体衬线 */
@@ -448,10 +457,13 @@ body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td:first-ch
    .workspace-leaf-content[data-type="markdown"] .block-language-base .bases-view（4 个 class，
    特异性 0,4,0）会用 --bases-embed-border-color（透明）/ --bases-embed-radius 覆盖掉这里的
    border-color 与 border-radius longhand，导致框看不见。双写把本规则提到 0,4,1 压过它，
-   既照顾嵌入式、也照顾独立 .base 视图，且不必动用 !important。 */
+   既照顾嵌入式、也照顾独立 .base 视图，且不必动用 !important。
+   padding:0 抹掉嵌入式的 --bases-embed-padding：该内边距夹在本 border 与表格之间，
+   表格列宽合计正好等于内容宽（如 165+529=694），右侧那段内边距就是边框与表格间的空隙。 */
 body.minimalism-ui-theme-newspaper .bases-view.bases-view[data-view-type="table"] {
 	border: 1px solid #c5c5c5;
 	border-radius: 4px;
+	padding: 0;
 }
 
 /* 表头：灰底、大写、加粗、左对齐、报刊近黑字 + 下边线 */
@@ -477,14 +489,46 @@ body.minimalism-ui-theme-newspaper .bases-view .bases-td {
 	font-family: 'PT Serif', Georgia, 'Times New Roman', 'Songti SC', 'Noto Serif CJK SC', 'SimSun', serif;
 	color: #6e6060;
 	vertical-align: top;
-	border-right: 1px solid #e0e0e0;
-	border-bottom: 1px solid #e0e0e0;
+	/* 内格线压淡：markdown 表靠隔行底色分行、格线是次要的；Bases 现在全行同底色，格线成了
+	   唯一分隔会显重，故从 #e0e0e0 调到更淡的暖灰 #e8e7e7（贴近 #efeeee 行底色） */
+	border-right: 1px solid #e8e7e7;
+	border-bottom: 1px solid #e8e7e7;
 }
 
-/* 表格行高被 Obsidian 固定为 --bases-table-row-height:30px（行用 absolute + top 偏移虚拟化）。
-   内部链接走 .bases-table-cell.markdown-rendered 会继承正文 1.6 行高，行盒高于 30px →
-   底部被行裁掉。把单元格内容行高压成 normal，贴合固定行高，链接不再被遮挡。 */
+/* 表格行高被 Obsidian 固定为 --bases-table-row-height:30px（行用 absolute + top 偏移虚拟化），
+   内容超 30px 即被行裁掉。两处来源都要压：
+   (1) 单元格内容行高压成 normal（链接走 markdown-rendered 会继承正文 1.6 行高）；
+   (2) external-link 末尾的编辑铅笔 .metadata-link-flair 是个 ~18px+ 的 SVG，把行盒撑高过
+       30px → 底部被裁，所以缩到 14px；
+   (3) 纵向内边距收到 0.25em，给固定行高内的内容留足空间。 */
 body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-table-cell {
+	line-height: normal;
+}
+
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-td {
+	padding-top: 0.25em;
+	padding-bottom: 0.25em;
+}
+
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .metadata-link-flair .svg-icon {
+	width: 14px;
+	height: 14px;
+}
+
+/* (4) 真正撑高的是 .metadata-link 自身：它是 Properties 面板的链接控件，自带内边距 / min-height
+   （为做成可编辑字段的样子），整体高于固定 30px 行 → 底部被裁。压平成贴文字行高：去内边距、
+   min-height:0、flex 居中，使容器高度 = 文字行高而非控件高度。 */
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-td .metadata-link {
+	display: flex;
+	align-items: center;
+	min-height: 0;
+	padding: 0;
+	margin: 0;
+	line-height: normal;
+}
+
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-td .metadata-link-inner {
+	padding: 0;
 	line-height: normal;
 }
 
@@ -495,6 +539,25 @@ body.minimalism-ui-theme-newspaper .bases-view .bases-tr .bases-td:last-child {
 
 body.minimalism-ui-theme-newspaper .bases-view .bases-tbody .bases-tr:last-child .bases-td {
 	border-bottom: none;
+}
+
+/* 右侧空隙：Obsidian 把表格宽度算成「可用宽 − 预留滚动条宽」（如 700 − 6 = 694），
+   表格永远到不了视图右缘，那段差额就是边框与表格之间的缝。表头 / 表体 / 行的宽度都由 JS
+   写成内联 width，无法用 CSS 的 width 覆盖；但 min-width 是另一个属性、不被内联 width 拦，
+   min-width:100% 会把它们撑到视图满宽（max(694, 100%)），多出的几 px 并入行底色、贴齐边框。
+   超宽表（表宽 > 视图）时 100% 小于内联宽，不生效，横向滚动照常。 */
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-thead,
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-table-container,
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-table,
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-tbody,
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-tbody .bases-tr {
+	min-width: 100%;
+}
+
+/* 表头给上灰底：撑满后末列右侧多出的几 px 落在 thead 自身（不在任何 .bases-td 上），
+   补上 #e5e5e5 让这截与表头格子同色，不露出纸色缺口 */
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-thead {
+	background-color: #e5e5e5;
 }
 
 /* ── Bases 卡片视图：卡片的描边其实是 box-shadow 环（--bases-cards-shadow，默认
@@ -510,8 +573,7 @@ body.minimalism-ui-theme-newspaper .bases-view[data-view-type="cards"] {
 /* 卡片项文字：在版式基础上整体压浅 30%（opacity 0.7）+ 缩小 20%（0.8em），
    让卡片网格的信息密度更低、观感更轻 */
 body.minimalism-ui-theme-newspaper .bases-cards-item {
-	opacity: 0.7;
-	font-size: 0.8em;
+	font-size: 0.75em;
 }
 
 /* 滚动条：细条，悬停才显色（与 .markdown-reading-view / .cm-scroller 一致） */

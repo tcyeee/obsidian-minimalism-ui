@@ -124,7 +124,7 @@ export class BreadcrumbRenderer {
 		if (names.length === 0) return;
 
 		if (names.length === 1) {
-			el.innerHTML = '';
+			el.empty();
 			const item = createSpan();
 			item.className = 'minimalism-ui-breadcrumb-item is-current';
 			item.textContent = names[0];
@@ -150,7 +150,7 @@ export class BreadcrumbRenderer {
 	private showSingleFile() {
 		const el = this.el;
 		if (!el) return;
-		el.innerHTML = '';
+		el.empty();
 		const activeFile = this.app.workspace.getActiveFile();
 		if (!activeFile) return;
 		const item = createSpan();
@@ -162,7 +162,7 @@ export class BreadcrumbRenderer {
 	private renderAll(names: string[]) {
 		const el = this.el;
 		if (!el) return;
-		el.innerHTML = '';
+		el.empty();
 		names.forEach((name, i) => {
 			if (i > 0) el.appendChild(this.makeSep());
 			el.appendChild(this.makeItem(name, i, i === names.length - 1));
@@ -172,7 +172,7 @@ export class BreadcrumbRenderer {
 	private renderCompact(names: string[], collapsedCount: number) {
 		const el = this.el;
 		if (!el) return;
-		el.innerHTML = '';
+		el.empty();
 
 		// 首项下标恒为 0,可点;折叠的中间项与当前项不可点。
 		el.appendChild(this.makeItem(names[0], 0, false));

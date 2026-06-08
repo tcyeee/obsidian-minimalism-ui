@@ -1205,7 +1205,7 @@ var BreadcrumbRenderer = class {
     if (!el) return;
     if (names.length === 0) return;
     if (names.length === 1) {
-      el.innerHTML = "";
+      el.empty();
       const item = createSpan();
       item.className = "minimalism-ui-breadcrumb-item is-current";
       item.textContent = names[0];
@@ -1228,7 +1228,7 @@ var BreadcrumbRenderer = class {
   showSingleFile() {
     const el = this.el;
     if (!el) return;
-    el.innerHTML = "";
+    el.empty();
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) return;
     const item = createSpan();
@@ -1239,7 +1239,7 @@ var BreadcrumbRenderer = class {
   renderAll(names) {
     const el = this.el;
     if (!el) return;
-    el.innerHTML = "";
+    el.empty();
     names.forEach((name, i) => {
       if (i > 0) el.appendChild(this.makeSep());
       el.appendChild(this.makeItem(name, i, i === names.length - 1));
@@ -1248,7 +1248,7 @@ var BreadcrumbRenderer = class {
   renderCompact(names, collapsedCount) {
     const el = this.el;
     if (!el) return;
-    el.innerHTML = "";
+    el.empty();
     el.appendChild(this.makeItem(names[0], 0, false));
     el.appendChild(this.makeSep());
     const collapse = createSpan();
