@@ -50,6 +50,9 @@ export class NavigationHistory {
 	private timer: number | null = null;
 	private origGoBack: ObsidianCommand | null = null;
 	private origGoForward: ObsidianCommand | null = null;
+	// 上一次动画的 contentEl 与其 animationend 清理回调，用于在重复导航时先撤掉旧监听，避免累积。
+	private animEl: HTMLElement | null = null;
+	private animCleanup: (() => void) | null = null;
 
 	constructor(
 		private app: App,
@@ -233,18 +236,39 @@ export class NavigationHistory {
 		if (!this.getSettings().enableNavAnimation) return;
 		const el = (leaf as LeafView).view?.contentEl;
 		if (!el) return;
+		// 撤掉上一次尚未结束的清理监听，防止快速连续导航时监听累积。
+		this.clearAnimListener();
 		// 同步重启动画：移除两个方向的 class → 强制重排使移除生效 → 加目标 class。
 		// 全程在浏览器 paint 前完成，页面直接从起始态滑入，消除“先以最终态显示再跳回起始态”的闪烁。
 		// 动画只用 transform/opacity（合成层属性，不触发 layout/ResizeObserver），同步操作不会引发 RO loop。
-		// 动画结束后 class 残留无害（animation-fill-mode 默认 none，元素回到基础态）；重复导航靠这里的
-		// 移除+重排+添加重新触发，无需 animationend 监听清理。
 		el.classList.remove('minimalism-ui-slide-from-left', 'minimalism-ui-slide-from-right');
 		void el.offsetWidth;
 		el.classList.add(cls);
+		// 动画结束后必须移除 class：残留的 animation class 会在该 contentEl 之后被移出再插入 DOM
+		// （如同文件锚点跳转走去重分支时，原 leaf 经历一次显隐）被浏览器重新播放，造成“原地重播”。
+		const cleanup = () => {
+			el.classList.remove('minimalism-ui-slide-from-left', 'minimalism-ui-slide-from-right');
+			this.animEl = null;
+			this.animCleanup = null;
+		};
+		this.animEl = el;
+		this.animCleanup = cleanup;
+		el.addEventListener('animationend', cleanup, { once: true });
+	}
+
+	// 移除挂在上一个 contentEl 上、尚未触发的 animationend 清理监听
+	private clearAnimListener() {
+		if (this.animEl && this.animCleanup) {
+			this.animEl.removeEventListener('animationend', this.animCleanup);
+			this.animEl.classList.remove('minimalism-ui-slide-from-left', 'minimalism-ui-slide-from-right');
+		}
+		this.animEl = null;
+		this.animCleanup = null;
 	}
 
 	dispose() {
 		this.cancelTimer();
+		this.clearAnimListener();
 		this.isClosingTab = false;
 		this.jumpPath = null;
 	}

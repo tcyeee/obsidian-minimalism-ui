@@ -199,6 +199,9 @@ var NavigationHistory = class {
     this.timer = null;
     this.origGoBack = null;
     this.origGoForward = null;
+    // 上一次动画的 contentEl 与其 animationend 清理回调，用于在重复导航时先撤掉旧监听，避免累积。
+    this.animEl = null;
+    this.animCleanup = null;
   }
   getHistory() {
     return this.history;
@@ -335,12 +338,31 @@ var NavigationHistory = class {
     if (!this.getSettings().enableNavAnimation) return;
     const el = (_a = leaf.view) == null ? void 0 : _a.contentEl;
     if (!el) return;
+    this.clearAnimListener();
     el.classList.remove("minimalism-ui-slide-from-left", "minimalism-ui-slide-from-right");
     void el.offsetWidth;
     el.classList.add(cls);
+    const cleanup = () => {
+      el.classList.remove("minimalism-ui-slide-from-left", "minimalism-ui-slide-from-right");
+      this.animEl = null;
+      this.animCleanup = null;
+    };
+    this.animEl = el;
+    this.animCleanup = cleanup;
+    el.addEventListener("animationend", cleanup, { once: true });
+  }
+  // 移除挂在上一个 contentEl 上、尚未触发的 animationend 清理监听
+  clearAnimListener() {
+    if (this.animEl && this.animCleanup) {
+      this.animEl.removeEventListener("animationend", this.animCleanup);
+      this.animEl.classList.remove("minimalism-ui-slide-from-left", "minimalism-ui-slide-from-right");
+    }
+    this.animEl = null;
+    this.animCleanup = null;
   }
   dispose() {
     this.cancelTimer();
+    this.clearAnimListener();
     this.isClosingTab = false;
     this.jumpPath = null;
   }
@@ -715,6 +737,9 @@ var SinglePageEngine = class {
             this.leafCache.touch(existingLeaf);
             this.app.workspace.setActiveLeaf(existingLeaf, { focus: true });
             leaf.detach();
+            if (state !== void 0) {
+              void existingLeaf.openFile(file, state);
+            }
           } finally {
             this.isReusingLeaf = false;
           }

@@ -305,6 +305,12 @@ export class SinglePageEngine {
 						this.leafCache.touch(existingLeaf);
 						this.app.workspace.setActiveLeaf(existingLeaf, { focus: true });
 						leaf.detach();
+						// 复用已有 leaf 时必须把 openFile 收到的 state 重放到该 leaf，否则其中携带的
+						// eState.subpath（同文件 [[#标题]] 锚点 / 滚动位置）会被丢弃，导致点击锚点不滚动。
+						// 目标文件已加载，openFile 同文件不会重新加载，仅应用 eState 完成定位。
+						if (state !== undefined) {
+							void (existingLeaf as LeafInternal).openFile(file, state);
+						}
 					} finally {
 						this.isReusingLeaf = false;
 					}

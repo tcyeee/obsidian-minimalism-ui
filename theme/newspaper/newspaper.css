@@ -20,12 +20,13 @@
 	--blockquote-color: #656565;
 	--blockquote-font-style: italic;
 	--blockquote-background-color: transparent;
-	/* 表格：内部不画网格线（报刊表只靠表头灰底 + 隔行浅灰区分），
-	   结构感由表头下边框提供；整张表外圈另加一圈细框 + 圆角收拢成版块 */
+	/* 表格：单元格内格线由下方 th/td 规则显式描淡灰（cell-border），故原生网格关掉（width 0）；
+	   表头灰底 + 隔行浅灰区分，整张表外圈另加一圈细框 + 圆角收拢成版块。
+	   表头与隔行底色已整体提亮 30% */
 	--table-border-width: 0px;
 	--table-border-color: #c5c5c5;
-	--table-header-background: #dadada;
-	--table-row-alt-background: #e8e7e7;
+	--table-header-background: #e5e5e5;
+	--table-row-alt-background: #efeeee;
 }
 
 /* ── 纸张背景：奶白底强制套用到正文内容区（明/暗底色下都为亮） ──────────── */
@@ -272,7 +273,7 @@ body.minimalism-ui-theme-newspaper .markdown-reading-view table thead,
 body.minimalism-ui-theme-newspaper .markdown-reading-view table thead th,
 body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor thead,
 body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor thead th {
-	background-color: #dadada;
+	background-color: #e5e5e5;
 	color: #1f0909;
 	font-weight: bold;
 	text-align: left;
@@ -283,7 +284,7 @@ body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor thead th {
 /* 隔行浅灰（两个视图） */
 body.minimalism-ui-theme-newspaper .markdown-reading-view table tbody tr:nth-child(even),
 body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor tbody tr:nth-child(even) {
-	background-color: #e8e7e7;
+	background-color: #efeeee;
 }
 
 /* 单元格内边距 + 字色（两个视图） */
@@ -292,8 +293,32 @@ body.minimalism-ui-theme-newspaper .markdown-reading-view table td,
 body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th,
 body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td {
 	padding: 0.25em 0.4em;
+	font-size: 0.9em;
 	color: #1f0909;
 	vertical-align: top;
+	/* 仅画右 + 下内格线，外框交给 .el-table / table-editor 单层外框，避免双线 */
+	border-right: 1px solid #e0e0e0;
+	border-bottom: 1px solid #e0e0e0;
+}
+
+/* 边缘单元格去掉内格线：右缘 / 下缘留给外框单层渲染，避免与 .el-table / outline 叠成双线 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view table th:last-child,
+body.minimalism-ui-theme-newspaper .markdown-reading-view table td:last-child,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th:last-child,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td:last-child {
+	border-right: none;
+}
+
+body.minimalism-ui-theme-newspaper .markdown-reading-view table tbody tr:last-child td,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor tbody tr:last-child td {
+	border-bottom: none;
+}
+
+/* 正文单元格文字：比表头略淡的报刊墨灰（表头由上方 thead th 高优先级规则保持 #1f0909） */
+body.minimalism-ui-theme-newspaper .markdown-reading-view table tbody td,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .el-table tbody .ltr,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor tbody td {
+	color: #4a3838;
 }
 
 /* ── 表格外框 + 圆角（编辑视图，移植自 forest 并换报刊灰）─────────────────
@@ -318,12 +343,14 @@ body.minimalism-ui-theme-newspaper .cm-editor .cm-table-widget {
 	overflow: visible;
 }
 
-/* 聚焦单元格内的 CM 编辑器字号与未聚焦单元格保持一致，避免聚焦时文字跳动 */
+/* 聚焦单元格内的 CM 编辑器字号 / 字色与未聚焦单元格保持一致（继承 td 的 0.9em + #4a3838），
+   避免聚焦时文字跳动或变深 */
 body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-editor,
 body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-editor .cm-content,
 body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-editor .cm-line,
 body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-editor .cm-scroller {
-	font-size: var(--font-text-size);
+	font-size: inherit;
+	color: #4a3838;
 }
 
 /* ── 编辑模式：表格拖拽把手（移植自 forest，换报刊灰调）─────────────────── */
@@ -404,6 +431,72 @@ body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th:first-ch
 body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td:first-child .table-row-drag-handle .svg-icon {
 	width: 10px;
 	height: 14px;
+}
+
+/* ── Obsidian Bases（class=bases-view）：对齐上方报刊表格版式 ─────────────
+   Bases 表格不是原生 <table>，而是 div 网格：.bases-table 内分 .bases-thead /
+   .bases-tbody，行 .bases-tr、单元格 .bases-td（表头单元格也用 .bases-td，不是 th）。
+   这里把表头灰底大写、隔行浅灰、内格线、外框圆角全部对齐 .el-table 的报刊版式。 */
+
+/* 外框 + 圆角：把整张 base 表收拢成一个版块（超宽时由 .bases-view 横向滚动） */
+body.minimalism-ui-theme-newspaper .bases-view .bases-table {
+	border: 1px solid #c5c5c5;
+	border-radius: 4px;
+	overflow: hidden;
+}
+
+/* 表头：灰底、大写、加粗、左对齐、报刊近黑字 + 下边线 */
+body.minimalism-ui-theme-newspaper .bases-view .bases-thead .bases-td {
+	background-color: #e5e5e5;
+	color: #1f0909;
+	font-weight: bold;
+	text-align: left;
+	text-transform: uppercase;
+	border-bottom: 1px solid #c5c5c5;
+}
+
+/* 隔行浅灰 */
+body.minimalism-ui-theme-newspaper .bases-view .bases-tbody .bases-tr:nth-child(even) {
+	background-color: #efeeee;
+}
+
+/* 单元格：内边距 + 字号 + 报刊墨灰字 + 内格线（右 + 下） */
+body.minimalism-ui-theme-newspaper .bases-view .bases-td {
+	padding: 0.25em 0.4em;
+	font-size: 0.9em;
+	color: #4a3838;
+	vertical-align: top;
+	border-right: 1px solid #e0e0e0;
+	border-bottom: 1px solid #e0e0e0;
+}
+
+/* 边缘单元格去掉内格线：右缘 / 下缘留给 .bases-table 单层外框，避免双线 */
+body.minimalism-ui-theme-newspaper .bases-view .bases-tr .bases-td:last-child {
+	border-right: none;
+}
+
+body.minimalism-ui-theme-newspaper .bases-view .bases-tbody .bases-tr:last-child .bases-td {
+	border-bottom: none;
+}
+
+/* 滚动条：细条，悬停才显色（与 .markdown-reading-view / .cm-scroller 一致） */
+.minimalism-ui-theme-newspaper .bases-view ::-webkit-scrollbar {
+	width: 3px;
+	height: 3px;
+}
+
+.minimalism-ui-theme-newspaper .bases-view ::-webkit-scrollbar-thumb {
+	background: transparent;
+	border-radius: 999px;
+	transition: background 0.3s ease;
+}
+
+.minimalism-ui-theme-newspaper .bases-view:hover ::-webkit-scrollbar-thumb {
+	background: rgba(31, 9, 9, 0.35);
+}
+
+.minimalism-ui-theme-newspaper .bases-view ::-webkit-scrollbar-track {
+	background: transparent;
 }
 
 /* ── 选区高亮：深墨底 + 白字（Newsprint 配色） ───────────────────────── */
