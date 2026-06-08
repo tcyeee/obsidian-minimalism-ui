@@ -510,9 +510,11 @@ body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-td
 	padding-bottom: 0.25em;
 }
 
-body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .metadata-link-flair .svg-icon {
-	width: 14px;
-	height: 14px;
+/* 隐藏外链末尾的编辑铅笔 flair：它是行内编辑入口，Bases 表（尤其 Locked 态）用不上，
+   且这个 ~18px 图标既把 .metadata-link 撑高过 30px 行（→ 底部裁字、链接下沉），又紧贴
+   URL 末字符显脏（看着像 index.html 后多了一笔）。隐藏后 .metadata-link 收回文字行高。 */
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .metadata-link-flair {
+	display: none;
 }
 
 /* (4) 真正撑高的是 .metadata-link 自身：它是 Properties 面板的链接控件，自带内边距 / min-height
