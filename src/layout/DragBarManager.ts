@@ -16,6 +16,9 @@ export class DragBarManager {
 	private statusBarOriginalParent: HTMLElement | null = null;
 	private statusBarOriginalNextSibling: Element | null = null;
 	private breadcrumb: BreadcrumbRenderer;
+	// 监测左侧栏展开/收起:ResizeObserver 在侧栏拖拽/折叠时会持续触发(见 SidebarLayoutManager),
+	// 比 layout-change 更及时,确保收起瞬间面包屑就右移让位。
+	private leftSplitObserver: ResizeObserver | null = null;
 	private readonly isMac = Platform.isMacOS;
 
 	constructor(
@@ -60,6 +63,7 @@ export class DragBarManager {
 
 		// macOS 下左侧栏收起时红绿灯会盖住面包屑,先同步一次初始状态
 		this.updateLeftCollapsedClass();
+		this.observeLeftSplit();
 
 		// 布局变化时:① 同步左侧栏收起状态 ② 拖拽区被重建则重新插入
 		this.layoutHandler = () => {
@@ -82,7 +86,7 @@ export class DragBarManager {
 
 	/**
 	 * macOS 专属:左侧栏收起时顶部红绿灯按钮会盖住面包屑;
-	 * 给拖拽栏加 is-left-collapsed,由 CSS 把标题区右移 80px 让位。
+	 * 给拖拽栏加 is-left-collapsed,由 CSS 把标题区右移 100px 让位。
 	 */
 	private updateLeftCollapsedClass() {
 		if (!this.isMac || !this.dragBar) return;
@@ -90,8 +94,26 @@ export class DragBarManager {
 		this.dragBar.classList.toggle('is-left-collapsed', collapsed);
 	}
 
+	/**
+	 * 监测左侧栏宽度变化(展开/收起/拖拽)。ResizeObserver 在折叠瞬间即触发,
+	 * 比 layout-change 更及时,避免面包屑短暂压在红绿灯按钮下。非 macOS 无需监测。
+	 */
+	private observeLeftSplit() {
+		if (!this.isMac) return;
+		const leftSplitEl = this.app.workspace.leftSplit as unknown as { containerEl?: HTMLElement };
+		const target = leftSplitEl?.containerEl
+			?? activeDocument.querySelector<HTMLElement>('.workspace-split.mod-left-split');
+		if (!target) return;
+		this.leftSplitObserver = new ResizeObserver(() => this.updateLeftCollapsedClass());
+		this.leftSplitObserver.observe(target);
+	}
+
 	remove() {
 		this.breadcrumb.unmount();
+		if (this.leftSplitObserver) {
+			this.leftSplitObserver.disconnect();
+			this.leftSplitObserver = null;
+		}
 		if (this.layoutHandler) {
 			this.app.workspace.off('layout-change', this.layoutHandler);
 			this.layoutHandler = null;

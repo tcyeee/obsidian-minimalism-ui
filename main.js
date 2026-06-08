@@ -1248,6 +1248,9 @@ var DragBarManager = class {
     this.layoutHandler = null;
     this.statusBarOriginalParent = null;
     this.statusBarOriginalNextSibling = null;
+    // 监测左侧栏展开/收起:ResizeObserver 在侧栏拖拽/折叠时会持续触发(见 SidebarLayoutManager),
+    // 比 layout-change 更及时,确保收起瞬间面包屑就右移让位。
+    this.leftSplitObserver = null;
     this.isMac = import_obsidian5.Platform.isMacOS;
     this.breadcrumb = new BreadcrumbRenderer(app, getSettings, navHistoryGetter, onBreadcrumbNavigate);
   }
@@ -1271,6 +1274,7 @@ var DragBarManager = class {
     this.breadcrumb.mount(titleEl);
     tabsEl.insertBefore(this.dragBar, tabsEl.firstChild);
     this.updateLeftCollapsedClass();
+    this.observeLeftSplit();
     this.layoutHandler = () => {
       this.updateLeftCollapsedClass();
       if (!this.dragBar || this.dragBar.isConnected) return;
@@ -1288,15 +1292,32 @@ var DragBarManager = class {
   }
   /**
    * macOS 专属:左侧栏收起时顶部红绿灯按钮会盖住面包屑;
-   * 给拖拽栏加 is-left-collapsed,由 CSS 把标题区右移 80px 让位。
+   * 给拖拽栏加 is-left-collapsed,由 CSS 把标题区右移 100px 让位。
    */
   updateLeftCollapsedClass() {
     if (!this.isMac || !this.dragBar) return;
     const collapsed = this.app.workspace.leftSplit.collapsed;
     this.dragBar.classList.toggle("is-left-collapsed", collapsed);
   }
+  /**
+   * 监测左侧栏宽度变化(展开/收起/拖拽)。ResizeObserver 在折叠瞬间即触发,
+   * 比 layout-change 更及时,避免面包屑短暂压在红绿灯按钮下。非 macOS 无需监测。
+   */
+  observeLeftSplit() {
+    var _a;
+    if (!this.isMac) return;
+    const leftSplitEl = this.app.workspace.leftSplit;
+    const target = (_a = leftSplitEl == null ? void 0 : leftSplitEl.containerEl) != null ? _a : activeDocument.querySelector(".workspace-split.mod-left-split");
+    if (!target) return;
+    this.leftSplitObserver = new ResizeObserver(() => this.updateLeftCollapsedClass());
+    this.leftSplitObserver.observe(target);
+  }
   remove() {
     this.breadcrumb.unmount();
+    if (this.leftSplitObserver) {
+      this.leftSplitObserver.disconnect();
+      this.leftSplitObserver = null;
+    }
     if (this.layoutHandler) {
       this.app.workspace.off("layout-change", this.layoutHandler);
       this.layoutHandler = null;
