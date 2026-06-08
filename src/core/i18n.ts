@@ -17,6 +17,7 @@ const translations = {
 
 		showProperties: '属性面板',
 		showLocalGraph: '本地关系图',
+		showVaultProfile: '底部用户设置区域',
 
 		hideTabBar: '隐藏大纲按钮',
 
@@ -59,6 +60,7 @@ const translations = {
 
 		showProperties: 'Properties',
 		showLocalGraph: 'Local Graph',
+		showVaultProfile: 'Bottom Settings Area',
 
 		hideTabBar: 'Hide Outline Button',
 

@@ -9,6 +9,7 @@ const BODY_CLASSES = [
 	'minimalism-ui-disable-note-tabs',
 	'minimalism-ui-note-style',
 	'minimalism-ui-has-home',
+	'minimalism-ui-hide-vault-profile',
 ] as const;
 
 /**
@@ -34,6 +35,8 @@ export class BodyClassController implements Feature {
 		cls.add('minimalism-ui-note-style');
 		// 配置了首页时，空页面隐藏原生 Close 按钮（由“回到主页”取代）
 		cls.toggle('minimalism-ui-has-home', !!s.homePage);
+		// 关闭“底部用户设置区域”开关时，隐藏侧边栏底部 vault profile
+		cls.toggle('minimalism-ui-hide-vault-profile', !s.showVaultProfile);
 	}
 
 	remove() {

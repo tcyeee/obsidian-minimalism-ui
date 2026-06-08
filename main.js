@@ -33,6 +33,7 @@ var import_obsidian8 = require("obsidian");
 var DEFAULT_SETTINGS = {
   showProperties: true,
   showLocalGraph: false,
+  showVaultProfile: true,
   hideTabBar: false,
   disableNoteTabs: false,
   enableNavAnimation: false,
@@ -143,7 +144,8 @@ var BODY_CLASSES = [
   "minimalism-ui-simplify-panel",
   "minimalism-ui-disable-note-tabs",
   "minimalism-ui-note-style",
-  "minimalism-ui-has-home"
+  "minimalism-ui-has-home",
+  "minimalism-ui-hide-vault-profile"
 ];
 var BodyClassController = class {
   constructor(getSettings) {
@@ -159,6 +161,7 @@ var BodyClassController = class {
     cls.toggle("minimalism-ui-disable-note-tabs", s.disableNoteTabs);
     cls.add("minimalism-ui-note-style");
     cls.toggle("minimalism-ui-has-home", !!s.homePage);
+    cls.toggle("minimalism-ui-hide-vault-profile", !s.showVaultProfile);
   }
   remove() {
     activeDocument.body.classList.remove(...BODY_CLASSES);
@@ -959,6 +962,7 @@ var translations = {
     headingAnimation: "\u52A8\u753B\u8BBE\u7F6E (beta)",
     showProperties: "\u5C5E\u6027\u9762\u677F",
     showLocalGraph: "\u672C\u5730\u5173\u7CFB\u56FE",
+    showVaultProfile: "\u5E95\u90E8\u7528\u6237\u8BBE\u7F6E\u533A\u57DF",
     hideTabBar: "\u9690\u85CF\u5927\u7EB2\u6309\u94AE",
     theme: "\u4E3B\u9898",
     homePage: "\u7B14\u8BB0\u9996\u9875",
@@ -991,6 +995,7 @@ var translations = {
     headingAnimation: "Animation (beta)",
     showProperties: "Properties",
     showLocalGraph: "Local Graph",
+    showVaultProfile: "Bottom Settings Area",
     hideTabBar: "Hide Outline Button",
     theme: "Theme",
     homePage: "Home Note",
@@ -1797,6 +1802,10 @@ var MinimalismUISettingTab = class extends import_obsidian7.PluginSettingTab {
       this.plugin.settings.showLocalGraph = v;
       await this.plugin.saveSettings();
       await this.plugin.applyMacSidebarLayout();
+    }));
+    new import_obsidian7.Setting(containerEl).setName(t("showVaultProfile")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showVaultProfile).onChange(async (v) => {
+      this.plugin.settings.showVaultProfile = v;
+      await this.plugin.saveSettings();
     }));
     new import_obsidian7.Setting(containerEl).setName(t("headingInteraction")).setHeading();
     const singlePageSetting = new import_obsidian7.Setting(containerEl).setName(t("singlePage"));

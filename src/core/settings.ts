@@ -1,6 +1,7 @@
 export interface MinimalismUISettings {
 	showProperties: boolean;
 	showLocalGraph: boolean;
+	showVaultProfile: boolean;
 	hideTabBar: boolean;
 	disableNoteTabs: boolean;
 	enableNavAnimation: boolean;
@@ -13,6 +14,7 @@ export interface MinimalismUISettings {
 export const DEFAULT_SETTINGS: MinimalismUISettings = {
 	showProperties: true,
 	showLocalGraph: false,
+	showVaultProfile: true,
 	hideTabBar: false,
 	disableNoteTabs: false,
 	enableNavAnimation: false,

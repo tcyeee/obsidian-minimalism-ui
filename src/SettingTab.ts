@@ -116,6 +116,15 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 					await this.plugin.applyMacSidebarLayout();
 				}));
 
+		new Setting(containerEl)
+			.setName(t('showVaultProfile'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.showVaultProfile)
+				.onChange(async v => {
+					this.plugin.settings.showVaultProfile = v;
+					await this.plugin.saveSettings();
+				}));
+
 		new Setting(containerEl).setName(t('headingInteraction')).setHeading();
 
 		const singlePageSetting = new Setting(containerEl)

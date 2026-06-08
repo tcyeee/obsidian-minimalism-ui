@@ -98,6 +98,11 @@ body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-split 
 	display: none;
 }
 
+/* 隐藏顶部留白标签区（drag bar 左侧）内的拖拽分隔条 */
+body.minimalism-ui-mac-sidebar .workspace-tabs.mod-top.mod-top-left-space .workspace-leaf-resize-handle {
+	display: none;
+}
+
 /* 隐藏 Properties 面板每条信息间的分割线 */
 body.minimalism-ui-mac-sidebar .metadata-content .metadata-property-key,
 body.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value {
@@ -175,6 +180,11 @@ body.minimalism-ui-mac-sidebar .workspace-tabs[data-properties-auto-height] {
 body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-sidedock-vault-profile {
 	background-color: #123342;
 	border-top: 1px dashed rgba(180, 180, 180, 0.3);
+}
+
+/* 关闭“底部用户设置区域”开关时隐藏 vault profile */
+body.minimalism-ui-hide-vault-profile .workspace-split.mod-left-split .workspace-sidedock-vault-profile {
+	display: none;
 }
 
 /* 内容区背景透明，露出侧边栏底色 */
@@ -353,6 +363,11 @@ body.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="localgraph"].m
 	background: transparent;
 	border: none;
 	box-shadow: none;
+}
+
+/* 设置按钮图标（齿轮）：半透明，弱化存在感 */
+body.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="localgraph"].minimalism-ui-injected-graph .graph-controls-button.mod-open {
+	opacity: 0.5;
 }
 
 /* 设置面板展开时：深色背景，比侧边栏 #1B3241 更深 */
