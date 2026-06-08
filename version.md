@@ -5,6 +5,22 @@
 
 ---
 
+## Version 1.2.6
+
+- Added Newspaper theme styling for Bases tables, canvas, and sidebar with a paper-like look
+- Improved Forest and Newspaper sidebar and chrome colors for a more cohesive theme look
+- Improved single-page navigation animations and state handling
+- Improved left sidebar resize behavior and width handling
+- Changed defaults so the local graph and vault profile are shown out of the box
+
+- 为报纸主题新增 Bases 表格、白板与侧边栏的纸感样式
+- 优化森林与报纸主题的侧边栏与边框配色，整体观感更统一
+- 优化单页模式的导航动画与状态处理
+- 优化左侧边栏的拖拽缩放行为与宽度处理
+- 调整默认设置，开箱即默认显示本地图谱与仓库简介
+
+---
+
 ## Version 1.2.5
 
 - Added Forest theme with dynamic theme switching
