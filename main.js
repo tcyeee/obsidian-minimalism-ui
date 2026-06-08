@@ -45,12 +45,14 @@ var DEFAULT_SETTINGS = {
 
 // src/core/FontLoader.ts
 var FontLoader = class {
-  constructor(app, manifestDir) {
+  constructor(app, manifestDir, settings) {
     this.app = app;
     this.manifestDir = manifestDir;
+    this.settings = settings;
     this.loadedFonts = [];
   }
   async apply() {
+    this.remove();
     const digitsRange = "U+002D, U+002E, U+0030-0039";
     await Promise.all([
       this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-Regular.ttf", style: "normal", weight: "400" }),
@@ -78,7 +80,8 @@ var FontLoader = class {
   }
   fontPath(filename) {
     const adapter = this.app.vault.adapter;
-    return adapter.getResourcePath(`${this.manifestDir}/fonts/${filename}`);
+    const theme = this.settings().theme;
+    return adapter.getResourcePath(`${this.manifestDir}/theme/${theme}/fonts/${filename}`);
   }
   async loadFontFace(family, descriptors) {
     const { file, ...desc } = descriptors;
@@ -105,7 +108,7 @@ var ThemeLoader = class {
     this.remove();
     const name = this.settings().theme;
     if (!name) return;
-    const path = (0, import_obsidian.normalizePath)(`${this.manifestDir}/theme/${name}.css`);
+    const path = (0, import_obsidian.normalizePath)(`${this.manifestDir}/theme/${name}/${name}.css`);
     const adapter = this.app.vault.adapter;
     let css;
     try {
@@ -121,15 +124,15 @@ var ThemeLoader = class {
   remove() {
     activeDocument.head.querySelectorAll(`style[${STYLE_ATTR}]`).forEach((el) => el.remove());
   }
-  /** 列出 theme/ 目录下所有可选主题名（去掉 .css 后缀）。 */
+  /** 列出 theme/ 目录下所有可选主题名（每个主题是一个子文件夹）。 */
   async listThemes() {
     const dir = (0, import_obsidian.normalizePath)(`${this.manifestDir}/theme`);
     try {
       const listing = await this.app.vault.adapter.list(dir);
-      return listing.files.map((p) => {
+      return listing.folders.map((p) => {
         var _a;
         return (_a = p.split("/").pop()) != null ? _a : "";
-      }).filter((f) => f.endsWith(".css")).map((f) => f.slice(0, -".css".length)).sort();
+      }).filter((f) => f.length > 0).sort();
     } catch (e) {
       return [];
     }
@@ -1868,7 +1871,7 @@ var MinimalismUIPlugin = class extends import_obsidian8.Plugin {
     setLang(this.settings.language);
     const settings = () => this.settings;
     this.bodyClasses = new BodyClassController(settings);
-    this.fontLoader = new FontLoader(this.app, (_a = this.manifest.dir) != null ? _a : "");
+    this.fontLoader = new FontLoader(this.app, (_a = this.manifest.dir) != null ? _a : "", settings);
     this.themeLoader = new ThemeLoader(this.app, (_b = this.manifest.dir) != null ? _b : "", settings);
     this.engine = new SinglePageEngine(this.app, settings);
     this.pinManager = new PinManager(this.app, settings);
@@ -1925,9 +1928,11 @@ var MinimalismUIPlugin = class extends import_obsidian8.Plugin {
     this.bodyClasses.apply();
   }
   // ─── Theme ────────────────────────────────────────────────────────────────
-  // 重新注入当前 theme 字段对应的主题 CSS（切换主题时调用）。
+  // 重新注入当前 theme 字段对应的主题 CSS 与字体（切换主题时调用）。
+  // 字体随主题分发（theme/<name>/fonts/），故主题切换时一并重载。
   async applyTheme() {
     await this.themeLoader.apply();
+    await this.fontLoader.apply();
   }
   // 列出 theme/ 目录下所有可选主题名，供设置面板下拉框使用。
   listThemes() {

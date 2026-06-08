@@ -1,5 +1,6 @@
 import { App } from 'obsidian';
 import { Feature } from './Feature';
+import { MinimalismUISettings } from './settings';
 
 interface MutableFontFaceSet {
 	add(font: FontFace): void;
@@ -7,17 +8,25 @@ interface MutableFontFaceSet {
 }
 
 /**
- * FontLoader — 加载随插件分发的 JetBrains Mono 字体。
+ * FontLoader — 加载当前主题专属的字体（theme/<当前主题>/fonts/）。
  *
- * apply() 注册全字重字族 + 一个仅覆盖数字 unicode 范围的 "Digits" 字族（用于正文数字混排）；
- * remove() 从 document.fonts 注销所有已加载的 FontFace。字体文件缺失时静默跳过。
+ * 字体随主题分发：每个主题文件夹自带 fonts/ 子目录。apply() 读取当前 settings.theme，
+ * 从对应主题文件夹加载全字重字族 + 一个仅覆盖数字 unicode 范围的 "Digits" 字族（用于正文数字混排）。
+ * 切换主题时需重新 apply()，故 apply() 先 remove() 旧字体，保证幂等。
+ * remove() 从 document.fonts 注销所有已加载的 FontFace。字体文件缺失时静默跳过（如暂无字体的主题）。
  */
 export class FontLoader implements Feature {
 	private loadedFonts: FontFace[] = [];
 
-	constructor(private app: App, private manifestDir: string) {}
+	constructor(
+		private app: App,
+		private manifestDir: string,
+		private settings: () => MinimalismUISettings,
+	) {}
 
 	async apply() {
+		// 切换主题时先卸载上一主题的字体，保证幂等
+		this.remove();
 		// unicodeRange：数字 0-9、小数点、负号，仅用于正文数字字体混排
 		const digitsRange = 'U+002D, U+002E, U+0030-0039';
 		await Promise.all([
@@ -48,7 +57,8 @@ export class FontLoader implements Feature {
 
 	private fontPath(filename: string): string {
 		const adapter = this.app.vault.adapter as { getResourcePath: (path: string) => string };
-		return adapter.getResourcePath(`${this.manifestDir}/fonts/${filename}`);
+		const theme = this.settings().theme;
+		return adapter.getResourcePath(`${this.manifestDir}/theme/${theme}/fonts/${filename}`);
 	}
 
 	private async loadFontFace(family: string, descriptors: FontFaceDescriptors & { file: string }) {

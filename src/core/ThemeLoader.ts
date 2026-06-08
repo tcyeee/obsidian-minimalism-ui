@@ -5,7 +5,10 @@ import { MinimalismUISettings } from './settings';
 const STYLE_ATTR = 'data-minimalism-theme';
 
 /**
- * ThemeLoader — 加载随插件分发的笔记主题 CSS（theme/<name>.css）。
+ * ThemeLoader — 加载随插件分发的笔记主题 CSS（theme/<name>/<name>.css）。
+ *
+ * 每个主题是 theme/ 下的一个独立文件夹（theme/<name>/），内含同名 CSS（<name>.css）
+ * 以及该主题专属的字体（theme/<name>/fonts/，由 FontLoader 按主题加载）。
  *
  * apply() 读取当前 settings.theme 对应的主题文件，注入一个带 data-minimalism-theme 标记的
  * <style> 元素（重复调用先清旧再注入，保证幂等与切换生效）；remove() 移除该元素。
@@ -26,7 +29,7 @@ export class ThemeLoader implements Feature {
 		const name = this.settings().theme;
 		if (!name) return;
 
-		const path = normalizePath(`${this.manifestDir}/theme/${name}.css`);
+		const path = normalizePath(`${this.manifestDir}/theme/${name}/${name}.css`);
 		const adapter = this.app.vault.adapter;
 		let css: string;
 		try {
@@ -46,15 +49,14 @@ export class ThemeLoader implements Feature {
 		activeDocument.head.querySelectorAll(`style[${STYLE_ATTR}]`).forEach(el => el.remove());
 	}
 
-	/** 列出 theme/ 目录下所有可选主题名（去掉 .css 后缀）。 */
+	/** 列出 theme/ 目录下所有可选主题名（每个主题是一个子文件夹）。 */
 	async listThemes(): Promise<string[]> {
 		const dir = normalizePath(`${this.manifestDir}/theme`);
 		try {
 			const listing = await this.app.vault.adapter.list(dir);
-			return listing.files
+			return listing.folders
 				.map(p => p.split('/').pop() ?? '')
-				.filter(f => f.endsWith('.css'))
-				.map(f => f.slice(0, -'.css'.length))
+				.filter(f => f.length > 0)
 				.sort();
 		} catch {
 			return [];

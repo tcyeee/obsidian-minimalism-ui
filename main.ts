@@ -43,7 +43,7 @@ export default class MinimalismUIPlugin extends Plugin {
 
 		const settings = () => this.settings;
 		this.bodyClasses = new BodyClassController(settings);
-		this.fontLoader = new FontLoader(this.app, this.manifest.dir ?? '');
+		this.fontLoader = new FontLoader(this.app, this.manifest.dir ?? '', settings);
 		this.themeLoader = new ThemeLoader(this.app, this.manifest.dir ?? '', settings);
 		this.engine = new SinglePageEngine(this.app, settings);
 		this.pinManager = new PinManager(this.app, settings);
@@ -113,9 +113,11 @@ export default class MinimalismUIPlugin extends Plugin {
 
 	// ─── Theme ────────────────────────────────────────────────────────────────
 
-	// 重新注入当前 theme 字段对应的主题 CSS（切换主题时调用）。
+	// 重新注入当前 theme 字段对应的主题 CSS 与字体（切换主题时调用）。
+	// 字体随主题分发（theme/<name>/fonts/），故主题切换时一并重载。
 	async applyTheme() {
 		await this.themeLoader.apply();
+		await this.fontLoader.apply();
 	}
 
 	// 列出 theme/ 目录下所有可选主题名，供设置面板下拉框使用。
