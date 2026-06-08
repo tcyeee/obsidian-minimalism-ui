@@ -59,6 +59,17 @@ body.minimalism-ui-theme-newspaper .workspace-split.mod-right-split {
 	background-color: #f3f2ee;
 }
 
+/* 侧边栏与正文之间的分割线：报刊式虚线（两侧同为奶白底，靠这条线区分版块） */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split {
+	border-right: 1px dashed #898989;
+}
+
+/* 抹掉 resize handle 自带的原生分隔实线（border-color: var(--divider-color)），
+   只保留上面那条虚线，避免双线；:not(:hover) 保留拖拽调宽时的高亮反馈 */
+body.minimalism-ui-theme-newspaper .workspace-split.mod-left-split > .workspace-leaf-resize-handle:not(:hover) {
+	border-color: transparent;
+}
+
 /* 侧边栏文字：用 `* { color }` 把整片侧边栏文字铺成报刊深墨（与 Forest 原方案同构，
    只是换成深字适配奶白底）。叠加 .minimalism-ui-mac-sidebar 与该 chrome 选择器对齐。 */
 body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split * {
@@ -94,10 +105,9 @@ body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mo
 	border-top: 1px solid #c5c5c5;
 }
 
-/* 顶部自定义拖拽栏：奶白底 + 底部细分隔线，与正文连成一片 */
+/* 顶部自定义拖拽栏：奶白底，与正文连成一片 */
 body.minimalism-ui-theme-newspaper .minimalism-ui-drag-bar {
 	background-color: #f3f2ee;
-	border-bottom: 1px solid #c5c5c5;
 }
 
 /* ── 正文字体 + 字色（两个视图都要覆盖） ─────────────────────────────── */
