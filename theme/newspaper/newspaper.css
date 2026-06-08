@@ -20,8 +20,8 @@
 	--blockquote-color: #656565;
 	--blockquote-font-style: italic;
 	--blockquote-background-color: transparent;
-	/* 表格：去掉 Obsidian 默认网格线（报刊表只靠表头灰底 + 隔行浅灰区分），
-	   结构感由表头下边框单独提供 */
+	/* 表格：内部不画网格线（报刊表只靠表头灰底 + 隔行浅灰区分），
+	   结构感由表头下边框提供；整张表外圈另加一圈细框 + 圆角收拢成版块 */
 	--table-border-width: 0px;
 	--table-border-color: #c5c5c5;
 	--table-header-background: #dadada;
@@ -237,9 +237,11 @@ body.minimalism-ui-theme-newspaper .cm-line.HyperMD-hr .cm-hr {
 /* ── 表格：报刊式表头灰底 + 大写 + 隔行浅灰 ───────────────────────────── */
 
 /* 阅读视图：Obsidian 用 .el-table 包裹渲染后的 <table>。
-   无外框（报刊表不描边），超宽时横向滚动，表格撑满宽度。 */
+   内部不描网格线，但加一圈外框 + 圆角把表格收拢成一个版块；
+   超宽时横向滚动（overflow-x 非 visible 会令 overflow-y 计算为 auto，圆角正常裁切），表格撑满宽度。 */
 body.minimalism-ui-theme-newspaper .markdown-reading-view .el-table {
-	border: none;
+	border: 1px solid #c5c5c5;
+	border-radius: 4px;
 	overflow-x: auto;
 }
 
@@ -282,6 +284,116 @@ body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td {
 	padding: 0.25em 0.4em;
 	color: #1f0909;
 	vertical-align: top;
+}
+
+/* ── 表格外框 + 圆角（编辑视图，移植自 forest 并换报刊灰）─────────────────
+   table-editor 用 outline 而非 border，overflow:visible 让拖拽把手能延伸到表格外侧 */
+body.minimalism-ui-theme-newspaper .cm-editor .table-editor {
+	border-radius: 4px;
+	overflow: visible;
+	outline: 1px solid #c5c5c5;
+	outline-offset: 0px;
+}
+
+body.minimalism-ui-theme-newspaper .table-wrapper {
+	overflow: visible;
+	/* 为外侧把手留出视觉空间 */
+	margin-top: 20px;
+	margin-left: 20px;
+}
+
+/* 解除 live preview 表格容器（.cm-table-widget）的裁切，让把手延伸到表格外侧。
+   不用 :has(> .table-wrapper)：:has 会触发大范围选择器失效，有明显性能开销。 */
+body.minimalism-ui-theme-newspaper .cm-editor .cm-table-widget {
+	overflow: visible;
+}
+
+/* 聚焦单元格内的 CM 编辑器字号与未聚焦单元格保持一致，避免聚焦时文字跳动 */
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-editor,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-editor .cm-content,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-editor .cm-line,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-editor .cm-scroller {
+	font-size: var(--font-text-size);
+}
+
+/* ── 编辑模式：表格拖拽把手（移植自 forest，换报刊灰调）─────────────────── */
+
+/* th/td 必须 relative 定位，absolute 把手才能相对它们定位 */
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td {
+	position: relative;
+}
+
+/* 列拖拽把手：悬浮在列头正上方（表格外侧），默认完全隐藏 */
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th .table-col-drag-handle {
+	position: absolute;
+	top: -18px;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 40px;
+	height: 18px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: grab;
+	opacity: 0;
+	transition: opacity 0.15s;
+	border-radius: 6px 6px 0 0;
+	background: rgba(0, 0, 0, 0.08);
+	z-index: 10;
+}
+
+/* 鼠标悬停列头或把手时显示列拖拽把手 */
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th:hover .table-col-drag-handle,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th .table-col-drag-handle:hover {
+	opacity: 1;
+	background: rgba(31, 9, 9, 0.18);
+}
+
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th .table-col-drag-handle .svg-icon {
+	width: 14px;
+	height: 10px;
+}
+
+/* 非首列的行拖拽把手直接隐藏，避免重复 */
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th:not(:first-child) .table-row-drag-handle,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td:not(:first-child) .table-row-drag-handle {
+	display: none;
+}
+
+/* 行拖拽把手：悬浮在首列左侧（表格外侧），默认完全隐藏 */
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th:first-child .table-row-drag-handle,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td:first-child .table-row-drag-handle {
+	position: absolute;
+	left: -18px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 18px;
+	height: 40px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: grab;
+	opacity: 0;
+	transition: opacity 0.15s;
+	border-radius: 6px 0 0 6px;
+	background: rgba(0, 0, 0, 0.08);
+	z-index: 10;
+}
+
+/* 鼠标悬停任意单元格时整行把手显示（通过 tr:hover 选择器实现） */
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor tr:hover th:first-child .table-row-drag-handle,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor tr:hover td:first-child .table-row-drag-handle,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th:first-child .table-row-drag-handle:hover,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td:first-child .table-row-drag-handle:hover {
+	opacity: 1;
+	background: rgba(31, 9, 9, 0.18);
+}
+
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th:first-child .table-row-drag-handle .svg-icon,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td:first-child .table-row-drag-handle .svg-icon {
+	width: 10px;
+	height: 14px;
 }
 
 /* ── 选区高亮：深墨底 + 白字（Newsprint 配色） ───────────────────────── */

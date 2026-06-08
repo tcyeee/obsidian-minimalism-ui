@@ -241,6 +241,27 @@ body.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .vie
 	min-height: 0;
 }
 
+/* Outline 树滚动条：自定义窄宽，thumb 默认透明、鼠标移到内容区时才显出淡灰
+   （与 forest/newspaper 内容滚动条同一套路；显式 ::-webkit-scrollbar 后无法保留
+   macOS overlay 的滚动即现，故用 hover 显色近似） */
+body.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .view-content::-webkit-scrollbar {
+	width: 4px;
+}
+
+body.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .view-content::-webkit-scrollbar-thumb {
+	background: transparent;
+	border-radius: 999px;
+	transition: background 0.3s ease;
+}
+
+body.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .view-content:hover::-webkit-scrollbar-thumb {
+	background: rgba(128, 128, 128, 0.2);
+}
+
+body.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .view-content::-webkit-scrollbar-track {
+	background: transparent;
+}
+
 /* 注入的 metadata-content：随 properties 数量自动高度，固定在底部 */
 body.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content {
 	flex: 0 0 auto;
