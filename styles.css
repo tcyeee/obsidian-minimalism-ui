@@ -421,6 +421,11 @@ body.minimalism-ui-disable-note-tabs .workspace-split.mod-root .workspace-tab-he
 	gap: 6px;
 }
 
+/* macOS 左侧栏收起时,顶部红绿灯按钮会盖住面包屑,标题区右移 80px 让位 */
+.minimalism-ui-drag-bar.is-left-collapsed .minimalism-ui-drag-bar-title {
+	padding-left: 100px;
+}
+
 .minimalism-ui-drag-bar-count {
 	flex-shrink: 0;
 	width: 7px;

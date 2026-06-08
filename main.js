@@ -27,7 +27,7 @@ __export(main_exports, {
   default: () => MinimalismUIPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian7 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 
 // src/core/settings.ts
 var DEFAULT_SETTINGS = {
@@ -1063,6 +1063,9 @@ var EmptyViewButtonManager = class {
   }
 };
 
+// src/layout/DragBarManager.ts
+var import_obsidian5 = require("obsidian");
+
 // src/layout/BreadcrumbRenderer.ts
 var import_obsidian4 = require("obsidian");
 
@@ -1245,6 +1248,7 @@ var DragBarManager = class {
     this.layoutHandler = null;
     this.statusBarOriginalParent = null;
     this.statusBarOriginalNextSibling = null;
+    this.isMac = import_obsidian5.Platform.isMacOS;
     this.breadcrumb = new BreadcrumbRenderer(app, getSettings, navHistoryGetter, onBreadcrumbNavigate);
   }
   apply() {
@@ -1266,7 +1270,9 @@ var DragBarManager = class {
     titleEl.appendChild(dotEl);
     this.breadcrumb.mount(titleEl);
     tabsEl.insertBefore(this.dragBar, tabsEl.firstChild);
+    this.updateLeftCollapsedClass();
     this.layoutHandler = () => {
+      this.updateLeftCollapsedClass();
       if (!this.dragBar || this.dragBar.isConnected) return;
       const rootEl2 = this.app.workspace.rootSplit.containerEl;
       const tabsEl2 = rootEl2.querySelector(".workspace-tabs");
@@ -1279,6 +1285,15 @@ var DragBarManager = class {
       this.statusBarOriginalNextSibling = statusBar.nextElementSibling;
       row1.appendChild(statusBar);
     }
+  }
+  /**
+   * macOS 专属:左侧栏收起时顶部红绿灯按钮会盖住面包屑;
+   * 给拖拽栏加 is-left-collapsed,由 CSS 把标题区右移 80px 让位。
+   */
+  updateLeftCollapsedClass() {
+    if (!this.isMac || !this.dragBar) return;
+    const collapsed = this.app.workspace.leftSplit.collapsed;
+    this.dragBar.classList.toggle("is-left-collapsed", collapsed);
   }
   remove() {
     this.breadcrumb.unmount();
@@ -1306,7 +1321,7 @@ var DragBarManager = class {
 };
 
 // src/layout/SidebarLayoutManager.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 var SidebarLayoutManager = class {
   constructor(app, getSettings, pinManager) {
     this.app = app;
@@ -1586,7 +1601,7 @@ var SidebarLayoutManager = class {
    */
   collectLeavesFromItem(item) {
     if (!item || typeof item !== "object") return [];
-    if (item instanceof import_obsidian5.WorkspaceLeaf) return [item];
+    if (item instanceof import_obsidian6.WorkspaceLeaf) return [item];
     const children = item.children;
     if (!Array.isArray(children)) return [];
     return children.flatMap((child) => this.collectLeavesFromItem(child));
@@ -1600,7 +1615,7 @@ var SidebarSuggestFocusTracker = class {
   constructor() {
     this.onFocusIn = () => this.sync();
     // focusout 先于焦点落定触发；下一个 tick 再读 activeElement，避免点击建议项时误判离焦。
-    this.onFocusOut = () => activeWindow.setTimeout(() => this.sync(), 0);
+    this.onFocusOut = () => window.setTimeout(() => this.sync(), 0);
     this.bound = false;
   }
   apply() {
@@ -1689,8 +1704,8 @@ var MermaidZoomManager = class {
 };
 
 // src/SettingTab.ts
-var import_obsidian6 = require("obsidian");
-var FileSuggest = class extends import_obsidian6.AbstractInputSuggest {
+var import_obsidian7 = require("obsidian");
+var FileSuggest = class extends import_obsidian7.AbstractInputSuggest {
   constructor() {
     super(...arguments);
     this.onPickCb = null;
@@ -1712,7 +1727,7 @@ var FileSuggest = class extends import_obsidian6.AbstractInputSuggest {
     this.close();
   }
 };
-var MinimalismUISettingTab = class extends import_obsidian6.PluginSettingTab {
+var MinimalismUISettingTab = class extends import_obsidian7.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -1725,14 +1740,14 @@ var MinimalismUISettingTab = class extends import_obsidian6.PluginSettingTab {
     intro.createEl("p", { text: t("introDesc1") });
     intro.createEl("p", { text: t("introDesc2") });
     intro.createEl("p", { text: t("introDesc3") });
-    new import_obsidian6.Setting(containerEl).setName(t("headingGeneral")).setHeading();
-    new import_obsidian6.Setting(containerEl).setName(t("language")).addDropdown((drop) => drop.addOption("auto", t("languageAuto")).addOption("zh", t("languageZh")).addOption("en", t("languageEn")).setValue(this.plugin.settings.language).onChange(async (v) => {
+    new import_obsidian7.Setting(containerEl).setName(t("headingGeneral")).setHeading();
+    new import_obsidian7.Setting(containerEl).setName(t("language")).addDropdown((drop) => drop.addOption("auto", t("languageAuto")).addOption("zh", t("languageZh")).addOption("en", t("languageEn")).setValue(this.plugin.settings.language).onChange(async (v) => {
       this.plugin.settings.language = v;
       setLang(v);
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian6.Setting(containerEl).setName(t("theme")).addDropdown((drop) => {
+    new import_obsidian7.Setting(containerEl).setName(t("theme")).addDropdown((drop) => {
       drop.addOption(this.plugin.settings.theme, this.plugin.settings.theme);
       drop.setValue(this.plugin.settings.theme);
       drop.onChange(async (v) => {
@@ -1747,23 +1762,23 @@ var MinimalismUISettingTab = class extends import_obsidian6.PluginSettingTab {
         drop.setValue(this.plugin.settings.theme);
       });
     });
-    new import_obsidian6.Setting(containerEl).setName(t("headingAppearance")).setHeading();
-    new import_obsidian6.Setting(containerEl).setName(t("hideTabBar")).addToggle((toggle) => toggle.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
+    new import_obsidian7.Setting(containerEl).setName(t("headingAppearance")).setHeading();
+    new import_obsidian7.Setting(containerEl).setName(t("hideTabBar")).addToggle((toggle) => toggle.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
       this.plugin.settings.hideTabBar = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian6.Setting(containerEl).setName(t("showProperties")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showProperties).onChange(async (v) => {
+    new import_obsidian7.Setting(containerEl).setName(t("showProperties")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showProperties).onChange(async (v) => {
       this.plugin.settings.showProperties = v;
       await this.plugin.saveSettings();
       await this.plugin.applyMacSidebarLayout();
     }));
-    new import_obsidian6.Setting(containerEl).setName(t("showLocalGraph")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showLocalGraph).onChange(async (v) => {
+    new import_obsidian7.Setting(containerEl).setName(t("showLocalGraph")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showLocalGraph).onChange(async (v) => {
       this.plugin.settings.showLocalGraph = v;
       await this.plugin.saveSettings();
       await this.plugin.applyMacSidebarLayout();
     }));
-    new import_obsidian6.Setting(containerEl).setName(t("headingInteraction")).setHeading();
-    const singlePageSetting = new import_obsidian6.Setting(containerEl).setName(t("singlePage"));
+    new import_obsidian7.Setting(containerEl).setName(t("headingInteraction")).setHeading();
+    const singlePageSetting = new import_obsidian7.Setting(containerEl).setName(t("singlePage"));
     singlePageSetting.settingEl.addClass("minimalism-ui-single-page-setting");
     singlePageSetting.addToggle((toggle) => toggle.setValue(this.plugin.settings.disableNoteTabs).onChange(async (v) => {
       this.plugin.settings.disableNoteTabs = v;
@@ -1777,7 +1792,7 @@ var MinimalismUISettingTab = class extends import_obsidian6.PluginSettingTab {
     singlePageSetting.descEl.createEl("br");
     singlePageSetting.descEl.createSpan({ text: t("singlePageDesc4") });
     singlePageSetting.descEl.createEl("br");
-    new import_obsidian6.Setting(containerEl).setName(t("homePage")).setDesc(t("homePageDesc")).addText((text) => {
+    new import_obsidian7.Setting(containerEl).setName(t("homePage")).setDesc(t("homePageDesc")).addText((text) => {
       text.setPlaceholder(t("homePagePlaceholder")).setValue(this.plugin.settings.homePage);
       new FileSuggest(this.app, text.inputEl).onPick((path) => {
         this.plugin.settings.homePage = path;
@@ -1788,7 +1803,7 @@ var MinimalismUISettingTab = class extends import_obsidian6.PluginSettingTab {
         void this.plugin.saveSettings();
       });
     });
-    new import_obsidian6.Setting(containerEl).setName(t("filenamePrefixLength")).setDesc(t("filenamePrefixLengthDesc")).addText((text) => {
+    new import_obsidian7.Setting(containerEl).setName(t("filenamePrefixLength")).setDesc(t("filenamePrefixLengthDesc")).addText((text) => {
       text.inputEl.type = "number";
       text.inputEl.min = "0";
       text.inputEl.max = "20";
@@ -1802,8 +1817,8 @@ var MinimalismUISettingTab = class extends import_obsidian6.PluginSettingTab {
         void this.plugin.saveSettings();
       });
     });
-    new import_obsidian6.Setting(containerEl).setName(t("headingAnimation")).setHeading();
-    new import_obsidian6.Setting(containerEl).setName(t("navAnimation")).setDesc(t("navAnimationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
+    new import_obsidian7.Setting(containerEl).setName(t("headingAnimation")).setHeading();
+    new import_obsidian7.Setting(containerEl).setName(t("navAnimation")).setDesc(t("navAnimationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
       this.plugin.settings.enableNavAnimation = v;
       await this.plugin.saveSettings();
     }));
@@ -1811,7 +1826,7 @@ var MinimalismUISettingTab = class extends import_obsidian6.PluginSettingTab {
 };
 
 // main.ts
-var MinimalismUIPlugin = class extends import_obsidian7.Plugin {
+var MinimalismUIPlugin = class extends import_obsidian8.Plugin {
   constructor() {
     super(...arguments);
     // 所有功能单元，统一用于卸载，避免逐个手写 remove() 时遗漏。

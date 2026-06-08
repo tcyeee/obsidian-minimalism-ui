@@ -19,7 +19,7 @@ const SIDEBAR_PROP_SELECTOR = '.workspace-split.mod-left-split .metadata-propert
 export class SidebarSuggestFocusTracker implements Feature {
 	private readonly onFocusIn = () => this.sync();
 	// focusout 先于焦点落定触发；下一个 tick 再读 activeElement，避免点击建议项时误判离焦。
-	private readonly onFocusOut = () => activeWindow.setTimeout(() => this.sync(), 0);
+	private readonly onFocusOut = () => window.setTimeout(() => this.sync(), 0);
 	private bound = false;
 
 	apply() {

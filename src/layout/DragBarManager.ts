@@ -1,4 +1,4 @@
-import { App } from 'obsidian';
+import { App, Platform } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
 import { BreadcrumbRenderer } from './BreadcrumbRenderer';
 
@@ -16,6 +16,7 @@ export class DragBarManager {
 	private statusBarOriginalParent: HTMLElement | null = null;
 	private statusBarOriginalNextSibling: Element | null = null;
 	private breadcrumb: BreadcrumbRenderer;
+	private readonly isMac = Platform.isMacOS;
 
 	constructor(
 		private app: App,
@@ -57,8 +58,12 @@ export class DragBarManager {
 
 		tabsEl.insertBefore(this.dragBar, tabsEl.firstChild);
 
-		// 布局变化时重新插入拖拽区（关闭 Tab 时 Obsidian 会重建 DOM）
+		// macOS 下左侧栏收起时红绿灯会盖住面包屑,先同步一次初始状态
+		this.updateLeftCollapsedClass();
+
+		// 布局变化时:① 同步左侧栏收起状态 ② 拖拽区被重建则重新插入
 		this.layoutHandler = () => {
+			this.updateLeftCollapsedClass();
 			if (!this.dragBar || this.dragBar.isConnected) return;
 			const rootEl2 = (this.app.workspace.rootSplit as unknown as WorkspaceSplitInternal).containerEl;
 			const tabsEl2 = rootEl2.querySelector<HTMLElement>('.workspace-tabs');
@@ -73,6 +78,16 @@ export class DragBarManager {
 			this.statusBarOriginalNextSibling = statusBar.nextElementSibling;
 			row1.appendChild(statusBar);
 		}
+	}
+
+	/**
+	 * macOS 专属:左侧栏收起时顶部红绿灯按钮会盖住面包屑;
+	 * 给拖拽栏加 is-left-collapsed,由 CSS 把标题区右移 80px 让位。
+	 */
+	private updateLeftCollapsedClass() {
+		if (!this.isMac || !this.dragBar) return;
+		const collapsed = (this.app.workspace.leftSplit as unknown as { collapsed: boolean }).collapsed;
+		this.dragBar.classList.toggle('is-left-collapsed', collapsed);
 	}
 
 	remove() {
