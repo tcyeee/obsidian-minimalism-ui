@@ -574,3 +574,100 @@ body.minimalism-ui-theme-forest .mermaid foreignObject {
 body.minimalism-ui-theme-forest .mermaid svg text {
 	font-size: var(--font-text-size);
 }
+
+/* =============================================================================
+   侧边栏 / Chrome 配色（从 styles.css 迁入）
+   这些原先写在 styles.css（被当作主题无关 chrome），实为 Forest 专属的深色侧边栏外观：
+   深蓝底 #123342 / 暗色 #1c1c1e + 浅灰字 + 蓝色 accent + 深底建议弹层。
+   现收归本主题，全部叠加 body.minimalism-ui-theme-forest 作用域，仅 Forest 激活时生效；
+   其他主题（如 newspaper）各写各的。
+   ============================================================================= */
+
+/* 侧边栏本体背景：浅色模式深蓝，暗色模式深灰 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split {
+	background-color: #123342;
+}
+
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split {
+	background-color: #1c1c1e;
+}
+
+/* 侧边栏文字浅色适配深色背景 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split * {
+	color: rgba(196, 196, 196, 0.88);
+}
+
+/* 注入式分区标题（OUTLINE / PROPERTIES / LOCAL GRAPH）浅白 */
+body.minimalism-ui-theme-forest.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"]::before,
+body.minimalism-ui-theme-forest.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="file-properties"]::before,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content::before,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-graph-header > span {
+	color: rgba(255, 255, 255, 0.88);
+}
+
+/* 左下角 vault profile：深色底 + 虚线顶边 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-sidedock-vault-profile {
+	background-color: #123342;
+	border-top: 1px dashed rgba(180, 180, 180, 0.3);
+}
+
+/* 导航项 hover / active（蓝色 accent） */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title:hover,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-folder-title:hover {
+	background: rgba(0, 122, 255, 0.1);
+	border-radius: 6px;
+}
+
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active:hover {
+	background: rgba(0, 122, 255, 0.18);
+	color: #007AFF;
+	border-radius: 6px;
+}
+
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title:hover,
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-folder-title:hover {
+	background: rgba(255, 255, 255, 0.08);
+}
+
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active {
+	background: rgba(0, 122, 255, 0.25);
+}
+
+/* 属性栏输入光标：浅色适配深底 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value input,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value [contenteditable] {
+	caret-color: rgba(196, 196, 196, 0.88);
+}
+
+/* 属性栏建议下拉：深底浅字（对齐 localgraph 设置面板 #0f1e2b） */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar.minimalism-ui-sidebar-prop-focus .suggestion-container {
+	background-color: #0f1e2b;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+}
+
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar.minimalism-ui-sidebar-prop-focus .suggestion-container .suggestion-item {
+	color: rgba(196, 196, 196, 0.88);
+}
+
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar.minimalism-ui-sidebar-prop-focus .suggestion-container .suggestion-item.is-selected {
+	background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* 侧边栏局部关系图设置面板展开态：深色背景 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="localgraph"].minimalism-ui-injected-graph .graph-controls:not(.is-close) {
+	background: #0f1e2b;
+}
+
+/* 侧边栏局部关系图节点配色（适配深底 #1B3241） */
+body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-text          { color: rgba(205, 225, 245, 0.9); }
+body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-fill          { color: rgba(91, 165, 220, 0.9); }
+body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-fill-focused  { color: #5ba4f0; }
+body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-fill-unresolved { color: rgba(160, 175, 190, 0.5); }
+body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-fill-attachment { color: rgba(120, 195, 140, 0.85); }
+body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-fill-tag      { color: rgba(210, 165, 100, 0.85); }
+body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-circle        { color: rgba(91, 165, 220, 0.4); }
+body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-arrow         { color: rgba(180, 210, 240, 0.6); }
+body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-line          { color: rgba(180, 210, 240, 0.35); }

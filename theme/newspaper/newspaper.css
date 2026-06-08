@@ -20,7 +20,9 @@
 	--blockquote-color: #656565;
 	--blockquote-font-style: italic;
 	--blockquote-background-color: transparent;
-	/* 表格：边框 / 表头灰底 / 隔行浅灰 */
+	/* 表格：去掉 Obsidian 默认网格线（报刊表只靠表头灰底 + 隔行浅灰区分），
+	   结构感由表头下边框单独提供 */
+	--table-border-width: 0px;
 	--table-border-color: #c5c5c5;
 	--table-header-background: #dadada;
 	--table-row-alt-background: #e8e7e7;
@@ -39,6 +41,63 @@ body.minimalism-ui-theme-newspaper .markdown-source-view.mod-cm6 .cm-editor,
 body.minimalism-ui-theme-newspaper .markdown-source-view.mod-cm6 .cm-scroller,
 body.minimalism-ui-theme-newspaper .markdown-source-view.mod-cm6 .cm-gutters {
 	background-color: #f3f2ee;
+}
+
+/* ── 整片纸感：把奶白底延伸到 chrome（侧边栏 / 拖拽栏） ──────────────────
+   侧边栏的 chrome 配色（背景 / 文字 / 分区标题 / 导航项 / vault profile）原本写在
+   styles.css 里、是 Forest 专属的深色方案，现已迁回各主题。本段是 newspaper 的版本：
+   奶白纸张 + 报刊深墨字。全部 scoped 在 body.minimalism-ui-theme-newspaper 下。 */
+
+/* 所有 leaf 内容区（含合并侧边栏：大纲 / 属性 / 局部关系图） */
+body.minimalism-ui-theme-newspaper .workspace-leaf-content {
+	background-color: #f3f2ee;
+}
+
+/* 左右侧边栏容器本体：奶白底 */
+body.minimalism-ui-theme-newspaper .workspace-split.mod-left-split,
+body.minimalism-ui-theme-newspaper .workspace-split.mod-right-split {
+	background-color: #f3f2ee;
+}
+
+/* 侧边栏文字：用 `* { color }` 把整片侧边栏文字铺成报刊深墨（与 Forest 原方案同构，
+   只是换成深字适配奶白底）。叠加 .minimalism-ui-mac-sidebar 与该 chrome 选择器对齐。 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split * {
+	color: #4a3838;
+}
+
+/* 注入式分区标题（OUTLINE / PROPERTIES / LOCAL GRAPH）：报刊近黑，比正文略重作 kicker。
+   这些 ::before / span 不走变量，需对位覆盖各自的颜色规则。 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"]::before,
+body.minimalism-ui-theme-newspaper.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="file-properties"]::before,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content::before,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-graph-header > span {
+	color: #1f0909;
+}
+
+/* 导航项 hover / active：暖灰底，替代 Forest 的蓝色 accent */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title:hover,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-folder-title:hover {
+	background: #e8e7e7;
+	border-radius: 6px;
+}
+
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active:hover {
+	background: #dadada;
+	color: #1f0909;
+	border-radius: 6px;
+}
+
+/* 左下角仓库信息栏：奶白底 + 报刊深墨字（文字由上面的 * 规则一并变深） */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-sidedock-vault-profile {
+	background-color: #f3f2ee;
+	border-top: 1px solid #c5c5c5;
+}
+
+/* 顶部自定义拖拽栏：奶白底 + 底部细分隔线，与正文连成一片 */
+body.minimalism-ui-theme-newspaper .minimalism-ui-drag-bar {
+	background-color: #f3f2ee;
+	border-bottom: 1px solid #c5c5c5;
 }
 
 /* ── 正文字体 + 字色（两个视图都要覆盖） ─────────────────────────────── */
@@ -177,6 +236,25 @@ body.minimalism-ui-theme-newspaper .cm-line.HyperMD-hr .cm-hr {
 
 /* ── 表格：报刊式表头灰底 + 大写 + 隔行浅灰 ───────────────────────────── */
 
+/* 阅读视图：Obsidian 用 .el-table 包裹渲染后的 <table>。
+   无外框（报刊表不描边），超宽时横向滚动，表格撑满宽度。 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view .el-table {
+	border: none;
+	overflow-x: auto;
+}
+
+body.minimalism-ui-theme-newspaper .markdown-reading-view .el-table table {
+	margin: 0;
+	width: 100%;
+}
+
+/* .el-table 内单元格（部分 Obsidian 版本用 .ltr 容器渲染单元格内容） */
+body.minimalism-ui-theme-newspaper .markdown-reading-view .el-table .ltr {
+	padding: 0.25em 0.4em;
+	color: #1f0909;
+	vertical-align: top;
+}
+
 /* 表头：灰底、大写、加粗、左对齐（两个视图） */
 body.minimalism-ui-theme-newspaper .markdown-reading-view table thead,
 body.minimalism-ui-theme-newspaper .markdown-reading-view table thead th,
@@ -187,6 +265,7 @@ body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor thead th {
 	font-weight: bold;
 	text-align: left;
 	text-transform: uppercase;
+	border-bottom: 1px solid #c5c5c5;
 }
 
 /* 隔行浅灰（两个视图） */

@@ -70,25 +70,18 @@ body.minimalism-ui-mac-sidebar .workspace-split.mod-horizontal {
 	overflow: visible;
 }
 
-/* 侧边栏本体：悬浮圆角 + 阴影
-   position + z-index 确保 box-shadow 渲染在主编辑区之上而不被覆盖 */
+/* 侧边栏本体：position + z-index 确保 box-shadow 渲染在主编辑区之上而不被覆盖。
+   背景色/文字色属主题专属（深色侧边栏是 Forest 的外观），已移至 theme/<主题>/<主题>.css。 */
 body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split {
-	background-color: #123342;
 	position: relative;
 	z-index: 10;
 }
 
-/* 暗色模式 */
+/* 暗色模式：悬浮阴影（结构性，主题无关）。背景色见各主题 CSS。 */
 body.theme-dark.minimalism-ui-mac-sidebar .workspace-split.mod-left-split {
-	background: #1c1c1e;
 	box-shadow:
 		0 4px 24px rgba(0, 0, 0, 0.5),
 		0 1px 6px rgba(0, 0, 0, 0.3);
-}
-
-/* 侧边栏字体浅色适配深色背景 */
-body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split * {
-	color: rgba(196, 196, 196, 0.88);
 }
 
 /* 隐藏左侧边栏各 panel 之间的拖拽分隔条。
@@ -138,36 +131,11 @@ body.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value[data-p
 	--pill-border-color-hover: color-mix(in srgb, var(--color-accent) 40%, transparent);
 }
 
-/* 属性栏输入框光标：侧边栏强制深色背景下，默认深色光标在深底上看不清。
-   改用与侧边栏文字一致的浅色，并在 .metadata-property-value 上再嵌套一层
-   input / [contenteditable] 选择器抬高 specificity，避免使用 !important */
-body.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value,
-body.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value input,
-body.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value [contenteditable] {
-	caret-color: rgba(196, 196, 196, 0.88);
-}
-
-/* 属性栏输入时的建议下拉（.suggestion-container）：
-   该弹层由 Obsidian 直接 appendChild 到 document.body，没有可区分的 class，
-   默认 background 用 var(--background-primary)（moonstone 浅色），浮在深色侧边栏上很突兀。
-   过去用 body:has(... .metadata-property-value:focus-within) 命中此刻为侧边栏属性而开的弹层，
-   但 :has 会触发大范围选择器失效（性能警告）。改由 SidebarSuggestFocusTracker（JS）在焦点
-   落入左栏属性值时给 body 加 .minimalism-ui-sidebar-prop-focus，CSS 据此着色。
-   配色对齐 localgraph 的设置面板 .graph-controls 展开态（#0f1e2b + 浅色文字）。*/
-body.minimalism-ui-mac-sidebar.minimalism-ui-sidebar-prop-focus .suggestion-container {
-	background-color: #0f1e2b;
-	border: 1px solid rgba(255, 255, 255, 0.08);
-	box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
-}
-
-body.minimalism-ui-mac-sidebar.minimalism-ui-sidebar-prop-focus .suggestion-container .suggestion-item {
-	color: rgba(196, 196, 196, 0.88);
-}
-
-body.minimalism-ui-mac-sidebar.minimalism-ui-sidebar-prop-focus .suggestion-container .suggestion-item.is-selected {
-	background-color: rgba(255, 255, 255, 0.08);
-}
-
+/* 属性栏输入光标色 & 属性建议下拉（.suggestion-container）的配色为主题专属
+   （Forest 深色侧边栏需浅色光标 + 深底浅字弹层），已移至 theme/<主题>/<主题>.css。
+   建议下拉由 SidebarSuggestFocusTracker（JS）在焦点落入左栏属性值时给 body 加
+   .minimalism-ui-sidebar-prop-focus，主题 CSS 据此着色（弹层被 appendChild 到 body，
+   无可区分 class，故用此 marker，避免 :has 的大范围选择器失效性能问题）。 */
 
 /* 属性栏高度自动适配内容，切换笔记时平滑过渡 */
 body.minimalism-ui-mac-sidebar .workspace-tabs[data-properties-auto-height] {
@@ -175,12 +143,7 @@ body.minimalism-ui-mac-sidebar .workspace-tabs[data-properties-auto-height] {
 	overflow: hidden;
 }
 
-/* 侧边栏底部 vault profile 背景色 */
-/* 通过叠加父级类名提升 specificity，避免使用 !important */
-body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-sidedock-vault-profile {
-	background-color: #123342;
-	border-top: 1px dashed rgba(180, 180, 180, 0.3);
-}
+/* 侧边栏底部 vault profile 背景色为主题专属，已移至 theme/<主题>/<主题>.css */
 
 /* 关闭“底部用户设置区域”开关时隐藏 vault profile */
 body.minimalism-ui-hide-vault-profile .workspace-split.mod-left-split .workspace-sidedock-vault-profile {
@@ -199,31 +162,7 @@ body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-tab-he
 	border-bottom: none;
 }
 
-/* 导航项 hover */
-body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title:hover,
-body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-folder-title:hover {
-	background: rgba(0, 122, 255, 0.1);
-	border-radius: 6px;
-}
-
-/* 导航项 active */
-body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active,
-body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active:hover {
-	background: rgba(0, 122, 255, 0.18);
-	color: #007AFF;
-	border-radius: 6px;
-}
-
-/* 暗色 hover */
-body.theme-dark.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title:hover,
-body.theme-dark.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-folder-title:hover {
-	background: rgba(255, 255, 255, 0.08);
-}
-
-/* 暗色 active */
-body.theme-dark.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active {
-	background: rgba(0, 122, 255, 0.25);
-}
+/* 导航项 hover / active 配色为主题专属（Forest 用蓝色 accent），已移至 theme/<主题>/<主题>.css */
 
 /* ── 隐藏顶部标签栏 ───────────────────────────────────────────────────── */
 
@@ -258,7 +197,6 @@ body.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="file-proper
 	font-size: 0.8rem;
 	font-weight: 600;
 	letter-spacing: 0.06em;
-	color: rgba(255, 255, 255, 0.88);
 	padding: 12px 16px 6px;
 }
 
@@ -276,7 +214,6 @@ body.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"]::
 	font-size: 0.8rem;
 	font-weight: 600;
 	letter-spacing: 0.06em;
-	color: rgba(255, 255, 255, 0.88);
 	padding: 12px 16px 6px;
 }
 
@@ -318,7 +255,6 @@ body.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .met
 	font-size: 0.8rem;
 	font-weight: 600;
 	letter-spacing: 0.06em;
-	color: rgba(255, 255, 255, 0.88);
 	padding: 12px 0 6px;
 }
 
@@ -354,7 +290,6 @@ body.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .min
 	font-size: 0.8rem;
 	font-weight: 600;
 	letter-spacing: 0.06em;
-	color: rgba(255, 255, 255, 0.88);
 	pointer-events: none;
 }
 
@@ -370,9 +305,8 @@ body.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="localgraph"].m
 	opacity: 0.5;
 }
 
-/* 设置面板展开时：深色背景，比侧边栏 #1B3241 更深 */
+/* 设置面板展开时：圆角（结构性）。背景色为主题专属，移至 theme/<主题>/<主题>.css */
 body.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="localgraph"].minimalism-ui-injected-graph .graph-controls:not(.is-close) {
-	background: #0f1e2b;
 	border-radius: 6px;
 }
 
@@ -381,22 +315,11 @@ body.minimalism-ui-mac-sidebar .minimalism-ui-injected-graph .tree-item.graph-co
 	border-bottom: none;
 }
 
-/* Graph 节点颜色：适配侧边栏深色背景 #1B3241。
-   renderer.testCSS() 在 document.body 上临时挂载 .graph-view.color-* 元素读色，
-   需使用 body 级选择器才能命中这些临时元素。
-   用 minimalism-ui-sidebar-graph-reading 而非 minimalism-ui-mac-sidebar 作 marker，
-   原因：后者会让所有 graph 实例（包括独立的 graph view）都读到这些颜色；
-   前者只在侧边栏 graph 的 renderer.testCSS() 执行期间被 JS 临时添加到 body，
-   独立 graph 调用自己的 testCSS() 时 marker 不存在，颜色不受影响。*/
-body.minimalism-ui-sidebar-graph-reading .graph-view.color-text          { color: rgba(205, 225, 245, 0.9); }
-body.minimalism-ui-sidebar-graph-reading .graph-view.color-fill          { color: rgba(91, 165, 220, 0.9); }
-body.minimalism-ui-sidebar-graph-reading .graph-view.color-fill-focused  { color: #5ba4f0; }
-body.minimalism-ui-sidebar-graph-reading .graph-view.color-fill-unresolved { color: rgba(160, 175, 190, 0.5); }
-body.minimalism-ui-sidebar-graph-reading .graph-view.color-fill-attachment { color: rgba(120, 195, 140, 0.85); }
-body.minimalism-ui-sidebar-graph-reading .graph-view.color-fill-tag      { color: rgba(210, 165, 100, 0.85); }
-body.minimalism-ui-sidebar-graph-reading .graph-view.color-circle        { color: rgba(91, 165, 220, 0.4); }
-body.minimalism-ui-sidebar-graph-reading .graph-view.color-arrow         { color: rgba(180, 210, 240, 0.6); }
-body.minimalism-ui-sidebar-graph-reading .graph-view.color-line          { color: rgba(180, 210, 240, 0.35); }
+/* 侧边栏局部关系图的节点配色为主题专属（适配各主题侧边栏底色），已移至 theme/<主题>/<主题>.css。
+   着色机制（主题无关）：renderer.testCSS() 在 document.body 上临时挂载 .graph-view.color-* 元素读色，
+   故主题用 body 级选择器命中。marker 用 minimalism-ui-sidebar-graph-reading 而非 minimalism-ui-mac-sidebar，
+   因后者会让所有 graph 实例（含独立 graph view）都读到这些颜色；前者只在侧边栏 graph 的
+   renderer.testCSS() 执行期间被 JS 临时加到 body，独立 graph 的 testCSS() 不受影响。 */
 
 /* ── 禁用笔记 Tab（隐藏笔记区域标签栏 + 自定义拖拽区） ──────────────── */
 
