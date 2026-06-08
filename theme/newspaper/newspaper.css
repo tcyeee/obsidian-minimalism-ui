@@ -263,8 +263,8 @@ body.minimalism-ui-theme-newspaper .markdown-reading-view .el-table table {
 
 /* .el-table 内单元格（部分 Obsidian 版本用 .ltr 容器渲染单元格内容） */
 body.minimalism-ui-theme-newspaper .markdown-reading-view .el-table .ltr {
-	padding: 0.25em 0.4em;
-	color: #1f0909;
+	padding: 0.5em 0.75em;
+	color: #4c3a3a;
 	vertical-align: top;
 }
 
@@ -274,11 +274,12 @@ body.minimalism-ui-theme-newspaper .markdown-reading-view table thead th,
 body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor thead,
 body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor thead th {
 	background-color: #e5e5e5;
-	color: #1f0909;
+	color: #4c3a3a;
 	font-weight: bold;
 	text-align: left;
 	text-transform: uppercase;
-	border-bottom: 1px solid #c5c5c5;
+	/* 表头下边线与单元格内格线同色，避免比内部格线更深显得突兀 */
+	border-bottom: 1px solid #e0e0e0;
 }
 
 /* 隔行浅灰（两个视图） */
@@ -292,9 +293,9 @@ body.minimalism-ui-theme-newspaper .markdown-reading-view table th,
 body.minimalism-ui-theme-newspaper .markdown-reading-view table td,
 body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th,
 body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td {
-	padding: 0.25em 0.4em;
+	padding: 0.5em 0.75em;
 	font-size: 0.9em;
-	color: #1f0909;
+	color: #4c3a3a;
 	vertical-align: top;
 	/* 仅画右 + 下内格线，外框交给 .el-table / table-editor 单层外框，避免双线 */
 	border-right: 1px solid #e0e0e0;
@@ -314,11 +315,11 @@ body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor tbody tr:la
 	border-bottom: none;
 }
 
-/* 正文单元格文字：比表头略淡的报刊墨灰（表头由上方 thead th 高优先级规则保持 #1f0909） */
+/* 正文单元格文字：比表头略淡的报刊墨灰（表头由上方 thead th 高优先级规则保持） */
 body.minimalism-ui-theme-newspaper .markdown-reading-view table tbody td,
 body.minimalism-ui-theme-newspaper .markdown-reading-view .el-table tbody .ltr,
 body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor tbody td {
-	color: #4a3838;
+	color: #6e6060;
 }
 
 /* ── 表格外框 + 圆角（编辑视图，移植自 forest 并换报刊灰）─────────────────
@@ -350,7 +351,7 @@ body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-edit
 body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-editor .cm-line,
 body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-editor .cm-scroller {
 	font-size: inherit;
-	color: #4a3838;
+	color: #6e6060;
 }
 
 /* ── 编辑模式：表格拖拽把手（移植自 forest，换报刊灰调）─────────────────── */
@@ -438,36 +439,53 @@ body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td:first-ch
    .bases-tbody，行 .bases-tr、单元格 .bases-td（表头单元格也用 .bases-td，不是 th）。
    这里把表头灰底大写、隔行浅灰、内格线、外框圆角全部对齐 .el-table 的报刊版式。 */
 
-/* 外框 + 圆角：把整张 base 表收拢成一个版块（超宽时由 .bases-view 横向滚动） */
-body.minimalism-ui-theme-newspaper .bases-view .bases-table {
+/* 外框 + 圆角：框要画在 .bases-view 上（比 .bases-table-container 高一层）。
+   但 .bases-view 这个 class 三种 Bases 视图（table / cards / list）共用，必须用
+   data-view-type="table" 限定，只给表格视图描框，否则会误伤卡片 / 列表视图。
+   不动 overflow：.bases-view 自带的 overflow:auto 既负责横向滚动、又会把内容裁到
+   圆角内，强行改 clip 反而会废掉横向滚动。
+   .bases-view.bases-view 双写 class 提权：嵌入式 Bases 有一条内置规则
+   .workspace-leaf-content[data-type="markdown"] .block-language-base .bases-view（4 个 class，
+   特异性 0,4,0）会用 --bases-embed-border-color（透明）/ --bases-embed-radius 覆盖掉这里的
+   border-color 与 border-radius longhand，导致框看不见。双写把本规则提到 0,4,1 压过它，
+   既照顾嵌入式、也照顾独立 .base 视图，且不必动用 !important。 */
+body.minimalism-ui-theme-newspaper .bases-view.bases-view[data-view-type="table"] {
 	border: 1px solid #c5c5c5;
 	border-radius: 4px;
-	overflow: hidden;
 }
 
 /* 表头：灰底、大写、加粗、左对齐、报刊近黑字 + 下边线 */
 body.minimalism-ui-theme-newspaper .bases-view .bases-thead .bases-td {
 	background-color: #e5e5e5;
-	color: #1f0909;
+	color: #4c3a3a;
 	font-weight: bold;
 	text-align: left;
 	text-transform: uppercase;
-	border-bottom: 1px solid #c5c5c5;
+	border-bottom: 1px solid #e0e0e0;
 }
 
-/* 隔行浅灰 */
-body.minimalism-ui-theme-newspaper .bases-view .bases-tbody .bases-tr:nth-child(even) {
+/* 内容区所有行统一用同一浅灰底（取消奇偶交替，全部用原偶数行色） */
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-tbody .bases-tr {
 	background-color: #efeeee;
 }
 
-/* 单元格：内边距 + 字号 + 报刊墨灰字 + 内格线（右 + 下） */
+/* 单元格：内边距 + 字号 + 报刊墨灰字 + 内格线（右 + 下）；
+   字号 / 内边距 / 字色 / 衬线字体均与上方内置 table 对齐，使两类表观感一致 */
 body.minimalism-ui-theme-newspaper .bases-view .bases-td {
-	padding: 0.25em 0.4em;
+	padding: 0.5em 0.75em;
 	font-size: 0.9em;
-	color: #4a3838;
+	font-family: 'PT Serif', Georgia, 'Times New Roman', 'Songti SC', 'Noto Serif CJK SC', 'SimSun', serif;
+	color: #6e6060;
 	vertical-align: top;
 	border-right: 1px solid #e0e0e0;
 	border-bottom: 1px solid #e0e0e0;
+}
+
+/* 表格行高被 Obsidian 固定为 --bases-table-row-height:30px（行用 absolute + top 偏移虚拟化）。
+   内部链接走 .bases-table-cell.markdown-rendered 会继承正文 1.6 行高，行盒高于 30px →
+   底部被行裁掉。把单元格内容行高压成 normal，贴合固定行高，链接不再被遮挡。 */
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-table-cell {
+	line-height: normal;
 }
 
 /* 边缘单元格去掉内格线：右缘 / 下缘留给 .bases-table 单层外框，避免双线 */
@@ -477,6 +495,23 @@ body.minimalism-ui-theme-newspaper .bases-view .bases-tr .bases-td:last-child {
 
 body.minimalism-ui-theme-newspaper .bases-view .bases-tbody .bases-tr:last-child .bases-td {
 	border-bottom: none;
+}
+
+/* ── Bases 卡片视图：卡片的描边其实是 box-shadow 环（--bases-cards-shadow，默认
+   0 0 0 1px 边框色），不是 CSS border。想让边更细 / 更淡就改这个环的颜色，别再叠一道
+   border（会和环叠成双线）。这里通过覆盖 Bases 自己的变量来做：卡面压成略亮于纸张的米白、
+   描边环换报刊浅灰、圆角对齐 4px。变量挂在 .bases-view 上（卡片 item 的祖先），靠继承生效。 */
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="cards"] {
+	--bases-cards-background: #f8f7f4;
+	--bases-cards-shadow: 0 0 0 1px #eae7e2;
+	--bases-cards-radius: 4px;
+}
+
+/* 卡片项文字：在版式基础上整体压浅 30%（opacity 0.7）+ 缩小 20%（0.8em），
+   让卡片网格的信息密度更低、观感更轻 */
+body.minimalism-ui-theme-newspaper .bases-cards-item {
+	opacity: 0.7;
+	font-size: 0.8em;
 }
 
 /* 滚动条：细条，悬停才显色（与 .markdown-reading-view / .cm-scroller 一致） */
@@ -543,6 +578,21 @@ body.minimalism-ui-theme-newspaper .markdown-reading-view .callout-content li {
 body.minimalism-ui-theme-newspaper .cm-editor .cm-callout .cm-line:not(.cm-callout-title) {
 	font-size: 0.9rem;
 	color: #4a3838;
+}
+
+/* 编辑视图标题行：以预览为准。上方通用 .cm-line 规则（衬线 + 深墨 #1f0909）会把
+   callout 标题也染成衬线深墨，而阅读视图的 .callout-title 保留 Obsidian 默认的无衬线
+   界面字体 + callout 类型色。这里把标题行单独还原，与预览对齐（特异性更高，压过通用规则）。 */
+body.minimalism-ui-theme-newspaper .cm-editor .cm-callout .cm-line.cm-callout-title {
+	font-family: var(--font-text);
+	color: rgb(var(--callout-color));
+	font-weight: var(--callout-title-weight);
+}
+
+/* 编辑视图 callout 盒子内边距：对齐阅读视图 .callout 的 var(--callout-padding)，
+   让标题与正文的间距、左缩进与预览一致 */
+body.minimalism-ui-theme-newspaper .cm-editor .cm-callout {
+	padding: var(--callout-padding);
 }
 
 /* ── Mermaid：超宽横向滚动，不缩放 ───────────────────────────────────── */

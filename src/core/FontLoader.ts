@@ -55,21 +55,27 @@ export class FontLoader implements Feature {
 		this.loadedFonts = [];
 	}
 
-	private fontPath(filename: string): string {
-		const adapter = this.app.vault.adapter as { getResourcePath: (path: string) => string };
-		const theme = this.settings().theme;
-		return adapter.getResourcePath(`${this.manifestDir}/theme/${theme}/fonts/${filename}`);
+	private vaultPath(filename: string): string {
+		return `${this.manifestDir}/theme/${this.settings().theme}/fonts/${filename}`;
 	}
 
 	private async loadFontFace(family: string, descriptors: FontFaceDescriptors & { file: string }) {
 		const { file, ...desc } = descriptors;
-		const face = new FontFace(family, `url('${this.fontPath(file)}')`, desc);
+		const adapter = this.app.vault.adapter as {
+			getResourcePath: (path: string) => string;
+			exists: (path: string) => Promise<boolean>;
+		};
+		const vaultPath = this.vaultPath(file);
+		// 先查文件是否存在再 fetch：缺字体的主题（如 newspaper 用系统衬线栈）直接跳过，
+		// 否则 FontFace.load() 的 404 虽被 catch 吞掉，Chromium 仍会往控制台打 ERR_FILE_NOT_FOUND
+		if (!(await adapter.exists(vaultPath))) return;
+		const face = new FontFace(family, `url('${adapter.getResourcePath(vaultPath)}')`, desc);
 		try {
 			await face.load();
 			(activeDocument.fonts as unknown as MutableFontFaceSet).add(face);
 			this.loadedFonts.push(face);
 		} catch {
-			// 字体文件不存在时静默跳过
+			// 字体文件存在但解析失败时静默跳过
 		}
 	}
 }

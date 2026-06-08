@@ -78,14 +78,15 @@ var FontLoader = class {
     for (const font of this.loadedFonts) activeDocument.fonts.delete(font);
     this.loadedFonts = [];
   }
-  fontPath(filename) {
-    const adapter = this.app.vault.adapter;
-    const theme = this.settings().theme;
-    return adapter.getResourcePath(`${this.manifestDir}/theme/${theme}/fonts/${filename}`);
+  vaultPath(filename) {
+    return `${this.manifestDir}/theme/${this.settings().theme}/fonts/${filename}`;
   }
   async loadFontFace(family, descriptors) {
     const { file, ...desc } = descriptors;
-    const face = new FontFace(family, `url('${this.fontPath(file)}')`, desc);
+    const adapter = this.app.vault.adapter;
+    const vaultPath = this.vaultPath(file);
+    if (!await adapter.exists(vaultPath)) return;
+    const face = new FontFace(family, `url('${adapter.getResourcePath(vaultPath)}')`, desc);
     try {
       await face.load();
       activeDocument.fonts.add(face);
