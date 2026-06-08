@@ -797,7 +797,8 @@ body.is-mac.minimalism-ui-mac-sidebar .titlebar-button-container.mod-left {
 	padding-top: 8px;
 }
 
-/* ── 笔记内容美学（Forest 等主题） ─────────────────────────────────────── */
-/* .minimalism-ui-note-style 的视觉样式已迁移到 theme/<name>.css，
-   由 ThemeLoader 在运行时按 data.json 的 theme 字段注入。
-   此处仅保留功能性/界面框架样式，主题文件只负责笔记内容的外观。 */
+/* ── 笔记内容美学（各主题） ───────────────────────────────────────────── */
+/* 主题内容样式已迁移到 theme/<name>/<name>.css，由 ThemeLoader 在运行时按 data.json 的
+   theme 字段注入，并收敛在 body.minimalism-ui-theme-<name> 作用域下。
+   styles.css 只保留功能性/界面框架样式（与主题无关，全程生效）；
+   body.minimalism-ui-note-style 作为"主题无关的笔记排版基线"保留为共享扩展点。 */

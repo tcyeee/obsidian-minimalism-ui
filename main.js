@@ -98,6 +98,7 @@ var FontLoader = class {
 // src/core/ThemeLoader.ts
 var import_obsidian = require("obsidian");
 var STYLE_ATTR = "data-minimalism-theme";
+var THEME_CLASS_PREFIX = "minimalism-ui-theme-";
 var ThemeLoader = class {
   constructor(app, manifestDir, settings) {
     this.app = app;
@@ -108,6 +109,7 @@ var ThemeLoader = class {
     this.remove();
     const name = this.settings().theme;
     if (!name) return;
+    activeDocument.body.classList.add(`${THEME_CLASS_PREFIX}${name}`);
     const path = (0, import_obsidian.normalizePath)(`${this.manifestDir}/theme/${name}/${name}.css`);
     const adapter = this.app.vault.adapter;
     let css;
@@ -123,6 +125,8 @@ var ThemeLoader = class {
   }
   remove() {
     activeDocument.head.querySelectorAll(`style[${STYLE_ATTR}]`).forEach((el) => el.remove());
+    const cls = activeDocument.body.classList;
+    Array.from(cls).filter((c) => c.startsWith(THEME_CLASS_PREFIX)).forEach((c) => cls.remove(c));
   }
   /** 列出 theme/ 目录下所有可选主题名（每个主题是一个子文件夹）。 */
   async listThemes() {

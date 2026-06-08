@@ -1,24 +1,24 @@
 /* =============================================================================
    Forest — Minimalism UI 笔记主题
    绿色调内容美学：引用块 / 代码 / 表格 / 滚动条 / Callout / Mermaid
-   主色 #00997B · 由 ThemeLoader 在运行时注入，受 body.minimalism-ui-note-style 控制
+   主色 #00997B · 由 ThemeLoader 在运行时注入，受 body.minimalism-ui-theme-forest 控制
    ============================================================================= */
 
-.minimalism-ui-note-style {
+.minimalism-ui-theme-forest {
 	--line-height-normal: 1.6;
 }
 
 
 /* 阅读视图 */
-body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section,
-body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section p,
-body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section li,
-body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h1,
-body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h2,
-body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h3,
-body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h4,
-body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h5,
-body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h6 {
+body.minimalism-ui-theme-forest .markdown-reading-view .markdown-preview-section,
+body.minimalism-ui-theme-forest .markdown-reading-view .markdown-preview-section p,
+body.minimalism-ui-theme-forest .markdown-reading-view .markdown-preview-section li,
+body.minimalism-ui-theme-forest .markdown-reading-view .markdown-preview-section h1,
+body.minimalism-ui-theme-forest .markdown-reading-view .markdown-preview-section h2,
+body.minimalism-ui-theme-forest .markdown-reading-view .markdown-preview-section h3,
+body.minimalism-ui-theme-forest .markdown-reading-view .markdown-preview-section h4,
+body.minimalism-ui-theme-forest .markdown-reading-view .markdown-preview-section h5,
+body.minimalism-ui-theme-forest .markdown-reading-view .markdown-preview-section h6 {
 	/* JetBrains Mono 只覆盖 ASCII（英文+数字），中文字符自动 fallback 到语雀同款字体栈 */
 	font-family: 'JetBrains Mono NL', 'JetBrains Mono', 'Chinese Quote', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 	line-height: 1.74;
@@ -28,16 +28,16 @@ body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section h
 }
 
 /* 正文缩小 1px（不影响标题，标题由 --hX-size 变量控制） */
-body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section p,
-body.minimalism-ui-note-style .markdown-reading-view .markdown-preview-section li {
+body.minimalism-ui-theme-forest .markdown-reading-view .markdown-preview-section p,
+body.minimalism-ui-theme-forest .markdown-reading-view .markdown-preview-section li {
 	font-size: 15px;
 }
 
 /* 编辑视图（CodeMirror 6） */
-body.minimalism-ui-note-style .cm-editor,
-body.minimalism-ui-note-style .cm-editor .cm-content,
-body.minimalism-ui-note-style .cm-editor .cm-line,
-body.minimalism-ui-note-style .cm-editor .cm-scroller {
+body.minimalism-ui-theme-forest .cm-editor,
+body.minimalism-ui-theme-forest .cm-editor .cm-content,
+body.minimalism-ui-theme-forest .cm-editor .cm-line,
+body.minimalism-ui-theme-forest .cm-editor .cm-scroller {
 	font-family: 'JetBrains Mono NL', 'JetBrains Mono', 'Chinese Quote', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 	font-size: 15px;
 	line-height: 1.74;
@@ -46,16 +46,16 @@ body.minimalism-ui-note-style .cm-editor .cm-scroller {
 }
 
 /* 编辑视图标题：还原为与预览模式一致的 --hX-size 字号 */
-body.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-header-1 { font-size: var(--h1-size); }
-body.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-header-2 { font-size: var(--h2-size); }
-body.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-header-3 { font-size: var(--h3-size); }
-body.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-header-4 { font-size: var(--h4-size); }
-body.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-header-5 { font-size: var(--h5-size); }
-body.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-header-6 { font-size: var(--h6-size); }
+body.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-header-1 { font-size: var(--h1-size); }
+body.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-header-2 { font-size: var(--h2-size); }
+body.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-header-3 { font-size: var(--h3-size); }
+body.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-header-4 { font-size: var(--h4-size); }
+body.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-header-5 { font-size: var(--h5-size); }
+body.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-header-6 { font-size: var(--h6-size); }
 
 /* ── 引用块 Forest 风格 ──────────────────────────────────────────────── */
 
-.minimalism-ui-note-style {
+.minimalism-ui-theme-forest {
 	--blockquote-background-color: rgba(0, 153, 123, 0.05);
 	--blockquote-border-color: transparent;
 	--blockquote-border-thickness: 0px;
@@ -64,7 +64,7 @@ body.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-header-6 { font-size: 
 }
 
 /* 阅读视图 blockquote */
-body.minimalism-ui-note-style .markdown-reading-view blockquote {
+body.minimalism-ui-theme-forest .markdown-reading-view blockquote {
 	position: relative;
 	padding: 1rem 1rem 1rem 1.3rem;
 	background-color: rgba(0, 153, 123, 0.05);
@@ -73,13 +73,13 @@ body.minimalism-ui-note-style .markdown-reading-view blockquote {
 	line-height: 1.6;
 }
 
-.minimalism-ui-note-style .markdown-reading-view blockquote p {
+.minimalism-ui-theme-forest .markdown-reading-view blockquote p {
 	color: #81888D;
 	font-size: 14px;
 	margin: 0;
 }
 
-.minimalism-ui-note-style .markdown-reading-view blockquote::before {
+.minimalism-ui-theme-forest .markdown-reading-view blockquote::before {
 	content: '';
 	position: absolute;
 	top: 0;
@@ -92,11 +92,11 @@ body.minimalism-ui-note-style .markdown-reading-view blockquote {
 }
 
 /* 编辑视图（Live Preview）blockquote */
-body.minimalism-ui-note-style .cm-blockquote-border {
+body.minimalism-ui-theme-forest .cm-blockquote-border {
 	border-left: 0.3rem solid #00997B;
 }
 
-body.minimalism-ui-note-style .cm-editor .cm-scroller .cm-content .cm-line.HyperMD-quote {
+body.minimalism-ui-theme-forest .cm-editor .cm-scroller .cm-content .cm-line.HyperMD-quote {
 	background-color: rgba(0, 153, 123, 0.05);
 	color: #81888D;
 	font-size: 14px;
@@ -109,68 +109,68 @@ body.minimalism-ui-note-style .cm-editor .cm-scroller .cm-content .cm-line.Hyper
 /* ── 内部链接去掉下划线 ──────────────────────────────────────────────── */
 
 /* 覆盖 Obsidian 链接下划线 CSS 变量 */
-.minimalism-ui-note-style {
+.minimalism-ui-theme-forest {
 	--link-decoration: none;
 	--link-decoration-hover: none;
 	--link-unresolved-decoration: none;
 }
 
 /* 阅读视图（兜底） */
-body.minimalism-ui-note-style .markdown-reading-view a.internal-link {
+body.minimalism-ui-theme-forest .markdown-reading-view a.internal-link {
 	text-decoration: none;
 }
 
 /* 编辑视图（Live Preview）兜底 */
-body.minimalism-ui-note-style .cm-editor .cm-hmd-internal-link {
+body.minimalism-ui-theme-forest .cm-editor .cm-hmd-internal-link {
 	text-decoration: none;
 }
 
 /* ── 代码块字体大小 ──────────────────────────────────────────────────── */
 
 /* 阅读视图：围栏代码块 & 行内代码 */
-body.minimalism-ui-note-style .markdown-reading-view pre,
-body.minimalism-ui-note-style .markdown-reading-view pre code {
+body.minimalism-ui-theme-forest .markdown-reading-view pre,
+body.minimalism-ui-theme-forest .markdown-reading-view pre code {
 	font-size: 13px;
 }
 
-body.minimalism-ui-note-style .markdown-reading-view code {
+body.minimalism-ui-theme-forest .markdown-reading-view code {
 	font-size: 13px;
 }
 
 /* 阅读视图：行内代码背景色（排除代码块内的 code） */
-body.minimalism-ui-note-style .markdown-reading-view :not(pre) > code {
+body.minimalism-ui-theme-forest .markdown-reading-view :not(pre) > code {
 	font-size: 0.8rem;
 	color: #347698;
 	background-color: #F3F3F3;
 }
 
 /* 编辑视图（Live Preview）：围栏代码块 & 行内代码 */
-body.minimalism-ui-note-style .HyperMD-codeblock,
-body.minimalism-ui-note-style .cm-inline-code {
+body.minimalism-ui-theme-forest .HyperMD-codeblock,
+body.minimalism-ui-theme-forest .cm-inline-code {
 	font-size: 0.8rem;
 }
 
 /* 编辑视图：行内代码背景色 */
-body.minimalism-ui-note-style .cm-inline-code {
+body.minimalism-ui-theme-forest .cm-inline-code {
 	font-size: 0.8rem;
 	color: #347698;
 	background-color: #F3F3F3;
 }
 
 /* 阅读视图：代码块圆角 */
-body.minimalism-ui-note-style .markdown-reading-view pre {
+body.minimalism-ui-theme-forest .markdown-reading-view pre {
 	border-radius: 5px;
 }
 
 /* 阅读视图：分割线 */
-body.minimalism-ui-note-style .markdown-reading-view hr {
+body.minimalism-ui-theme-forest .markdown-reading-view hr {
 	border: none;
 	border-top: 1px dashed var(--hr-color, #DADCDE);
 }
 
 /* 编辑视图：分割线 */
-body.minimalism-ui-note-style .cm-line.HyperMD-hr,
-body.minimalism-ui-note-style .cm-line.HyperMD-hr .cm-hr {
+body.minimalism-ui-theme-forest .cm-line.HyperMD-hr,
+body.minimalism-ui-theme-forest .cm-line.HyperMD-hr .cm-hr {
 	border: none;
 	border-top: 1px dashed var(--hr-color, #DADCDE);
 	color: transparent;
@@ -178,66 +178,66 @@ body.minimalism-ui-note-style .cm-line.HyperMD-hr .cm-hr {
 
 /* ── 滚动条 ──────────────────────────────────────────────────────────── */
 
-.minimalism-ui-note-style .markdown-reading-view ::-webkit-scrollbar,
-.minimalism-ui-note-style .cm-scroller::-webkit-scrollbar {
+.minimalism-ui-theme-forest .markdown-reading-view ::-webkit-scrollbar,
+.minimalism-ui-theme-forest .cm-scroller::-webkit-scrollbar {
 	width: 3px;
 }
 
-.minimalism-ui-note-style .markdown-reading-view ::-webkit-scrollbar-thumb,
-.minimalism-ui-note-style .cm-scroller::-webkit-scrollbar-thumb {
+.minimalism-ui-theme-forest .markdown-reading-view ::-webkit-scrollbar-thumb,
+.minimalism-ui-theme-forest .cm-scroller::-webkit-scrollbar-thumb {
 	background: transparent;
 	border-radius: 999px;
 	transition: background 0.3s ease;
 }
 
-.minimalism-ui-note-style .markdown-reading-view:hover ::-webkit-scrollbar-thumb,
-.minimalism-ui-note-style .cm-scroller:hover::-webkit-scrollbar-thumb {
+.minimalism-ui-theme-forest .markdown-reading-view:hover ::-webkit-scrollbar-thumb,
+.minimalism-ui-theme-forest .cm-scroller:hover::-webkit-scrollbar-thumb {
 	background: rgba(128, 128, 128, 0.4);
 }
 
-.minimalism-ui-note-style .markdown-reading-view ::-webkit-scrollbar-track,
-.minimalism-ui-note-style .cm-scroller::-webkit-scrollbar-track {
+.minimalism-ui-theme-forest .markdown-reading-view ::-webkit-scrollbar-track,
+.minimalism-ui-theme-forest .cm-scroller::-webkit-scrollbar-track {
 	background: transparent;
 }
 
-body.minimalism-ui-note-style .bases-view {
+body.minimalism-ui-theme-forest .bases-view {
 	scrollbar-width: thin;
 	scrollbar-color: transparent transparent;
 }
 
-body.minimalism-ui-note-style .bases-view:hover {
+body.minimalism-ui-theme-forest .bases-view:hover {
 	scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
 }
 
-body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar {
+body.minimalism-ui-theme-forest .bases-view ::-webkit-scrollbar {
 	width: 4px;
 	height: 4px;
 }
 
-body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar-thumb {
+body.minimalism-ui-theme-forest .bases-view ::-webkit-scrollbar-thumb {
 	background: transparent;
 	border-radius: 999px;
 	transition: background 0.3s ease;
 }
 
-body.minimalism-ui-note-style .bases-view:hover ::-webkit-scrollbar-thumb {
+body.minimalism-ui-theme-forest .bases-view:hover ::-webkit-scrollbar-thumb {
 	background: rgba(128, 128, 128, 0.4);
 }
 
-body.minimalism-ui-note-style .bases-view ::-webkit-scrollbar-track {
+body.minimalism-ui-theme-forest .bases-view ::-webkit-scrollbar-track {
 	background: transparent;
 }
 
 /* ── 表格 Forest 风格 ────────────────────────────────────────────────── */
 
-.minimalism-ui-note-style {
+.minimalism-ui-theme-forest {
 	--table-border-color: #DADCDE;
 	--table-header-background: rgba(0, 153, 123, 0.03);
 	--table-row-alt-background: rgba(0, 153, 123, 0.03);
 }
 
 /* 阅读视图 */
-body.minimalism-ui-note-style .el-table {
+body.minimalism-ui-theme-forest .el-table {
 	border-radius: 5px;
 	overflow: hidden;
 	border: 1px solid #DADCDE;
@@ -245,14 +245,14 @@ body.minimalism-ui-note-style .el-table {
 
 /* 编辑视图：table-editor 外边框
    overflow:visible 让拖拽把手可以延伸到表格外侧 */
-body.minimalism-ui-note-style .cm-editor .table-editor {
+body.minimalism-ui-theme-forest .cm-editor .table-editor {
 	border-radius: 5px;
 	overflow: visible;
 	outline: 1px solid #DADCDE;
 	outline-offset: 0px;
 }
 
-body.minimalism-ui-note-style .table-wrapper {
+body.minimalism-ui-theme-forest .table-wrapper {
 	overflow: visible;
 	/* 为外侧把手留出视觉空间 */
 	margin-top: 20px;
@@ -262,118 +262,118 @@ body.minimalism-ui-note-style .table-wrapper {
 /* 解除 live preview 表格容器（.cm-table-widget，即 .table-wrapper 的直接父级）的裁切，
    让把手可以延伸到表格外侧。
    不用 :has(> .table-wrapper)：:has 会触发大范围选择器失效，有明显性能开销。 */
-body.minimalism-ui-note-style .cm-editor .cm-table-widget {
+body.minimalism-ui-theme-forest .cm-editor .cm-table-widget {
 	overflow: visible;
 }
 
-body.minimalism-ui-note-style .el-table table {
+body.minimalism-ui-theme-forest .el-table table {
 	margin: 0;
 	width: 100%;
 }
 
-.minimalism-ui-note-style .markdown-reading-view table thead,
-.minimalism-ui-note-style .table-wrapper table.table-editor thead {
+.minimalism-ui-theme-forest .markdown-reading-view table thead,
+.minimalism-ui-theme-forest .table-wrapper table.table-editor thead {
 	font-weight: 900;
 	background-color: rgba(0, 153, 123, 0.03);
 }
 
-.minimalism-ui-note-style .markdown-reading-view table tr:nth-child(even),
-.minimalism-ui-note-style .table-wrapper table.table-editor tr:nth-child(even) {
+.minimalism-ui-theme-forest .markdown-reading-view table tr:nth-child(even),
+.minimalism-ui-theme-forest .table-wrapper table.table-editor tr:nth-child(even) {
 	background-color: rgba(0, 153, 123, 0.03);
 }
 
-.minimalism-ui-note-style .markdown-reading-view table tbody tr,
-.minimalism-ui-note-style .table-wrapper table.table-editor tbody tr {
+.minimalism-ui-theme-forest .markdown-reading-view table tbody tr,
+.minimalism-ui-theme-forest .table-wrapper table.table-editor tbody tr {
 	border-bottom: 1px solid #DADCDE;
 }
 
 /* 所有单元格：字体、大小、颜色（阅读视图 + 编辑视图） */
-body.minimalism-ui-note-style .markdown-reading-view table th,
-body.minimalism-ui-note-style .markdown-reading-view table td,
-body.minimalism-ui-note-style .markdown-reading-view .el-table .ltr,
-body.minimalism-ui-note-style .table-wrapper table.table-editor th,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td {
+body.minimalism-ui-theme-forest .markdown-reading-view table th,
+body.minimalism-ui-theme-forest .markdown-reading-view table td,
+body.minimalism-ui-theme-forest .markdown-reading-view .el-table .ltr,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td {
 	font-family: 'JetBrains Mono', -apple-system, sans-serif;
 	font-size: calc(var(--font-text-size, 16px) - 3px);
 	color: rgb(107, 107, 107);
 }
 
 /* 所有单元格：内边距 + 列分隔线（左边框，首列除外） */
-body.minimalism-ui-note-style .markdown-reading-view table th,
-body.minimalism-ui-note-style .markdown-reading-view table td,
-body.minimalism-ui-note-style .markdown-reading-view .el-table .ltr {
+body.minimalism-ui-theme-forest .markdown-reading-view table th,
+body.minimalism-ui-theme-forest .markdown-reading-view table td,
+body.minimalism-ui-theme-forest .markdown-reading-view .el-table .ltr {
 	padding: 10px 13px;
 	border-left: 1px solid #DADCDE;
 }
 
 /* 编辑模式：.table-editor 是 table 元素本身的 class，需用 table.table-editor 匹配 */
-body.minimalism-ui-note-style .table-wrapper table.table-editor th,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td {
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td {
 	padding: 10px 13px;
 	border-left: 1px solid #DADCDE;
 }
 
 
 /* 聚焦单元格内的 CM 编辑器字体大小与未聚焦单元格保持一致 */
-body.minimalism-ui-note-style .table-wrapper table.table-editor td .cm-editor,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td .cm-editor .cm-content,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td .cm-editor .cm-line,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td .cm-editor .cm-scroller {
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td .cm-editor,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td .cm-editor .cm-content,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td .cm-editor .cm-line,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td .cm-editor .cm-scroller {
 	font-size: calc(var(--font-text-size, 16px) - 3px);
 }
 
 /* 首列去掉左边框（由 el-table 外边框提供） */
-body.minimalism-ui-note-style .markdown-reading-view table th:first-of-type,
-body.minimalism-ui-note-style .markdown-reading-view table td:first-of-type,
-body.minimalism-ui-note-style .markdown-reading-view .el-table .ltr:first-of-type,
-body.minimalism-ui-note-style .table-wrapper table.table-editor th:first-of-type,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td:first-of-type {
+body.minimalism-ui-theme-forest .markdown-reading-view table th:first-of-type,
+body.minimalism-ui-theme-forest .markdown-reading-view table td:first-of-type,
+body.minimalism-ui-theme-forest .markdown-reading-view .el-table .ltr:first-of-type,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th:first-of-type,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td:first-of-type {
 	border-left: none;
 }
 
 /* 末列去掉右边框（由 el-table 外边框提供） */
-body.minimalism-ui-note-style .markdown-reading-view table th:last-of-type,
-body.minimalism-ui-note-style .markdown-reading-view table td:last-of-type,
-body.minimalism-ui-note-style .markdown-reading-view .el-table .ltr:last-of-type,
-body.minimalism-ui-note-style .table-wrapper table.table-editor th:last-of-type,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td:last-of-type {
+body.minimalism-ui-theme-forest .markdown-reading-view table th:last-of-type,
+body.minimalism-ui-theme-forest .markdown-reading-view table td:last-of-type,
+body.minimalism-ui-theme-forest .markdown-reading-view .el-table .ltr:last-of-type,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th:last-of-type,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td:last-of-type {
 	border-right: none;
 }
 
 /* 首行单元格去掉顶边框（由 el-table 外边框提供） */
-body.minimalism-ui-note-style .markdown-reading-view table thead tr:first-of-type th,
-body.minimalism-ui-note-style .markdown-reading-view table tr:first-of-type td,
-body.minimalism-ui-note-style .markdown-reading-view table tr:first-of-type th,
-body.minimalism-ui-note-style .table-wrapper table.table-editor thead tr:first-of-type th,
-body.minimalism-ui-note-style .table-wrapper table.table-editor tr:first-of-type td,
-body.minimalism-ui-note-style .table-wrapper table.table-editor tr:first-of-type th {
+body.minimalism-ui-theme-forest .markdown-reading-view table thead tr:first-of-type th,
+body.minimalism-ui-theme-forest .markdown-reading-view table tr:first-of-type td,
+body.minimalism-ui-theme-forest .markdown-reading-view table tr:first-of-type th,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor thead tr:first-of-type th,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor tr:first-of-type td,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor tr:first-of-type th {
 	border-top: none;
 }
 
 /* 末行单元格去掉底边框（由 el-table 外边框提供） */
-body.minimalism-ui-note-style .markdown-reading-view table tbody tr:last-of-type td,
-body.minimalism-ui-note-style .markdown-reading-view table tbody tr:last-of-type th,
-body.minimalism-ui-note-style .table-wrapper table.table-editor tbody tr:last-of-type td,
-body.minimalism-ui-note-style .table-wrapper table.table-editor tbody tr:last-of-type th {
+body.minimalism-ui-theme-forest .markdown-reading-view table tbody tr:last-of-type td,
+body.minimalism-ui-theme-forest .markdown-reading-view table tbody tr:last-of-type th,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor tbody tr:last-of-type td,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor tbody tr:last-of-type th {
 	border-bottom: none;
 }
 
 /* tr 级别的末行底边框也去掉 */
-body.minimalism-ui-note-style .markdown-reading-view table tbody tr:last-of-type,
-body.minimalism-ui-note-style .table-wrapper table.table-editor tbody tr:last-of-type {
+body.minimalism-ui-theme-forest .markdown-reading-view table tbody tr:last-of-type,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor tbody tr:last-of-type {
 	border-bottom: none;
 }
 
 /* ── 编辑模式：表格拖拽区域 ───────────────────────────────────────────── */
 
 /* th/td 必须是 relative 定位，absolute 把手才能相对它们定位 */
-body.minimalism-ui-note-style .table-wrapper table.table-editor th,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td {
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td {
 	position: relative;
 }
 
 /* 列拖拽把手：悬浮在列头正上方（表格外侧），默认完全隐藏 */
-body.minimalism-ui-note-style .table-wrapper table.table-editor th .table-col-drag-handle {
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th .table-col-drag-handle {
 	position: absolute;
 	top: -18px;
 	left: 50%;
@@ -392,26 +392,26 @@ body.minimalism-ui-note-style .table-wrapper table.table-editor th .table-col-dr
 }
 
 /* 鼠标悬停列头或把手时显示列拖拽把手 */
-body.minimalism-ui-note-style .table-wrapper table.table-editor th:hover .table-col-drag-handle,
-body.minimalism-ui-note-style .table-wrapper table.table-editor th .table-col-drag-handle:hover {
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th:hover .table-col-drag-handle,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th .table-col-drag-handle:hover {
 	opacity: 1;
 	background: rgba(0, 153, 123, 0.2);
 }
 
-body.minimalism-ui-note-style .table-wrapper table.table-editor th .table-col-drag-handle .svg-icon {
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th .table-col-drag-handle .svg-icon {
 	width: 14px;
 	height: 10px;
 }
 
 /* 非首列的行拖拽把手直接隐藏，避免重复 */
-body.minimalism-ui-note-style .table-wrapper table.table-editor th:not(:first-child) .table-row-drag-handle,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td:not(:first-child) .table-row-drag-handle {
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th:not(:first-child) .table-row-drag-handle,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td:not(:first-child) .table-row-drag-handle {
 	display: none;
 }
 
 /* 行拖拽把手：悬浮在首列左侧（表格外侧），默认完全隐藏 */
-body.minimalism-ui-note-style .table-wrapper table.table-editor th:first-child .table-row-drag-handle,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td:first-child .table-row-drag-handle {
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th:first-child .table-row-drag-handle,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td:first-child .table-row-drag-handle {
 	position: absolute;
 	left: -18px;
 	top: 50%;
@@ -430,38 +430,38 @@ body.minimalism-ui-note-style .table-wrapper table.table-editor td:first-child .
 }
 
 /* 鼠标悬停任意单元格时整行把手显示（通过 tr:hover 选择器实现） */
-body.minimalism-ui-note-style .table-wrapper table.table-editor tr:hover th:first-child .table-row-drag-handle,
-body.minimalism-ui-note-style .table-wrapper table.table-editor tr:hover td:first-child .table-row-drag-handle,
-body.minimalism-ui-note-style .table-wrapper table.table-editor th:first-child .table-row-drag-handle:hover,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td:first-child .table-row-drag-handle:hover {
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor tr:hover th:first-child .table-row-drag-handle,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor tr:hover td:first-child .table-row-drag-handle,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th:first-child .table-row-drag-handle:hover,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td:first-child .table-row-drag-handle:hover {
 	opacity: 1;
 	background: rgba(0, 153, 123, 0.2);
 }
 
-body.minimalism-ui-note-style .table-wrapper table.table-editor th:first-child .table-row-drag-handle .svg-icon,
-body.minimalism-ui-note-style .table-wrapper table.table-editor td:first-child .table-row-drag-handle .svg-icon {
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th:first-child .table-row-drag-handle .svg-icon,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td:first-child .table-row-drag-handle .svg-icon {
 	width: 10px;
 	height: 14px;
 }
 
 /* ── Bases 网格卡片标题 ──────────────────────────────────────────────── */
 
-body.minimalism-ui-note-style .bases-cards-property.mod-title {
+body.minimalism-ui-theme-forest .bases-cards-property.mod-title {
 	font-weight: 400;
 }
 
 /* ── 脚注内容 ────────────────────────────────────────────────────────── */
 
 /* 阅读视图 */
-body.minimalism-ui-note-style .markdown-reading-view section.footnotes,
-body.minimalism-ui-note-style .markdown-reading-view section.footnotes li,
-body.minimalism-ui-note-style .markdown-reading-view section.footnotes p {
+body.minimalism-ui-theme-forest .markdown-reading-view section.footnotes,
+body.minimalism-ui-theme-forest .markdown-reading-view section.footnotes li,
+body.minimalism-ui-theme-forest .markdown-reading-view section.footnotes p {
 	font-size: 0.8rem;
 	opacity: 0.8;
 }
 
 /* 编辑视图 */
-body.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-footnote {
+body.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-footnote {
 	font-size: 0.8rem;
 	opacity: 0.8;
 }
@@ -469,36 +469,36 @@ body.minimalism-ui-note-style .cm-editor .cm-line.HyperMD-footnote {
 /* ── 无语言代码块透明度 ──────────────────────────────────────────────── */
 
 /* 阅读视图：无语言标注的代码块内容 */
-body.minimalism-ui-note-style .markdown-reading-view pre > code:not([class*="language-"]) {
+body.minimalism-ui-theme-forest .markdown-reading-view pre > code:not([class*="language-"]) {
 	opacity: 0.9;
 }
 
 /* 编辑视图（Live Preview）：无语言标注的代码块行 */
-body.minimalism-ui-note-style .cm-editor .HyperMD-codeblock:not([class*="language-"]) {
+body.minimalism-ui-theme-forest .cm-editor .HyperMD-codeblock:not([class*="language-"]) {
 	opacity: 0.9;
 }
 
 /* 编辑视图：代码块起始行（语言名称）和结束行文字变浅灰 */
-body.minimalism-ui-note-style .cm-editor .HyperMD-codeblock-begin,
-body.minimalism-ui-note-style .cm-editor .HyperMD-codeblock-end {
+body.minimalism-ui-theme-forest .cm-editor .HyperMD-codeblock-begin,
+body.minimalism-ui-theme-forest .cm-editor .HyperMD-codeblock-end {
 	color: var(--text-faint);
 }
 
 /* ── Callout ─────────────────────────────────────────────────────────── */
 
 /* 阅读视图：callout 正文字色 */
-body.minimalism-ui-note-style .markdown-reading-view .callout-content,
-body.minimalism-ui-note-style .markdown-reading-view .callout-content p,
-body.minimalism-ui-note-style .markdown-reading-view .callout-content li,
-body.minimalism-ui-note-style .markdown-reading-view .callout-content ul,
-body.minimalism-ui-note-style .markdown-reading-view .callout-content ol {
+body.minimalism-ui-theme-forest .markdown-reading-view .callout-content,
+body.minimalism-ui-theme-forest .markdown-reading-view .callout-content p,
+body.minimalism-ui-theme-forest .markdown-reading-view .callout-content li,
+body.minimalism-ui-theme-forest .markdown-reading-view .callout-content ul,
+body.minimalism-ui-theme-forest .markdown-reading-view .callout-content ol {
 	font-size: 0.9rem;
 	color: var(--text-muted);
 	opacity: 0.9;
 }
 
 /* 编辑视图（Live Preview）：callout 正文字色 */
-body.minimalism-ui-note-style .cm-editor .cm-callout .cm-line:not(.cm-callout-title) {
+body.minimalism-ui-theme-forest .cm-editor .cm-callout .cm-line:not(.cm-callout-title) {
 	font-size: 0.9rem;
 	color: var(--text-muted);
 	opacity: 0.9;
@@ -508,43 +508,43 @@ body.minimalism-ui-note-style .cm-editor .cm-callout .cm-line:not(.cm-callout-ti
 
 /* Mermaid 图表：超出笔记宽度时横向滚动，不缩放 */
 /* overflow-x: overlay 让滚动条浮在内容上，不占布局空间，不引起闪烁 */
-body.minimalism-ui-note-style .markdown-reading-view .mermaid,
-body.minimalism-ui-note-style .cm-editor .mermaid {
+body.minimalism-ui-theme-forest .markdown-reading-view .mermaid,
+body.minimalism-ui-theme-forest .cm-editor .mermaid {
 	overflow-x: overlay;
 	overflow-y: visible;
 	max-width: 100%;
 }
 
-body.minimalism-ui-note-style .markdown-reading-view .mermaid svg,
-body.minimalism-ui-note-style .cm-editor .mermaid svg {
+body.minimalism-ui-theme-forest .markdown-reading-view .mermaid svg,
+body.minimalism-ui-theme-forest .cm-editor .mermaid svg {
 	max-width: none;
 	height: auto;
 }
 
 /* Mermaid 滚动条：细条，悬停时才显色 */
-.minimalism-ui-note-style .mermaid::-webkit-scrollbar {
+.minimalism-ui-theme-forest .mermaid::-webkit-scrollbar {
 	height: 3px;
 }
 
-.minimalism-ui-note-style .mermaid::-webkit-scrollbar-thumb {
+.minimalism-ui-theme-forest .mermaid::-webkit-scrollbar-thumb {
 	background: transparent;
 	border-radius: 3px;
 }
 
-.minimalism-ui-note-style .mermaid:hover::-webkit-scrollbar-thumb {
+.minimalism-ui-theme-forest .mermaid:hover::-webkit-scrollbar-thumb {
 	background: rgba(128, 128, 128, 0.35);
 }
 
-.minimalism-ui-note-style .mermaid::-webkit-scrollbar-track {
+.minimalism-ui-theme-forest .mermaid::-webkit-scrollbar-track {
 	background: transparent;
 }
 
 /* Mermaid fit-view 状态（默认）：SVG 缩放至填满容器宽度，显示全图 */
-body.minimalism-ui-note-style .mermaid.mermaid-fit-view {
+body.minimalism-ui-theme-forest .mermaid.mermaid-fit-view {
 	overflow-x: hidden;
 }
 
-body.minimalism-ui-note-style .mermaid.mermaid-fit-view svg {
+body.minimalism-ui-theme-forest .mermaid.mermaid-fit-view svg {
 	width: 100%;
 	height: auto;
 	max-width: 100%;
@@ -552,25 +552,25 @@ body.minimalism-ui-note-style .mermaid.mermaid-fit-view svg {
 }
 
 /* Mermaid 展开状态：超宽且未 fit，显示 zoom-out 光标提示可收回 */
-.minimalism-ui-note-style .mermaid.mermaid-overflows:not(.mermaid-fit-view) svg {
+.minimalism-ui-theme-forest .mermaid.mermaid-overflows:not(.mermaid-fit-view) svg {
 	cursor: zoom-out;
 }
 
 /* Mermaid 节点：禁止换行，消除 p 标签 margin，字号与正文一致 */
 /* 注意：不改 padding，避免撑高 JS 预算好的 foreignObject */
-body.minimalism-ui-note-style .mermaid .nodeLabel,
-body.minimalism-ui-note-style .mermaid .nodeLabel p {
+body.minimalism-ui-theme-forest .mermaid .nodeLabel,
+body.minimalism-ui-theme-forest .mermaid .nodeLabel p {
 	white-space: nowrap;
 	margin: 0;
 	font-size: var(--font-text-size);
 }
 
 /* foreignObject 宽度由 JS 固定，nowrap 文字可能超出被裁；改为 visible 防截断 */
-body.minimalism-ui-note-style .mermaid foreignObject {
+body.minimalism-ui-theme-forest .mermaid foreignObject {
 	overflow: visible;
 }
 
 /* 兼容 SVG text 节点（部分图类型不用 foreignObject） */
-body.minimalism-ui-note-style .mermaid svg text {
+body.minimalism-ui-theme-forest .mermaid svg text {
 	font-size: var(--font-text-size);
 }

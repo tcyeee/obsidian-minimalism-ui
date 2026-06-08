@@ -31,7 +31,8 @@ export class BodyClassController implements Feature {
 		// 极简信息栏同时驱动 simplify-panel（二者一直同值，不再单独存字段）
 		cls.toggle('minimalism-ui-simplify-panel', s.hideTabBar);
 		cls.toggle('minimalism-ui-disable-note-tabs', s.disableNoteTabs);
-		// 笔记样式优化全程默认开启，不再受设置开关控制
+		// 笔记排版基线：主题无关、全程默认开启，作为所有主题之下的共享扩展点
+		// （各主题专属样式由 ThemeLoader 挂在 minimalism-ui-theme-<name> 下）
 		cls.add('minimalism-ui-note-style');
 		// 配置了首页时，空页面隐藏原生 Close 按钮（由“回到主页”取代）
 		cls.toggle('minimalism-ui-has-home', !!s.homePage);
