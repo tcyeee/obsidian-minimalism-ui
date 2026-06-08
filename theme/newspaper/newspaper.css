@@ -1,1 +1,267 @@
-/* newspaper theme — 暂为空,待填充 */
+/* =============================================================================
+   Newspaper — Minimalism UI 笔记主题
+   移植自 Typora "Newsprint" 主题：奶白纸张 + 近黑衬线 + 报刊排版
+   纸张 #f3f2ee · 正文 #1f0909 · 链接 #065588 · 由 ThemeLoader 在运行时注入，
+   受 body.minimalism-ui-theme-newspaper 控制
+   字体不 bundle：用 'PT Serif' 系统衬线栈，缺失则回退 Georgia / 宋体
+   ============================================================================= */
+
+.minimalism-ui-theme-newspaper {
+	--line-height-normal: 1.6;
+	/* 链接：报刊蓝，默认无下划线，悬停才出现 */
+	--link-color: #065588;
+	--link-external-color: #065588;
+	--link-decoration: none;
+	--link-decoration-hover: underline;
+	--link-unresolved-decoration: none;
+	/* 引用块：斜体灰字 + 左侧实线边框，无背景 */
+	--blockquote-border-color: #bababa;
+	--blockquote-border-thickness: 5px;
+	--blockquote-color: #656565;
+	--blockquote-font-style: italic;
+	--blockquote-background-color: transparent;
+	/* 表格：边框 / 表头灰底 / 隔行浅灰 */
+	--table-border-color: #c5c5c5;
+	--table-header-background: #dadada;
+	--table-row-alt-background: #e8e7e7;
+}
+
+/* ── 纸张背景：奶白底强制套用到正文内容区（明/暗底色下都为亮） ──────────── */
+
+/* 阅读视图 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view {
+	background-color: #f3f2ee;
+}
+
+/* 编辑视图（CodeMirror 6 / Live Preview） */
+body.minimalism-ui-theme-newspaper .markdown-source-view.mod-cm6,
+body.minimalism-ui-theme-newspaper .markdown-source-view.mod-cm6 .cm-editor,
+body.minimalism-ui-theme-newspaper .markdown-source-view.mod-cm6 .cm-scroller,
+body.minimalism-ui-theme-newspaper .markdown-source-view.mod-cm6 .cm-gutters {
+	background-color: #f3f2ee;
+}
+
+/* ── 正文字体 + 字色（两个视图都要覆盖） ─────────────────────────────── */
+
+/* 衬线字体栈：用户装了 PT Serif 就用，否则回退 Georgia / 宋体，中文走宋体衬线 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section p,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section li,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h1,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h2,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h3,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h4,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h5,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h6,
+body.minimalism-ui-theme-newspaper .cm-editor .cm-content,
+body.minimalism-ui-theme-newspaper .cm-editor .cm-line,
+body.minimalism-ui-theme-newspaper .markdown-source-view .inline-title {
+	font-family: 'PT Serif', Georgia, 'Times New Roman', 'Songti SC', 'Noto Serif CJK SC', 'SimSun', serif;
+	color: #1f0909;
+	line-height: 1.6;
+	word-break: break-word;
+	word-wrap: break-word;
+}
+
+/* 编辑视图标题：还原为与预览模式一致的 --hX-size 字号（h1 字号合并进下方带分隔线的规则） */
+body.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-header-2 { font-size: var(--h2-size); }
+body.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-header-3 { font-size: var(--h3-size); }
+body.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-header-4 { font-size: var(--h4-size); }
+body.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-header-5 { font-size: var(--h5-size); }
+body.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-header-6 { font-size: var(--h6-size); }
+
+/* ── 标题：h1 报刊式底栏分隔线（两个视图 + 笔记标题 inline-title） ─────── */
+
+body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h1,
+body.minimalism-ui-theme-newspaper .markdown-source-view .inline-title {
+	font-weight: 600;
+	border-bottom: 1px solid #c5c5c5;
+	padding-bottom: 0.3em;
+}
+
+body.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-header-1 {
+	font-size: var(--h1-size);
+	font-weight: 600;
+	border-bottom: 1px solid #c5c5c5;
+	padding-bottom: 0.3em;
+}
+
+/* ── 链接：报刊蓝（兜底，变量未覆盖处） ──────────────────────────────── */
+
+body.minimalism-ui-theme-newspaper .markdown-reading-view a.internal-link,
+body.minimalism-ui-theme-newspaper .markdown-reading-view a.external-link,
+body.minimalism-ui-theme-newspaper .cm-editor .cm-hmd-internal-link,
+body.minimalism-ui-theme-newspaper .cm-editor .cm-link {
+	color: #065588;
+	text-decoration: none;
+}
+
+body.minimalism-ui-theme-newspaper .markdown-reading-view a.internal-link:hover,
+body.minimalism-ui-theme-newspaper .markdown-reading-view a.external-link:hover,
+body.minimalism-ui-theme-newspaper .cm-editor .cm-hmd-internal-link:hover,
+body.minimalism-ui-theme-newspaper .cm-editor .cm-link:hover {
+	text-decoration: underline;
+}
+
+/* ── 引用块：斜体灰字 + 左侧实线边框，无背景 ─────────────────────────── */
+
+/* 阅读视图 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view blockquote {
+	border-left: 5px solid #bababa;
+	border-radius: 0;
+	color: #656565;
+	font-style: italic;
+	background-color: transparent;
+	padding: 0 0 0 1em;
+	margin-left: 1em;
+}
+
+/* 编辑视图（Live Preview）：左边框 + 斜体灰字 */
+body.minimalism-ui-theme-newspaper .cm-blockquote-border {
+	border-left: 5px solid #bababa;
+}
+
+body.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-quote {
+	color: #656565;
+	font-style: italic;
+	background-color: transparent;
+}
+
+/* ── 代码：浅灰底等宽体（Newsprint 用 #dadada 灰块） ──────────────────── */
+
+/* 阅读视图：围栏代码块 + 行内代码字体/字号 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view pre,
+body.minimalism-ui-theme-newspaper .markdown-reading-view code {
+	font-family: 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+	font-size: 0.875em;
+}
+
+/* 阅读视图：围栏代码块灰底 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view pre {
+	background-color: #dadada;
+	color: #1f0909;
+	border-radius: 3px;
+}
+
+/* 阅读视图：行内代码灰底（排除代码块内的 code） */
+body.minimalism-ui-theme-newspaper .markdown-reading-view :not(pre) > code {
+	background-color: #dadada;
+	color: #1f0909;
+	padding: 0 2px;
+}
+
+/* 编辑视图（Live Preview）：围栏 + 行内代码 */
+body.minimalism-ui-theme-newspaper .cm-editor .HyperMD-codeblock,
+body.minimalism-ui-theme-newspaper .cm-editor .cm-inline-code {
+	font-family: 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+	font-size: 0.875em;
+	background-color: #dadada;
+	color: #1f0909;
+}
+
+/* ── 分割线：报刊式细实线 ─────────────────────────────────────────────── */
+
+/* 阅读视图 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view hr {
+	border: none;
+	border-top: 1px solid #c5c5c5;
+}
+
+/* 编辑视图 */
+body.minimalism-ui-theme-newspaper .cm-line.HyperMD-hr,
+body.minimalism-ui-theme-newspaper .cm-line.HyperMD-hr .cm-hr {
+	border: none;
+	border-top: 1px solid #c5c5c5;
+	color: transparent;
+}
+
+/* ── 表格：报刊式表头灰底 + 大写 + 隔行浅灰 ───────────────────────────── */
+
+/* 表头：灰底、大写、加粗、左对齐（两个视图） */
+body.minimalism-ui-theme-newspaper .markdown-reading-view table thead,
+body.minimalism-ui-theme-newspaper .markdown-reading-view table thead th,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor thead,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor thead th {
+	background-color: #dadada;
+	color: #1f0909;
+	font-weight: bold;
+	text-align: left;
+	text-transform: uppercase;
+}
+
+/* 隔行浅灰（两个视图） */
+body.minimalism-ui-theme-newspaper .markdown-reading-view table tbody tr:nth-child(even),
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor tbody tr:nth-child(even) {
+	background-color: #e8e7e7;
+}
+
+/* 单元格内边距 + 字色（两个视图） */
+body.minimalism-ui-theme-newspaper .markdown-reading-view table th,
+body.minimalism-ui-theme-newspaper .markdown-reading-view table td,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td {
+	padding: 0.25em 0.4em;
+	color: #1f0909;
+	vertical-align: top;
+}
+
+/* ── 选区高亮：深墨底 + 白字（Newsprint 配色） ───────────────────────── */
+
+body.minimalism-ui-theme-newspaper .markdown-reading-view ::selection,
+body.minimalism-ui-theme-newspaper .cm-editor .cm-content ::selection {
+	background-color: rgba(32, 43, 51, 0.63);
+	color: #ffffff;
+}
+
+/* ── 滚动条：细条，悬停时才显色 ─────────────────────────────────────── */
+
+.minimalism-ui-theme-newspaper .markdown-reading-view ::-webkit-scrollbar,
+.minimalism-ui-theme-newspaper .cm-scroller::-webkit-scrollbar {
+	width: 3px;
+}
+
+.minimalism-ui-theme-newspaper .markdown-reading-view ::-webkit-scrollbar-thumb,
+.minimalism-ui-theme-newspaper .cm-scroller::-webkit-scrollbar-thumb {
+	background: transparent;
+	border-radius: 999px;
+	transition: background 0.3s ease;
+}
+
+.minimalism-ui-theme-newspaper .markdown-reading-view:hover ::-webkit-scrollbar-thumb,
+.minimalism-ui-theme-newspaper .cm-scroller:hover::-webkit-scrollbar-thumb {
+	background: rgba(31, 9, 9, 0.35);
+}
+
+.minimalism-ui-theme-newspaper .markdown-reading-view ::-webkit-scrollbar-track,
+.minimalism-ui-theme-newspaper .cm-scroller::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+/* ── Callout：正文字色压浅，与报刊灰调统一 ──────────────────────────── */
+
+body.minimalism-ui-theme-newspaper .markdown-reading-view .callout-content,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .callout-content p,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .callout-content li {
+	font-size: 0.9rem;
+	color: #4a3838;
+}
+
+body.minimalism-ui-theme-newspaper .cm-editor .cm-callout .cm-line:not(.cm-callout-title) {
+	font-size: 0.9rem;
+	color: #4a3838;
+}
+
+/* ── Mermaid：超宽横向滚动，不缩放 ───────────────────────────────────── */
+
+body.minimalism-ui-theme-newspaper .markdown-reading-view .mermaid,
+body.minimalism-ui-theme-newspaper .cm-editor .mermaid {
+	overflow-x: overlay;
+	overflow-y: visible;
+	max-width: 100%;
+}
+
+body.minimalism-ui-theme-newspaper .markdown-reading-view .mermaid svg,
+body.minimalism-ui-theme-newspaper .cm-editor .mermaid svg {
+	max-width: none;
+	height: auto;
+}

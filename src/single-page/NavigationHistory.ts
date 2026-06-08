@@ -123,6 +123,10 @@ export class NavigationHistory {
 		this.history = this.history.map(p => p === oldPath ? newPath : p);
 		this.future = this.future.map(p => p === oldPath ? newPath : p);
 		if (this.jumpPath === oldPath) this.jumpPath = newPath;
+		// 重命名当前打开的笔记时不会触发 active-leaf-change，markActiveRoot 无从同步，
+		// 必须在此一并更新 currentRootPath；否则它停留在旧路径，后退会误判“当前显示≠栈顶”
+		// 而原地重放当前页（首次后退空转，需按两次才真正返回上一篇）。
+		if (this.currentRootPath === oldPath) this.currentRootPath = newPath;
 	}
 
 	// 历史条目是否仍可定位/重开：全局关系图键恒为真（随时可重开关系图）；

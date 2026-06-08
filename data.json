@@ -5,7 +5,7 @@
   "hideTabBar": true,
   "disableNoteTabs": true,
   "enableNavAnimation": true,
-  "theme": "forest",
+  "theme": "newspaper",
   "homePage": "README.md",
   "filenamePrefixLength": 13,
   "language": "zh",

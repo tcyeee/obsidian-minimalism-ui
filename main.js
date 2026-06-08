@@ -254,6 +254,7 @@ var NavigationHistory = class {
     this.history = this.history.map((p) => p === oldPath ? newPath : p);
     this.future = this.future.map((p) => p === oldPath ? newPath : p);
     if (this.jumpPath === oldPath) this.jumpPath = newPath;
+    if (this.currentRootPath === oldPath) this.currentRootPath = newPath;
   }
   // 历史条目是否仍可定位/重开：全局关系图键恒为真（随时可重开关系图）；
   // 其余为文件路径，仅当 vault 中仍存在该文件时为真。死条目（已删除文件）返回 false。
