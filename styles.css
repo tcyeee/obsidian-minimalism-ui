@@ -460,7 +460,8 @@ body.minimalism-ui-has-home .minimalism-ui-drag-bar-count {
 	margin-right: 3px;
 	vertical-align: -0.12em;
 	transform: translateY(-1px);
-	color: var(--text-muted);
+	/* 跟随所属面包屑项的颜色:当前页(主页)用 text-muted,非当前页用 text-faint 变灰 */
+	color: inherit;
 }
 
 .minimalism-ui-breadcrumb-home-icon svg {
