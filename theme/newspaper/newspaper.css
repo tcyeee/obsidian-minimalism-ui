@@ -3,7 +3,8 @@
    移植自 Typora "Newsprint" 主题：奶白纸张 + 近黑衬线 + 报刊排版
    纸张 #f3f2ee · 正文 #1f0909 · 链接 #065588 · 由 ThemeLoader 在运行时注入，
    受 body.minimalism-ui-theme-newspaper 控制
-   字体不 bundle：用 'PT Serif' 系统衬线栈，缺失则回退 Georgia / 宋体
+   正文 bundle PT Serif（衬线，latin-only，CJK 回退宋体）、代码 bundle JetBrains Mono
+   （均由 FontLoader 注入），缺失则回退系统字体栈
    ============================================================================= */
 
 .minimalism-ui-theme-newspaper {
@@ -122,7 +123,7 @@ body.minimalism-ui-theme-newspaper .workspace-leaf-content[data-type="canvas"] {
 
 /* ── 正文字体 + 字色（两个视图都要覆盖） ─────────────────────────────── */
 
-/* 衬线字体栈：用户装了 PT Serif 就用，否则回退 Georgia / 宋体，中文走宋体衬线 */
+/* 正文主字族：PT Serif（FontLoader bundle，latin-only），中文回退宋体 / Noto Serif CJK 衬线栈 */
 body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section,
 body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section p,
 body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section li,
@@ -211,7 +212,7 @@ body.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-quote {
 /* 阅读视图：围栏代码块 + 行内代码字体/字号 */
 body.minimalism-ui-theme-newspaper .markdown-reading-view pre,
 body.minimalism-ui-theme-newspaper .markdown-reading-view code {
-	font-family: 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+	font-family: 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
 	font-size: 0.875em;
 }
 
@@ -232,7 +233,7 @@ body.minimalism-ui-theme-newspaper .markdown-reading-view :not(pre) > code {
 /* 编辑视图（Live Preview）：围栏 + 行内代码 */
 body.minimalism-ui-theme-newspaper .cm-editor .HyperMD-codeblock,
 body.minimalism-ui-theme-newspaper .cm-editor .cm-inline-code {
-	font-family: 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+	font-family: 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
 	font-size: 0.875em;
 	background-color: #dadada;
 	color: #1f0909;

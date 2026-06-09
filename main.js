@@ -53,6 +53,32 @@ var FontLoader = class {
   }
   async apply() {
     this.remove();
+    if (this.settings().theme === "newspaper") {
+      await this.loadNewspaperFonts();
+    } else {
+      await this.loadJetBrainsMono();
+    }
+  }
+  // newspaper 字体：
+  //  · 正文 = PT Serif（衬线，latin-only；CJK 由 CSS 字体栈回退到宋体 / Noto Serif CJK）。
+  //    PT Serif 仅 Regular / Bold 两档，各带 italic，共 4 个文件（正文 / 斜体 / 加粗 / 加粗斜体）。
+  //  · 代码块 / 行内代码 = JetBrains Mono，只加载代码会用到的 4 个字重
+  //    （Regular / Bold / Italic / BoldItalic，覆盖语法高亮的加粗 / 斜体 token）。
+  async loadNewspaperFonts() {
+    const serif = "PT Serif";
+    const mono = "JetBrains Mono";
+    await Promise.all([
+      this.loadFontFace(serif, { file: "pt-serif-v11-latin-regular.woff2", style: "normal", weight: "400" }),
+      this.loadFontFace(serif, { file: "pt-serif-v11-latin-italic.woff2", style: "italic", weight: "400" }),
+      this.loadFontFace(serif, { file: "pt-serif-v11-latin-700.woff2", style: "normal", weight: "700" }),
+      this.loadFontFace(serif, { file: "pt-serif-v11-latin-700italic.woff2", style: "italic", weight: "700" }),
+      this.loadFontFace(mono, { file: "JetBrainsMonoNL-Regular.ttf", style: "normal", weight: "400" }),
+      this.loadFontFace(mono, { file: "JetBrainsMonoNL-Italic.ttf", style: "italic", weight: "400" }),
+      this.loadFontFace(mono, { file: "JetBrainsMonoNL-Bold.ttf", style: "normal", weight: "700" }),
+      this.loadFontFace(mono, { file: "JetBrainsMonoNL-BoldItalic.ttf", style: "italic", weight: "700" })
+    ]);
+  }
+  async loadJetBrainsMono() {
     const digitsRange = "U+002D, U+002E, U+0030-0039";
     await Promise.all([
       this.loadFontFace("JetBrains Mono", { file: "JetBrainsMonoNL-Regular.ttf", style: "normal", weight: "400" }),

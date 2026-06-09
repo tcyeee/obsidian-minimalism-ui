@@ -27,6 +27,36 @@ export class FontLoader implements Feature {
 	async apply() {
 		// 切换主题时先卸载上一主题的字体，保证幂等
 		this.remove();
+		// 字体随主题分发：每个主题加载各自的字族。newspaper 用阿里巴巴普惠体作正文，
+		// 其余主题（forest 等）用 JetBrains Mono。
+		if (this.settings().theme === 'newspaper') {
+			await this.loadNewspaperFonts();
+		} else {
+			await this.loadJetBrainsMono();
+		}
+	}
+
+	// newspaper 字体：
+	//  · 正文 = PT Serif（衬线，latin-only；CJK 由 CSS 字体栈回退到宋体 / Noto Serif CJK）。
+	//    PT Serif 仅 Regular / Bold 两档，各带 italic，共 4 个文件（正文 / 斜体 / 加粗 / 加粗斜体）。
+	//  · 代码块 / 行内代码 = JetBrains Mono，只加载代码会用到的 4 个字重
+	//    （Regular / Bold / Italic / BoldItalic，覆盖语法高亮的加粗 / 斜体 token）。
+	private async loadNewspaperFonts() {
+		const serif = 'PT Serif';
+		const mono = 'JetBrains Mono';
+		await Promise.all([
+			this.loadFontFace(serif, { file: 'pt-serif-v11-latin-regular.woff2',    style: 'normal', weight: '400' }),
+			this.loadFontFace(serif, { file: 'pt-serif-v11-latin-italic.woff2',     style: 'italic', weight: '400' }),
+			this.loadFontFace(serif, { file: 'pt-serif-v11-latin-700.woff2',        style: 'normal', weight: '700' }),
+			this.loadFontFace(serif, { file: 'pt-serif-v11-latin-700italic.woff2',  style: 'italic', weight: '700' }),
+			this.loadFontFace(mono, { file: 'JetBrainsMonoNL-Regular.ttf',    style: 'normal', weight: '400' }),
+			this.loadFontFace(mono, { file: 'JetBrainsMonoNL-Italic.ttf',     style: 'italic', weight: '400' }),
+			this.loadFontFace(mono, { file: 'JetBrainsMonoNL-Bold.ttf',       style: 'normal', weight: '700' }),
+			this.loadFontFace(mono, { file: 'JetBrainsMonoNL-BoldItalic.ttf', style: 'italic', weight: '700' }),
+		]);
+	}
+
+	private async loadJetBrainsMono() {
 		// unicodeRange：数字 0-9、小数点、负号，仅用于正文数字字体混排
 		const digitsRange = 'U+002D, U+002E, U+0030-0039';
 		await Promise.all([

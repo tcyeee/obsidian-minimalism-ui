@@ -1,7 +1,7 @@
 {
   "showProperties": true,
-  "showLocalGraph": true,
-  "showVaultProfile": true,
+  "showLocalGraph": false,
+  "showVaultProfile": false,
   "hideTabBar": true,
   "disableNoteTabs": true,
   "enableNavAnimation": true,
