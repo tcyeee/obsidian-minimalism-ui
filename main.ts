@@ -118,6 +118,9 @@ export default class MinimalismUIPlugin extends Plugin {
 	async applyTheme() {
 		await this.themeLoader.apply();
 		await this.fontLoader.apply();
+		// 主题切换后，注入的本地关系图（canvas）颜色仍是旧主题——它只在注入时
+		// 通过 renderer.testCSS() 探测一次 CSS 颜色。这里就地重新探测，无需重建侧边栏。
+		this.sidebarLayout.reapplyGraphColors();
 	}
 
 	// 列出 theme/ 目录下所有可选主题名，供设置面板下拉框使用。

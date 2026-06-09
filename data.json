@@ -1,11 +1,11 @@
 {
   "showProperties": true,
-  "showLocalGraph": false,
+  "showLocalGraph": true,
   "showVaultProfile": false,
   "hideTabBar": true,
   "disableNoteTabs": true,
   "enableNavAnimation": true,
-  "theme": "newspaper",
+  "theme": "forest",
   "homePage": "README.md",
   "filenamePrefixLength": 13,
   "language": "zh",

@@ -1633,6 +1633,22 @@ var SidebarLayoutManager = class {
       this.applyGraphColors();
     }, 200);
   }
+  /**
+   * Re-probe the injected local graph's colors from the (possibly switched) theme CSS.
+   *
+   * The graph renders to a <canvas>; its node/link/text colors are captured once via
+   * Obsidian's renderer.testCSS() when the graph is injected. Switching themes swaps the
+   * theme <style> and body scope class but does NOT re-trigger that probe, so the canvas
+   * keeps the old theme's colors until the sidebar is rebuilt. Call this after a theme
+   * switch to refresh colors in place — no leaf recreation, no flicker.
+   *
+   * No-op when no graph is currently injected (renderer absent → early return).
+   * Deferred one frame so the newly injected theme CSS is in effect before the probe reads it.
+   */
+  reapplyGraphColors() {
+    if (!this.injectedGraphLeaf) return;
+    activeWindow.requestAnimationFrame(() => this.applyGraphColors());
+  }
   applyGraphColors() {
     var _a, _b;
     const renderer = (_b = (_a = this.injectedGraphLeaf) == null ? void 0 : _a.view) == null ? void 0 : _b.renderer;
@@ -2013,6 +2029,7 @@ var MinimalismUIPlugin = class extends import_obsidian8.Plugin {
   async applyTheme() {
     await this.themeLoader.apply();
     await this.fontLoader.apply();
+    this.sidebarLayout.reapplyGraphColors();
   }
   // 列出 theme/ 目录下所有可选主题名，供设置面板下拉框使用。
   listThemes() {

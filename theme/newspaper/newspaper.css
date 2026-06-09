@@ -8,7 +8,8 @@
    ============================================================================= */
 
 .minimalism-ui-theme-newspaper {
-	--line-height-normal: 1.6;
+	/* 报刊正文行距：对齐设计稿的疏朗排版（原 1.6 偏紧，正文与中英文段落都放宽到 1.8） */
+	--line-height-normal: 1.8;
 	/* 链接：报刊蓝，默认无下划线，悬停才出现 */
 	--link-color: #065588;
 	--link-external-color: #065588;
@@ -138,7 +139,7 @@ body.minimalism-ui-theme-newspaper .cm-editor .cm-line,
 body.minimalism-ui-theme-newspaper .markdown-source-view .inline-title {
 	font-family: 'PT Serif', Georgia, 'Times New Roman', 'Songti SC', 'Noto Serif CJK SC', 'SimSun', serif;
 	color: #1f0909;
-	line-height: 1.6;
+	line-height: 1.8;
 	word-break: break-word;
 	word-wrap: break-word;
 }
@@ -223,11 +224,12 @@ body.minimalism-ui-theme-newspaper .markdown-reading-view pre {
 	border-radius: 3px;
 }
 
-/* 阅读视图：行内代码灰底（排除代码块内的 code） */
+/* 阅读视图：行内代码灰底（排除代码块内的 code），小字号 + 内边距收紧 */
 body.minimalism-ui-theme-newspaper .markdown-reading-view :not(pre) > code {
 	background-color: #dadada;
-	color: #1f0909;
-	padding: 0 2px;
+	color: #454545;
+	font-size: 13px;
+	padding: 3px 5px;
 }
 
 /* 编辑视图（Live Preview）：围栏 + 行内代码 */
@@ -237,6 +239,23 @@ body.minimalism-ui-theme-newspaper .cm-editor .cm-inline-code {
 	font-size: 0.875em;
 	background-color: #dadada;
 	color: #1f0909;
+}
+
+/* ── 快捷键 kbd：拟物按键样式（两个视图） ─────────────────────────────
+   底部投影 + 顶部内高光做出微凸的实体键帽感；边框与字色沿用报刊灰调，
+   键面比纸张略亮。 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view kbd,
+body.minimalism-ui-theme-newspaper .cm-editor kbd {
+	font-family: 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+	font-size: 12px;
+	line-height: 1;
+	padding: 3px 6px;
+	color: #454545;
+	background-color: #f8f7f4;
+	border: 1px solid #c5c5c5;
+	border-radius: 4px;
+	box-shadow: 0 1px 0 #b5b5b5, inset 0 1px 0 #ffffff;
+	vertical-align: middle;
 }
 
 /* ── 分割线：报刊式细实线 ─────────────────────────────────────────────── */
@@ -658,6 +677,22 @@ body.minimalism-ui-theme-newspaper .cm-editor .cm-callout .cm-line.cm-callout-ti
    让标题与正文的间距、左缩进与预览一致 */
 body.minimalism-ui-theme-newspaper .cm-editor .cm-callout {
 	padding: var(--callout-padding);
+}
+
+/* ── 脚注：灰字小号 ───────────────────────────────────────────────────
+   脚注正文渲染在 <li> 里的 <p> 标签内，颜色只写在 .footnotes 容器上不会下传到
+   p（p 自带继承自正文的 #1f0909），故 p / li 都要显式上色。 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view .footnotes,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .footnotes li,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .footnotes p {
+	font-size: 13px;
+	color: #808080;
+}
+
+/* ── 任务列表复选框：去掉自带的行首外边距，与文字左缘对齐 ─────────────── */
+body.minimalism-ui-theme-newspaper .markdown-reading-view .task-list-item-checkbox,
+body.minimalism-ui-theme-newspaper .cm-editor .task-list-item-checkbox {
+	margin-inline-start: 0;
 }
 
 /* ── Mermaid：超宽横向滚动，不缩放 ───────────────────────────────────── */
