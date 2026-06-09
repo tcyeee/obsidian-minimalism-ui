@@ -307,7 +307,7 @@ export class SidebarLayoutManager {
 	 */
 	reapplyGraphColors() {
 		if (!this.injectedGraphLeaf) return;
-		activeWindow.requestAnimationFrame(() => this.applyGraphColors());
+		window.requestAnimationFrame(() => this.applyGraphColors());
 	}
 
 	private applyGraphColors() {
