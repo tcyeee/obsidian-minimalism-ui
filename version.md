@@ -5,6 +5,20 @@
 
 ---
 
+## Version 1.2.7
+
+- Added a home icon to the breadcrumb and improved home page detection
+- Improved Forest theme styling for Bases tables, with better alignment and readability
+- Fixed graph colors not always reapplying when the graph is reopened
+- Fixed the single-page forward/back entrance animation occasionally not being visible
+
+- 在面包屑导航新增主页图标，并改进主页检测
+- 优化森林主题 Bases 表格样式，对齐与可读性更好
+- 修复重新打开图谱时颜色不总是重新应用的问题
+- 修复单页模式前进/后退入场动画极小概率才可见的问题
+
+---
+
 ## Version 1.2.6
 
 - Added Newspaper theme styling for Bases tables, canvas, and sidebar with a paper-like look
