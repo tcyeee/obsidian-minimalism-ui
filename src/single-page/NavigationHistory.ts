@@ -254,6 +254,8 @@ export class NavigationHistory {
 		if (!this.getSettings().enableNavAnimation) return;
 		const el = (leaf as LeafView).view?.contentEl;
 		if (!el) return;
+		// 本次要播放的 slide 动画对应的 keyframe 名（用于在 animationend 里过滤掉非本动画的事件）。
+		const keyframe = cls === 'minimalism-ui-slide-from-left' ? 'minimalism-slide-from-left' : 'minimalism-slide-from-right';
 		// 同步重启动画：移除两个方向的 class → 强制重排使移除生效 → 加目标 class。
 		// 全程在浏览器 paint 前完成，页面直接从起始态滑入，消除“先以最终态显示再跳回起始态”的闪烁。
 		// 动画只用 transform/opacity（合成层属性，不触发 layout/ResizeObserver），同步操作不会引发 RO loop。
@@ -262,14 +264,23 @@ export class NavigationHistory {
 		el.classList.add(cls);
 		// 动画结束后必须移除 class：残留的 animation class 会在该 contentEl 之后被移出再插入 DOM
 		// （如同文件锚点跳转走去重分支时，原 leaf 经历一次显隐）被浏览器重新播放，造成“原地重播”。
-		const cleanup = () => {
+		//
+		// 关键：animationend 会冒泡。.view-content 的子节点（Obsidian/CodeMirror 用名为
+		// `node-inserted` 的零效果动画探测节点插入）在内容渲染时不断发 animationend 冒泡上来。
+		// 若不加判断（旧实现用 { once: true } 无条件清理），子节点那次 animationend 会先于我们
+		// 0.22s 的 slide 播完触发 cleanup，提前删掉 slide class → 我们的动画被浏览器 cancel，
+		// 页面看不到滑入。故 cleanup 只认 target 为 el 自身、且 animationName 为本次 keyframe 的事件；
+		// 其余一律忽略（不能用 once，否则首个被忽略的子事件会把监听消耗掉）。
+		const cleanup = (e?: AnimationEvent) => {
+			if (e && (e.target !== el || e.animationName !== keyframe)) return;
+			el.removeEventListener('animationend', cleanup as EventListener);
 			el.classList.remove('minimalism-ui-slide-from-left', 'minimalism-ui-slide-from-right');
 			this.animEl = null;
 			this.animCleanup = null;
 		};
 		this.animEl = el;
 		this.animCleanup = cleanup;
-		el.addEventListener('animationend', cleanup, { once: true });
+		el.addEventListener('animationend', cleanup as EventListener);
 	}
 
 	// 移除挂在上一个 contentEl 上、尚未触发的 animationend 清理监听

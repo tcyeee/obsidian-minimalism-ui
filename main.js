@@ -371,17 +371,20 @@ var NavigationHistory = class {
     if (!this.getSettings().enableNavAnimation) return;
     const el = (_a = leaf.view) == null ? void 0 : _a.contentEl;
     if (!el) return;
+    const keyframe = cls === "minimalism-ui-slide-from-left" ? "minimalism-slide-from-left" : "minimalism-slide-from-right";
     el.classList.remove("minimalism-ui-slide-from-left", "minimalism-ui-slide-from-right");
     void el.offsetWidth;
     el.classList.add(cls);
-    const cleanup = () => {
+    const cleanup = (e) => {
+      if (e && (e.target !== el || e.animationName !== keyframe)) return;
+      el.removeEventListener("animationend", cleanup);
       el.classList.remove("minimalism-ui-slide-from-left", "minimalism-ui-slide-from-right");
       this.animEl = null;
       this.animCleanup = null;
     };
     this.animEl = el;
     this.animCleanup = cleanup;
-    el.addEventListener("animationend", cleanup, { once: true });
+    el.addEventListener("animationend", cleanup);
   }
   // 移除挂在上一个 contentEl 上、尚未触发的 animationend 清理监听
   clearAnimListener() {
