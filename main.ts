@@ -55,6 +55,9 @@ export default class MinimalismUIPlugin extends Plugin {
 			() => this.engine.getNavHistory(),
 			(index) => this.engine.navigateHistoryTo(index),
 		);
+		// active-leaf-change 未触发时（如 deferred 视图经 revealLeaf 显示），引擎记录导航后
+		// 直接驱动面包屑刷新，使其与历史栈保持同步。
+		this.engine.setNavChangeListener((leaf) => this.dragBar.notifyNavChange(leaf));
 		this.sidebarLayout = new SidebarLayoutManager(this.app, settings, this.pinManager);
 		this.sidebarSuggestFocus = new SidebarSuggestFocusTracker();
 		this.mermaidZoom = new MermaidZoomManager(this.app);

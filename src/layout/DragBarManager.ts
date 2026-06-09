@@ -1,4 +1,4 @@
-import { App, Platform } from 'obsidian';
+import { App, Platform, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
 import { BreadcrumbRenderer } from './BreadcrumbRenderer';
 
@@ -31,6 +31,11 @@ export class DragBarManager {
 		onBreadcrumbNavigate: (index: number) => void = () => {},
 	) {
 		this.breadcrumb = new BreadcrumbRenderer(app, getSettings, navHistoryGetter, onBreadcrumbNavigate);
+	}
+
+	// 引擎记录一次导航后转发给面包屑刷新：覆盖 active-leaf-change 未触发的 deferred 视图 reveal 场景。
+	notifyNavChange(leaf: WorkspaceLeaf | null) {
+		this.breadcrumb.notifyActiveLeaf(leaf);
 	}
 
 	apply() {

@@ -21,6 +21,28 @@ export type AnimationClass = 'minimalism-ui-slide-from-left' | 'minimalism-ui-sl
 // 冲突的前缀作为占位 key，使其能像普通笔记一样入栈、去重、前进/后退与重开。
 export const GLOBAL_GRAPH_KEY = 'minimalism-ui:global-graph';
 
+// 其余无文件视图（搜索、各类插件自定义视图等）的合成键前缀。键里编入 viewType，
+// 使其与关系图一样能入栈、前进/后退、重开（重开时按 viewType 重建视图）。
+const FILELESS_VIEW_KEY_PREFIX = 'minimalism-ui:view:';
+
+// 把无文件视图的 viewType 映射为历史栈合成键。graph 沿用 GLOBAL_GRAPH_KEY，
+// 保持 GraphSidebarManager / BreadcrumbRenderer 等既有的 graph 专属判断不变。
+export function filelessViewKey(viewType: string): string {
+	return viewType === 'graph' ? GLOBAL_GRAPH_KEY : FILELESS_VIEW_KEY_PREFIX + viewType;
+}
+
+// 是否为无文件视图的合成键（关系图或其余视图）。
+export function isFilelessViewKey(key: string): boolean {
+	return key === GLOBAL_GRAPH_KEY || key.startsWith(FILELESS_VIEW_KEY_PREFIX);
+}
+
+// 从合成键反解出 viewType（用于重开视图 / 面包屑兜底标签）；非合成键返回 null。
+export function viewTypeFromKey(key: string): string | null {
+	if (key === GLOBAL_GRAPH_KEY) return 'graph';
+	if (key.startsWith(FILELESS_VIEW_KEY_PREFIX)) return key.slice(FILELESS_VIEW_KEY_PREFIX.length);
+	return null;
+}
+
 type LeafView = WorkspaceLeaf & {
 	view?: { contentEl?: HTMLElement };
 };
@@ -132,10 +154,10 @@ export class NavigationHistory {
 		if (this.currentRootPath === oldPath) this.currentRootPath = newPath;
 	}
 
-	// 历史条目是否仍可定位/重开：全局关系图键恒为真（随时可重开关系图）；
+	// 历史条目是否仍可定位/重开：无文件视图的合成键恒为真（随时可按 viewType 重建视图）；
 	// 其余为文件路径，仅当 vault 中仍存在该文件时为真。死条目（已删除文件）返回 false。
 	private isReopenable(key: string): boolean {
-		if (key === GLOBAL_GRAPH_KEY) return true;
+		if (isFilelessViewKey(key)) return true;
 		return this.app.vault.getAbstractFileByPath(key) instanceof TFile;
 	}
 

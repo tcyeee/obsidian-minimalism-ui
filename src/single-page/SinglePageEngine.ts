@@ -30,13 +30,14 @@
  */
 import { App, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
-import { AnimationClass, GLOBAL_GRAPH_KEY, NavigationHistory } from './NavigationHistory';
+import { AnimationClass, GLOBAL_GRAPH_KEY, NavigationHistory, filelessViewKey, viewTypeFromKey } from './NavigationHistory';
 import { ResizeObserverErrorSuppressor } from './ResizeObserverErrorSuppressor';
 import { LeafCache } from './LeafCache';
 import { GraphSidebarManager } from './GraphSidebarManager';
 
 type WorkspaceInternal = {
 	getLeaf: (newLeaf?: boolean | string) => WorkspaceLeaf;
+	revealLeaf: (leaf: WorkspaceLeaf) => void;
 };
 
 type LeafInternal = WorkspaceLeaf & {
@@ -68,6 +69,7 @@ type HistoryPatch = {
 export class SinglePageEngine {
 	private isReusingLeaf = false;
 	private originalGetLeaf: ((newLeaf?: boolean | string) => WorkspaceLeaf) | null = null;
+	private originalRevealLeaf: ((leaf: WorkspaceLeaf) => void) | null = null;
 	private nav: NavigationHistory;
 	private leafCache: LeafCache;
 	private graphSidebar: GraphSidebarManager;
@@ -84,6 +86,9 @@ export class SinglePageEngine {
 	// 此刻重入锁未释放，无法立即重开，置位后由当前这次的 finally 兜底补开，保证最终落在首页而非空页。
 	private _homePageReopenQueued = false;
 	private renameHandler: ((file: TAbstractFile, oldPath: string) => void) | null = null;
+	// 导航历史变更通知：引擎记录一次导航后回调，使面包屑等独立组件能在 active-leaf-change 未触发
+	// （如 deferred 视图经 revealLeaf 显示）时也及时刷新。由 main.ts 注入，跨 apply/remove 持续有效。
+	private navChangeListener: ((leaf: WorkspaceLeaf | null) => void) | null = null;
 
 	constructor(
 		private app: App,
@@ -115,6 +120,17 @@ export class SinglePageEngine {
 				return leaf;
 			}
 			return this.originalGetLeaf!(newLeaf);
+		};
+
+		// 兜底 revealLeaf：插件常用 `getLeavesOfType()[0]` 复用已有 leaf 后直接 revealLeaf 显示视图
+		// （如 day-echo）。若该 leaf 是 deferred（工作区重启恢复、尚未实例化）的无文件主区视图，
+		// Obsidian 在 reveal 时不触发 active-leaf-change，导致导航历史 / currentRootPath / 面包屑全都
+		// 不知道该视图已显示，直到用户在视图内点击才恢复——表现为“困死”。在此对被显示的 root leaf
+		// 直接补走一遍 nav 记录（handleNavTrack 自带 isRootLeaf 守卫，侧边栏 reveal 不受影响；幂等）。
+		this.originalRevealLeaf = ws.revealLeaf.bind(ws);
+		ws.revealLeaf = (leaf: WorkspaceLeaf) => {
+			this.originalRevealLeaf!(leaf);
+			if (leaf) this.handleNavTrack(leaf);
 		};
 
 		// active-leaf-change 上按固定顺序触发两件事，单一 dispatcher 避免依赖 listener 注册顺序。
@@ -167,6 +183,10 @@ export class SinglePageEngine {
 			(this.app.workspace as unknown as WorkspaceInternal).getLeaf = this.originalGetLeaf;
 			this.originalGetLeaf = null;
 		}
+		if (this.originalRevealLeaf) {
+			(this.app.workspace as unknown as WorkspaceInternal).revealLeaf = this.originalRevealLeaf;
+			this.originalRevealLeaf = null;
+		}
 		if (this.activeLeafChangeHandler) {
 			this.app.workspace.off('active-leaf-change', this.activeLeafChangeHandler);
 			this.activeLeafChangeHandler = null;
@@ -202,6 +222,11 @@ export class SinglePageEngine {
 		return this.nav.getHistory();
 	}
 
+	// 注入导航历史变更监听器（main.ts 用它驱动面包屑刷新）。
+	setNavChangeListener(cb: (leaf: WorkspaceLeaf | null) => void) {
+		this.navChangeListener = cb;
+	}
+
 	// 跨 tab 导航历史是否为空。供 HomePageManager 判断“用户是否关完了整条浏览链”：
 	// 为空即应回到首页，即便 future 中仍残留打开的 tab。
 	isNavEmpty(): boolean {
@@ -230,15 +255,23 @@ export class SinglePageEngine {
 		this.nav.markActiveRoot(navKey);
 		if (!navKey) return;
 		this.nav.record(navKey);
+		// 通知面包屑刷新（传入当前 leaf 以便其取 getDisplayText 作为无文件视图标签）。
+		this.navChangeListener?.(leaf);
 	}
 
-	// 把 root leaf 映射为导航栈中的键：有文件则用文件路径；全局关系图用合成键 GLOBAL_GRAPH_KEY；
-	// 其余无文件视图（搜索、本地关系图等）返回 null（不入栈，由 nav 的 currentRootPath 守卫兜底）。
+	// 把 root leaf 映射为导航栈中的键：有文件则用文件路径；无文件视图（全局关系图、搜索、各类插件
+	// 自定义视图等）用按 viewType 编码的合成键，使其与笔记一样入栈、前进/后退、重开。
+	// 空视图（empty，关完所有 tab 后的占位）无内容可记，返回 null（不入栈，由 nav 的 currentRootPath 兜底）。
 	private navKeyForLeaf(leaf: WorkspaceLeaf): string | null {
-		const filePath = (leaf as LeafInternal).view?.file?.path;
+		const li = leaf as LeafInternal;
+		// getViewState() 对 deferred(延迟加载、尚未实例化)视图仍返回真实的 type/state，
+		// 而此时 view.getViewType() 可能返回 'empty'、view.file 也尚未就位。优先用前者兜底。
+		const vs = leaf.getViewState() as { type?: string; state?: { file?: string } } | undefined;
+		const filePath = li.view?.file?.path ?? vs?.state?.file;
 		if (filePath) return filePath;
-		if ((leaf as LeafInternal).view?.getViewType?.() === 'graph') return GLOBAL_GRAPH_KEY;
-		return null;
+		const viewType = vs?.type ?? li.view?.getViewType?.();
+		if (!viewType || viewType === 'empty') return null;
+		return filelessViewKey(viewType);
 	}
 
 	// 关闭 except 这个 leaf 后，workspace 中是否仍有其他带文件的 root leaf。
@@ -267,12 +300,14 @@ export class SinglePageEngine {
 			return;
 		}
 		if (!this.originalGetLeaf) return;
-		// 关系图条目：缓存中已无关系图 leaf（被 LRU 淘汰或手动关闭），新开一个全局关系图重现该条目。
-		if (path === GLOBAL_GRAPH_KEY) {
+		// 无文件视图条目（关系图 / 其余插件视图）：缓存中已无对应 leaf（被 LRU 淘汰或手动关闭），
+		// 从合成键反解出 viewType，新开一个 tab 按 viewType 重建该视图以重现历史条目。
+		const reopenViewType = viewTypeFromKey(path);
+		if (reopenViewType) {
 			const newLeaf = this.originalGetLeaf('tab');
 			this.patchLeafHistory(newLeaf);
 			this.patchRootLeafDetach(newLeaf);
-			void (newLeaf as LeafInternal).setViewState({ type: 'graph' }).then(() => {
+			void (newLeaf as LeafInternal).setViewState({ type: reopenViewType }).then(() => {
 				this.app.workspace.setActiveLeaf(newLeaf, { focus: true });
 				this.nav.playAnimation(newLeaf, animCls);
 			});
@@ -351,40 +386,59 @@ export class SinglePageEngine {
 			return result;
 		};
 
-		// 同一空 leaf 上的一次性 setViewState 拦截：仅针对全局关系图做单实例去重，
-		// 使关系图像文件一样“一份只开一个 tab”。其余视图类型透传，不消费一次性标志。
+		// 同一空 leaf 上的一次性 setViewState 拦截：处理通过 setViewState 打开的无文件视图
+		// （关系图、搜索、各类插件视图），使其与文件一样补 history / detach 拦截并入导航历史。
+		// 仅全局关系图保留单实例去重（“一份只开一个 tab”）；其余视图正常创建。
 		(leaf as LeafInternal).setViewState = async (state: { type: string;[k: string]: unknown }, eState?: unknown) => {
-			if (state?.type !== 'graph' || this.isReusingLeaf) {
+			const viewType = state?.type;
+			// 空视图 / 无类型 / 复用中：透传，不消费一次性标志（leaf 仍在等待真正的内容赋值）。
+			if (!viewType || viewType === 'empty' || this.isReusingLeaf) {
 				return origSetViewState(state, eState);
 			}
-			// 命中全局关系图：还原两个入口并退出 pending
+			// 命中真正的视图赋值：还原两个入口并退出 pending
 			(leaf as LeafInternal).openFile = origOpenFile;
 			(leaf as LeafInternal).setViewState = origSetViewState;
 			this.pendingInterceptLeaves.delete(leaf);
 
-			let existingLeaf: WorkspaceLeaf | null = null;
-			this.app.workspace.iterateRootLeaves(l => {
-				if (existingLeaf || l === leaf) return;
-				if (this.navKeyForLeaf(l) === GLOBAL_GRAPH_KEY) existingLeaf = l;
-			});
-			if (existingLeaf) {
-				// 已存在全局关系图：激活复用，丢弃当前空 leaf，不再创建第二个关系图。
-				// setActiveLeaf 触发的 active-leaf-change 会把 GLOBAL_GRAPH_KEY 写入历史。
-				this.isReusingLeaf = true;
-				try {
-					this.leafCache.touch(existingLeaf);
-					this.app.workspace.setActiveLeaf(existingLeaf, { focus: true });
-					leaf.detach();
-				} finally {
-					this.isReusingLeaf = false;
+			// 全局关系图单实例去重：已存在则激活复用、丢弃当前空 leaf，不再创建第二个关系图。
+			if (viewType === 'graph') {
+				let existingLeaf: WorkspaceLeaf | null = null;
+				this.app.workspace.iterateRootLeaves(l => {
+					if (existingLeaf || l === leaf) return;
+					if (this.navKeyForLeaf(l) === GLOBAL_GRAPH_KEY) existingLeaf = l;
+				});
+				if (existingLeaf) {
+					// setActiveLeaf 触发的 active-leaf-change 会把 GLOBAL_GRAPH_KEY 写入历史。
+					this.isReusingLeaf = true;
+					try {
+						this.leafCache.touch(existingLeaf);
+						this.app.workspace.setActiveLeaf(existingLeaf, { focus: true });
+						leaf.detach();
+					} finally {
+						this.isReusingLeaf = false;
+					}
+					return;
 				}
-				return;
 			}
 
-			// 尚无关系图：正常创建，先补 history / detach 拦截再设置视图。
+			// 正常创建无文件视图：先补 history / detach 拦截再设置视图。
 			this.patchLeafHistory(leaf);
 			this.patchRootLeafDetach(leaf);
-			return origSetViewState(state, eState);
+			const result = await origSetViewState(state, eState);
+			// 兜底：setViewState 在同一活动 leaf 上原地换视图时，active-leaf-change 可能不触发，
+			// 导致该无文件视图既不入导航历史、currentRootPath 也停留在上一篇，造成在该视图里前进/后退
+			// 与面包屑点击全部失效（“困死”）。视图就位后在此直接补记，使三者与 active-leaf-change 路径
+			// 一致（均幂等，与可能照常触发的 active-leaf-change 重复执行无副作用）。
+			if ((leaf as LeafInternal).parent) {
+				const key = this.navKeyForLeaf(leaf);
+				if (key) {
+					this.graphSidebar.handleRootNav(key);
+					this.nav.markActiveRoot(key);
+					this.nav.push(key);
+					this.navChangeListener?.(leaf);
+				}
+			}
+			return result;
 		};
 	}
 

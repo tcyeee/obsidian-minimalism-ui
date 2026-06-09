@@ -1,14 +1,10 @@
 import { App, setIcon, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
 import { LeafNameUtils } from '../core/utils';
-import { GLOBAL_GRAPH_KEY } from '../single-page/NavigationHistory';
+import { GLOBAL_GRAPH_KEY, isFilelessViewKey, viewTypeFromKey } from '../single-page/NavigationHistory';
 import { t } from '../core/i18n';
 
 const COMPACT_THRESHOLD = 15;
-
-// 无文件视图(如全局关系图)的 viewType,面包屑用它们的 getDisplayText() 作为当前项,
-// 而非沿用导航历史里残留的上一篇笔记名。
-const FILELESS_VIEW_TYPES = new Set(['graph']);
 
 /**
  * BreadcrumbRenderer — 顶部拖拽栏里的面包屑导航。
@@ -57,6 +53,13 @@ export class BreadcrumbRenderer {
 		this.app.vault.on('rename', this.renameHandler);
 	}
 
+	// 外部（SinglePageEngine 经 DragBarManager）在记录一次导航后调用：用于 active-leaf-change 未触发
+	// 的场景（如 deferred 视图经 revealLeaf 显示），同步当前 leaf 并重绘面包屑。
+	notifyActiveLeaf(leaf: WorkspaceLeaf | null) {
+		this.currentLeaf = leaf;
+		this.update();
+	}
+
 	unmount() {
 		if (this.activeLeafHandler) {
 			this.app.workspace.off('active-leaf-change', this.activeLeafHandler);
@@ -93,29 +96,39 @@ export class BreadcrumbRenderer {
 	}
 
 	// 纯函数(无 DOM):由历史路径 + 当前无文件视图标签算出面包屑文本序列。
-	// 全局关系图现已作为真实条目入栈,buildNames 会用 graph 标签渲染它;只有在它尚未落入历史
-	// (active-leaf-change 与 nav 记录之间的时序间隙)时,才用实时标签补在末尾,避免出现两个关系图项。
+	// 无文件视图(关系图及各类插件视图)现已作为真实条目入栈,buildNames 会渲染它;只有在它尚未落入
+	// 历史(active-leaf-change 与 nav 记录之间的时序间隙)时,才用实时标签补在末尾,避免重复出现。
 	private buildTrail(paths: string[], filelessLabel: string | null): string[] {
-		const names = this.buildNames(paths);
-		if (filelessLabel !== null && paths[paths.length - 1] !== GLOBAL_GRAPH_KEY) {
+		const names = this.buildNames(paths, filelessLabel);
+		const last = paths[paths.length - 1];
+		if (filelessLabel !== null && (last === undefined || !isFilelessViewKey(last))) {
 			names.push(filelessLabel);
 		}
 		return names;
 	}
 
-	// 当前激活 leaf 若是无文件视图(graph 等),返回其本地化标题;否则返回 null。
+	// 当前激活 leaf 若是无文件视图(全局关系图、各类插件自定义视图等),返回其本地化标题作为
+	// 面包屑当前项;否则返回 null。判定方式不再用 viewType 白名单,而是看视图是否挂在文件上:
+	// Obsidian 的 FileView(markdown / canvas / pdf 等)有 view.file,无 file 即视为无文件视图,
+	// 这样所有插件视图无需逐个登记都能正确显示。空视图(empty)不挂文件但也无内容可标注,排除。
 	private activeFilelessViewLabel(): string | null {
 		const view = (this.currentLeaf ?? this.app.workspace.getMostRecentLeaf())?.view;
-		if (!view || !FILELESS_VIEW_TYPES.has(view.getViewType())) return null;
+		if (!view || view.getViewType() === 'empty') return null;
+		if ((view as { file?: unknown }).file) return null;
 		return view.getDisplayText() || view.getViewType();
 	}
 
 	// 路径是稳定字符串,直接从 vault 查文件名,无需过滤关闭的 leaf。
-	// 全局关系图的合成键不是文件路径,映射为本地化的 graph 标签,避免被 stripPrefix 截成 ":global-graph"。
-	private buildNames(paths: string[]): string[] {
+	// 无文件视图的合成键不是文件路径:关系图映射为本地化 graph 标签;其余视图若正是当前末项则用实时
+	// getDisplayText(filelessLabel),否则退化为 viewType。避免被 stripPrefix 截成乱码。
+	private buildNames(paths: string[], filelessLabel: string | null): string[] {
 		const prefixLen = this.getSettings().filenamePrefixLength;
-		return paths.map(p => {
+		return paths.map((p, i) => {
 			if (p === GLOBAL_GRAPH_KEY) return t('graphView');
+			if (isFilelessViewKey(p)) {
+				if (i === paths.length - 1 && filelessLabel) return filelessLabel;
+				return viewTypeFromKey(p) ?? p;
+			}
 			const f = this.app.vault.getAbstractFileByPath(p);
 			if (f instanceof TFile) return LeafNameUtils.stripPrefix(f.basename, prefixLen);
 			// 文件已不在 vault(被删):从路径推导 basename(去目录、去扩展名)再剥前缀,
