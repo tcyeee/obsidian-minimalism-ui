@@ -394,6 +394,11 @@ body.minimalism-ui-disable-note-tabs .workspace-split.mod-root .workspace-tab-he
 	opacity: 0.5;
 }
 
+/* 设了首页时由面包屑里的房屋 icon 代表起点，隐藏装饰小圆点（二者只出现其一）*/
+body.minimalism-ui-has-home .minimalism-ui-drag-bar-count {
+	display: none;
+}
+
 /* status-bar 搬入 row1 后重置定位，推到最右侧 */
 .workspace .minimalism-ui-drag-bar-row1 .status-bar {
 	position: static;
@@ -447,6 +452,21 @@ body.minimalism-ui-disable-note-tabs .workspace-split.mod-root .workspace-tab-he
 .minimalism-ui-breadcrumb-item.is-clickable:hover {
 	color: var(--text-normal);
 	text-decoration: underline;
+}
+
+.minimalism-ui-breadcrumb-home-icon {
+	display: inline-flex;
+	align-items: center;
+	margin-right: 3px;
+	vertical-align: -0.12em;
+	transform: translateY(-1px);
+	color: var(--text-muted);
+}
+
+.minimalism-ui-breadcrumb-home-icon svg {
+	width: 0.85em;
+	height: 0.85em;
+	stroke-width: 2.6;
 }
 
 .minimalism-ui-breadcrumb-sep,

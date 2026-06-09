@@ -1,4 +1,4 @@
-import { App, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
+import { App, setIcon, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
 import { LeafNameUtils } from '../core/utils';
 import { GLOBAL_GRAPH_KEY } from '../single-page/NavigationHistory';
@@ -83,7 +83,13 @@ export class BreadcrumbRenderer {
 			return;
 		}
 
-		this.renderTrail(this.buildTrail(paths, filelessLabel));
+		this.renderTrail(this.buildTrail(paths, filelessLabel), this.firstIsHome(paths));
+	}
+
+	// 导航历史的首项是否正好是设置里的主页(homePage 存的是完整路径,与历史栈一致)。
+	private firstIsHome(paths: string[]): boolean {
+		const home = this.getSettings().homePage;
+		return !!home && paths[0] === home;
 	}
 
 	// 纯函数(无 DOM):由历史路径 + 当前无文件视图标签算出面包屑文本序列。
@@ -120,31 +126,28 @@ export class BreadcrumbRenderer {
 	}
 
 	// 渲染完整路径:单项→当前项;超阈值或溢出→折叠中间项;否则完整列出。
-	private renderTrail(names: string[]) {
+	private renderTrail(names: string[], firstIsHome: boolean) {
 		const el = this.el;
 		if (!el) return;
 		if (names.length === 0) return;
 
 		if (names.length === 1) {
 			el.empty();
-			const item = createSpan();
-			item.className = 'minimalism-ui-breadcrumb-item is-current';
-			item.textContent = names[0];
-			el.appendChild(item);
+			el.appendChild(this.makeItem(names[0], 0, true, firstIsHome));
 			return;
 		}
 
 		if (names.length > COMPACT_THRESHOLD) {
-			this.renderCompact(names, names.length - 2);
+			this.renderCompact(names, names.length - 2, firstIsHome);
 			return;
 		}
 
-		this.renderAll(names);
+		this.renderAll(names, firstIsHome);
 		window.requestAnimationFrame(() => {
 			if (!el.isConnected) return;
 			if (el.clientWidth === 0) return;
 			if (el.scrollWidth > el.clientWidth && names.length > 2) {
-				this.renderCompact(names, names.length - 2);
+				this.renderCompact(names, names.length - 2, firstIsHome);
 			}
 		});
 	}
@@ -155,29 +158,29 @@ export class BreadcrumbRenderer {
 		el.empty();
 		const activeFile = this.app.workspace.getActiveFile();
 		if (!activeFile) return;
-		const item = createSpan();
-		item.className = 'minimalism-ui-breadcrumb-item is-current';
-		item.textContent = LeafNameUtils.stripPrefix(activeFile.basename, this.getSettings().filenamePrefixLength);
-		el.appendChild(item);
+		const home = this.getSettings().homePage;
+		const isHome = !!home && activeFile.path === home;
+		const name = LeafNameUtils.stripPrefix(activeFile.basename, this.getSettings().filenamePrefixLength);
+		el.appendChild(this.makeItem(name, 0, true, isHome));
 	}
 
-	private renderAll(names: string[]) {
+	private renderAll(names: string[], firstIsHome: boolean) {
 		const el = this.el;
 		if (!el) return;
 		el.empty();
 		names.forEach((name, i) => {
 			if (i > 0) el.appendChild(this.makeSep());
-			el.appendChild(this.makeItem(name, i, i === names.length - 1));
+			el.appendChild(this.makeItem(name, i, i === names.length - 1, i === 0 && firstIsHome));
 		});
 	}
 
-	private renderCompact(names: string[], collapsedCount: number) {
+	private renderCompact(names: string[], collapsedCount: number, firstIsHome: boolean) {
 		const el = this.el;
 		if (!el) return;
 		el.empty();
 
 		// 首项下标恒为 0,可点;折叠的中间项与当前项不可点。
-		el.appendChild(this.makeItem(names[0], 0, false));
+		el.appendChild(this.makeItem(names[0], 0, false, firstIsHome));
 		el.appendChild(this.makeSep());
 
 		const collapse = createSpan();
@@ -198,12 +201,17 @@ export class BreadcrumbRenderer {
 
 	// 渲染下标与导航历史栈下标 1:1(末尾追加的无文件视图标签恒为当前项,不可点),
 	// 故非当前项可直接用 index 触发 onNavigate(连续后退到该条目)。
-	private makeItem(name: string, index: number, isCurrent: boolean): HTMLElement {
+	private makeItem(name: string, index: number, isCurrent: boolean, withHomeIcon = false): HTMLElement {
 		const item = createSpan();
 		item.className = isCurrent
 			? 'minimalism-ui-breadcrumb-item is-current'
 			: 'minimalism-ui-breadcrumb-item is-clickable';
-		item.textContent = name;
+		// 首项恰为主页时,文字前加一个房屋 icon。
+		if (withHomeIcon) {
+			const icon = item.createSpan({ cls: 'minimalism-ui-breadcrumb-home-icon' });
+			setIcon(icon, 'house');
+		}
+		item.appendText(name);
 		if (!isCurrent) {
 			item.addEventListener('click', () => this.onNavigate(index));
 		}
