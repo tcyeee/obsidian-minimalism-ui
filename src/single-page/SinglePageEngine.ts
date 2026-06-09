@@ -484,7 +484,7 @@ export class SinglePageEngine {
 			const canReuse = !!active
 				&& !(active as LeafInternal).view?.file
 				&& !this.pendingInterceptLeaves.has(active);
-			const leaf = canReuse ? active! : this.app.workspace.getLeaf('tab');
+			const leaf = canReuse && active ? active : this.app.workspace.getLeaf('tab');
 			await (leaf as LeafInternal).openFile(file);
 			if ((leaf as LeafInternal).parent) {
 				this.patchLeafHistory(leaf);

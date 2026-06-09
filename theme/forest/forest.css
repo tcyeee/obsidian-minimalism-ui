@@ -513,8 +513,11 @@ body.minimalism-ui-theme-forest .bases-view[data-view-type="table"] .bases-td .m
 	line-height: normal;
 }
 
+/* 只压上下内边距：external-link 自带 padding-inline-end:0.9em 给末尾的外链箭头
+   背景图留位（箭头是 .external-link 的 background-image，不是 DOM 节点）。padding:0
+   会连这段右内边距一起清掉，箭头落到 URL 末字符上造成重叠，故只清 block 方向。 */
 body.minimalism-ui-theme-forest .bases-view[data-view-type="table"] .bases-td .metadata-link-inner {
-	padding: 0;
+	padding-block: 0;
 	line-height: normal;
 }
 

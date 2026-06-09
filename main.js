@@ -913,7 +913,7 @@ var SinglePageEngine = class {
       }
       const active = this.app.workspace.getMostRecentLeaf();
       const canReuse = !!active && !((_a = active.view) == null ? void 0 : _a.file) && !this.pendingInterceptLeaves.has(active);
-      const leaf = canReuse ? active : this.app.workspace.getLeaf("tab");
+      const leaf = canReuse && active ? active : this.app.workspace.getLeaf("tab");
       await leaf.openFile(file);
       if (leaf.parent) {
         this.patchLeafHistory(leaf);
