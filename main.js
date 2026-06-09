@@ -343,7 +343,8 @@ var NavigationHistory = class {
   // 设置 isClosingTab 阻止关闭后的自动激活被记为新导航；并主动跳转到 history 顶部，
   // 让用户落在上一篇笔记而非 Obsidian 任意选择的相邻 leaf。
   // future 不修改：关闭 tab 不影响前进历史，已关闭的文件路径仍可通过前进重新打开。
-  onTabClosing(closingPath) {
+  // hasOtherFileLeaf：关闭后 workspace 中是否仍有其他文件 leaf（由引擎在 detach 前统计，排除本 leaf）。
+  onTabClosing(closingPath, hasOtherFileLeaf) {
     if (closingPath) {
       const idx = this.history.lastIndexOf(closingPath);
       if (idx !== -1) this.history.splice(idx, 1);
@@ -352,7 +353,11 @@ var NavigationHistory = class {
     if (prevPath) {
       this.isClosingTab = true;
       this.jumpPath = prevPath;
-      this.scheduleActivate(prevPath);
+      this.scheduleActivate(prevPath, "minimalism-ui-slide-from-left");
+      return;
+    }
+    if (hasOtherFileLeaf) {
+      this.isClosingTab = true;
     }
   }
   // 前进/后退导航完成后，对已定位的目标 leaf 同步播放入场动画。
@@ -361,11 +366,11 @@ var NavigationHistory = class {
   // 动画会落到中间页/空 leaf 上。这里拿到的永远是真正的目标 leaf。
   playAnimation(leaf, cls) {
     var _a;
+    this.clearAnimListener();
     if (!cls || !leaf) return;
     if (!this.getSettings().enableNavAnimation) return;
     const el = (_a = leaf.view) == null ? void 0 : _a.contentEl;
     if (!el) return;
-    this.clearAnimListener();
     el.classList.remove("minimalism-ui-slide-from-left", "minimalism-ui-slide-from-right");
     void el.offsetWidth;
     el.classList.add(cls);
@@ -675,6 +680,11 @@ var SinglePageEngine = class {
   getNavHistory() {
     return this.nav.getHistory();
   }
+  // 跨 tab 导航历史是否为空。供 HomePageManager 判断“用户是否关完了整条浏览链”：
+  // 为空即应回到首页，即便 future 中仍残留打开的 tab。
+  isNavEmpty() {
+    return this.nav.isEmpty();
+  }
   // 面包屑点击:跳转到导航历史栈中指定下标的条目(语义等同连续后退)。
   navigateHistoryTo(index) {
     this.nav.jumpToIndex(index);
@@ -702,6 +712,17 @@ var SinglePageEngine = class {
     if (filePath) return filePath;
     if (((_d = (_c = leaf.view) == null ? void 0 : _c.getViewType) == null ? void 0 : _d.call(_c)) === "graph") return GLOBAL_GRAPH_KEY;
     return null;
+  }
+  // 关闭 except 这个 leaf 后，workspace 中是否仍有其他带文件的 root leaf。
+  // 在 detach 前调用，故需排除正在关闭的 leaf 自身。
+  hasOtherFileLeaf(except) {
+    let found = false;
+    this.app.workspace.iterateRootLeaves((l) => {
+      var _a;
+      if (found || l === except) return;
+      if ((_a = l.view) == null ? void 0 : _a.file) found = true;
+    });
+    return found;
   }
   // 激活已显示目标路径的 root leaf；若无（已被 LRU 淘汰或手动关闭）则重新打开该文件。
   // 供 NavigationHistory 的 back/forward/onTabClosing 回调调用，收敛此前散落 4 处的重复逻辑。
@@ -846,7 +867,8 @@ var SinglePageEngine = class {
       var _a;
       if (!this.isReusingLeaf && !this.leafCache.isEvictingNow()) {
         const closingPath = (_a = this.navKeyForLeaf(leaf)) != null ? _a : void 0;
-        this.nav.onTabClosing(closingPath);
+        const hasOtherFileLeaf = this.hasOtherFileLeaf(leaf);
+        this.nav.onTabClosing(closingPath, hasOtherFileLeaf);
       }
       original();
       this.rootDetachPatches.delete(leaf);
@@ -862,6 +884,7 @@ var SinglePageEngine = class {
   }
   // 打开首页笔记：先置 _isOpeningHomePage 防止 getLeaf 拦截器介入，再补 history / detach patch
   async openHomePage() {
+    var _a;
     if (this._isOpeningHomePage) {
       this._homePageReopenQueued = true;
       return;
@@ -874,19 +897,20 @@ var SinglePageEngine = class {
     this._isOpeningHomePage = true;
     this._homePageReopenQueued = false;
     try {
-      const leaf = this.app.workspace.getLeaf(false);
       let existingLeaf = null;
       this.app.workspace.iterateRootLeaves((l) => {
-        var _a, _b;
-        if (existingLeaf || l === leaf) return;
-        if (((_b = (_a = l.view) == null ? void 0 : _a.file) == null ? void 0 : _b.path) === file.path) existingLeaf = l;
+        var _a2, _b;
+        if (existingLeaf) return;
+        if (((_b = (_a2 = l.view) == null ? void 0 : _a2.file) == null ? void 0 : _b.path) === file.path) existingLeaf = l;
       });
       if (existingLeaf) {
         this.leafCache.touch(existingLeaf);
         this.app.workspace.setActiveLeaf(existingLeaf, { focus: true });
-        leaf.detach();
         return;
       }
+      const active = this.app.workspace.getMostRecentLeaf();
+      const canReuse = !!active && !((_a = active.view) == null ? void 0 : _a.file) && !this.pendingInterceptLeaves.has(active);
+      const leaf = canReuse ? active : this.app.workspace.getLeaf("tab");
       await leaf.openFile(file);
       if (leaf.parent) {
         this.patchLeafHistory(leaf);
@@ -984,12 +1008,7 @@ var HomePageManager = class {
   }
   maybeOpenHomePage() {
     if (this.engine.isOpeningHomePage()) return;
-    let hasFileLeaf = false;
-    this.app.workspace.iterateRootLeaves((l) => {
-      var _a;
-      if ((_a = l.view) == null ? void 0 : _a.file) hasFileLeaf = true;
-    });
-    if (hasFileLeaf) return;
+    if (!this.engine.isNavEmpty()) return;
     const active = this.app.workspace.getMostRecentLeaf();
     if (active && this.engine.hasPendingIntercept(active)) return;
     void this.engine.openHomePage();
@@ -1138,8 +1157,9 @@ var import_obsidian4 = require("obsidian");
 var LeafNameUtils = class {
   static stripPrefix(name, prefixLength) {
     if (prefixLength <= 0) return name;
-    if (name.length > prefixLength) return name.slice(prefixLength);
-    return name;
+    if (name.length <= prefixLength) return name;
+    if (!/^\d+[-_ ]?$/.test(name.slice(0, prefixLength))) return name;
+    return name.slice(prefixLength);
   }
 };
 
@@ -1222,7 +1242,9 @@ var BreadcrumbRenderer = class {
     return paths.map((p) => {
       if (p === GLOBAL_GRAPH_KEY) return t("graphView");
       const f = this.app.vault.getAbstractFileByPath(p);
-      return f instanceof import_obsidian4.TFile ? LeafNameUtils.stripPrefix(f.basename, prefixLen) : LeafNameUtils.stripPrefix(p, prefixLen);
+      if (f instanceof import_obsidian4.TFile) return LeafNameUtils.stripPrefix(f.basename, prefixLen);
+      const base = p.split("/").pop().replace(/\.md$/, "");
+      return LeafNameUtils.stripPrefix(base, prefixLen);
     });
   }
   // 渲染完整路径:单项→当前项;超阈值或溢出→折叠中间项;否则完整列出。

@@ -202,6 +202,12 @@ export class SinglePageEngine {
 		return this.nav.getHistory();
 	}
 
+	// 跨 tab 导航历史是否为空。供 HomePageManager 判断“用户是否关完了整条浏览链”：
+	// 为空即应回到首页，即便 future 中仍残留打开的 tab。
+	isNavEmpty(): boolean {
+		return this.nav.isEmpty();
+	}
+
 	// 面包屑点击:跳转到导航历史栈中指定下标的条目(语义等同连续后退)。
 	navigateHistoryTo(index: number) {
 		this.nav.jumpToIndex(index);
@@ -233,6 +239,17 @@ export class SinglePageEngine {
 		if (filePath) return filePath;
 		if ((leaf as LeafInternal).view?.getViewType?.() === 'graph') return GLOBAL_GRAPH_KEY;
 		return null;
+	}
+
+	// 关闭 except 这个 leaf 后，workspace 中是否仍有其他带文件的 root leaf。
+	// 在 detach 前调用，故需排除正在关闭的 leaf 自身。
+	private hasOtherFileLeaf(except: WorkspaceLeaf): boolean {
+		let found = false;
+		this.app.workspace.iterateRootLeaves(l => {
+			if (found || l === except) return;
+			if ((l as LeafInternal).view?.file) found = true;
+		});
+		return found;
 	}
 
 	// 激活已显示目标路径的 root leaf；若无（已被 LRU 淘汰或手动关闭）则重新打开该文件。
@@ -410,7 +427,10 @@ export class SinglePageEngine {
 			if (!this.isReusingLeaf && !this.leafCache.isEvictingNow()) {
 				// 关系图 tab 关闭时同样需移除其历史条目，故用 navKeyForLeaf 而非仅文件路径。
 				const closingPath = this.navKeyForLeaf(leaf) ?? undefined;
-				this.nav.onTabClosing(closingPath);
+				// 关闭后是否仍有其他文件 leaf（排除本 leaf）：决定历史清空时是否需吞掉 Obsidian 自动激活
+				// 残留 tab 的那次 record，使 history 保持为空、HomePageManager 据此回到首页。
+				const hasOtherFileLeaf = this.hasOtherFileLeaf(leaf);
+				this.nav.onTabClosing(closingPath, hasOtherFileLeaf);
 			}
 			original();
 			// leaf 已销毁，清理两个 patch 注册表，防止 Map 随累计打开的 tab 数无限增长
@@ -443,21 +463,28 @@ export class SinglePageEngine {
 		this._isOpeningHomePage = true;
 		this._homePageReopenQueued = false;
 		try {
-			const leaf = this.app.workspace.getLeaf(false);
-			// Dedup: file-open may fire synchronously inside originalGetLeaf('tab') before
-			// interceptLeafOpenFile installs its interceptor, so openHomePage can be reached
-			// with the interceptor not yet in place. Mirror the same dedup check here.
+			// 先查重、后取 leaf:首页已开着就直接激活复用。先查重避免旧实现"先 getLeaf(false)
+			// 抓住当前活动 leaf、命中去重时再 detach 它"——那会顺手关掉一篇仍开着的 future 残留笔记。
 			let existingLeaf: WorkspaceLeaf | null = null;
 			this.app.workspace.iterateRootLeaves(l => {
-				if (existingLeaf || l === leaf) return;
+				if (existingLeaf) return;
 				if ((l as LeafInternal).view?.file?.path === file.path) existingLeaf = l;
 			});
 			if (existingLeaf) {
 				this.leafCache.touch(existingLeaf);
 				this.app.workspace.setActiveLeaf(existingLeaf, { focus: true });
-				leaf.detach();
 				return;
 			}
+			// 选目标 leaf:仅当当前活动 leaf 是空白页(关完所有 tab 后落到的空 leaf)才复用它;
+			// 否则新开 tab。关键修复(BUG 2):关闭面包屑最前一页后历史清空,Obsidian 会先自动激活
+			// 一篇仍开着的 future 残留笔记(带文件),此时绝不能用 getLeaf(false) 复用它——那会把那篇
+			// 笔记顶掉(用户看到的"先关掉一个缓存 Tab")。带文件就新开 tab,残留笔记原样保留。
+			// getLeaf('tab') 在 _isOpeningHomePage 守卫下会绕过拦截器、退回原生行为,单页/非单页模式均安全。
+			const active = this.app.workspace.getMostRecentLeaf();
+			const canReuse = !!active
+				&& !(active as LeafInternal).view?.file
+				&& !this.pendingInterceptLeaves.has(active);
+			const leaf = canReuse ? active! : this.app.workspace.getLeaf('tab');
 			await (leaf as LeafInternal).openFile(file);
 			if ((leaf as LeafInternal).parent) {
 				this.patchLeafHistory(leaf);

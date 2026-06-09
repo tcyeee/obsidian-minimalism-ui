@@ -2,8 +2,6 @@ import { App, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
 import { SinglePageEngine } from './SinglePageEngine';
 
-type LeafWithFile = WorkspaceLeaf & { view?: { file?: unknown } };
-
 /**
  * HomePageManager — 首页策略层。
  *
@@ -37,14 +35,15 @@ export class HomePageManager {
 		// 首页正在打开：openHomePage 自身的 getLeaf 会先产生临时空 leaf 并触发本事件，
 		// 此时再触发会无限重入；“打开途中被关掉”的情形由 openHomePage 内部兜底重试。
 		if (this.engine.isOpeningHomePage()) return;
-		// 工作区仍有任意带文件的 root leaf：不是“全部关闭”，跳过。
-		// 这一条同时天然滤掉了插件内部导航（activateOrOpenFile 重开文件）产生的临时空 leaf——
-		// 那种时刻当前文件的 leaf 仍在，hasFileLeaf 必为 true。
-		let hasFileLeaf = false;
-		this.app.workspace.iterateRootLeaves(l => { if ((l as LeafWithFile).view?.file) hasFileLeaf = true; });
-		if (hasFileLeaf) return;
-		// 工作区已无带文件的 leaf。但若当前活动空 leaf 是 getLeaf patch 刚为 Cmd+N 新建的，
-		// 别用首页劫持它。
+		// 跨 tab 导航历史非空：用户的浏览链还在，不是“全部关闭”，跳过。
+		// 用导航历史是否为空、而非“是否还有文件 leaf”来判断：用户后退后留下的 future 残留 tab
+		// 仍是文件 leaf，但它们已不在浏览链中，不应阻止回到首页（关完整条后退链即应回首页）。
+		// 这一判断同时天然滤掉了插件内部导航（activateOrOpenFile 重开文件）产生的临时空 leaf——
+		// 那种时刻历史栈仍有条目，isNavEmpty 必为 false。
+		// 关闭最后一个历史 tab 时若仍有 future 残留 leaf，引擎已在 onTabClosing 里吞掉 Obsidian
+		// 自动激活残留 leaf 的那次 record，使历史保持为空，故此处能正确触发。
+		if (!this.engine.isNavEmpty()) return;
+		// 历史已空。但若当前活动空 leaf 是 getLeaf patch 刚为 Cmd+N 新建的，别用首页劫持它。
 		const active = this.app.workspace.getMostRecentLeaf();
 		if (active && this.engine.hasPendingIntercept(active)) return;
 		void this.engine.openHomePage();

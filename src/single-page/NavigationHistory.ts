@@ -209,7 +209,8 @@ export class NavigationHistory {
 	// 设置 isClosingTab 阻止关闭后的自动激活被记为新导航；并主动跳转到 history 顶部，
 	// 让用户落在上一篇笔记而非 Obsidian 任意选择的相邻 leaf。
 	// future 不修改：关闭 tab 不影响前进历史，已关闭的文件路径仍可通过前进重新打开。
-	onTabClosing(closingPath: string | undefined) {
+	// hasOtherFileLeaf：关闭后 workspace 中是否仍有其他文件 leaf（由引擎在 detach 前统计，排除本 leaf）。
+	onTabClosing(closingPath: string | undefined, hasOtherFileLeaf: boolean) {
 		if (closingPath) {
 			const idx = this.history.lastIndexOf(closingPath);
 			if (idx !== -1) this.history.splice(idx, 1);
@@ -217,13 +218,24 @@ export class NavigationHistory {
 
 		const prevPath = this.history[this.history.length - 1];
 		if (prevPath) {
-			// 仅当关闭后仍有前驱文件可跳转时，才置 isClosingTab 去吞掉 Obsidian 在关闭瞬间同步
-			// 激活相邻 leaf 触发的那一次 record。若关闭的是最后一个 tab（无前驱），关闭后落到的是
-			// 空 leaf（navKey 为 null，根本不会进入 record），此时置位只会让标志滞留，进而把随后由
-			// HomePageManager 自动打开的首页那次 record 误吞，导致首页不入导航历史栈。故无前驱时不置位。
+			// 关闭后仍有前驱文件可跳转：置 isClosingTab 吞掉 Obsidian 在关闭瞬间同步激活相邻 leaf
+			// 触发的那一次 record，再跳转到前驱。
+			// 关闭语义等同后退,落到前驱页时播放与后退一致的入场动画(从左滑入),
+			// 而非此前传 null 导致关闭路径整条链都没有动画。
 			this.isClosingTab = true;
 			this.jumpPath = prevPath;
-			this.scheduleActivate(prevPath);
+			this.scheduleActivate(prevPath, 'minimalism-ui-slide-from-left');
+			return;
+		}
+
+		// 历史已空：用户关完了整条后退链。此时应回到首页（由 HomePageManager 据 isEmpty() 触发），
+		// 而非停留在曾经后退留下、仍开着的 future 残留 tab 上。
+		// 仅当确实还有其他文件 leaf 时才置 isClosingTab：关闭瞬间 Obsidian 会自动激活其中一个并触发
+		// 一次 record，置位把它吞掉，使 history 保持为空，HomePageManager 据此打开首页。
+		// 若已无任何其他文件 leaf，关闭后落到空 leaf（navKey 为 null，不进入 record），此时置位只会让
+		// 标志滞留，进而误吞随后首页打开的那次 record，导致首页不入导航历史栈——故无其他 leaf 时不置位。
+		if (hasOtherFileLeaf) {
+			this.isClosingTab = true;
 		}
 	}
 
@@ -232,12 +244,16 @@ export class NavigationHistory {
 	// active-leaf-change 事件——后者会为每次激活（含重开时一闪而过的空 leaf）触发，快速切换时
 	// 动画会落到中间页/空 leaf 上。这里拿到的永远是真正的目标 leaf。
 	playAnimation(leaf: WorkspaceLeaf | null, cls: AnimationClass | null) {
+		// 先撤掉上一次尚未结束的清理监听与残留 class——无论本次是否真要播动画。
+		// 否则残留的 slide class 会在该 contentEl 之后被移出再插入 DOM 时被浏览器重播:
+		// 历史中存在非相邻重复条目(如 A/B/C/A/D)时,两个 A 共用同一个 leaf/contentEl,
+		// 该 leaf 被反复 setActiveLeaf 重插 DOM,残留类会让它"诈尸"重播动画。提到 early-return
+		// 之前,保证每次导航(含 cls 为 null 的无动画激活)都先清干净。
+		this.clearAnimListener();
 		if (!cls || !leaf) return;
 		if (!this.getSettings().enableNavAnimation) return;
 		const el = (leaf as LeafView).view?.contentEl;
 		if (!el) return;
-		// 撤掉上一次尚未结束的清理监听，防止快速连续导航时监听累积。
-		this.clearAnimListener();
 		// 同步重启动画：移除两个方向的 class → 强制重排使移除生效 → 加目标 class。
 		// 全程在浏览器 paint 前完成，页面直接从起始态滑入，消除“先以最终态显示再跳回起始态”的闪烁。
 		// 动画只用 transform/opacity（合成层属性，不触发 layout/ResizeObserver），同步操作不会引发 RO loop。

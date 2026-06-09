@@ -111,9 +111,11 @@ export class BreadcrumbRenderer {
 		return paths.map(p => {
 			if (p === GLOBAL_GRAPH_KEY) return t('graphView');
 			const f = this.app.vault.getAbstractFileByPath(p);
-			return f instanceof TFile
-				? LeafNameUtils.stripPrefix(f.basename, prefixLen)
-				: LeafNameUtils.stripPrefix(p, prefixLen);
+			if (f instanceof TFile) return LeafNameUtils.stripPrefix(f.basename, prefixLen);
+			// 文件已不在 vault(被删):从路径推导 basename(去目录、去扩展名)再剥前缀,
+			// 避免直接对完整路径 slice 导致连文件夹名 / 扩展名一起被截。
+			const base = p.split('/').pop()!.replace(/\.md$/, '');
+			return LeafNameUtils.stripPrefix(base, prefixLen);
 		});
 	}
 

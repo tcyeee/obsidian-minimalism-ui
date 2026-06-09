@@ -444,6 +444,107 @@ body.minimalism-ui-theme-forest .table-wrapper table.table-editor td:first-child
 	height: 14px;
 }
 
+/* ── Obsidian Bases（class=bases-view）：对齐上方 forest 内置表格版式 ─────────
+   Bases 表格不是原生 <table>，而是 div 网格：.bases-table 内分 .bases-thead /
+   .bases-tbody，行 .bases-tr、单元格 .bases-td（表头单元格也用 .bases-td，不是 th）。
+   这里把外框圆角、表头绿底加粗、内格线全部对齐上方 .el-table 的 forest 版式，
+   使两类表观感一致。 */
+
+/* 外框 + 圆角：框要画在 .bases-view 上（比 .bases-table-container 高一层）。
+   .bases-view 这个 class 三种 Bases 视图（table / cards / list）共用，必须用
+   data-view-type="table" 限定，只给表格视图描框，否则会误伤卡片 / 列表视图。
+   不动 overflow：.bases-view 自带的 overflow:auto 既负责横向滚动、又会把内容裁到
+   圆角内，强行改 clip 反而会废掉横向滚动。
+   .bases-view.bases-view 双写 class 提权：嵌入式 Bases 有一条内置规则
+   .workspace-leaf-content[data-type="markdown"] .block-language-base .bases-view（4 个 class，
+   特异性 0,4,0）会用 --bases-embed-border-color（透明）/ --bases-embed-radius 覆盖掉这里的
+   border-color 与 border-radius longhand。双写把本规则提到 0,4,1 压过它，不必动用 !important。
+   padding:0 抹掉嵌入式的 --bases-embed-padding：该内边距夹在本 border 与表格之间，成为空隙。 */
+body.minimalism-ui-theme-forest .bases-view.bases-view[data-view-type="table"] {
+	border: 1px solid #dadcde;
+	border-radius: 5px;
+	padding: 0;
+}
+
+/* 表头：绿底、加粗、左对齐 + 下边线（对齐 .el-table 的 thead font-weight:900 + 绿底） */
+body.minimalism-ui-theme-forest .bases-view .bases-thead .bases-td {
+	background-color: rgba(0, 153, 123, 0.03);
+	color: rgb(107, 107, 107);
+	font-weight: 900;
+	text-align: left;
+	border-bottom: 1px solid #dadcde;
+}
+
+/* 单元格：内边距 + 字号 + 字色 + 字体 + 内格线（右 + 下）；
+   字号 / 字色 / 衬体均与上方内置 table 对齐，使两类表观感一致。
+   纵向内边距压成 0.25em：Bases 行高被 Obsidian 固定为 --bases-table-row-height:30px，
+   沿用内置表的 10px 上下内边距会撑过 30px 被行裁掉。横向沿用内置表的 13px。 */
+body.minimalism-ui-theme-forest .bases-view .bases-td {
+	padding: 0.25em 13px;
+	font-size: calc(var(--font-text-size, 16px) - 3px);
+	font-family: 'JetBrains Mono', -apple-system, sans-serif;
+	color: rgb(107, 107, 107);
+	vertical-align: top;
+	border-right: 1px solid #dadcde;
+	border-bottom: 1px solid #dadcde;
+}
+
+/* 表格行高被 Obsidian 固定为 --bases-table-row-height:30px（行用 absolute + top 偏移虚拟化），
+   内容超 30px 即被行裁掉。把单元格内容行高压成 normal（链接走 markdown-rendered 会继承正文
+   行高），给固定行高留足空间。 */
+body.minimalism-ui-theme-forest .bases-view[data-view-type="table"] .bases-table-cell {
+	line-height: normal;
+}
+
+/* 隐藏外链末尾的编辑铅笔 flair：这个 ~18px 图标既把 .metadata-link 撑高过 30px 行
+   （→ 底部裁字、链接下沉），又紧贴 URL 末字符显脏。隐藏后链接收回文字行高。 */
+body.minimalism-ui-theme-forest .bases-view[data-view-type="table"] .metadata-link-flair {
+	display: none;
+}
+
+/* .metadata-link 是 Properties 面板的链接控件，自带内边距 / min-height（做成可编辑字段的样子），
+   整体高于固定 30px 行 → 底部被裁。压平成贴文字行高：去内边距、min-height:0、flex 居中。 */
+body.minimalism-ui-theme-forest .bases-view[data-view-type="table"] .bases-td .metadata-link {
+	display: flex;
+	align-items: center;
+	min-height: 0;
+	padding: 0;
+	margin: 0;
+	line-height: normal;
+}
+
+body.minimalism-ui-theme-forest .bases-view[data-view-type="table"] .bases-td .metadata-link-inner {
+	padding: 0;
+	line-height: normal;
+}
+
+/* 边缘单元格去掉内格线：右缘 / 下缘留给 .bases-view 单层外框，避免双线 */
+body.minimalism-ui-theme-forest .bases-view .bases-tr .bases-td:last-child {
+	border-right: none;
+}
+
+body.minimalism-ui-theme-forest .bases-view .bases-tbody .bases-tr:last-child .bases-td {
+	border-bottom: none;
+}
+
+/* 右侧空隙：Obsidian 把表格宽度算成「可用宽 − 预留滚动条宽」，表格永远到不了视图右缘，
+   那段差额就是边框与表格之间的缝。各级宽度由 JS 写成内联 width，无法用 CSS width 覆盖；
+   但 min-width 是另一个属性、不被内联 width 拦，min-width:100% 把它们撑到视图满宽。
+   超宽表（表宽 > 视图）时 100% 小于内联宽，不生效，横向滚动照常。 */
+body.minimalism-ui-theme-forest .bases-view[data-view-type="table"] .bases-thead,
+body.minimalism-ui-theme-forest .bases-view[data-view-type="table"] .bases-table-container,
+body.minimalism-ui-theme-forest .bases-view[data-view-type="table"] .bases-table,
+body.minimalism-ui-theme-forest .bases-view[data-view-type="table"] .bases-tbody,
+body.minimalism-ui-theme-forest .bases-view[data-view-type="table"] .bases-tbody .bases-tr {
+	min-width: 100%;
+}
+
+/* 表头给上绿底：撑满后末列右侧多出的几 px 落在 thead 自身（不在任何 .bases-td 上），
+   补上同色让这截与表头格子同色，不露出纸色缺口 */
+body.minimalism-ui-theme-forest .bases-view[data-view-type="table"] .bases-thead {
+	background-color: rgba(0, 153, 123, 0.03);
+}
+
 /* ── Bases 网格卡片标题 ──────────────────────────────────────────────── */
 
 body.minimalism-ui-theme-forest .bases-cards-property.mod-title {
