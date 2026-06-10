@@ -43,8 +43,8 @@ export default class MinimalismUIPlugin extends Plugin {
 
 		const settings = () => this.settings;
 		this.bodyClasses = new BodyClassController(settings);
-		this.fontLoader = new FontLoader(this.app, this.manifest.dir ?? '', settings);
-		this.themeLoader = new ThemeLoader(this.app, this.manifest.dir ?? '', settings);
+		this.fontLoader = new FontLoader(settings);
+		this.themeLoader = new ThemeLoader(settings);
 		this.engine = new SinglePageEngine(this.app, settings);
 		this.pinManager = new PinManager(this.app, settings);
 		this.homePage = new HomePageManager(this.app, settings, this.engine);
@@ -126,8 +126,8 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.sidebarLayout.reapplyGraphColors();
 	}
 
-	// 列出 theme/ 目录下所有可选主题名，供设置面板下拉框使用。
-	listThemes(): Promise<string[]> {
+	// 列出所有可选主题名（内嵌清单），供设置面板下拉框使用。
+	listThemes(): string[] {
 		return this.themeLoader.listThemes();
 	}
 

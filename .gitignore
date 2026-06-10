@@ -7,6 +7,9 @@ node_modules/
 # TypeScript cache
 *.tsbuildinfo
 
+# Generated theme assets (rebuilt by scripts/generate-theme-assets.mjs)
+src/generated/
+
 # macOS
 .DS_Store
 .AppleDouble

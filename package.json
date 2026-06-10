@@ -4,8 +4,8 @@
   "description": "Transform UI into a Typora-like style, with the left side fixing the note status information and the right side focusing on the content of the note.",
   "main": "main.js",
   "scripts": {
-    "dev": "node esbuild.config.mjs",
-    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "dev": "node scripts/generate-theme-assets.mjs && node esbuild.config.mjs",
+    "build": "node scripts/generate-theme-assets.mjs && tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "version": "node version-bump.mjs && git add manifest.json versions.json"
   },
   "packageManager": "pnpm@11.2.2",

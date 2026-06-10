@@ -68,20 +68,18 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName(t('theme'))
 			.addDropdown(drop => {
-				// 先放入当前值，避免异步列目录完成前下拉框为空
-				drop.addOption(this.plugin.settings.theme, this.plugin.settings.theme);
+				// 主题清单内嵌在 main.js 里，同步可得
+				const names = this.plugin.listThemes();
+				for (const name of names) drop.addOption(name, name);
+				// 设置里残留了已不存在的主题名时，仍展示当前值，避免下拉框显示错位
+				if (!names.includes(this.plugin.settings.theme)) {
+					drop.addOption(this.plugin.settings.theme, this.plugin.settings.theme);
+				}
 				drop.setValue(this.plugin.settings.theme);
 				drop.onChange(async v => {
 					this.plugin.settings.theme = v;
 					await this.plugin.saveSettings();
 					await this.plugin.applyTheme();
-				});
-				// 异步补全 theme/ 目录下的其他主题
-				void this.plugin.listThemes().then(names => {
-					for (const name of names) {
-						if (name !== this.plugin.settings.theme) drop.addOption(name, name);
-					}
-					drop.setValue(this.plugin.settings.theme);
 				});
 			});
 

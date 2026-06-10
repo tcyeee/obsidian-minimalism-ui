@@ -633,7 +633,10 @@ body.minimalism-ui-theme-newspaper .cm-editor .cm-content ::selection {
 
 .minimalism-ui-theme-newspaper .markdown-reading-view ::-webkit-scrollbar,
 .minimalism-ui-theme-newspaper .cm-scroller::-webkit-scrollbar {
+	/* width 只管纵向；横向滚动条由 height 控制——不设 height 时
+	   Chromium 会回退到 ~16px 的默认自绘滚动条，且常驻占位 */
 	width: 3px;
+	height: 3px;
 }
 
 .minimalism-ui-theme-newspaper .markdown-reading-view ::-webkit-scrollbar-thumb,
@@ -651,6 +654,16 @@ body.minimalism-ui-theme-newspaper .cm-editor .cm-content ::selection {
 .minimalism-ui-theme-newspaper .markdown-reading-view ::-webkit-scrollbar-track,
 .minimalism-ui-theme-newspaper .cm-scroller::-webkit-scrollbar-track {
 	background: transparent;
+}
+
+/* 表格横向滚动条：上方通配规则随整页悬停显色，对表格太敏感——
+   改为只在悬停表格本身时显色（三层类名压过上面的 :hover 通配规则） */
+.minimalism-ui-theme-newspaper .markdown-reading-view:hover .el-table::-webkit-scrollbar-thumb {
+	background: transparent;
+}
+
+.minimalism-ui-theme-newspaper .markdown-reading-view .el-table:hover::-webkit-scrollbar-thumb {
+	background: rgba(31, 9, 9, 0.35);
 }
 
 /* ── Callout：正文字色压浅，与报刊灰调统一 ──────────────────────────── */

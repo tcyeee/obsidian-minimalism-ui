@@ -25,11 +25,11 @@ jobs:
           npm install
           npm run build
 
+      # 主题 CSS / 字体已由构建脚本内嵌进 main.js，分发产物就是标准三件套
       - name: Package plugin
         run: |
           mkdir -p obsidian-minimalism-ui
           cp main.js manifest.json styles.css obsidian-minimalism-ui/
-          cp -r theme obsidian-minimalism-ui/
           zip -r obsidian-minimalism-ui.zip obsidian-minimalism-ui
 
       - name: Attest build provenance

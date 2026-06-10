@@ -154,6 +154,21 @@ export class NavigationHistory {
 		if (this.currentRootPath === oldPath) this.currentRootPath = newPath;
 	}
 
+	// 笔记删除时同步清除 history / future 中该路径的所有条目。不能依赖 detach 补丁清理：
+	// Obsidian 删除已打开的笔记时（FileView.onDelete），leaf 原生 backHistory 为空（单页模式下
+	// 每篇笔记都开新 leaf，恒为空）会先 open(null) 把视图换成空视图、之后才 detach——detach 时
+	// navKeyForLeaf 已取不到文件路径（empty 视图返回 null），onTabClosing 拿到 undefined，
+	// 死条目残留在栈顶：后退跳转空转、面包屑把实时视图标签叠加在残留条目之后（整条打乱）。
+	// 本方法由 vault delete 事件驱动；FileView.onDelete 在 detach 前有 await，同步的 delete
+	// 监听必然先于 detach 执行，故 onTabClosing 取 prevPath 时死条目已被清掉，可正确回退。
+	handleDelete(path: string) {
+		this.history = this.history.filter(p => p !== path);
+		this.future = this.future.filter(p => p !== path);
+		// 指向已删文件的一次性跳转标志必须清掉，否则它永不匹配、永不复位，
+		// 若日后重建同名文件，首次打开会被误吞（record 被 jumpPath 消费而不入栈）。
+		if (this.jumpPath === path) this.jumpPath = null;
+	}
+
 	// 历史条目是否仍可定位/重开：无文件视图的合成键恒为真（随时可按 viewType 重建视图）；
 	// 其余为文件路径，仅当 vault 中仍存在该文件时为真。死条目（已删除文件）返回 false。
 	private isReopenable(key: string): boolean {

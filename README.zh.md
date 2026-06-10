@@ -72,11 +72,11 @@
 
 ## 安装
 
-1. 在 [Releases](../../releases) 页面下载 `minimalism-ui.zip`
+1. 在 [Releases](../../releases) 页面下载 `obsidian-minimalism-ui.zip`
 2. 将压缩包直接解压到库的 `.obsidian/plugins/` 目录中
 3. 在 Obsidian 中：**设置 → 第三方插件 → 启用 Minimalism UI**
 
-压缩包解压后得到 `obsidian-minimalism-ui/` 文件夹，已包含 `main.js`、`manifest.json`、`styles.css` 及 `fonts/` 目录，无需额外操作。
+压缩包解压后得到 `obsidian-minimalism-ui/` 文件夹，包含 `main.js`、`manifest.json`、`styles.css` 三个文件。主题样式与字体已在构建时内嵌进 `main.js`，无需额外文件或操作。
 
 ---
 
@@ -85,11 +85,13 @@
 ```bash
 git clone https://github.com/tcyeee/obsidian-minimalism-ui.git
 cd obsidian-minimalism-ui
-npm install
+pnpm install
 
-npm run build   # 生产构建 → main.js
-npm run dev     # 监听模式 — 修改 main.ts 后自动重新构建
+pnpm build   # 生产构建 → main.js
+pnpm dev     # 监听模式 — 修改 main.ts / src/** 后自动重新构建
 ```
+
+两个命令都会先执行 `scripts/generate-theme-assets.mjs`，将 `theme/` 下的主题 CSS 与字体内嵌进构建产物。监听模式**不会**监听 `theme/` 目录 —— 修改主题文件后需重新运行 `pnpm dev` / `pnpm build`。
 
 本地测试时，将项目目录软链接到你的库的插件文件夹：
 
@@ -97,7 +99,7 @@ npm run dev     # 监听模式 — 修改 main.ts 后自动重新构建
 ln -s $(pwd) ~/your-vault/.obsidian/plugins/obsidian-minimalism-ui
 ```
 
-修改 `main.ts` 后，运行 `npm run build`，然后在 Obsidian 中重新加载插件（在社区插件列表中按 **Ctrl/Cmd+R**）。
+修改源码后，运行 `pnpm build`，然后在 Obsidian 中重新加载插件（在社区插件列表中按 **Ctrl/Cmd+R**）。
 
 ---
 

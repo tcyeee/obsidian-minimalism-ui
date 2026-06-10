@@ -86,6 +86,7 @@ export class SinglePageEngine {
 	// 此刻重入锁未释放，无法立即重开，置位后由当前这次的 finally 兜底补开，保证最终落在首页而非空页。
 	private _homePageReopenQueued = false;
 	private renameHandler: ((file: TAbstractFile, oldPath: string) => void) | null = null;
+	private deleteHandler: ((file: TAbstractFile) => void) | null = null;
 	// 导航历史变更通知：引擎记录一次导航后回调，使面包屑等独立组件能在 active-leaf-change 未触发
 	// （如 deferred 视图经 revealLeaf 显示）时也及时刷新。由 main.ts 注入，跨 apply/remove 持续有效。
 	private navChangeListener: ((leaf: WorkspaceLeaf | null) => void) | null = null;
@@ -130,7 +131,21 @@ export class SinglePageEngine {
 		this.originalRevealLeaf = ws.revealLeaf.bind(ws);
 		ws.revealLeaf = (leaf: WorkspaceLeaf) => {
 			this.originalRevealLeaf!(leaf);
-			if (leaf) this.handleNavTrack(leaf);
+			if (!leaf) return;
+			// 原生 revealLeaf 只 selectTab(切换 tab 组的可见 tab),从不更新 workspace.activeLeaf、
+			// 也不触发 active-leaf-change。对 root leaf 这会留下"可见 ≠ 活动"的半激活态:此时按后退,
+			// 目标(上一篇笔记)恰好仍是 activeLeaf,setActiveLeaf 对相同 leaf 整体短路——不切 tab、
+			// 不发事件,后退表现为无效;须先前进一次(真正激活本视图、同步 activeLeaf)后退才恢复。
+			// 故对被 reveal 的 root leaf 在此补一次真正激活,保证可见 tab 与 activeLeaf 始终一致。
+			// 侧边栏 leaf 不受影响(激活会抢编辑器焦点,且本就无此问题)。
+			let isRootLeaf = false;
+			this.app.workspace.iterateRootLeaves(l => { if (l === leaf) isRootLeaf = true; });
+			if (isRootLeaf && this.app.workspace.activeLeaf !== leaf) {
+				this.app.workspace.setActiveLeaf(leaf, { focus: true });
+			}
+			// setActiveLeaf 触发的 active-leaf-change 同样会走 handleNavTrack,但事件派发可能延后;
+			// 此处保留同步补记(幂等),保证面包屑立即刷新,也覆盖 leaf 已是活动 leaf 的情况。
+			this.handleNavTrack(leaf);
 		};
 
 		// active-leaf-change 上按固定顺序触发两件事，单一 dispatcher 避免依赖 listener 注册顺序。
@@ -176,6 +191,15 @@ export class SinglePageEngine {
 			this.nav.handleRename(oldPath, file.path);
 		};
 		this.app.vault.on('rename', this.renameHandler);
+
+		// 笔记删除时清除导航历史中的死条目。删除已打开的笔记不会走常规关 tab 路径
+		// （Obsidian 先把 leaf 换成空视图再 detach，detach 补丁拿不到路径），必须靠本事件清理，
+		// 否则死条目残留栈顶，后退空转、面包屑被打乱（详见 NavigationHistory.handleDelete）。
+		this.deleteHandler = (file: TAbstractFile) => {
+			if (!(file instanceof TFile)) return;
+			this.nav.handleDelete(file.path);
+		};
+		this.app.vault.on('delete', this.deleteHandler);
 	}
 
 	remove() {
@@ -199,6 +223,10 @@ export class SinglePageEngine {
 		if (this.renameHandler) {
 			this.app.vault.off('rename', this.renameHandler);
 			this.renameHandler = null;
+		}
+		if (this.deleteHandler) {
+			this.app.vault.off('delete', this.deleteHandler);
+			this.deleteHandler = null;
 		}
 		this.leafCache.reset();
 		this.pendingInterceptLeaves.clear();

@@ -72,11 +72,11 @@ Slide-in animation when navigating back or forward through note history.
 
 ## Installation
 
-1. Download `minimalism-ui.zip` from the [Releases](../../releases) page
+1. Download `obsidian-minimalism-ui.zip` from the [Releases](../../releases) page
 2. Unzip it directly into your vault's `.obsidian/plugins/` directory
 3. In Obsidian: **Settings → Community Plugins → enable Minimalism UI**
 
-The zip extracts to an `obsidian-minimalism-ui/` folder that includes `main.js`, `manifest.json`, `styles.css`, and the bundled `fonts/` directory — no extra steps needed.
+The zip extracts to an `obsidian-minimalism-ui/` folder containing `main.js`, `manifest.json`, and `styles.css`. Theme styles and fonts are embedded into `main.js` at build time — no extra files or steps needed.
 
 ---
 
@@ -85,11 +85,13 @@ The zip extracts to an `obsidian-minimalism-ui/` folder that includes `main.js`,
 ```bash
 git clone https://github.com/tcyeee/obsidian-minimalism-ui.git
 cd obsidian-minimalism-ui
-npm install
+pnpm install
 
-npm run build   # production build → main.js
-npm run dev     # watch mode — rebuilds on changes to main.ts
+pnpm build   # production build → main.js
+pnpm dev     # watch mode — rebuilds on changes to main.ts / src/**
 ```
+
+Both commands first run `scripts/generate-theme-assets.mjs`, which embeds the theme CSS and fonts under `theme/` into the bundle. The watcher does **not** watch `theme/` — re-run `pnpm dev` / `pnpm build` after editing theme files.
 
 To test locally, symlink the project directory into your vault:
 
@@ -97,7 +99,7 @@ To test locally, symlink the project directory into your vault:
 ln -s $(pwd) ~/your-vault/.obsidian/plugins/obsidian-minimalism-ui
 ```
 
-After editing `main.ts`, run `npm run build` and reload the plugin in Obsidian (**Ctrl/Cmd+R** in the community plugins list).
+After editing the source, run `pnpm build` and reload the plugin in Obsidian (**Ctrl/Cmd+R** in the community plugins list).
 
 ---
 

@@ -1,6 +1,6 @@
-import { App } from 'obsidian';
 import { Feature } from './Feature';
 import { MinimalismUISettings } from './settings';
+import { FONTS } from '../generated/theme-assets';
 
 interface MutableFontFaceSet {
 	add(font: FontFace): void;
@@ -8,26 +8,30 @@ interface MutableFontFaceSet {
 }
 
 /**
- * FontLoader — 加载当前主题专属的字体（theme/<当前主题>/fonts/）。
+ * FontLoader — 加载当前主题专属的字体（内嵌在 main.js 里）。
  *
- * 字体随主题分发：每个主题文件夹自带 fonts/ 子目录。apply() 读取当前 settings.theme，
- * 从对应主题文件夹加载全字重字族 + 一个仅覆盖数字 unicode 范围的 "Digits" 字族（用于正文数字混排）。
- * 切换主题时需重新 apply()，故 apply() 先 remove() 旧字体，保证幂等。
- * remove() 从 document.fonts 注销所有已加载的 FontFace。字体文件缺失时静默跳过（如暂无字体的主题）。
+ * 字体源码随主题存放（theme/<name>/fonts/），但分发时由构建脚本
+ * （scripts/generate-theme-assets.mjs）以 base64 内嵌进 main.js 并跨主题按文件名去重：
+ * Obsidian 市场安装只下载 main.js / manifest.json / styles.css，字体文件到不了用户 vault，
+ * 所以运行时从内嵌的 FONTS 解码出 ArrayBuffer 直接构造 FontFace，不读文件系统
+ * （这同时绕开了 Obsidian CSP 禁止 CSS url() 引插件资源的限制，见 styles.css 顶部说明）。
+ *
+ * apply() 读取当前 settings.theme，加载该主题的字族 + 一个仅覆盖数字 unicode 范围的
+ * "Digits" 字族（用于正文数字混排）。切换主题时需重新 apply()，故 apply() 先 remove()
+ * 旧字体，保证幂等。remove() 从 document.fonts 注销所有已加载的 FontFace。
+ * 字体未内嵌时静默跳过（如暂无字体的主题）。
  */
 export class FontLoader implements Feature {
 	private loadedFonts: FontFace[] = [];
 
 	constructor(
-		private app: App,
-		private manifestDir: string,
 		private settings: () => MinimalismUISettings,
 	) {}
 
 	async apply() {
 		// 切换主题时先卸载上一主题的字体，保证幂等
 		this.remove();
-		// 字体随主题分发：每个主题加载各自的字族。newspaper 用阿里巴巴普惠体作正文，
+		// 字体随主题分发：每个主题加载各自的字族。newspaper 用 PT Serif 作正文，
 		// 其余主题（forest 等）用 JetBrains Mono。
 		if (this.settings().theme === 'newspaper') {
 			await this.loadNewspaperFonts();
@@ -85,27 +89,24 @@ export class FontLoader implements Feature {
 		this.loadedFonts = [];
 	}
 
-	private vaultPath(filename: string): string {
-		return `${this.manifestDir}/theme/${this.settings().theme}/fonts/${filename}`;
-	}
-
 	private async loadFontFace(family: string, descriptors: FontFaceDescriptors & { file: string }) {
 		const { file, ...desc } = descriptors;
-		const adapter = this.app.vault.adapter as {
-			getResourcePath: (path: string) => string;
-			exists: (path: string) => Promise<boolean>;
-		};
-		const vaultPath = this.vaultPath(file);
-		// 先查文件是否存在再 fetch：缺字体的主题（如 newspaper 用系统衬线栈）直接跳过，
-		// 否则 FontFace.load() 的 404 虽被 catch 吞掉，Chromium 仍会往控制台打 ERR_FILE_NOT_FOUND
-		if (!(await adapter.exists(vaultPath))) return;
-		const face = new FontFace(family, `url('${adapter.getResourcePath(vaultPath)}')`, desc);
+		const base64 = FONTS[file];
+		if (!base64) return; // 该字体未内嵌（如暂无字体的主题），静默跳过
 		try {
-			await face.load();
+			// 从 ArrayBuffer 构造的 FontFace 同步解析完成，无需再 load()
+			const face = new FontFace(family, base64ToArrayBuffer(base64), desc);
 			(activeDocument.fonts as unknown as MutableFontFaceSet).add(face);
 			this.loadedFonts.push(face);
 		} catch {
-			// 字体文件存在但解析失败时静默跳过
+			// 字体数据解析失败时静默跳过
 		}
 	}
+}
+
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
+	const binary = atob(base64);
+	const bytes = new Uint8Array(binary.length);
+	for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+	return bytes.buffer;
 }
