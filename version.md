@@ -5,6 +5,18 @@
 
 ---
 
+## Version 1.2.9
+
+- Improved single-page navigation to use the most recently active leaf for more reliable behavior
+- Fixed collapsible sections in Settings not hiding content correctly in all cases
+- Minor internal improvements: type declarations for theme assets, translation string consistency
+
+- 优化单页模式导航，使用最近激活的标签以提升可靠性
+- 修复设置面板折叠分组在部分情况下内容未正确隐藏的问题
+- 内部改进：主题资源类型声明、翻译字符串一致性优化
+
+---
+
 ## Version 1.2.8
 
 - Added collapsible sections to the Settings panel for better organization
