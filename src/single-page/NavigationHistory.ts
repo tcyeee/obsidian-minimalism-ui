@@ -62,11 +62,14 @@ export class NavigationHistory {
 	private history: string[] = [];
 	private future: string[] = [];
 	// 主区域当前活动 root leaf 显示的文件路径；无文件视图（如全局关系图）为 null。
-	// 由引擎在每次 root leaf 激活时通过 markActiveRoot 同步，使本类能判断“当前显示的是否就是历史栈顶”，
+	// 由引擎在每次 root leaf 激活时通过 markActiveRoot 同步，使本类能判断”当前显示的是否就是历史栈顶”，
 	// 从而在无文件视图叠在栈顶之上时正确后退（回到栈顶文件，而非越过它弹到更早条目）。
 	private currentRootPath: string | null = null;
 	// 当前正在执行的后退/前进目标路径，用于阻止 record 将该激活记录为新导航
 	private jumpPath: string | null = null;
+	// 无文件视图合成键 → 人类可读显示名（如 “day-echo-time-line” → “Day Echo”）。
+	// 仅在视图激活时才能取到 getDisplayText()，缓存在此供面包屑在视图不再是当前项时仍能显示正确名称。
+	private displayNameMap = new Map<string, string>();
 	// tab 关闭后 Obsidian 自动激活下一个 leaf 会触发 active-leaf-change，该标志阻止其被记录为新导航
 	private isClosingTab = false;
 	private timer: number | null = null;
@@ -86,6 +89,15 @@ export class NavigationHistory {
 
 	getHistory(): string[] {
 		return this.history;
+	}
+
+	// 缓存无文件视图的人类可读显示名，供面包屑在该视图不再是当前项时仍能正确显示。
+	recordDisplayName(key: string, name: string) {
+		if (name) this.displayNameMap.set(key, name);
+	}
+
+	getDisplayName(key: string): string | null {
+		return this.displayNameMap.get(key) ?? null;
 	}
 
 	isEmpty(): boolean {
@@ -119,7 +131,10 @@ export class NavigationHistory {
 	// active-leaf-change 触发时记录导航历史。检查顺序严格固定：
 	//   ① jumpPath 匹配——我们自己发起的后退/前进不应再次入栈
 	//   ② isClosingTab——tab 关闭后的自动激活不应入栈
-	//   ③ 路径去重 + 写入
+	//   ③ 隐式后退——从无文件功能视图（关系图、day-echo 时间线等）按 ESC 返回前驱笔记时，
+	//      Obsidian 激活前驱 leaf 触发 active-leaf-change，语义等同后退而非新导航；
+	//      检测到"栈顶为无文件视图 + 目标路径恰好是其前驱"，把栈顶移入 future，保留前进能力
+	//   ④ 路径去重 + 写入
 	// 调用方（SinglePageEngine）须先确认这是 root leaf 且有 filePath，再调用本方法，
 	// 否则一次性标志会被侧边栏等无关激活提前消耗。
 	record(filePath: string) {
@@ -130,6 +145,12 @@ export class NavigationHistory {
 		}
 		if (this.isClosingTab) {
 			this.isClosingTab = false;
+			return;
+		}
+		const top = this.history[this.history.length - 1];
+		const prevToTop = this.history[this.history.length - 2];
+		if (top !== undefined && isFilelessViewKey(top) && prevToTop === filePath) {
+			this.future.unshift(this.history.pop()!);
 			return;
 		}
 		this.push(filePath);

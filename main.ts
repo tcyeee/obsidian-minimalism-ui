@@ -54,6 +54,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			settings,
 			() => this.engine.getNavHistory(),
 			(index) => this.engine.navigateHistoryTo(index),
+			(key) => this.engine.getNavDisplayName(key),
 		);
 		// active-leaf-change 未触发时（如 deferred 视图经 revealLeaf 显示），引擎记录导航后
 		// 直接驱动面包屑刷新，使其与历史栈保持同步。

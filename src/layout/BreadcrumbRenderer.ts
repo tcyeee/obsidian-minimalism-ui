@@ -30,6 +30,8 @@ export class BreadcrumbRenderer {
 		private navHistoryGetter: () => string[],
 		// 点击非当前面包屑条目时回调,参数为该条目在导航历史栈中的下标(语义=连续后退)。
 		private onNavigate: (index: number) => void = () => {},
+		// 无文件视图合成键 → 人类可读显示名；视图不在当前时仍能正确显示（如 "Day Echo"）。
+		private navDisplayNameGetter: (key: string) => string | null = () => null,
 	) {}
 
 	mount(parent: HTMLElement) {
@@ -127,7 +129,7 @@ export class BreadcrumbRenderer {
 			if (p === GLOBAL_GRAPH_KEY) return t('graphView');
 			if (isFilelessViewKey(p)) {
 				if (i === paths.length - 1 && filelessLabel) return filelessLabel;
-				return viewTypeFromKey(p) ?? p;
+				return this.navDisplayNameGetter(p) ?? viewTypeFromKey(p) ?? p;
 			}
 			const f = this.app.vault.getAbstractFileByPath(p);
 			if (f instanceof TFile) return LeafNameUtils.stripPrefix(f.basename, prefixLen);

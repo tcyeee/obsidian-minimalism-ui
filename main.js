@@ -40,7 +40,8 @@ var DEFAULT_SETTINGS = {
   theme: "forest",
   homePage: "",
   filenamePrefixLength: 0,
-  language: "auto"
+  language: "auto",
+  collapsedSections: {}
 };
 
 // src/generated/theme-assets.ts
@@ -1720,11 +1721,14 @@ var NavigationHistory = class {
     this.history = [];
     this.future = [];
     // 主区域当前活动 root leaf 显示的文件路径；无文件视图（如全局关系图）为 null。
-    // 由引擎在每次 root leaf 激活时通过 markActiveRoot 同步，使本类能判断“当前显示的是否就是历史栈顶”，
+    // 由引擎在每次 root leaf 激活时通过 markActiveRoot 同步，使本类能判断”当前显示的是否就是历史栈顶”，
     // 从而在无文件视图叠在栈顶之上时正确后退（回到栈顶文件，而非越过它弹到更早条目）。
     this.currentRootPath = null;
     // 当前正在执行的后退/前进目标路径，用于阻止 record 将该激活记录为新导航
     this.jumpPath = null;
+    // 无文件视图合成键 → 人类可读显示名（如 “day-echo-time-line” → “Day Echo”）。
+    // 仅在视图激活时才能取到 getDisplayText()，缓存在此供面包屑在视图不再是当前项时仍能显示正确名称。
+    this.displayNameMap = /* @__PURE__ */ new Map();
     // tab 关闭后 Obsidian 自动激活下一个 leaf 会触发 active-leaf-change，该标志阻止其被记录为新导航
     this.isClosingTab = false;
     this.timer = null;
@@ -1736,6 +1740,14 @@ var NavigationHistory = class {
   }
   getHistory() {
     return this.history;
+  }
+  // 缓存无文件视图的人类可读显示名，供面包屑在该视图不再是当前项时仍能正确显示。
+  recordDisplayName(key, name) {
+    if (name) this.displayNameMap.set(key, name);
+  }
+  getDisplayName(key) {
+    var _a;
+    return (_a = this.displayNameMap.get(key)) != null ? _a : null;
   }
   isEmpty() {
     return this.history.length === 0;
@@ -1761,7 +1773,10 @@ var NavigationHistory = class {
   // active-leaf-change 触发时记录导航历史。检查顺序严格固定：
   //   ① jumpPath 匹配——我们自己发起的后退/前进不应再次入栈
   //   ② isClosingTab——tab 关闭后的自动激活不应入栈
-  //   ③ 路径去重 + 写入
+  //   ③ 隐式后退——从无文件功能视图（关系图、day-echo 时间线等）按 ESC 返回前驱笔记时，
+  //      Obsidian 激活前驱 leaf 触发 active-leaf-change，语义等同后退而非新导航；
+  //      检测到"栈顶为无文件视图 + 目标路径恰好是其前驱"，把栈顶移入 future，保留前进能力
+  //   ④ 路径去重 + 写入
   // 调用方（SinglePageEngine）须先确认这是 root leaf 且有 filePath，再调用本方法，
   // 否则一次性标志会被侧边栏等无关激活提前消耗。
   record(filePath) {
@@ -1772,6 +1787,12 @@ var NavigationHistory = class {
     }
     if (this.isClosingTab) {
       this.isClosingTab = false;
+      return;
+    }
+    const top = this.history[this.history.length - 1];
+    const prevToTop = this.history[this.history.length - 2];
+    if (top !== void 0 && isFilelessViewKey(top) && prevToTop === filePath) {
+      this.future.unshift(this.history.pop());
       return;
     }
     this.push(filePath);
@@ -2230,6 +2251,9 @@ var SinglePageEngine = class {
   getNavHistory() {
     return this.nav.getHistory();
   }
+  getNavDisplayName(key) {
+    return this.nav.getDisplayName(key);
+  }
   // 注入导航历史变更监听器（main.ts 用它驱动面包屑刷新）。
   setNavChangeListener(cb) {
     this.navChangeListener = cb;
@@ -2246,7 +2270,7 @@ var SinglePageEngine = class {
   // 记录跨 tab 导航历史：只对 root leaf 且有 filePath 的激活生效，再交给 nav 处理一次性标志与去重。
   // root leaf 判断必须先于 nav.record，防止侧边栏等无关激活提前消耗 nav 的一次性标志。
   handleNavTrack(leaf) {
-    var _a;
+    var _a, _b, _c;
     if (!leaf) return;
     let isRootLeaf = false;
     this.app.workspace.iterateRootLeaves((l) => {
@@ -2258,7 +2282,11 @@ var SinglePageEngine = class {
     this.nav.markActiveRoot(navKey);
     if (!navKey) return;
     this.nav.record(navKey);
-    (_a = this.navChangeListener) == null ? void 0 : _a.call(this, leaf);
+    if (isFilelessViewKey(navKey)) {
+      const displayText = (_b = (_a = leaf.view) == null ? void 0 : _a.getDisplayText) == null ? void 0 : _b.call(_a);
+      if (displayText) this.nav.recordDisplayName(navKey, displayText);
+    }
+    (_c = this.navChangeListener) == null ? void 0 : _c.call(this, leaf);
   }
   // 把 root leaf 映射为导航栈中的键：有文件则用文件路径；无文件视图（全局关系图、搜索、各类插件
   // 自定义视图等）用按 viewType 编码的合成键，使其与笔记一样入栈、前进/后退、重开。
@@ -2364,7 +2392,7 @@ var SinglePageEngine = class {
       return result;
     };
     leaf.setViewState = async (state, eState) => {
-      var _a;
+      var _a, _b, _c;
       const viewType = state == null ? void 0 : state.type;
       if (!viewType || viewType === "empty" || this.isReusingLeaf) {
         return origSetViewState(state, eState);
@@ -2399,7 +2427,11 @@ var SinglePageEngine = class {
           this.graphSidebar.handleRootNav(key);
           this.nav.markActiveRoot(key);
           this.nav.push(key);
-          (_a = this.navChangeListener) == null ? void 0 : _a.call(this, leaf);
+          if (isFilelessViewKey(key)) {
+            const displayText = (_b = (_a = leaf.view) == null ? void 0 : _a.getDisplayText) == null ? void 0 : _b.call(_a);
+            if (displayText) this.nav.recordDisplayName(key, displayText);
+          }
+          (_c = this.navChangeListener) == null ? void 0 : _c.call(this, leaf);
         }
       }
       return result;
@@ -2742,11 +2774,12 @@ var LeafNameUtils = class {
 var COMPACT_THRESHOLD = 15;
 var BreadcrumbRenderer = class {
   constructor(app, getSettings, navHistoryGetter, onNavigate = () => {
-  }) {
+  }, navDisplayNameGetter = () => null) {
     this.app = app;
     this.getSettings = getSettings;
     this.navHistoryGetter = navHistoryGetter;
     this.onNavigate = onNavigate;
+    this.navDisplayNameGetter = navDisplayNameGetter;
     this.el = null;
     this.activeLeafHandler = null;
     this.renameHandler = null;
@@ -2831,11 +2864,11 @@ var BreadcrumbRenderer = class {
   buildNames(paths, filelessLabel) {
     const prefixLen = this.getSettings().filenamePrefixLength;
     return paths.map((p, i) => {
-      var _a;
+      var _a, _b;
       if (p === GLOBAL_GRAPH_KEY) return t("graphView");
       if (isFilelessViewKey(p)) {
         if (i === paths.length - 1 && filelessLabel) return filelessLabel;
-        return (_a = viewTypeFromKey(p)) != null ? _a : p;
+        return (_b = (_a = this.navDisplayNameGetter(p)) != null ? _a : viewTypeFromKey(p)) != null ? _b : p;
       }
       const f = this.app.vault.getAbstractFileByPath(p);
       if (f instanceof import_obsidian3.TFile) return LeafNameUtils.stripPrefix(f.basename, prefixLen);
@@ -2925,7 +2958,7 @@ var BreadcrumbRenderer = class {
 // src/layout/DragBarManager.ts
 var _DragBarManager = class _DragBarManager {
   constructor(app, getSettings, navHistoryGetter = () => [], onBreadcrumbNavigate = () => {
-  }) {
+  }, navDisplayNameGetter = () => null) {
     this.app = app;
     this.getSettings = getSettings;
     this.dragBar = null;
@@ -2936,7 +2969,7 @@ var _DragBarManager = class _DragBarManager {
     // 比 layout-change 更及时,确保收起瞬间面包屑就右移让位。
     this.leftSplitObserver = null;
     this.isMac = import_obsidian4.Platform.isMacOS;
-    this.breadcrumb = new BreadcrumbRenderer(app, getSettings, navHistoryGetter, onBreadcrumbNavigate);
+    this.breadcrumb = new BreadcrumbRenderer(app, getSettings, navHistoryGetter, onBreadcrumbNavigate, navDisplayNameGetter);
   }
   // 引擎记录一次导航后转发给面包屑刷新：覆盖 active-leaf-change 未触发的 deferred 视图 reveal 场景。
   notifyNavChange(leaf) {
@@ -3480,6 +3513,28 @@ var MinimalismUISettingTab = class extends import_obsidian6.PluginSettingTab {
     super(app, plugin);
     this.plugin = plugin;
   }
+  addCollapsibleSection(key, title) {
+    var _a;
+    const { containerEl } = this;
+    const isCollapsed = (_a = this.plugin.settings.collapsedSections[key]) != null ? _a : false;
+    const headingEl = containerEl.createDiv({
+      cls: "setting-item setting-item-heading minimalism-ui-collapsible-heading" + (isCollapsed ? " minimalism-ui-collapsible-heading-collapsed" : "")
+    });
+    const nameEl = headingEl.createDiv({ cls: "setting-item-info" }).createDiv({ cls: "setting-item-name" });
+    nameEl.createSpan({ cls: "minimalism-ui-section-arrow" });
+    nameEl.createSpan({ text: title });
+    const contentEl = containerEl.createDiv({ cls: "minimalism-ui-collapsible-content" });
+    if (isCollapsed) contentEl.style.display = "none";
+    headingEl.addEventListener("click", async () => {
+      var _a2;
+      const nowCollapsed = !((_a2 = this.plugin.settings.collapsedSections[key]) != null ? _a2 : false);
+      this.plugin.settings.collapsedSections[key] = nowCollapsed;
+      headingEl.toggleClass("minimalism-ui-collapsible-heading-collapsed", nowCollapsed);
+      contentEl.style.display = nowCollapsed ? "none" : "";
+      await this.plugin.saveSettings();
+    });
+    return contentEl;
+  }
   display() {
     const { containerEl } = this;
     containerEl.empty();
@@ -3488,14 +3543,14 @@ var MinimalismUISettingTab = class extends import_obsidian6.PluginSettingTab {
     intro.createEl("p", { text: t("introDesc1") });
     intro.createEl("p", { text: t("introDesc2") });
     intro.createEl("p", { text: t("introDesc3") });
-    new import_obsidian6.Setting(containerEl).setName(t("headingGeneral")).setHeading();
-    new import_obsidian6.Setting(containerEl).setName(t("language")).addDropdown((drop) => drop.addOption("auto", t("languageAuto")).addOption("zh", t("languageZh")).addOption("en", t("languageEn")).setValue(this.plugin.settings.language).onChange(async (v) => {
+    const generalEl = this.addCollapsibleSection("general", t("headingGeneral"));
+    new import_obsidian6.Setting(generalEl).setName(t("language")).addDropdown((drop) => drop.addOption("auto", t("languageAuto")).addOption("zh", t("languageZh")).addOption("en", t("languageEn")).setValue(this.plugin.settings.language).onChange(async (v) => {
       this.plugin.settings.language = v;
       setLang(v);
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian6.Setting(containerEl).setName(t("theme")).addDropdown((drop) => {
+    new import_obsidian6.Setting(generalEl).setName(t("theme")).addDropdown((drop) => {
       const names = this.plugin.listThemes();
       for (const name of names) drop.addOption(name, name);
       if (!names.includes(this.plugin.settings.theme)) {
@@ -3508,27 +3563,27 @@ var MinimalismUISettingTab = class extends import_obsidian6.PluginSettingTab {
         await this.plugin.applyTheme();
       });
     });
-    new import_obsidian6.Setting(containerEl).setName(t("headingAppearance")).setHeading();
-    new import_obsidian6.Setting(containerEl).setName(t("hideTabBar")).addToggle((toggle) => toggle.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
+    const appearanceEl = this.addCollapsibleSection("appearance", t("headingAppearance"));
+    new import_obsidian6.Setting(appearanceEl).setName(t("hideTabBar")).addToggle((toggle) => toggle.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
       this.plugin.settings.hideTabBar = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian6.Setting(containerEl).setName(t("showProperties")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showProperties).onChange(async (v) => {
+    new import_obsidian6.Setting(appearanceEl).setName(t("showProperties")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showProperties).onChange(async (v) => {
       this.plugin.settings.showProperties = v;
       await this.plugin.saveSettings();
       await this.plugin.applyMacSidebarLayout();
     }));
-    new import_obsidian6.Setting(containerEl).setName(t("showLocalGraph")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showLocalGraph).onChange(async (v) => {
+    new import_obsidian6.Setting(appearanceEl).setName(t("showLocalGraph")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showLocalGraph).onChange(async (v) => {
       this.plugin.settings.showLocalGraph = v;
       await this.plugin.saveSettings();
       await this.plugin.applyMacSidebarLayout();
     }));
-    new import_obsidian6.Setting(containerEl).setName(t("showVaultProfile")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showVaultProfile).onChange(async (v) => {
+    new import_obsidian6.Setting(appearanceEl).setName(t("showVaultProfile")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showVaultProfile).onChange(async (v) => {
       this.plugin.settings.showVaultProfile = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian6.Setting(containerEl).setName(t("headingInteraction")).setHeading();
-    const singlePageSetting = new import_obsidian6.Setting(containerEl).setName(t("singlePage"));
+    const interactionEl = this.addCollapsibleSection("interaction", t("headingInteraction"));
+    const singlePageSetting = new import_obsidian6.Setting(interactionEl).setName(t("singlePage"));
     singlePageSetting.settingEl.addClass("minimalism-ui-single-page-setting");
     singlePageSetting.addToggle((toggle) => toggle.setValue(this.plugin.settings.disableNoteTabs).onChange(async (v) => {
       this.plugin.settings.disableNoteTabs = v;
@@ -3542,7 +3597,7 @@ var MinimalismUISettingTab = class extends import_obsidian6.PluginSettingTab {
     singlePageSetting.descEl.createEl("br");
     singlePageSetting.descEl.createSpan({ text: t("singlePageDesc4") });
     singlePageSetting.descEl.createEl("br");
-    new import_obsidian6.Setting(containerEl).setName(t("homePage")).setDesc(t("homePageDesc")).addText((text) => {
+    new import_obsidian6.Setting(interactionEl).setName(t("homePage")).setDesc(t("homePageDesc")).addText((text) => {
       text.setPlaceholder(t("homePagePlaceholder")).setValue(this.plugin.settings.homePage);
       new FileSuggest(this.app, text.inputEl).onPick((path) => {
         this.plugin.settings.homePage = path;
@@ -3553,7 +3608,7 @@ var MinimalismUISettingTab = class extends import_obsidian6.PluginSettingTab {
         void this.plugin.saveSettings();
       });
     });
-    new import_obsidian6.Setting(containerEl).setName(t("filenamePrefixLength")).setDesc(t("filenamePrefixLengthDesc")).addText((text) => {
+    new import_obsidian6.Setting(interactionEl).setName(t("filenamePrefixLength")).setDesc(t("filenamePrefixLengthDesc")).addText((text) => {
       text.inputEl.type = "number";
       text.inputEl.min = "0";
       text.inputEl.max = "20";
@@ -3567,8 +3622,8 @@ var MinimalismUISettingTab = class extends import_obsidian6.PluginSettingTab {
         void this.plugin.saveSettings();
       });
     });
-    new import_obsidian6.Setting(containerEl).setName(t("headingAnimation")).setHeading();
-    new import_obsidian6.Setting(containerEl).setName(t("navAnimation")).setDesc(t("navAnimationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
+    const animationEl = this.addCollapsibleSection("animation", t("headingAnimation"));
+    new import_obsidian6.Setting(animationEl).setName(t("navAnimation")).setDesc(t("navAnimationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
       this.plugin.settings.enableNavAnimation = v;
       await this.plugin.saveSettings();
     }));
@@ -3597,7 +3652,8 @@ var MinimalismUIPlugin = class extends import_obsidian7.Plugin {
       this.app,
       settings,
       () => this.engine.getNavHistory(),
-      (index) => this.engine.navigateHistoryTo(index)
+      (index) => this.engine.navigateHistoryTo(index),
+      (key) => this.engine.getNavDisplayName(key)
     );
     this.engine.setNavChangeListener((leaf) => this.dragBar.notifyNavChange(leaf));
     this.sidebarLayout = new SidebarLayoutManager(this.app, settings, this.pinManager);

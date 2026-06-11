@@ -29,8 +29,9 @@ export class DragBarManager {
 		private getSettings: () => MinimalismUISettings,
 		navHistoryGetter: () => string[] = () => [],
 		onBreadcrumbNavigate: (index: number) => void = () => {},
+		navDisplayNameGetter: (key: string) => string | null = () => null,
 	) {
-		this.breadcrumb = new BreadcrumbRenderer(app, getSettings, navHistoryGetter, onBreadcrumbNavigate);
+		this.breadcrumb = new BreadcrumbRenderer(app, getSettings, navHistoryGetter, onBreadcrumbNavigate, navDisplayNameGetter);
 	}
 
 	// 引擎记录一次导航后转发给面包屑刷新：覆盖 active-leaf-change 未触发的 deferred 视图 reveal 场景。

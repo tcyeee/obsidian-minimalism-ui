@@ -30,7 +30,7 @@
  */
 import { App, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
-import { AnimationClass, GLOBAL_GRAPH_KEY, NavigationHistory, filelessViewKey, viewTypeFromKey } from './NavigationHistory';
+import { AnimationClass, GLOBAL_GRAPH_KEY, NavigationHistory, filelessViewKey, isFilelessViewKey, viewTypeFromKey } from './NavigationHistory';
 import { ResizeObserverErrorSuppressor } from './ResizeObserverErrorSuppressor';
 import { LeafCache } from './LeafCache';
 import { GraphSidebarManager } from './GraphSidebarManager';
@@ -53,6 +53,7 @@ type LeafInternal = WorkspaceLeaf & {
 		file?: TFile;
 		contentEl?: HTMLElement;
 		getViewType?: () => string;
+		getDisplayText?: () => string;
 	};
 	parent?: unknown;
 	containerEl?: HTMLElement;
@@ -250,6 +251,10 @@ export class SinglePageEngine {
 		return this.nav.getHistory();
 	}
 
+	getNavDisplayName(key: string): string | null {
+		return this.nav.getDisplayName(key);
+	}
+
 	// 注入导航历史变更监听器（main.ts 用它驱动面包屑刷新）。
 	setNavChangeListener(cb: (leaf: WorkspaceLeaf | null) => void) {
 		this.navChangeListener = cb;
@@ -283,6 +288,11 @@ export class SinglePageEngine {
 		this.nav.markActiveRoot(navKey);
 		if (!navKey) return;
 		this.nav.record(navKey);
+		// 无文件视图：缓存人类可读显示名，供面包屑在该视图不再是当前项时仍能正确显示。
+		if (isFilelessViewKey(navKey)) {
+			const displayText = (leaf as LeafInternal).view?.getDisplayText?.();
+			if (displayText) this.nav.recordDisplayName(navKey, displayText);
+		}
 		// 通知面包屑刷新（传入当前 leaf 以便其取 getDisplayText 作为无文件视图标签）。
 		this.navChangeListener?.(leaf);
 	}
@@ -463,6 +473,10 @@ export class SinglePageEngine {
 					this.graphSidebar.handleRootNav(key);
 					this.nav.markActiveRoot(key);
 					this.nav.push(key);
+					if (isFilelessViewKey(key)) {
+						const displayText = (leaf as LeafInternal).view?.getDisplayText?.();
+						if (displayText) this.nav.recordDisplayName(key, displayText);
+					}
 					this.navChangeListener?.(leaf);
 				}
 			}

@@ -762,6 +762,40 @@ body.is-mac.minimalism-ui-mac-sidebar .titlebar-button-container.mod-left {
 	padding-top: 8px;
 }
 
+/* ── 设置分组可折叠标题 ───────────────────────────────────────────────── */
+
+.minimalism-ui-collapsible-heading {
+	cursor: pointer;
+	user-select: none;
+	padding-left: 0;
+}
+
+.minimalism-ui-collapsible-heading:hover .setting-item-name {
+	color: var(--text-normal);
+}
+
+.minimalism-ui-section-arrow {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	margin-right: 5px;
+	width: 14px;
+	color: var(--text-muted);
+}
+
+.minimalism-ui-section-arrow::before {
+	content: '›';
+	display: inline-block;
+	font-size: 1.1em;
+	line-height: 1;
+	transition: transform 0.18s ease;
+	transform: rotate(90deg);
+}
+
+.minimalism-ui-collapsible-heading-collapsed .minimalism-ui-section-arrow::before {
+	transform: rotate(0deg);
+}
+
 /* ── 笔记内容美学（各主题） ───────────────────────────────────────────── */
 /* 主题内容样式已迁移到 theme/<name>/<name>.css，由 ThemeLoader 在运行时按 data.json 的
    theme 字段注入，并收敛在 body.minimalism-ui-theme-<name> 作用域下。

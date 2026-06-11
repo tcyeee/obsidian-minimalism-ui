@@ -9,6 +9,7 @@ export interface MinimalismUISettings {
 	homePage: string;
 	filenamePrefixLength: number;
 	language: 'auto' | 'zh' | 'en';
+	collapsedSections: Record<string, boolean>;
 }
 
 export const DEFAULT_SETTINGS: MinimalismUISettings = {
@@ -22,4 +23,5 @@ export const DEFAULT_SETTINGS: MinimalismUISettings = {
 	homePage: '',
 	filenamePrefixLength: 0,
 	language: 'auto',
+	collapsedSections: {},
 };

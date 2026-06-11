@@ -39,6 +39,33 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
+	private addCollapsibleSection(key: string, title: string): HTMLElement {
+		const { containerEl } = this;
+		const isCollapsed = this.plugin.settings.collapsedSections[key] ?? false;
+
+		const headingEl = containerEl.createDiv({
+			cls: 'setting-item setting-item-heading minimalism-ui-collapsible-heading'
+				+ (isCollapsed ? ' minimalism-ui-collapsible-heading-collapsed' : ''),
+		});
+		const nameEl = headingEl.createDiv({ cls: 'setting-item-info' })
+			.createDiv({ cls: 'setting-item-name' });
+		nameEl.createSpan({ cls: 'minimalism-ui-section-arrow' });
+		nameEl.createSpan({ text: title });
+
+		const contentEl = containerEl.createDiv({ cls: 'minimalism-ui-collapsible-content' });
+		if (isCollapsed) contentEl.style.display = 'none';
+
+		headingEl.addEventListener('click', async () => {
+			const nowCollapsed = !(this.plugin.settings.collapsedSections[key] ?? false);
+			this.plugin.settings.collapsedSections[key] = nowCollapsed;
+			headingEl.toggleClass('minimalism-ui-collapsible-heading-collapsed', nowCollapsed);
+			contentEl.style.display = nowCollapsed ? 'none' : '';
+			await this.plugin.saveSettings();
+		});
+
+		return contentEl;
+	}
+
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
@@ -49,9 +76,10 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		intro.createEl('p', { text: t('introDesc2') });
 		intro.createEl('p', { text: t('introDesc3') });
 
-		new Setting(containerEl).setName(t('headingGeneral')).setHeading();
+		// ── General ──
+		const generalEl = this.addCollapsibleSection('general', t('headingGeneral'));
 
-		new Setting(containerEl)
+		new Setting(generalEl)
 			.setName(t('language'))
 			.addDropdown(drop => drop
 				.addOption('auto', t('languageAuto'))
@@ -65,7 +93,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 					this.display();
 				}));
 
-		new Setting(containerEl)
+		new Setting(generalEl)
 			.setName(t('theme'))
 			.addDropdown(drop => {
 				// 主题清单内嵌在 main.js 里，同步可得
@@ -83,9 +111,10 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				});
 			});
 
-		new Setting(containerEl).setName(t('headingAppearance')).setHeading();
+		// ── Appearance ──
+		const appearanceEl = this.addCollapsibleSection('appearance', t('headingAppearance'));
 
-		new Setting(containerEl)
+		new Setting(appearanceEl)
 			.setName(t('hideTabBar'))
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.hideTabBar)
@@ -94,7 +123,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		new Setting(containerEl)
+		new Setting(appearanceEl)
 			.setName(t('showProperties'))
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.showProperties)
@@ -104,7 +133,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 					await this.plugin.applyMacSidebarLayout();
 				}));
 
-		new Setting(containerEl)
+		new Setting(appearanceEl)
 			.setName(t('showLocalGraph'))
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.showLocalGraph)
@@ -114,7 +143,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 					await this.plugin.applyMacSidebarLayout();
 				}));
 
-		new Setting(containerEl)
+		new Setting(appearanceEl)
 			.setName(t('showVaultProfile'))
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.showVaultProfile)
@@ -123,9 +152,10 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		new Setting(containerEl).setName(t('headingInteraction')).setHeading();
+		// ── Interaction ──
+		const interactionEl = this.addCollapsibleSection('interaction', t('headingInteraction'));
 
-		const singlePageSetting = new Setting(containerEl)
+		const singlePageSetting = new Setting(interactionEl)
 			.setName(t('singlePage'));
 		singlePageSetting.settingEl.addClass('minimalism-ui-single-page-setting');
 		singlePageSetting.addToggle(toggle => toggle
@@ -143,7 +173,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		singlePageSetting.descEl.createSpan({ text: t('singlePageDesc4') });
 		singlePageSetting.descEl.createEl('br');
 
-		new Setting(containerEl)
+		new Setting(interactionEl)
 			.setName(t('homePage'))
 			.setDesc(t('homePageDesc'))
 			.addText(text => {
@@ -159,7 +189,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				});
 			});
 
-		new Setting(containerEl)
+		new Setting(interactionEl)
 			.setName(t('filenamePrefixLength'))
 			.setDesc(t('filenamePrefixLengthDesc'))
 			.addText(text => {
@@ -177,9 +207,10 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				});
 			});
 
-		new Setting(containerEl).setName(t('headingAnimation')).setHeading();
+		// ── Animation ──
+		const animationEl = this.addCollapsibleSection('animation', t('headingAnimation'));
 
-		new Setting(containerEl)
+		new Setting(animationEl)
 			.setName(t('navAnimation'))
 			.setDesc(t('navAnimationDesc'))
 			.addToggle(toggle => toggle
