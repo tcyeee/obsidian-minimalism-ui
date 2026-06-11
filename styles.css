@@ -796,6 +796,10 @@ body.is-mac.minimalism-ui-mac-sidebar .titlebar-button-container.mod-left {
 	transform: rotate(0deg);
 }
 
+.minimalism-ui-collapsible-heading-collapsed + .minimalism-ui-collapsible-content {
+	display: none;
+}
+
 /* ── 笔记内容美学（各主题） ───────────────────────────────────────────── */
 /* 主题内容样式已迁移到 theme/<name>/<name>.css，由 ThemeLoader 在运行时按 data.json 的
    theme 字段注入，并收敛在 body.minimalism-ui-theme-<name> 作用域下。

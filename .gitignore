@@ -8,7 +8,7 @@ node_modules/
 *.tsbuildinfo
 
 # Generated theme assets (rebuilt by scripts/generate-theme-assets.mjs)
-src/generated/
+src/generated/theme-assets.ts
 
 # macOS
 .DS_Store
@@ -37,3 +37,6 @@ docs/
 .claude/
 AGENTS.md
 CLAUDE.md
+
+# Obsidian's compiled CSS — local reference only, not part of the plugin
+app.css

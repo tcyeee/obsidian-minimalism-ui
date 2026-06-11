@@ -53,14 +53,12 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		nameEl.createSpan({ text: title });
 
 		const contentEl = containerEl.createDiv({ cls: 'minimalism-ui-collapsible-content' });
-		if (isCollapsed) contentEl.style.display = 'none';
 
-		headingEl.addEventListener('click', async () => {
+		headingEl.addEventListener('click', () => {
 			const nowCollapsed = !(this.plugin.settings.collapsedSections[key] ?? false);
 			this.plugin.settings.collapsedSections[key] = nowCollapsed;
 			headingEl.toggleClass('minimalism-ui-collapsible-heading-collapsed', nowCollapsed);
-			contentEl.style.display = nowCollapsed ? 'none' : '';
-			await this.plugin.saveSettings();
+			void this.plugin.saveSettings();
 		});
 
 		return contentEl;

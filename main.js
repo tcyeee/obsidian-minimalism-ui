@@ -2172,7 +2172,7 @@ var SinglePageEngine = class {
       this.app.workspace.iterateRootLeaves((l) => {
         if (l === leaf) isRootLeaf = true;
       });
-      if (isRootLeaf && this.app.workspace.activeLeaf !== leaf) {
+      if (isRootLeaf && this.app.workspace.getMostRecentLeaf() !== leaf) {
         this.app.workspace.setActiveLeaf(leaf, { focus: true });
       }
       this.handleNavTrack(leaf);
@@ -2499,7 +2499,7 @@ var SinglePageEngine = class {
     const path = this.getSettings().homePage;
     if (!path) return;
     if (activeDocument.querySelector(".modal-container")) return;
-    const file = this.app.vault.getAbstractFileByPath(path);
+    const file = this.app.vault.getAbstractFileByPath((0, import_obsidian2.normalizePath)(path));
     if (!(file instanceof import_obsidian2.TFile)) return;
     this._isOpeningHomePage = true;
     this._homePageReopenQueued = false;
@@ -2681,21 +2681,21 @@ var translations = {
     headingAnimation: "Animation (beta)",
     showProperties: "Properties",
     showLocalGraph: "Local Graph",
-    showVaultProfile: "Bottom Settings Area",
-    hideTabBar: "Hide Outline Button",
+    showVaultProfile: "Bottom settings area",
+    hideTabBar: "Hide outline button",
     theme: "Theme",
-    homePage: "Home Note",
+    homePage: "Home note",
     homePageDesc: "A note that opens automatically on startup and whenever all tabs are closed.",
     homePagePlaceholder: "Note path, e.g. src/Home.md",
     goHome: "Back to Home",
-    singlePage: "Single-Page Mode",
+    singlePage: "Single-page mode",
     singlePageDesc1: "1. Hide the tab bar \u2014 show one note at a time.",
     singlePageDesc2: "2. Keep the 10 most recently visited notes cached in memory.",
     singlePageDesc3: "3. Prevent pinning tabs via the right-click menu.",
     singlePageDesc4: "4. Show a breadcrumb trail in the drag bar to track navigation history.",
-    navAnimation: "Page Transition Animation",
+    navAnimation: "Page transition animation",
     navAnimationDesc: "Play a slide-in animation when navigating back or forward.",
-    filenamePrefixLength: "Hide Filename Timestamp Prefix",
+    filenamePrefixLength: "Hide filename timestamp prefix",
     filenamePrefixLengthDesc: 'For timestamp-prefixed notes. E.g. hide the first 13 characters of "202604111230-test" so it shows as "test" in the navigation (0 = off, max 20).',
     graphView: "Graph view"
   }
@@ -3524,14 +3524,12 @@ var MinimalismUISettingTab = class extends import_obsidian6.PluginSettingTab {
     nameEl.createSpan({ cls: "minimalism-ui-section-arrow" });
     nameEl.createSpan({ text: title });
     const contentEl = containerEl.createDiv({ cls: "minimalism-ui-collapsible-content" });
-    if (isCollapsed) contentEl.style.display = "none";
-    headingEl.addEventListener("click", async () => {
+    headingEl.addEventListener("click", () => {
       var _a2;
       const nowCollapsed = !((_a2 = this.plugin.settings.collapsedSections[key]) != null ? _a2 : false);
       this.plugin.settings.collapsedSections[key] = nowCollapsed;
       headingEl.toggleClass("minimalism-ui-collapsible-heading-collapsed", nowCollapsed);
-      contentEl.style.display = nowCollapsed ? "none" : "";
-      await this.plugin.saveSettings();
+      void this.plugin.saveSettings();
     });
     return contentEl;
   }
@@ -3704,7 +3702,7 @@ var MinimalismUIPlugin = class extends import_obsidian7.Plugin {
   // 重新注入当前 theme 字段对应的主题 CSS 与字体（切换主题时调用）。
   // 字体随主题分发（theme/<name>/fonts/），故主题切换时一并重载。
   async applyTheme() {
-    await this.themeLoader.apply();
+    this.themeLoader.apply();
     await this.fontLoader.apply();
     this.sidebarLayout.reapplyGraphColors();
   }

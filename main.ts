@@ -120,7 +120,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	// 重新注入当前 theme 字段对应的主题 CSS 与字体（切换主题时调用）。
 	// 字体随主题分发（theme/<name>/fonts/），故主题切换时一并重载。
 	async applyTheme() {
-		await this.themeLoader.apply();
+		this.themeLoader.apply();
 		await this.fontLoader.apply();
 		// 主题切换后，注入的本地关系图（canvas）颜色仍是旧主题——它只在注入时
 		// 通过 renderer.testCSS() 探测一次 CSS 颜色。这里就地重新探测，无需重建侧边栏。

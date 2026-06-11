@@ -60,27 +60,27 @@ const translations = {
 
 		showProperties: 'Properties',
 		showLocalGraph: 'Local Graph',
-		showVaultProfile: 'Bottom Settings Area',
+		showVaultProfile: 'Bottom settings area',
 
-		hideTabBar: 'Hide Outline Button',
+		hideTabBar: 'Hide outline button',
 
 		theme: 'Theme',
 
-		homePage: 'Home Note',
+		homePage: 'Home note',
 		homePageDesc: 'A note that opens automatically on startup and whenever all tabs are closed.',
 		homePagePlaceholder: 'Note path, e.g. src/Home.md',
 		goHome: 'Back to Home',
 
-		singlePage: 'Single-Page Mode',
+		singlePage: 'Single-page mode',
 		singlePageDesc1: '1. Hide the tab bar — show one note at a time.',
 		singlePageDesc2: '2. Keep the 10 most recently visited notes cached in memory.',
 		singlePageDesc3: '3. Prevent pinning tabs via the right-click menu.',
 		singlePageDesc4: '4. Show a breadcrumb trail in the drag bar to track navigation history.',
 
-		navAnimation: 'Page Transition Animation',
+		navAnimation: 'Page transition animation',
 		navAnimationDesc: 'Play a slide-in animation when navigating back or forward.',
 
-		filenamePrefixLength: 'Hide Filename Timestamp Prefix',
+		filenamePrefixLength: 'Hide filename timestamp prefix',
 		filenamePrefixLengthDesc: 'For timestamp-prefixed notes. E.g. hide the first 13 characters of "202604111230-test" so it shows as "test" in the navigation (0 = off, max 20).',
 
 		graphView: 'Graph view',

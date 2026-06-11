@@ -28,7 +28,7 @@
  * active-leaf-change 上的两件事（LRU、导航记录）由单一 dispatcher 按固定顺序触发，避免依赖多个
  * listener 的注册顺序；入场动画不在此触发，改由 activateOrOpenFile 在定位到目标 leaf 后直接调用。
  */
-import { App, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
+import { App, TAbstractFile, TFile, WorkspaceLeaf, normalizePath } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
 import { AnimationClass, GLOBAL_GRAPH_KEY, NavigationHistory, filelessViewKey, isFilelessViewKey, viewTypeFromKey } from './NavigationHistory';
 import { ResizeObserverErrorSuppressor } from './ResizeObserverErrorSuppressor';
@@ -141,7 +141,7 @@ export class SinglePageEngine {
 			// 侧边栏 leaf 不受影响(激活会抢编辑器焦点,且本就无此问题)。
 			let isRootLeaf = false;
 			this.app.workspace.iterateRootLeaves(l => { if (l === leaf) isRootLeaf = true; });
-			if (isRootLeaf && this.app.workspace.activeLeaf !== leaf) {
+			if (isRootLeaf && this.app.workspace.getMostRecentLeaf() !== leaf) {
 				this.app.workspace.setActiveLeaf(leaf, { focus: true });
 			}
 			// setActiveLeaf 触发的 active-leaf-change 同样会走 handleNavTrack,但事件派发可能延后;
@@ -554,7 +554,7 @@ export class SinglePageEngine {
 		const path = this.getSettings().homePage;
 		if (!path) return;
 		if (activeDocument.querySelector('.modal-container')) return;
-		const file = this.app.vault.getAbstractFileByPath(path);
+		const file = this.app.vault.getAbstractFileByPath(normalizePath(path));
 		if (!(file instanceof TFile)) return;
 		this._isOpeningHomePage = true;
 		this._homePageReopenQueued = false;
