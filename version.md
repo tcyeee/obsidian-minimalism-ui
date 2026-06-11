@@ -5,6 +5,20 @@
 
 ---
 
+## Version 1.2.8
+
+- Added collapsible sections to the Settings panel for better organization
+- Fixed single-page navigation getting stuck when navigating back through fileless views (e.g., global graph)
+- Fixed breadcrumb home icon color not inheriting from surrounding items
+- Theme fonts and styles are now fully embedded in the plugin bundle, ensuring they load correctly after marketplace installation
+
+- 为设置面板添加可折叠分组，浏览更清晰
+- 修复单页模式下后退经过无文件视图（如全局图谱）时导航被卡住的问题
+- 修复面包屑主页图标颜色未跟随周围图标颜色的问题
+- 主题字体与样式现已完整内嵌于插件包，从插件市场安装后可正确加载
+
+---
+
 ## Version 1.2.7
 
 - Added a home icon to the breadcrumb and improved home page detection
