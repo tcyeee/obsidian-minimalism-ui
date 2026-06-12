@@ -27,21 +27,32 @@ __export(main_exports, {
   default: () => MinimalismUIPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian7 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 
 // src/core/settings.ts
 var DEFAULT_SETTINGS = {
+  // 除高级功能外，所有功能默认开启
   showProperties: true,
-  showLocalGraph: false,
+  showLocalGraph: true,
   showVaultProfile: true,
-  hideTabBar: false,
-  disableNoteTabs: false,
-  enableNavAnimation: false,
+  // 功能区（左侧 ribbon 活动栏）默认关闭
+  showRibbon: false,
+  hideTabBar: true,
+  disableNoteTabs: true,
+  enableNavAnimation: true,
   theme: "forest",
   homePage: "",
+  // 高级功能（文件名前缀）默认关闭
+  filenamePrefixManual: false,
   filenamePrefixLength: 0,
   language: "auto",
-  collapsedSections: {}
+  // 动画与高级设置区块默认折叠
+  collapsedSections: { animation: true, advanced: true },
+  onboarding: true,
+  // 默认无已完成任务；loadSettings 合并后老用户也会得到空数组。
+  onboardingDone: [],
+  // 默认未执行；仅全新安装会保持 false 并触发一次收拢，老用户在 loadSettings 里被置 true。
+  firstRunCleanupDone: false
 };
 
 // src/generated/theme-assets.ts
@@ -751,6 +762,29 @@ body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-l
 	color: rgba(196, 196, 196, 0.88);
 }
 
+/* \u5DE6\u4FA7 ribbon\uFF08\u6D3B\u52A8\u680F\uFF09\u80CC\u666F\u4E0E\u4FA7\u8FB9\u680F\u4E00\u81F4\uFF0C\u878D\u4E3A\u540C\u4E00\u5757\u9762\u677F */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left::before {
+	background-color: #123342;
+}
+
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left,
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left::before {
+	background-color: #1c1c1e;
+}
+
+/* ribbon \u56FE\u6807\u6D45\u8272\u9002\u914D\u6DF1\u5E95 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon {
+	color: rgba(196, 196, 196, 0.7);
+}
+
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action:hover,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon:hover {
+	color: rgba(255, 255, 255, 0.95);
+	background-color: rgba(255, 255, 255, 0.08);
+}
+
 /* \u6CE8\u5165\u5F0F\u5206\u533A\u6807\u9898\uFF08OUTLINE / PROPERTIES / LOCAL GRAPH\uFF09\u6D45\u767D */
 body.minimalism-ui-theme-forest.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"]::before,
 body.minimalism-ui-theme-forest.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="file-properties"]::before,
@@ -904,6 +938,25 @@ body.minimalism-ui-theme-newspaper .workspace-split.mod-left-split > .workspace-
    \u53EA\u662F\u6362\u6210\u6DF1\u5B57\u9002\u914D\u5976\u767D\u5E95\uFF09\u3002\u53E0\u52A0 .minimalism-ui-mac-sidebar \u4E0E\u8BE5 chrome \u9009\u62E9\u5668\u5BF9\u9F50\u3002 */
 body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split * {
 	color: #4a3838;
+}
+
+/* \u5DE6\u4FA7 ribbon\uFF08\u6D3B\u52A8\u680F\uFF09\uFF1A\u5976\u767D\u7EB8\u5E95\uFF0C\u4E0E\u4FA7\u8FB9\u680F\u8FDE\u6210\u540C\u4E00\u7247\u7248\u5757\u3002
+   ::before \u662F\u9876\u90E8\u4EA4\u901A\u706F\u89D2\u843D\uFF08Obsidian \u9ED8\u8BA4\u586B titlebar \u8272\uFF09\uFF0C\u4E00\u5E76\u5237\u6210\u7EB8\u8272 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left::before {
+	background-color: #f3f2ee;
+}
+
+/* ribbon \u56FE\u6807\uFF1A\u62A5\u520A\u6DF1\u58A8\uFF0Chover \u52A0\u6DF1 + \u6696\u7070\u5E95 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon {
+	color: #4a3838;
+}
+
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action:hover,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon:hover {
+	color: #1f0909;
+	background-color: #e8e7e7;
 }
 
 /* \u6CE8\u5165\u5F0F\u5206\u533A\u6807\u9898\uFF08OUTLINE / PROPERTIES / LOCAL GRAPH\uFF09\uFF1A\u62A5\u520A\u8FD1\u9ED1\uFF0C\u6BD4\u6B63\u6587\u7565\u91CD\u4F5C kicker\u3002
@@ -1672,7 +1725,8 @@ var BODY_CLASSES = [
   "minimalism-ui-disable-note-tabs",
   "minimalism-ui-note-style",
   "minimalism-ui-has-home",
-  "minimalism-ui-hide-vault-profile"
+  "minimalism-ui-hide-vault-profile",
+  "minimalism-ui-hide-ribbon"
 ];
 var BodyClassController = class {
   constructor(getSettings) {
@@ -1689,6 +1743,7 @@ var BodyClassController = class {
     cls.add("minimalism-ui-note-style");
     cls.toggle("minimalism-ui-has-home", !!s.homePage);
     cls.toggle("minimalism-ui-hide-vault-profile", !s.showVaultProfile);
+    cls.toggle("minimalism-ui-hide-ribbon", !s.showRibbon);
   }
   remove() {
     activeDocument.body.classList.remove(...BODY_CLASSES);
@@ -1763,6 +1818,17 @@ var NavigationHistory = class {
   // apply() 中途启用时用当前文件兜底初始化，避免首次后退因历史为空而静默失败
   seed(filePath) {
     if (this.history.length === 0) this.history.push(filePath);
+  }
+  // 设置新首页后把整条导航栈收拢为「仅首页」：清空 history / future 与一次性标志，
+  // 使面包屑也只剩首页一项。path 为空则整条清空。由 SinglePageEngine.resetToHomePage 调用。
+  reset(path) {
+    this.cancelTimer();
+    this.clearAnimListener();
+    this.history = path ? [path] : [];
+    this.future = [];
+    this.currentRootPath = path || null;
+    this.jumpPath = null;
+    this.isClosingTab = false;
   }
   // 引擎在每次 root leaf 激活时调用，记录主区域当前显示的文件路径（无文件视图传 null）。
   // 必须对所有 root leaf 激活生效（含关系图等无文件视图），back/canGoBack 依赖它判断
@@ -2156,7 +2222,7 @@ var SinglePageEngine = class {
     const ws = this.app.workspace;
     this.originalGetLeaf = ws.getLeaf.bind(ws);
     ws.getLeaf = (newLeaf) => {
-      const shouldIntercept = newLeaf === false || newLeaf === void 0 || newLeaf === true || newLeaf === "tab";
+      const shouldIntercept = newLeaf === false || newLeaf === void 0 || newLeaf === true || newLeaf === "tab" || newLeaf === "split" || newLeaf === "window";
       if (shouldIntercept && !this.isReusingLeaf && !this._isOpeningHomePage) {
         const leaf = this.originalGetLeaf("tab");
         this.interceptLeafOpenFile(leaf);
@@ -2533,6 +2599,124 @@ var SinglePageEngine = class {
       }
     }
   }
+  // 设置里更换首页后调用：把主区收拢为只剩首页一个 tab，并把导航历史 / 面包屑重置为仅首页。
+  // 仅在用户真正改动首页路径时触发（见 SettingTab），不在每次 saveSettings 时跑，避免误关标签。
+  async resetToHomePage() {
+    var _a;
+    const path = this.getSettings().homePage;
+    if (!path) return;
+    const file = this.app.vault.getAbstractFileByPath((0, import_obsidian2.normalizePath)(path));
+    if (!(file instanceof import_obsidian2.TFile)) return;
+    await this.openHomePage();
+    const others = [];
+    let homeLeaf = null;
+    this.app.workspace.iterateRootLeaves((l) => {
+      var _a2, _b;
+      if (!homeLeaf && ((_b = (_a2 = l.view) == null ? void 0 : _a2.file) == null ? void 0 : _b.path) === file.path) {
+        homeLeaf = l;
+      } else {
+        others.push(l);
+      }
+    });
+    this.isReusingLeaf = true;
+    try {
+      for (const l of others) l.detach();
+    } finally {
+      this.isReusingLeaf = false;
+    }
+    this.nav.reset(path);
+    (_a = this.navChangeListener) == null ? void 0 : _a.call(this, homeLeaf);
+  }
+};
+
+// src/single-page/SingleTabGroupGuard.ts
+var SingleTabGroupGuard = class {
+  constructor(app, getSettings) {
+    this.app = app;
+    this.getSettings = getSettings;
+    this.handler = null;
+    this.isEnforcing = false;
+  }
+  apply() {
+    this.remove();
+    if (!this.getSettings().disableNoteTabs) return;
+    this.handler = () => this.enforce();
+    this.app.workspace.on("layout-change", this.handler);
+    this.enforce();
+  }
+  remove() {
+    if (this.handler) {
+      this.app.workspace.off("layout-change", this.handler);
+      this.handler = null;
+    }
+  }
+  // 去重键：文件路径优先，其次视图类型；空视图返回 null(不参与去重，但仍会被搬运)。
+  dedupKey(leaf) {
+    var _a;
+    const vs = leaf.getViewState();
+    const filePath = (_a = vs == null ? void 0 : vs.state) == null ? void 0 : _a.file;
+    if (filePath) return `file:${filePath}`;
+    const viewType = vs == null ? void 0 : vs.type;
+    if (!viewType || viewType === "empty") return null;
+    return `view:${viewType}`;
+  }
+  enforce() {
+    var _a, _b;
+    if (!this.getSettings().disableNoteTabs) return;
+    if (this.isEnforcing) return;
+    const rootSplit = this.app.workspace.rootSplit;
+    const groups = /* @__PURE__ */ new Map();
+    const active = this.app.workspace.getMostRecentLeaf();
+    let activeRoot = null;
+    this.app.workspace.iterateRootLeaves((leaf) => {
+      const parent = leaf.parent;
+      if (!groups.has(parent)) groups.set(parent, []);
+      groups.get(parent).push(leaf);
+      if (leaf === active) activeRoot = leaf;
+    });
+    if (groups.size <= 1) return;
+    const inMainWindow = (leaf) => leaf.getContainer() === rootSplit;
+    let primaryGroup = null;
+    if (activeRoot && inMainWindow(activeRoot)) {
+      primaryGroup = activeRoot.parent;
+    } else {
+      for (const [group, leaves] of groups) {
+        if (inMainWindow(leaves[0])) {
+          primaryGroup = group;
+          break;
+        }
+      }
+    }
+    if (primaryGroup === null) return;
+    this.isEnforcing = true;
+    try {
+      const ws = this.app.workspace;
+      const existing = /* @__PURE__ */ new Set();
+      for (const leaf of groups.get(primaryGroup)) {
+        const key = this.dedupKey(leaf);
+        if (key) existing.add(key);
+      }
+      let index = (_b = (_a = primaryGroup.children) == null ? void 0 : _a.length) != null ? _b : 0;
+      for (const [group, leaves] of groups) {
+        if (group === primaryGroup) continue;
+        for (const leaf of leaves) {
+          const li = leaf;
+          const key = this.dedupKey(leaf);
+          if (key && existing.has(key)) {
+            li.detach();
+            continue;
+          }
+          const vs = li.getViewState();
+          const newLeaf = ws.createLeafInParent(primaryGroup, index++);
+          void newLeaf.setViewState(vs);
+          if (key) existing.add(key);
+          li.detach();
+        }
+      }
+    } finally {
+      this.isEnforcing = false;
+    }
+  }
 };
 
 // src/tabs/PinManager.ts
@@ -2641,14 +2825,15 @@ var translations = {
     introTitle: "\u4F7F\u7528\u524D\u5FC5\u8BFB",
     introDesc1: '\u672C\u63D2\u4EF6\u662F\u4E00\u6B3E"\u505A\u51CF\u6CD5"\u7684\u5DE5\u5177,\u8BBE\u8BA1\u7406\u5FF5\u4E0E\u4E3B\u6D41\u7528\u6CD5\u76F8\u6096:\u5B83\u53EA\u4FDD\u7559\u5DE6\u4FA7\u8FB9\u680F(\u81F3\u591A\u663E\u793A\u5927\u7EB2\u3001\u5C5E\u6027\u3001\u672C\u5730\u5173\u7CFB\u56FE),\u5E76\u88C1\u526A\u6389\u4E86\u5927\u91CF\u6838\u5FC3\u529F\u80FD,\u751A\u81F3\u5305\u62EC"\u6587\u4EF6\u5939"\u3002\u5B89\u88C5\u524D\u8BF7\u5148\u786E\u8BA4\u4F60\u8BA4\u540C\u8FD9\u5957\u6781\u7B80\u7406\u5FF5\u3002',
     introDesc2: "\u8BF7\u6307\u5B9A\u4E00\u7BC7\u7B14\u8BB0\u4F5C\u4E3A\u9996\u9875\u3002\u5B83\u5982\u540C\u4E00\u68F5\u6811\u7684\u4E3B\u5E72,\u4F60\u5728\u5176\u4E0A\u7528\u53CC\u94FE\u4E0D\u65AD\u65B0\u5EFA\u7B14\u8BB0,\u8BA9\u77E5\u8BC6\u5F00\u679D\u6563\u53F6,\u6700\u7EC8\u957F\u6210\u53C2\u5929\u5927\u6811\u3002",
-    introDesc3: '\u7531\u4E8E\u653E\u5F03\u4E86"\u6587\u4EF6\u5939",\u6E90\u6587\u4EF6\u7EDF\u4E00\u653E\u7F6E\u5728\u8D44\u6E90\u76EE\u5F55\u3002\u5EFA\u8BAE\u5F00\u542F\u65F6\u95F4\u6233\u524D\u7F00\u547D\u540D,\u4E3A\u6BCF\u7BC7\u7B14\u8BB0\u8D4B\u4E88\u552F\u4E00\u6807\u8BC6,\u4ECE\u800C\u907F\u514D\u91CD\u540D\u51B2\u7A81\u3002',
     headingGeneral: "\u901A\u7528\u8BBE\u7F6E",
     headingAppearance: "\u4FA7\u8FB9\u680F\u8BBE\u7F6E",
     headingInteraction: "\u4EA4\u4E92\u8BBE\u7F6E",
     headingAnimation: "\u52A8\u753B\u8BBE\u7F6E (beta)",
+    headingAdvanced: "\u9AD8\u7EA7\u8BBE\u7F6E",
     showProperties: "\u5C5E\u6027\u9762\u677F",
     showLocalGraph: "\u672C\u5730\u5173\u7CFB\u56FE",
     showVaultProfile: "\u5E95\u90E8\u7528\u6237\u8BBE\u7F6E\u533A\u57DF",
+    showRibbon: "\u529F\u80FD\u533A",
     hideTabBar: "\u9690\u85CF\u5927\u7EB2\u6309\u94AE",
     theme: "\u4E3B\u9898",
     homePage: "\u7B14\u8BB0\u9996\u9875",
@@ -2662,8 +2847,18 @@ var translations = {
     singlePageDesc4: "4. \u5728\u9876\u90E8\u62D6\u62FD\u680F\u663E\u793A\u8BBF\u95EE\u8DEF\u5F84\uFF08\u9762\u5305\u5C51\uFF09\uFF0C\u65B9\u4FBF\u8FFD\u8E2A\u5BFC\u822A\u5386\u53F2\u3002",
     navAnimation: "\u9875\u9762\u52A0\u8F7D\u52A8\u753B",
     navAnimationDesc: "\u524D\u8FDB\u6216\u540E\u9000\u65F6\uFF0C\u4E3A\u76EE\u6807\u9875\u9762\u64AD\u653E\u6ED1\u5165\u52A8\u753B",
-    filenamePrefixLength: "\u9690\u85CF\u6587\u4EF6\u540D\u65F6\u95F4\u6233\u524D\u7F00",
-    filenamePrefixLengthDesc: '\u9002\u7528\u4E8E\u65F6\u95F4\u6233\u524D\u7F00\u7B14\u8BB0\uFF0C\u5982\u9690\u85CF "202604111230-test" \u524D 13 \u4E2A\u5B57\u7B26\uFF0C\u5B9E\u9645\u5728\u5BFC\u822A\u680F\u4E2D\u663E\u793A\u4E3A test\uFF080 = \u4E0D\u9690\u85CF\uFF0C\u6700\u591A 20\uFF09\u3002',
+    onboardingTitle: "\u65B0\u624B\u4EFB\u52A1",
+    onboardingCreateNote: "\u4F7F\u7528\u5FEB\u6377\u952E\u65B0\u5EFA\u4E00\u7BC7\u540D\u4E3A Index \u7684\u7B14\u8BB0",
+    onboardingSetHome: "\u5C06 Index \u8BBE\u7F6E\u4E3A\u4E3B\u9875",
+    onboardingOpenSettings: "\u53BB\u8BBE\u7F6E",
+    onboardingLinkNote: "\u5728 Index \u91CC\u8F93\u5165 [[ \u5173\u8054\u4E00\u7BC7\u65B0\u7B14\u8BB0",
+    onboardingGoBack: "\u4F7F\u7528\u5FEB\u6377\u952E\u540E\u9000",
+    onboardingGoForward: "\u4F7F\u7528\u5FEB\u6377\u952E\u524D\u8FDB",
+    onboardingAllDone: "\u5168\u90E8\u5B8C\u6210\uFF0C\u5F00\u59CB\u4F60\u7684\u5199\u4F5C\u5427\uFF01",
+    filenamePrefixManual: "\u624B\u52A8\u9690\u85CF\u65F6\u95F4\u6233\u524D\u7F00",
+    filenamePrefixManualDesc: "\u5173\u95ED\u65F6\u81EA\u52A8\u8DDF\u968F Obsidian\u300C\u552F\u4E00\u7B14\u8BB0\u521B\u5EFA\u5668\u300D\u914D\u7F6E\u7684\u65F6\u95F4\u6233\u683C\u5F0F\u5265\u79BB\u524D\u7F00\uFF08\u542B\u5176\u540E\u7684\u5206\u9694\u7B26\uFF09\uFF0C\u65E0\u9700\u8BBE\u7F6E\uFF1B\u5F00\u542F\u540E\u6539\u4E3A\u4E0B\u65B9\u624B\u52A8\u6307\u5B9A\u8981\u9690\u85CF\u7684\u4F4D\u6570\u3002",
+    filenamePrefixLength: "\u6307\u5B9A\u65F6\u95F4\u6233\u524D\u7F00\u957F\u5EA6",
+    filenamePrefixLengthDesc: '\u9690\u85CF\u6587\u4EF6\u540D\u5F00\u5934\u7684\u65F6\u95F4\u6233\u524D\u7F00\uFF0C\u5982\u9690\u85CF "202604111230-test" \u524D 13 \u4E2A\u5B57\u7B26\uFF0C\u5728\u5BFC\u822A\u680F\u4E2D\u663E\u793A\u4E3A test\uFF080 = \u4E0D\u9690\u85CF\uFF0C\u6700\u591A 20\uFF09\u3002',
     graphView: "\u5173\u7CFB\u56FE"
   },
   en: {
@@ -2674,14 +2869,15 @@ var translations = {
     introTitle: "Read this before you start",
     introDesc1: "This plugin is all about subtraction, and its philosophy runs against mainstream usage: it keeps only the left sidebar (showing at most Outline, Properties, and Local Graph) and strips away many core features, including Folders. Make sure this minimalist philosophy suits you before installing.",
     introDesc2: "Pick one note as your home page. Think of it as the trunk of a tree: keep creating notes from it through backlinks, letting your knowledge branch out until it grows into a towering tree.",
-    introDesc3: "Since folders are gone, source files are kept together in the assets directory. Enable timestamp-prefixed filenames to give each note a unique identifier and avoid name clashes.",
     headingGeneral: "General",
     headingAppearance: "Sidebar",
     headingInteraction: "Interaction",
     headingAnimation: "Animation (beta)",
+    headingAdvanced: "Advanced",
     showProperties: "Properties",
     showLocalGraph: "Local Graph",
     showVaultProfile: "Bottom settings area",
+    showRibbon: "Ribbon",
     hideTabBar: "Hide outline button",
     theme: "Theme",
     homePage: "Home note",
@@ -2695,8 +2891,18 @@ var translations = {
     singlePageDesc4: "4. Show a breadcrumb trail in the drag bar to track navigation history.",
     navAnimation: "Page transition animation",
     navAnimationDesc: "Play a slide-in animation when navigating back or forward.",
-    filenamePrefixLength: "Hide filename timestamp prefix",
-    filenamePrefixLengthDesc: 'For timestamp-prefixed notes. E.g. hide the first 13 characters of "202604111230-test" so it shows as "test" in the navigation (0 = off, max 20).',
+    onboardingTitle: "Getting started",
+    onboardingCreateNote: "Create a note named Index with the shortcut",
+    onboardingSetHome: "Set Index as your home page",
+    onboardingOpenSettings: "Open settings",
+    onboardingLinkNote: "In Index, type [[ to link a new note",
+    onboardingGoBack: "Go back with the shortcut",
+    onboardingGoForward: "Go forward with the shortcut",
+    onboardingAllDone: "All set \u2014 start writing!",
+    filenamePrefixManual: "Manually hide timestamp prefix",
+    filenamePrefixManualDesc: `When off, automatically follows the timestamp format configured in Obsidian's "Unique note creator" core plugin to strip the prefix (and the separator after it) \u2014 no setup needed. When on, manually specify the length to hide below.`,
+    filenamePrefixLength: "Timestamp prefix length",
+    filenamePrefixLengthDesc: 'Hide the timestamp prefix at the start of a filename. E.g. hide the first 13 characters of "202604111230-test" so it shows as "test" in the navigation (0 = off, max 20).',
     graphView: "Graph view"
   }
 };
@@ -2767,6 +2973,24 @@ var LeafNameUtils = class {
     if (name.length <= prefixLength) return name;
     if (!/^\d+[-_ ]?$/.test(name.slice(0, prefixLength))) return name;
     return name.slice(prefixLength);
+  }
+  // 读取「唯一笔记创建器」配置的时间戳格式,渲染一个样本算出其真实位数。
+  // 不手动解析格式 token——直接 moment().format(format).length,对任何格式都稳。
+  // 插件未启用 / 拿不到格式则返回 0(降级为不裁剪)。
+  static detectTimestampDigits(app) {
+    var _a, _b, _c;
+    const plugin = (_a = app.internalPlugins) == null ? void 0 : _a.getPluginById("zk-prefixer");
+    const format = (plugin == null ? void 0 : plugin.enabled) ? (_c = (_b = plugin.instance) == null ? void 0 : _b.options) == null ? void 0 : _c.format : null;
+    if (!format) return 0;
+    return window.moment().format(format).length;
+  }
+  // 自动模式:砍掉开头 digits 位数字,再吃掉紧跟的一个 -/_/空格。
+  // 仅当开头确实是数字、且剥离后仍有剩余字符时才裁剪,否则原样返回。
+  static stripTimestampPrefix(name, digits) {
+    if (digits <= 0) return name;
+    if (!/^\d/.test(name) || name.length <= digits) return name;
+    const rest = name.slice(digits).replace(/^[-_ ]/, "");
+    return rest.length > 0 ? rest : name;
   }
 };
 
@@ -2861,8 +3085,16 @@ var BreadcrumbRenderer = class {
   // 路径是稳定字符串,直接从 vault 查文件名,无需过滤关闭的 leaf。
   // 无文件视图的合成键不是文件路径:关系图映射为本地化 graph 标签;其余视图若正是当前末项则用实时
   // getDisplayText(filelessLabel),否则退化为 viewType。避免被 stripPrefix 截成乱码。
+  // 按当前模式选择前缀剥离策略:自动→从 zk-prefixer 推断位数;手动→用设置的固定长度。
+  // 每次渲染算一次(开销极小),用户改了 Obsidian 时间戳格式下次导航即自动跟上。
+  stripName(base) {
+    const s = this.getSettings();
+    if (s.filenamePrefixManual) {
+      return LeafNameUtils.stripPrefix(base, s.filenamePrefixLength);
+    }
+    return LeafNameUtils.stripTimestampPrefix(base, LeafNameUtils.detectTimestampDigits(this.app));
+  }
   buildNames(paths, filelessLabel) {
-    const prefixLen = this.getSettings().filenamePrefixLength;
     return paths.map((p, i) => {
       var _a, _b;
       if (p === GLOBAL_GRAPH_KEY) return t("graphView");
@@ -2871,9 +3103,9 @@ var BreadcrumbRenderer = class {
         return (_b = (_a = this.navDisplayNameGetter(p)) != null ? _a : viewTypeFromKey(p)) != null ? _b : p;
       }
       const f = this.app.vault.getAbstractFileByPath(p);
-      if (f instanceof import_obsidian3.TFile) return LeafNameUtils.stripPrefix(f.basename, prefixLen);
+      if (f instanceof import_obsidian3.TFile) return this.stripName(f.basename);
       const base = p.split("/").pop().replace(/\.md$/, "");
-      return LeafNameUtils.stripPrefix(base, prefixLen);
+      return this.stripName(base);
     });
   }
   // 渲染完整路径:单项→当前项;超阈值或溢出→折叠中间项;否则完整列出。
@@ -2907,7 +3139,7 @@ var BreadcrumbRenderer = class {
     if (!activeFile) return;
     const home = this.getSettings().homePage;
     const isHome = !!home && activeFile.path === home;
-    const name = LeafNameUtils.stripPrefix(activeFile.basename, this.getSettings().filenamePrefixLength);
+    const name = this.stripName(activeFile.basename);
     el.appendChild(this.makeItem(name, 0, true, isHome));
   }
   renderAll(names, firstIsHome) {
@@ -3484,9 +3716,274 @@ var MermaidZoomManager = class {
   }
 };
 
-// src/SettingTab.ts
+// src/onboarding/OnboardingManager.ts
 var import_obsidian6 = require("obsidian");
-var FileSuggest = class extends import_obsidian6.AbstractInputSuggest {
+var PANEL_CLASS = "minimalism-ui-onboarding";
+var ALL_DONE_HIDE_DELAY = 2500;
+var EXIT_DURATION = 320;
+var PLUGIN_ID = "minimalism-ui";
+function hasIndexNote(app) {
+  return app.vault.getMarkdownFiles().some((f) => f.basename.trim().toLowerCase() === "index");
+}
+function homeNoteHasLink(app, settings) {
+  const path = settings.homePage.trim();
+  if (!path) return false;
+  const file = app.vault.getAbstractFileByPath((0, import_obsidian6.normalizePath)(path));
+  if (!(file instanceof import_obsidian6.TFile)) return false;
+  const links = app.metadataCache.resolvedLinks[file.path];
+  return links != null && Object.keys(links).length > 0;
+}
+var TASKS = [
+  { label: "onboardingCreateNote", commandId: "file-explorer:new-file", isSatisfied: (app) => hasIndexNote(app) },
+  { label: "onboardingSetHome", isSatisfied: (_app, s) => s.homePage.trim() !== "", openSettings: true },
+  { label: "onboardingLinkNote", isSatisfied: (app, s) => homeNoteHasLink(app, s) },
+  { label: "onboardingGoBack", commandId: "app:go-back" },
+  { label: "onboardingGoForward", commandId: "app:go-forward" }
+];
+function openPluginSettings(app) {
+  const setting = app.setting;
+  setting == null ? void 0 : setting.open();
+  setting == null ? void 0 : setting.openTabById(PLUGIN_ID);
+}
+var MOD_SYMBOLS = import_obsidian6.Platform.isMacOS ? { Mod: "\u2318", Ctrl: "\u2303", Meta: "\u2318", Alt: "\u2325", Shift: "\u21E7" } : { Mod: "Ctrl", Ctrl: "Ctrl", Meta: "Win", Alt: "Alt", Shift: "Shift" };
+var MOD_ORDER = ["Ctrl", "Alt", "Shift", "Meta", "Mod"];
+var KEY_LABELS = {
+  ArrowLeft: "\u2190",
+  ArrowRight: "\u2192",
+  ArrowUp: "\u2191",
+  ArrowDown: "\u2193",
+  " ": "Space",
+  Enter: "\u21B5",
+  Backspace: "\u232B",
+  Delete: "\u2326",
+  Escape: "Esc"
+};
+function readHotkey(app, commandId) {
+  var _a, _b, _c;
+  const hm = app.hotkeyManager;
+  if (!hm) return null;
+  const custom = (_a = hm.getHotkeys) == null ? void 0 : _a.call(hm, commandId);
+  const list = custom !== void 0 ? custom : (_b = hm.getDefaultHotkeys) == null ? void 0 : _b.call(hm, commandId);
+  return (_c = list == null ? void 0 : list[0]) != null ? _c : null;
+}
+function keyLabel(key) {
+  var _a;
+  return (_a = KEY_LABELS[key]) != null ? _a : key.length === 1 ? key.toUpperCase() : key;
+}
+function readHotkeyTokens(app, commandId) {
+  var _a;
+  const hk = readHotkey(app, commandId);
+  if (!hk) return null;
+  const mods = ((_a = hk.modifiers) != null ? _a : []).slice().sort((a, b) => MOD_ORDER.indexOf(a) - MOD_ORDER.indexOf(b)).map((m) => {
+    var _a2;
+    return (_a2 = MOD_SYMBOLS[m]) != null ? _a2 : m;
+  });
+  return [...mods, keyLabel(hk.key)];
+}
+var OnboardingManager = class {
+  constructor(app, getSettings, persist) {
+    this.app = app;
+    this.getSettings = getSettings;
+    this.persist = persist;
+    this.panel = null;
+    this.items = [];
+    this.refreshHandler = null;
+    this.hideScheduled = false;
+    this.timers = [];
+    // 被拦截的设置面板及其原始 close（用于 remove() 还原，避免 monkey-patch 泄漏）。
+    this.patchedSetting = null;
+    this.originalSettingClose = null;
+    // 被拦截的命令执行口及其原始 executeCommand（用于 remove() 还原）。
+    this.patchedCommands = null;
+    this.originalExecuteCommand = null;
+  }
+  apply() {
+    this.remove();
+    if (!this.getSettings().onboarding) return;
+    const panel = activeDocument.body.createDiv({ cls: PANEL_CLASS });
+    panel.createDiv({ cls: `${PANEL_CLASS}-header`, text: t("onboardingTitle") });
+    const list = panel.createDiv({ cls: `${PANEL_CLASS}-tasks` });
+    for (const def of TASKS) {
+      const item = list.createDiv({ cls: `${PANEL_CLASS}-task` });
+      item.createSpan({ cls: `${PANEL_CLASS}-task-check` });
+      item.createSpan({ cls: `${PANEL_CLASS}-task-label`, text: t(def.label) });
+      if (def.openSettings) {
+        const btn = item.createEl("button", {
+          cls: `${PANEL_CLASS}-task-action`,
+          text: t("onboardingOpenSettings")
+        });
+        btn.addEventListener("click", () => openPluginSettings(this.app));
+      }
+      this.renderHotkey(item, def);
+      this.items.push({ def, el: item });
+    }
+    this.panel = panel;
+    this.refreshHandler = () => this.refresh();
+    this.app.workspace.on("layout-change", this.refreshHandler);
+    this.app.workspace.on("active-leaf-change", this.refreshHandler);
+    this.app.vault.on("create", this.refreshHandler);
+    this.app.vault.on("rename", this.refreshHandler);
+    this.app.vault.on("delete", this.refreshHandler);
+    this.app.metadataCache.on("changed", this.refreshHandler);
+    this.app.metadataCache.on("resolved", this.refreshHandler);
+    const commands = this.app.commands;
+    if (commands && typeof commands.executeCommand === "function") {
+      this.patchedCommands = commands;
+      const original = commands.executeCommand;
+      this.originalExecuteCommand = original;
+      commands.executeCommand = (command, ...rest) => {
+        const result = original.call(commands, command, ...rest);
+        if (result && command) this.onCommand(command.id);
+        return result;
+      };
+    }
+    const setting = this.app.setting;
+    if (setting && typeof setting.close === "function") {
+      this.patchedSetting = setting;
+      this.originalSettingClose = setting.close;
+      const original = setting.close;
+      setting.close = (...args) => {
+        original.apply(setting, args);
+        this.refresh();
+      };
+    }
+    this.refresh();
+  }
+  // 当前激活任务 = 第一个未完成的任务；全部完成则 null。
+  activeTask() {
+    var _a;
+    const done = new Set(this.getSettings().onboardingDone);
+    return (_a = TASKS.find((task) => !done.has(task.label))) != null ? _a : null;
+  }
+  // 标记某任务完成并持久化（去重）；随后刷新派生状态。
+  async complete(label) {
+    const done = this.getSettings().onboardingDone;
+    if (done.includes(label)) return;
+    done.push(label);
+    await this.persist();
+    this.refresh();
+  }
+  // 某命令成功执行：仅命中当前激活的纯热键型任务（无 isSatisfied）才完成。
+  // 带 isSatisfied 的任务（即便也有 commandId 用于展示键帽）只凭谓词判定，命令不完成。
+  onCommand(id) {
+    const active = this.activeTask();
+    if (!active || !active.commandId || active.isSatisfied) return;
+    if (active.commandId === id) void this.complete(active.label);
+  }
+  // 渲染/更新某任务的快捷键键帽：重读当前生效热键，与已显示的键帽逐 token diff，
+  // 一致则不动 DOM（保持「只改必要 DOM」的约定），不同才重建该任务的键帽节点。
+  // 无 commandId 直接跳过；热键被清空则移除残留键帽。
+  renderHotkey(item, def) {
+    if (!def.commandId) return;
+    const next = readHotkeyTokens(this.app, def.commandId);
+    let keys = item.querySelector(`.${PANEL_CLASS}-task-hotkey`);
+    const current = keys ? Array.from(keys.querySelectorAll(`.${PANEL_CLASS}-task-key`)).map((s) => {
+      var _a;
+      return (_a = s.textContent) != null ? _a : "";
+    }) : null;
+    if (JSON.stringify(current) === JSON.stringify(next)) return;
+    if (keys) keys.remove();
+    if (next) {
+      keys = item.createDiv({ cls: `${PANEL_CLASS}-task-hotkey` });
+      for (const tk of next) keys.createSpan({ cls: `${PANEL_CLASS}-task-key`, text: tk });
+    }
+  }
+  // 重新派生每条任务三态并切换样式（只改 class，不重建 DOM）。
+  // 顺带级联判定激活的状态型任务：谓词已满足则完成并继续看下一条。
+  refresh() {
+    var _a;
+    const settings = this.getSettings();
+    let active = this.activeTask();
+    while (active && active.isSatisfied && active.isSatisfied(this.app, settings)) {
+      if (!settings.onboardingDone.includes(active.label)) {
+        settings.onboardingDone.push(active.label);
+        void this.persist();
+      }
+      active = this.activeTask();
+    }
+    const done = new Set(settings.onboardingDone);
+    const activeLabel = (_a = active == null ? void 0 : active.label) != null ? _a : null;
+    for (const { def, el } of this.items) {
+      const status = done.has(def.label) ? "done" : def.label === activeLabel ? "doing" : "todo";
+      el.toggleClass("is-done", status === "done");
+      el.toggleClass("is-doing", status === "doing");
+      el.toggleClass("is-todo", status === "todo");
+      this.renderHotkey(el, def);
+    }
+    if (done.size === TASKS.length) this.scheduleHide();
+  }
+  // 全部完成：弹出庆祝反馈 → 停留展示 → 退场动画 → 移除节点、关闭 onboarding 设置并落盘。
+  scheduleHide() {
+    if (this.hideScheduled) return;
+    this.hideScheduled = true;
+    this.showAllDoneFeedback();
+    this.timers.push(window.setTimeout(() => {
+      if (this.panel) this.panel.addClass("is-hiding");
+      this.timers.push(window.setTimeout(() => {
+        this.getSettings().onboarding = false;
+        void this.persist();
+        this.remove();
+      }, EXIT_DURATION));
+    }, ALL_DONE_HIDE_DELAY));
+  }
+  // 在任务清单下方弹出一条「全部完成」的庆祝反馈（带 pop 入场动画，见 styles.css）。
+  showAllDoneFeedback() {
+    if (!this.panel || this.panel.querySelector(`.${PANEL_CLASS}-feedback`)) return;
+    this.panel.addClass("is-celebrate");
+    const fb = this.panel.createDiv({ cls: `${PANEL_CLASS}-feedback` });
+    fb.createSpan({ cls: `${PANEL_CLASS}-feedback-icon`, text: "\u{1F389}" });
+    fb.createSpan({ cls: `${PANEL_CLASS}-feedback-text`, text: t("onboardingAllDone") });
+  }
+  remove() {
+    for (const id of this.timers) window.clearTimeout(id);
+    this.timers = [];
+    this.hideScheduled = false;
+    if (this.refreshHandler) {
+      this.app.workspace.off("layout-change", this.refreshHandler);
+      this.app.workspace.off("active-leaf-change", this.refreshHandler);
+      this.app.vault.off("create", this.refreshHandler);
+      this.app.vault.off("rename", this.refreshHandler);
+      this.app.vault.off("delete", this.refreshHandler);
+      this.app.metadataCache.off("changed", this.refreshHandler);
+      this.app.metadataCache.off("resolved", this.refreshHandler);
+      this.refreshHandler = null;
+    }
+    if (this.patchedCommands && this.originalExecuteCommand) {
+      this.patchedCommands.executeCommand = this.originalExecuteCommand;
+    }
+    this.patchedCommands = null;
+    this.originalExecuteCommand = null;
+    if (this.patchedSetting && this.originalSettingClose) {
+      this.patchedSetting.close = this.originalSettingClose;
+    }
+    this.patchedSetting = null;
+    this.originalSettingClose = null;
+    this.items = [];
+    if (this.panel) {
+      this.panel.remove();
+      this.panel = null;
+    }
+    activeDocument.querySelectorAll(`.${PANEL_CLASS}`).forEach((el) => el.remove());
+  }
+};
+
+// src/onboarding/FirstRunCleanup.ts
+var FirstRunCleanup = class {
+  constructor(app, markDone) {
+    this.app = app;
+    this.markDone = markDone;
+  }
+  async run() {
+    const leaves = [];
+    this.app.workspace.iterateRootLeaves((leaf) => leaves.push(leaf));
+    for (let i = 1; i < leaves.length; i++) leaves[i].detach();
+    await this.markDone();
+  }
+};
+
+// src/SettingTab.ts
+var import_obsidian7 = require("obsidian");
+var FileSuggest = class extends import_obsidian7.AbstractInputSuggest {
   constructor() {
     super(...arguments);
     this.onPickCb = null;
@@ -3508,7 +4005,7 @@ var FileSuggest = class extends import_obsidian6.AbstractInputSuggest {
     this.close();
   }
 };
-var MinimalismUISettingTab = class extends import_obsidian6.PluginSettingTab {
+var MinimalismUISettingTab = class extends import_obsidian7.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -3540,15 +4037,14 @@ var MinimalismUISettingTab = class extends import_obsidian6.PluginSettingTab {
     intro.createDiv({ cls: "minimalism-ui-intro-title", text: t("introTitle") });
     intro.createEl("p", { text: t("introDesc1") });
     intro.createEl("p", { text: t("introDesc2") });
-    intro.createEl("p", { text: t("introDesc3") });
     const generalEl = this.addCollapsibleSection("general", t("headingGeneral"));
-    new import_obsidian6.Setting(generalEl).setName(t("language")).addDropdown((drop) => drop.addOption("auto", t("languageAuto")).addOption("zh", t("languageZh")).addOption("en", t("languageEn")).setValue(this.plugin.settings.language).onChange(async (v) => {
+    new import_obsidian7.Setting(generalEl).setName(t("language")).addDropdown((drop) => drop.addOption("auto", t("languageAuto")).addOption("zh", t("languageZh")).addOption("en", t("languageEn")).setValue(this.plugin.settings.language).onChange(async (v) => {
       this.plugin.settings.language = v;
       setLang(v);
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian6.Setting(generalEl).setName(t("theme")).addDropdown((drop) => {
+    new import_obsidian7.Setting(generalEl).setName(t("theme")).addDropdown((drop) => {
       const names = this.plugin.listThemes();
       for (const name of names) drop.addOption(name, name);
       if (!names.includes(this.plugin.settings.theme)) {
@@ -3561,27 +4057,8 @@ var MinimalismUISettingTab = class extends import_obsidian6.PluginSettingTab {
         await this.plugin.applyTheme();
       });
     });
-    const appearanceEl = this.addCollapsibleSection("appearance", t("headingAppearance"));
-    new import_obsidian6.Setting(appearanceEl).setName(t("hideTabBar")).addToggle((toggle) => toggle.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
-      this.plugin.settings.hideTabBar = v;
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian6.Setting(appearanceEl).setName(t("showProperties")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showProperties).onChange(async (v) => {
-      this.plugin.settings.showProperties = v;
-      await this.plugin.saveSettings();
-      await this.plugin.applyMacSidebarLayout();
-    }));
-    new import_obsidian6.Setting(appearanceEl).setName(t("showLocalGraph")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showLocalGraph).onChange(async (v) => {
-      this.plugin.settings.showLocalGraph = v;
-      await this.plugin.saveSettings();
-      await this.plugin.applyMacSidebarLayout();
-    }));
-    new import_obsidian6.Setting(appearanceEl).setName(t("showVaultProfile")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showVaultProfile).onChange(async (v) => {
-      this.plugin.settings.showVaultProfile = v;
-      await this.plugin.saveSettings();
-    }));
     const interactionEl = this.addCollapsibleSection("interaction", t("headingInteraction"));
-    const singlePageSetting = new import_obsidian6.Setting(interactionEl).setName(t("singlePage"));
+    const singlePageSetting = new import_obsidian7.Setting(interactionEl).setName(t("singlePage"));
     singlePageSetting.settingEl.addClass("minimalism-ui-single-page-setting");
     singlePageSetting.addToggle((toggle) => toggle.setValue(this.plugin.settings.disableNoteTabs).onChange(async (v) => {
       this.plugin.settings.disableNoteTabs = v;
@@ -3595,41 +4072,73 @@ var MinimalismUISettingTab = class extends import_obsidian6.PluginSettingTab {
     singlePageSetting.descEl.createEl("br");
     singlePageSetting.descEl.createSpan({ text: t("singlePageDesc4") });
     singlePageSetting.descEl.createEl("br");
-    new import_obsidian6.Setting(interactionEl).setName(t("homePage")).setDesc(t("homePageDesc")).addText((text) => {
+    new import_obsidian7.Setting(interactionEl).setName(t("homePage")).setDesc(t("homePageDesc")).addText((text) => {
       text.setPlaceholder(t("homePagePlaceholder")).setValue(this.plugin.settings.homePage);
-      new FileSuggest(this.app, text.inputEl).onPick((path) => {
-        this.plugin.settings.homePage = path;
-        void this.plugin.saveSettings();
-      });
-      text.inputEl.addEventListener("change", () => {
-        this.plugin.settings.homePage = text.inputEl.value.trim();
-        void this.plugin.saveSettings();
-      });
+      const applyHomePage = (value) => {
+        const changed = this.plugin.settings.homePage !== value;
+        this.plugin.settings.homePage = value;
+        void this.plugin.saveSettings().then(() => {
+          if (changed && value) void this.plugin.resetToHomePage();
+        });
+      };
+      new FileSuggest(this.app, text.inputEl).onPick((path) => applyHomePage(path));
+      text.inputEl.addEventListener("change", () => applyHomePage(text.inputEl.value.trim()));
     });
-    new import_obsidian6.Setting(interactionEl).setName(t("filenamePrefixLength")).setDesc(t("filenamePrefixLengthDesc")).addText((text) => {
-      text.inputEl.type = "number";
-      text.inputEl.min = "0";
-      text.inputEl.max = "20";
-      text.inputEl.addClass("minimalism-ui-prefix-input");
-      text.setValue(String(this.plugin.settings.filenamePrefixLength));
-      text.inputEl.addEventListener("change", () => {
-        const raw = parseInt(text.inputEl.value, 10);
-        const clamped = isNaN(raw) ? 0 : Math.min(20, Math.max(0, raw));
-        text.setValue(String(clamped));
-        this.plugin.settings.filenamePrefixLength = clamped;
-        void this.plugin.saveSettings();
-      });
-    });
+    const appearanceEl = this.addCollapsibleSection("appearance", t("headingAppearance"));
+    new import_obsidian7.Setting(appearanceEl).setName(t("hideTabBar")).addToggle((toggle) => toggle.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
+      this.plugin.settings.hideTabBar = v;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian7.Setting(appearanceEl).setName(t("showProperties")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showProperties).onChange(async (v) => {
+      this.plugin.settings.showProperties = v;
+      await this.plugin.saveSettings();
+      await this.plugin.applyMacSidebarLayout();
+    }));
+    new import_obsidian7.Setting(appearanceEl).setName(t("showLocalGraph")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showLocalGraph).onChange(async (v) => {
+      this.plugin.settings.showLocalGraph = v;
+      await this.plugin.saveSettings();
+      await this.plugin.applyMacSidebarLayout();
+    }));
+    new import_obsidian7.Setting(appearanceEl).setName(t("showVaultProfile")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showVaultProfile).onChange(async (v) => {
+      this.plugin.settings.showVaultProfile = v;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian7.Setting(appearanceEl).setName(t("showRibbon")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showRibbon).onChange(async (v) => {
+      this.plugin.settings.showRibbon = v;
+      await this.plugin.saveSettings();
+    }));
     const animationEl = this.addCollapsibleSection("animation", t("headingAnimation"));
-    new import_obsidian6.Setting(animationEl).setName(t("navAnimation")).setDesc(t("navAnimationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
+    new import_obsidian7.Setting(animationEl).setName(t("navAnimation")).setDesc(t("navAnimationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
       this.plugin.settings.enableNavAnimation = v;
       await this.plugin.saveSettings();
     }));
+    const advancedEl = this.addCollapsibleSection("advanced", t("headingAdvanced"));
+    new import_obsidian7.Setting(advancedEl).setName(t("filenamePrefixManual")).setDesc(t("filenamePrefixManualDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.filenamePrefixManual).onChange((value) => {
+      this.plugin.settings.filenamePrefixManual = value;
+      void this.plugin.saveSettings();
+      this.display();
+    }));
+    if (this.plugin.settings.filenamePrefixManual) {
+      new import_obsidian7.Setting(advancedEl).setName(t("filenamePrefixLength")).setDesc(t("filenamePrefixLengthDesc")).addText((text) => {
+        text.inputEl.type = "number";
+        text.inputEl.min = "0";
+        text.inputEl.max = "20";
+        text.inputEl.addClass("minimalism-ui-prefix-input");
+        text.setValue(String(this.plugin.settings.filenamePrefixLength));
+        text.inputEl.addEventListener("change", () => {
+          const raw = parseInt(text.inputEl.value, 10);
+          const clamped = isNaN(raw) ? 0 : Math.min(20, Math.max(0, raw));
+          text.setValue(String(clamped));
+          this.plugin.settings.filenamePrefixLength = clamped;
+          void this.plugin.saveSettings();
+        });
+      });
+    }
   }
 };
 
 // main.ts
-var MinimalismUIPlugin = class extends import_obsidian7.Plugin {
+var MinimalismUIPlugin = class extends import_obsidian8.Plugin {
   constructor() {
     super(...arguments);
     // 所有功能单元，统一用于卸载，避免逐个手写 remove() 时遗漏。
@@ -3643,6 +4152,7 @@ var MinimalismUIPlugin = class extends import_obsidian7.Plugin {
     this.fontLoader = new FontLoader(settings);
     this.themeLoader = new ThemeLoader(settings);
     this.engine = new SinglePageEngine(this.app, settings);
+    this.tabGroupGuard = new SingleTabGroupGuard(this.app, settings);
     this.pinManager = new PinManager(this.app, settings);
     this.homePage = new HomePageManager(this.app, settings, this.engine);
     this.emptyViewButton = new EmptyViewButtonManager(this.app, settings, this.engine);
@@ -3657,18 +4167,25 @@ var MinimalismUIPlugin = class extends import_obsidian7.Plugin {
     this.sidebarLayout = new SidebarLayoutManager(this.app, settings, this.pinManager);
     this.sidebarSuggestFocus = new SidebarSuggestFocusTracker();
     this.mermaidZoom = new MermaidZoomManager(this.app);
+    this.onboarding = new OnboardingManager(this.app, settings, () => this.saveData(this.settings));
+    this.firstRunCleanup = new FirstRunCleanup(this.app, async () => {
+      this.settings.firstRunCleanupDone = true;
+      await this.saveData(this.settings);
+    });
     this.features = [
       this.bodyClasses,
       this.fontLoader,
       this.themeLoader,
       this.engine,
+      this.tabGroupGuard,
       this.pinManager,
       this.homePage,
       this.emptyViewButton,
       this.dragBar,
       this.sidebarLayout,
       this.sidebarSuggestFocus,
-      this.mermaidZoom
+      this.mermaidZoom,
+      this.onboarding
     ];
     await this.fontLoader.apply();
     void this.themeLoader.apply();
@@ -3677,10 +4194,13 @@ var MinimalismUIPlugin = class extends import_obsidian7.Plugin {
     this.pinManager.apply();
     this.engine.apply();
     this.mermaidZoom.apply();
+    this.onboarding.apply();
     this.app.workspace.onLayoutReady(() => {
       this.dragBar.apply();
       this.homePage.apply();
       this.emptyViewButton.apply();
+      this.tabGroupGuard.apply();
+      if (!this.settings.firstRunCleanupDone) void this.firstRunCleanup.run();
       void this.homePage.openHomePage();
       void this.sidebarLayout.apply();
     });
@@ -3693,6 +4213,11 @@ var MinimalismUIPlugin = class extends import_obsidian7.Plugin {
   // ─── Sidebar Layout ───────────────────────────────────────────────────────
   async applyMacSidebarLayout() {
     await this.sidebarLayout.apply();
+  }
+  // 设置里更换首页后：把主区收拢为只剩首页一个 tab，面包屑也只剩首页。
+  // 仅在首页路径真正变化时由 SettingTab 调用，避免每次保存设置都误关标签。
+  async resetToHomePage() {
+    await this.engine.resetToHomePage();
   }
   // ─── Body Classes ─────────────────────────────────────────────────────────
   applyBodyClasses() {
@@ -3712,7 +4237,12 @@ var MinimalismUIPlugin = class extends import_obsidian7.Plugin {
   }
   // ─── Settings ─────────────────────────────────────────────────────────────
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const saved = await this.loadData();
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, saved);
+    if (saved && saved.firstRunCleanupDone === void 0) {
+      this.settings.firstRunCleanupDone = true;
+      await this.saveData(this.settings);
+    }
   }
   // 设置变更后重新应用对设置敏感的功能单元。
   // 侧边栏（开销大）走独立的 applyMacSidebarLayout；mermaid 在运行时读设置，无需重应用。
@@ -3721,8 +4251,10 @@ var MinimalismUIPlugin = class extends import_obsidian7.Plugin {
     this.bodyClasses.apply();
     this.pinManager.apply();
     this.engine.apply();
+    this.tabGroupGuard.apply();
     this.dragBar.apply();
     this.homePage.apply();
     this.emptyViewButton.apply();
+    this.onboarding.apply();
   }
 };

@@ -111,11 +111,14 @@ export class SinglePageEngine {
 
 		// 拦截所有会新建/复用 leaf 的 getLeaf 调用（false/undefined/true/'tab'），
 		// 统一改为新开 tab 并注入一次性 openFile 拦截器，实现全路径去重。
-		// 'split' / 'window' 等明确指定布局方式的调用不拦截，保留原行为。
+		// 单页模式下连 'split'(分屏) / 'window'(弹出窗口) 也收口成新开 tab，强制主区域只有一个
+		// 标签组——命令分屏、"在右侧打开"、弹窗全部塌成单页 tab，源头拦截无闪烁。拖拽分屏 / 拖出
+		// 弹窗走不到 getLeaf，由 SingleTabGroupGuard 监听 layout-change 兜底合并。
 		const ws = this.app.workspace as unknown as WorkspaceInternal;
 		this.originalGetLeaf = ws.getLeaf.bind(ws);
 		ws.getLeaf = (newLeaf?: boolean | string) => {
-			const shouldIntercept = newLeaf === false || newLeaf === undefined || newLeaf === true || newLeaf === 'tab';
+			const shouldIntercept = newLeaf === false || newLeaf === undefined || newLeaf === true
+				|| newLeaf === 'tab' || newLeaf === 'split' || newLeaf === 'window';
 			if (shouldIntercept && !this.isReusingLeaf && !this._isOpeningHomePage) {
 				const leaf = this.originalGetLeaf!('tab');
 				this.interceptLeafOpenFile(leaf);
@@ -602,5 +605,41 @@ export class SinglePageEngine {
 				void this.openHomePage();
 			}
 		}
+	}
+
+	// 设置里更换首页后调用：把主区收拢为只剩首页一个 tab，并把导航历史 / 面包屑重置为仅首页。
+	// 仅在用户真正改动首页路径时触发（见 SettingTab），不在每次 saveSettings 时跑，避免误关标签。
+	async resetToHomePage() {
+		const path = this.getSettings().homePage;
+		if (!path) return;
+		const file = this.app.vault.getAbstractFileByPath(normalizePath(path));
+		if (!(file instanceof TFile)) return;
+
+		// 先打开 / 激活首页：openHomePage 自带去重（已开则激活复用，未开则新建 tab）。
+		await this.openHomePage();
+
+		// 收集除首页外的所有 root leaf。首页 leaf 取首个匹配，重复的首页 leaf 一并归入待关闭。
+		const others: WorkspaceLeaf[] = [];
+		let homeLeaf: WorkspaceLeaf | null = null;
+		this.app.workspace.iterateRootLeaves(l => {
+			if (!homeLeaf && (l as LeafInternal).view?.file?.path === file.path) {
+				homeLeaf = l;
+			} else {
+				others.push(l);
+			}
+		});
+
+		// 关闭其余 tab。置 isReusingLeaf 豁免 detach 补丁的 nav.onTabClosing 通知——这是插件内部
+		// 收拢而非用户关 tab；detach 同步执行，期间不会触发 openFile 拦截，标志可安全短暂置位。
+		this.isReusingLeaf = true;
+		try {
+			for (const l of others) l.detach();
+		} finally {
+			this.isReusingLeaf = false;
+		}
+
+		// 导航历史 / 面包屑重置为仅首页，并立即刷新面包屑。
+		this.nav.reset(path);
+		this.navChangeListener?.(homeLeaf);
 	}
 }

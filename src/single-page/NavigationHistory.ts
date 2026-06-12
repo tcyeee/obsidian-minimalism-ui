@@ -121,6 +121,18 @@ export class NavigationHistory {
 		if (this.history.length === 0) this.history.push(filePath);
 	}
 
+	// 设置新首页后把整条导航栈收拢为「仅首页」：清空 history / future 与一次性标志，
+	// 使面包屑也只剩首页一项。path 为空则整条清空。由 SinglePageEngine.resetToHomePage 调用。
+	reset(path: string) {
+		this.cancelTimer();
+		this.clearAnimListener();
+		this.history = path ? [path] : [];
+		this.future = [];
+		this.currentRootPath = path || null;
+		this.jumpPath = null;
+		this.isClosingTab = false;
+	}
+
 	// 引擎在每次 root leaf 激活时调用，记录主区域当前显示的文件路径（无文件视图传 null）。
 	// 必须对所有 root leaf 激活生效（含关系图等无文件视图），back/canGoBack 依赖它判断
 	// 当前显示是否就是历史栈顶。

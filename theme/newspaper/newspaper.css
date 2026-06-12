@@ -79,6 +79,25 @@ body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mo
 	color: #4a3838;
 }
 
+/* 左侧 ribbon（活动栏）：奶白纸底，与侧边栏连成同一片版块。
+   ::before 是顶部交通灯角落（Obsidian 默认填 titlebar 色），一并刷成纸色 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left::before {
+	background-color: #f3f2ee;
+}
+
+/* ribbon 图标：报刊深墨，hover 加深 + 暖灰底 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon {
+	color: #4a3838;
+}
+
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action:hover,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon:hover {
+	color: #1f0909;
+	background-color: #e8e7e7;
+}
+
 /* 注入式分区标题（OUTLINE / PROPERTIES / LOCAL GRAPH）：报刊近黑，比正文略重作 kicker。
    这些 ::before / span 不走变量，需对位覆盖各自的颜色规则。 */
 body.minimalism-ui-theme-newspaper.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"]::before,

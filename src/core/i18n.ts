@@ -8,16 +8,17 @@ const translations = {
 		introTitle: '使用前必读',
 		introDesc1: '本插件是一款"做减法"的工具,设计理念与主流用法相悖:它只保留左侧边栏(至多显示大纲、属性、本地关系图),并裁剪掉了大量核心功能,甚至包括"文件夹"。安装前请先确认你认同这套极简理念。',
 		introDesc2: '请指定一篇笔记作为首页。它如同一棵树的主干,你在其上用双链不断新建笔记,让知识开枝散叶,最终长成参天大树。',
-		introDesc3: '由于放弃了"文件夹",源文件统一放置在资源目录。建议开启时间戳前缀命名,为每篇笔记赋予唯一标识,从而避免重名冲突。',
 
 		headingGeneral: '通用设置',
 		headingAppearance: '侧边栏设置',
 		headingInteraction: '交互设置',
 		headingAnimation: '动画设置 (beta)',
+		headingAdvanced: '高级设置',
 
 		showProperties: '属性面板',
 		showLocalGraph: '本地关系图',
 		showVaultProfile: '底部用户设置区域',
+		showRibbon: '功能区',
 
 		hideTabBar: '隐藏大纲按钮',
 
@@ -37,8 +38,19 @@ const translations = {
 		navAnimation: '页面加载动画',
 		navAnimationDesc: '前进或后退时，为目标页面播放滑入动画',
 
-		filenamePrefixLength: '隐藏文件名时间戳前缀',
-		filenamePrefixLengthDesc: '适用于时间戳前缀笔记，如隐藏 "202604111230-test" 前 13 个字符，实际在导航栏中显示为 test（0 = 不隐藏，最多 20）。',
+		onboardingTitle: '新手任务',
+		onboardingCreateNote: '使用快捷键新建一篇名为 Index 的笔记',
+		onboardingSetHome: '将 Index 设置为主页',
+		onboardingOpenSettings: '去设置',
+		onboardingLinkNote: '在 Index 里输入 [[ 关联一篇新笔记',
+		onboardingGoBack: '使用快捷键后退',
+		onboardingGoForward: '使用快捷键前进',
+		onboardingAllDone: '全部完成，开始你的写作吧！',
+
+		filenamePrefixManual: '手动隐藏时间戳前缀',
+		filenamePrefixManualDesc: '关闭时自动跟随 Obsidian「唯一笔记创建器」配置的时间戳格式剥离前缀（含其后的分隔符），无需设置；开启后改为下方手动指定要隐藏的位数。',
+		filenamePrefixLength: '指定时间戳前缀长度',
+		filenamePrefixLengthDesc: '隐藏文件名开头的时间戳前缀，如隐藏 "202604111230-test" 前 13 个字符，在导航栏中显示为 test（0 = 不隐藏，最多 20）。',
 
 		graphView: '关系图',
 	},
@@ -51,16 +63,17 @@ const translations = {
 		introTitle: 'Read this before you start',
 		introDesc1: 'This plugin is all about subtraction, and its philosophy runs against mainstream usage: it keeps only the left sidebar (showing at most Outline, Properties, and Local Graph) and strips away many core features, including Folders. Make sure this minimalist philosophy suits you before installing.',
 		introDesc2: 'Pick one note as your home page. Think of it as the trunk of a tree: keep creating notes from it through backlinks, letting your knowledge branch out until it grows into a towering tree.',
-		introDesc3: 'Since folders are gone, source files are kept together in the assets directory. Enable timestamp-prefixed filenames to give each note a unique identifier and avoid name clashes.',
 
 		headingGeneral: 'General',
 		headingAppearance: 'Sidebar',
 		headingInteraction: 'Interaction',
 		headingAnimation: 'Animation (beta)',
+		headingAdvanced: 'Advanced',
 
 		showProperties: 'Properties',
 		showLocalGraph: 'Local Graph',
 		showVaultProfile: 'Bottom settings area',
+		showRibbon: 'Ribbon',
 
 		hideTabBar: 'Hide outline button',
 
@@ -80,8 +93,19 @@ const translations = {
 		navAnimation: 'Page transition animation',
 		navAnimationDesc: 'Play a slide-in animation when navigating back or forward.',
 
-		filenamePrefixLength: 'Hide filename timestamp prefix',
-		filenamePrefixLengthDesc: 'For timestamp-prefixed notes. E.g. hide the first 13 characters of "202604111230-test" so it shows as "test" in the navigation (0 = off, max 20).',
+		onboardingTitle: 'Getting started',
+		onboardingCreateNote: 'Create a note named Index with the shortcut',
+		onboardingSetHome: 'Set Index as your home page',
+		onboardingOpenSettings: 'Open settings',
+		onboardingLinkNote: 'In Index, type [[ to link a new note',
+		onboardingGoBack: 'Go back with the shortcut',
+		onboardingGoForward: 'Go forward with the shortcut',
+		onboardingAllDone: 'All set — start writing!',
+
+		filenamePrefixManual: 'Manually hide timestamp prefix',
+		filenamePrefixManualDesc: 'When off, automatically follows the timestamp format configured in Obsidian\'s "Unique note creator" core plugin to strip the prefix (and the separator after it) — no setup needed. When on, manually specify the length to hide below.',
+		filenamePrefixLength: 'Timestamp prefix length',
+		filenamePrefixLengthDesc: 'Hide the timestamp prefix at the start of a filename. E.g. hide the first 13 characters of "202604111230-test" so it shows as "test" in the navigation (0 = off, max 20).',
 
 		graphView: 'Graph view',
 	},

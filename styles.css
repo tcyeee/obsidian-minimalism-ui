@@ -96,6 +96,21 @@ body.minimalism-ui-mac-sidebar .workspace-tabs.mod-top.mod-top-left-space .works
 	display: none;
 }
 
+/* ── 左侧 ribbon（活动栏）结构样式 ─────────────────────────────────────
+   ribbon 紧贴左侧边栏：去掉默认右边框形成的缝隙，与侧边栏融为一体。
+   背景色与图标色属主题专属，见 theme/<主题>/<主题>.css。 */
+body.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left {
+	border-right: none;
+}
+
+/* ribbon 顶部留白：Obsidian 用 margin-top: var(--header-height) 把图标区下推，
+   让出交通灯角落，再用 ::before 把该角落填成 var(--titlebar-background)——所以
+   ribbon 自身 background-color 填不到这块（margin 不可着色，由 ::before 接管）。
+   这里去掉 ::before 的底部分隔线，颜色由各主题覆盖成与侧边栏一致。 */
+body.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left::before {
+	border-bottom: none;
+}
+
 /* 隐藏 Properties 面板每条信息间的分割线 */
 body.minimalism-ui-mac-sidebar .metadata-content .metadata-property-key,
 body.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value {
@@ -150,6 +165,11 @@ body.minimalism-ui-hide-vault-profile .workspace-split.mod-left-split .workspace
 	display: none;
 }
 
+/* 关闭“功能区”开关时隐藏左侧 ribbon 活动栏 */
+body.minimalism-ui-hide-ribbon .workspace-ribbon.side-dock-ribbon.mod-left {
+	display: none;
+}
+
 /* 内容区背景透明，露出侧边栏底色 */
 body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-leaf,
 body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-leaf-content,
@@ -173,6 +193,12 @@ body.minimalism-ui-hide-tab-bar .workspace-split.mod-left-split .workspace-tab-h
 /* 隐藏标签栏时补偿高度 */
 body.minimalism-ui-hide-tab-bar .workspace-tab-container-inner {
 	padding-top: 0;
+}
+
+/* 隐藏主视图（中央根分屏）文章顶部的 view-header（标题栏），
+   导航交由顶部拖拽栏面包屑 + 快捷键承担 */
+body.minimalism-ui-mac-sidebar .workspace-split.mod-root .workspace-leaf-content[data-type="markdown"] .view-header {
+	display: none;
 }
 
 
@@ -798,6 +824,199 @@ body.is-mac.minimalism-ui-mac-sidebar .titlebar-button-container.mod-left {
 
 .minimalism-ui-collapsible-heading-collapsed + .minimalism-ui-collapsible-content {
 	display: none;
+}
+
+/* ── 新手引导悬浮框 ───────────────────────────────────────────────────── */
+/* 页面右上角常驻卡片，由 OnboardingManager 注入到 body。固定定位、不参与拖拽。 */
+.minimalism-ui-onboarding {
+	position: fixed;
+	top: 48px;
+	right: 18px;
+	z-index: 20;
+	width: max-content;
+	max-width: 360px;
+	padding: 12px 14px;
+	border-radius: 10px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+	-webkit-app-region: no-drag;
+	user-select: none;
+}
+
+.minimalism-ui-onboarding-header {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--text-normal);
+	margin-bottom: 10px;
+}
+
+.minimalism-ui-onboarding-tasks {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.minimalism-ui-onboarding-task {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.minimalism-ui-onboarding-task-check {
+	flex-shrink: 0;
+	width: 15px;
+	height: 15px;
+	border-radius: 50%;
+	border: 1.5px solid var(--text-muted);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.minimalism-ui-onboarding-task-check::before {
+	content: '✓';
+	font-size: 10px;
+	line-height: 1;
+	color: var(--text-on-accent);
+	opacity: 0;
+	transition: opacity 0.15s ease;
+}
+
+.minimalism-ui-onboarding-task.is-done .minimalism-ui-onboarding-task-check {
+	background: var(--interactive-accent);
+	border-color: var(--interactive-accent);
+}
+
+.minimalism-ui-onboarding-task.is-done .minimalism-ui-onboarding-task-check::before {
+	opacity: 1;
+}
+
+/* 进行中：强调色描边 + 中心实心圆点 */
+.minimalism-ui-onboarding-task.is-doing .minimalism-ui-onboarding-task-check {
+	border-color: var(--interactive-accent);
+	background: radial-gradient(circle, var(--interactive-accent) 0 3px, transparent 3px);
+}
+
+.minimalism-ui-onboarding-task-label {
+	flex: 1;
+	font-size: 13px;
+	color: var(--text-muted);
+	white-space: nowrap;
+}
+
+.minimalism-ui-onboarding-task.is-done .minimalism-ui-onboarding-task-label {
+	color: var(--text-faint);
+	text-decoration: line-through;
+}
+
+/* 进行中：文案高亮 */
+.minimalism-ui-onboarding-task.is-doing .minimalism-ui-onboarding-task-label {
+	color: var(--text-normal);
+	font-weight: 500;
+}
+
+/* 「去设置」按钮：仅在该任务进行中时显示 */
+.minimalism-ui-onboarding-task-action {
+	display: none;
+	flex-shrink: 0;
+	margin-left: 12px;
+	padding: 2px 10px;
+	border-radius: 6px;
+	font-size: 11px;
+	color: var(--text-on-accent);
+	background: var(--interactive-accent);
+	border: none;
+	cursor: pointer;
+}
+
+.minimalism-ui-onboarding-task-action:hover {
+	background: var(--interactive-accent-hover);
+}
+
+.minimalism-ui-onboarding-task.is-doing .minimalism-ui-onboarding-task-action {
+	display: inline-flex;
+}
+
+/* 快捷键键帽：每个修饰键 / 主键各占一个独立键帽 */
+.minimalism-ui-onboarding-task-hotkey {
+	flex-shrink: 0;
+	margin-left: 12px;
+	display: flex;
+	align-items: center;
+	gap: 3px;
+}
+
+.minimalism-ui-onboarding-task-key {
+	min-width: 18px;
+	padding: 1px 5px;
+	border-radius: 5px;
+	font-size: 11px;
+	font-family: var(--font-monospace);
+	text-align: center;
+	color: var(--text-faint);
+	background: var(--background-modifier-border);
+	border: 1px solid var(--background-modifier-border-hover);
+	box-shadow: 0 1px 0 var(--background-modifier-border-hover);
+}
+
+/* 已完成的任务不再显示快捷键键帽 */
+.minimalism-ui-onboarding-task.is-done .minimalism-ui-onboarding-task-hotkey {
+	display: none;
+}
+
+/* 进行中任务的键帽：整组每 3 秒晃动一下（晃动只占周期末尾一小段） */
+.minimalism-ui-onboarding-task.is-doing .minimalism-ui-onboarding-task-hotkey {
+	animation: minimalism-ui-onboarding-shake 3s ease-in-out infinite;
+}
+
+.minimalism-ui-onboarding-task.is-doing .minimalism-ui-onboarding-task-key {
+	color: var(--text-muted);
+}
+
+@keyframes minimalism-ui-onboarding-shake {
+	0%, 88%, 100% { transform: translateX(0); }
+	91% { transform: translateX(-2px); }
+	94% { transform: translateX(2px); }
+	97% { transform: translateX(-2px); }
+}
+
+/* 全部完成：底部弹出庆祝反馈（pop 入场） */
+.minimalism-ui-onboarding-feedback {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	margin-top: 10px;
+	padding-top: 10px;
+	border-top: 1px solid var(--background-modifier-border);
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--interactive-accent);
+	transform-origin: left center;
+	animation: minimalism-ui-onboarding-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.minimalism-ui-onboarding-feedback-icon {
+	font-size: 15px;
+	line-height: 1;
+}
+
+@keyframes minimalism-ui-onboarding-pop {
+	0% { opacity: 0; transform: translateY(6px) scale(0.92); }
+	100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 全部完成后退场：上移 + 缩小 + 淡出（时长与 EXIT_DURATION 一致） */
+.minimalism-ui-onboarding.is-hiding {
+	pointer-events: none;
+	transform-origin: top right;
+	animation: minimalism-ui-onboarding-exit 0.32s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+@keyframes minimalism-ui-onboarding-exit {
+	0% { opacity: 1; transform: translateY(0) scale(1); }
+	100% { opacity: 0; transform: translateY(-10px) scale(0.94); }
 }
 
 /* ── 笔记内容美学（各主题） ───────────────────────────────────────────── */

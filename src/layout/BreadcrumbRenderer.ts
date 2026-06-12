@@ -123,8 +123,18 @@ export class BreadcrumbRenderer {
 	// 路径是稳定字符串,直接从 vault 查文件名,无需过滤关闭的 leaf。
 	// 无文件视图的合成键不是文件路径:关系图映射为本地化 graph 标签;其余视图若正是当前末项则用实时
 	// getDisplayText(filelessLabel),否则退化为 viewType。避免被 stripPrefix 截成乱码。
+	// 按当前模式选择前缀剥离策略:自动→从 zk-prefixer 推断位数;手动→用设置的固定长度。
+	// 每次渲染算一次(开销极小),用户改了 Obsidian 时间戳格式下次导航即自动跟上。
+	private stripName(base: string): string {
+		const s = this.getSettings();
+		// 手动开启 → 用设定的固定长度;关闭(默认) → 自动跟随 zk-prefixer 推断位数。
+		if (s.filenamePrefixManual) {
+			return LeafNameUtils.stripPrefix(base, s.filenamePrefixLength);
+		}
+		return LeafNameUtils.stripTimestampPrefix(base, LeafNameUtils.detectTimestampDigits(this.app));
+	}
+
 	private buildNames(paths: string[], filelessLabel: string | null): string[] {
-		const prefixLen = this.getSettings().filenamePrefixLength;
 		return paths.map((p, i) => {
 			if (p === GLOBAL_GRAPH_KEY) return t('graphView');
 			if (isFilelessViewKey(p)) {
@@ -132,11 +142,11 @@ export class BreadcrumbRenderer {
 				return this.navDisplayNameGetter(p) ?? viewTypeFromKey(p) ?? p;
 			}
 			const f = this.app.vault.getAbstractFileByPath(p);
-			if (f instanceof TFile) return LeafNameUtils.stripPrefix(f.basename, prefixLen);
+			if (f instanceof TFile) return this.stripName(f.basename);
 			// 文件已不在 vault(被删):从路径推导 basename(去目录、去扩展名)再剥前缀,
 			// 避免直接对完整路径 slice 导致连文件夹名 / 扩展名一起被截。
 			const base = p.split('/').pop()!.replace(/\.md$/, '');
-			return LeafNameUtils.stripPrefix(base, prefixLen);
+			return this.stripName(base);
 		});
 	}
 
@@ -175,7 +185,7 @@ export class BreadcrumbRenderer {
 		if (!activeFile) return;
 		const home = this.getSettings().homePage;
 		const isHome = !!home && activeFile.path === home;
-		const name = LeafNameUtils.stripPrefix(activeFile.basename, this.getSettings().filenamePrefixLength);
+		const name = this.stripName(activeFile.basename);
 		el.appendChild(this.makeItem(name, 0, true, isHome));
 	}
 

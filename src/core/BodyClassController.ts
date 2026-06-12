@@ -10,6 +10,7 @@ const BODY_CLASSES = [
 	'minimalism-ui-note-style',
 	'minimalism-ui-has-home',
 	'minimalism-ui-hide-vault-profile',
+	'minimalism-ui-hide-ribbon',
 ] as const;
 
 /**
@@ -38,6 +39,8 @@ export class BodyClassController implements Feature {
 		cls.toggle('minimalism-ui-has-home', !!s.homePage);
 		// 关闭“底部用户设置区域”开关时，隐藏侧边栏底部 vault profile
 		cls.toggle('minimalism-ui-hide-vault-profile', !s.showVaultProfile);
+		// 关闭“功能区”开关时，隐藏左侧 ribbon 活动栏
+		cls.toggle('minimalism-ui-hide-ribbon', !s.showRibbon);
 	}
 
 	remove() {

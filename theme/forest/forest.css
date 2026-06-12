@@ -704,6 +704,29 @@ body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-l
 	color: rgba(196, 196, 196, 0.88);
 }
 
+/* 左侧 ribbon（活动栏）背景与侧边栏一致，融为同一块面板 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left::before {
+	background-color: #123342;
+}
+
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left,
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left::before {
+	background-color: #1c1c1e;
+}
+
+/* ribbon 图标浅色适配深底 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon {
+	color: rgba(196, 196, 196, 0.7);
+}
+
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action:hover,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon:hover {
+	color: rgba(255, 255, 255, 0.95);
+	background-color: rgba(255, 255, 255, 0.08);
+}
+
 /* 注入式分区标题（OUTLINE / PROPERTIES / LOCAL GRAPH）浅白 */
 body.minimalism-ui-theme-forest.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"]::before,
 body.minimalism-ui-theme-forest.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="file-properties"]::before,

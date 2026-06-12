@@ -5,6 +5,7 @@ import { FontLoader } from './src/core/FontLoader';
 import { ThemeLoader } from './src/core/ThemeLoader';
 import { BodyClassController } from './src/core/BodyClassController';
 import { SinglePageEngine } from './src/single-page/SinglePageEngine';
+import { SingleTabGroupGuard } from './src/single-page/SingleTabGroupGuard';
 import { PinManager } from './src/tabs/PinManager';
 import { HomePageManager } from './src/single-page/HomePageManager';
 import { EmptyViewButtonManager } from './src/single-page/EmptyViewButtonManager';
@@ -12,6 +13,8 @@ import { DragBarManager } from './src/layout/DragBarManager';
 import { SidebarLayoutManager } from './src/layout/SidebarLayoutManager';
 import { SidebarSuggestFocusTracker } from './src/layout/SidebarSuggestFocusTracker';
 import { MermaidZoomManager } from './src/mermaid/MermaidZoomManager';
+import { OnboardingManager } from './src/onboarding/OnboardingManager';
+import { FirstRunCleanup } from './src/onboarding/FirstRunCleanup';
 import { MinimalismUISettingTab } from './src/SettingTab';
 import { setLang } from './src/core/i18n';
 
@@ -26,6 +29,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	private fontLoader: FontLoader;
 	private themeLoader: ThemeLoader;
 	private engine: SinglePageEngine;
+	private tabGroupGuard: SingleTabGroupGuard;
 	private pinManager: PinManager;
 	private homePage: HomePageManager;
 	private emptyViewButton: EmptyViewButtonManager;
@@ -33,6 +37,9 @@ export default class MinimalismUIPlugin extends Plugin {
 	private sidebarLayout: SidebarLayoutManager;
 	private sidebarSuggestFocus: SidebarSuggestFocusTracker;
 	private mermaidZoom: MermaidZoomManager;
+	private onboarding: OnboardingManager;
+	// 一次性首次启用收拢；无持久副作用，不进 features[]。
+	private firstRunCleanup: FirstRunCleanup;
 
 	// 所有功能单元，统一用于卸载，避免逐个手写 remove() 时遗漏。
 	private features: Feature[] = [];
@@ -46,6 +53,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.fontLoader = new FontLoader(settings);
 		this.themeLoader = new ThemeLoader(settings);
 		this.engine = new SinglePageEngine(this.app, settings);
+		this.tabGroupGuard = new SingleTabGroupGuard(this.app, settings);
 		this.pinManager = new PinManager(this.app, settings);
 		this.homePage = new HomePageManager(this.app, settings, this.engine);
 		this.emptyViewButton = new EmptyViewButtonManager(this.app, settings, this.engine);
@@ -62,12 +70,18 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.sidebarLayout = new SidebarLayoutManager(this.app, settings, this.pinManager);
 		this.sidebarSuggestFocus = new SidebarSuggestFocusTracker();
 		this.mermaidZoom = new MermaidZoomManager(this.app);
+		this.onboarding = new OnboardingManager(this.app, settings, () => this.saveData(this.settings));
+		this.firstRunCleanup = new FirstRunCleanup(this.app, async () => {
+			this.settings.firstRunCleanupDone = true;
+			await this.saveData(this.settings);
+		});
 
 		this.features = [
 			this.bodyClasses,
 			this.fontLoader,
 			this.themeLoader,
 			this.engine,
+			this.tabGroupGuard,
 			this.pinManager,
 			this.homePage,
 			this.emptyViewButton,
@@ -75,6 +89,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			this.sidebarLayout,
 			this.sidebarSuggestFocus,
 			this.mermaidZoom,
+			this.onboarding,
 		];
 
 		// 立即生效的部分
@@ -85,12 +100,17 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.pinManager.apply();
 		this.engine.apply();
 		this.mermaidZoom.apply();
+		this.onboarding.apply();
 
 		// 依赖 workspace 布局就绪的部分
 		this.app.workspace.onLayoutReady(() => {
 			this.dragBar.apply();
 			this.homePage.apply();
 			this.emptyViewButton.apply();
+			// 单页模式下强制主区域只剩一个标签组：监听 layout-change 兜底拖拽分屏，并立即收拢存量布局。
+			this.tabGroupGuard.apply();
+			// 首次启用：先把主区残留的多余标签页/分屏收成一个，再让首页逻辑在干净状态上运行。
+			if (!this.settings.firstRunCleanupDone) void this.firstRunCleanup.run();
 			void this.homePage.openHomePage();
 			void this.sidebarLayout.apply();
 		});
@@ -107,6 +127,12 @@ export default class MinimalismUIPlugin extends Plugin {
 
 	async applyMacSidebarLayout() {
 		await this.sidebarLayout.apply();
+	}
+
+	// 设置里更换首页后：把主区收拢为只剩首页一个 tab，面包屑也只剩首页。
+	// 仅在首页路径真正变化时由 SettingTab 调用，避免每次保存设置都误关标签。
+	async resetToHomePage() {
+		await this.engine.resetToHomePage();
 	}
 
 	// ─── Body Classes ─────────────────────────────────────────────────────────
@@ -135,7 +161,15 @@ export default class MinimalismUIPlugin extends Plugin {
 	// ─── Settings ─────────────────────────────────────────────────────────────
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, (await this.loadData()) as Partial<MinimalismUISettings>);
+		const saved = (await this.loadData()) as Partial<MinimalismUISettings> | null;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, saved);
+		// 区分全新安装与老用户升级：data.json 已存在但没有 firstRunCleanupDone 字段 → 老用户，
+		// 标记为已完成并落盘，避免在其既有布局上误关标签页。全新安装（saved 为空）保持默认
+		// false，由 onLayoutReady 触发一次收拢。
+		if (saved && saved.firstRunCleanupDone === undefined) {
+			this.settings.firstRunCleanupDone = true;
+			await this.saveData(this.settings);
+		}
 	}
 
 	// 设置变更后重新应用对设置敏感的功能单元。
@@ -145,8 +179,10 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.bodyClasses.apply();
 		this.pinManager.apply();
 		this.engine.apply();
+		this.tabGroupGuard.apply();
 		this.dragBar.apply();
 		this.homePage.apply();
 		this.emptyViewButton.apply();
+		this.onboarding.apply();
 	}
 }
