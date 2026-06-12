@@ -5,6 +5,22 @@
 
 ---
 
+## Version 1.3.0
+
+- Added a first-run onboarding checklist that guides new users through the core features and dismisses itself once completed
+- Single-Page Mode now keeps the main area to a single tab group, automatically collapsing any tabs or splits created by dragging
+- Changing the home note in Settings now resets the main area to just the home tab
+- New defaults turn most features on out of the box (Local Graph, hidden tab bar, Single-Page Mode, navigation animation); the new ribbon toggle and manual filename prefix stay off, and advanced sections start collapsed
+- Existing users keep their current layout untouched on upgrade
+
+- 新增首次启用引导清单，带新用户熟悉核心功能，完成后自动隐藏
+- 单页模式现在将主区域保持为单一标签组，自动收拢拖拽产生的多余标签或分屏
+- 在设置中更换首页后，主区域会自动收拢为只剩首页一个标签
+- 调整默认值，多数功能开箱即用（局部关系图、隐藏标签栏、单页模式、导航动画）；新增的功能区开关与手动文件名前缀默认关闭，高级区块默认折叠
+- 老用户升级时保持现有布局不变
+
+---
+
 ## Version 1.2.9
 
 - Improved single-page navigation to use the most recently active leaf for more reliable behavior
