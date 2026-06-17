@@ -1,5 +1,6 @@
 import { App, EventRef, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
+import { t } from '../core/i18n';
 import { PinManager } from '../tabs/PinManager';
 
 type WorkspaceSidedock = { collapsed: boolean; expand(): void; children?: unknown[] };
@@ -240,7 +241,7 @@ export class SidebarLayoutManager {
 		const header = createDiv();
 		header.className = 'minimalism-ui-graph-header';
 		const titleSpan = createSpan();
-		titleSpan.textContent = 'Local graph';
+		titleSpan.textContent = t('localGraph');
 		header.appendChild(titleSpan);
 
 		if (viewContent) {

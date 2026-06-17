@@ -102,9 +102,15 @@ body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.s
    这些 ::before / span 不走变量，需对位覆盖各自的颜色规则。 */
 body.minimalism-ui-theme-newspaper.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"]::before,
 body.minimalism-ui-theme-newspaper.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="file-properties"]::before,
-body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content::before,
 body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-graph-header > span {
 	color: #1f0909;
+}
+
+/* sticky 属性标题：深墨字 + 背景须与侧边栏奶白底一致，
+   否则 styles.css 里的 var(--background-secondary) 会在滚动时露出色差块（颜色异常）。 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content::before {
+	color: #1f0909;
+	background-color: #f3f2ee;
 }
 
 /* 导航项 hover / active：暖灰底，替代 Forest 的蓝色 accent */
@@ -130,6 +136,25 @@ body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mo
 /* 顶部自定义拖拽栏：奶白底，与正文连成一片 */
 body.minimalism-ui-theme-newspaper .minimalism-ui-drag-bar {
 	background-color: #f3f2ee;
+}
+
+/* 主编辑区容器 + 根标签栏：奶白纸底。
+   newspaper 是「强制亮色」主题，但只刷了 .workspace-leaf-content / 视图本体；暗色模式下
+   mod-root 容器本体与顶部标签栏（未隐藏标签栏时）仍是 Obsidian 深色 chrome，会在纸面四周 /
+   标签栏处露出深色拼接。这里把它们一并刷成纸色，保证整片纸感在明 / 暗模式下都成立。 */
+body.minimalism-ui-theme-newspaper .workspace-split.mod-root,
+body.minimalism-ui-theme-newspaper .workspace-split.mod-root .workspace-tab-header-container,
+body.minimalism-ui-theme-newspaper .workspace-split.mod-root .workspace-tab-header {
+	background-color: #f3f2ee;
+}
+
+/* 标签页文字：报刊深墨，未激活页压浅，与奶白底拉开层次 */
+body.minimalism-ui-theme-newspaper .workspace-split.mod-root .workspace-tab-header {
+	color: #4a3838;
+}
+
+body.minimalism-ui-theme-newspaper .workspace-split.mod-root .workspace-tab-header.is-active {
+	color: #1f0909;
 }
 
 /* Canvas 白板：底色与纸张一致。canvas 背景由 body 级变量 --canvas-background
@@ -285,8 +310,12 @@ body.minimalism-ui-theme-newspaper .markdown-reading-view hr {
 	border-top: 1px solid #c5c5c5;
 }
 
-/* 编辑视图 */
-body.minimalism-ui-theme-newspaper .cm-line.HyperMD-hr,
+/* 编辑视图（只描绘内层 .cm-hr，与阅读视图一致；
+   不要给整行 .cm-line.HyperMD-hr 加边框，否则会在行顶多出一条线 → 双线） */
+body.minimalism-ui-theme-newspaper .cm-line.HyperMD-hr {
+	border: none;
+}
+
 body.minimalism-ui-theme-newspaper .cm-line.HyperMD-hr .cm-hr {
 	border: none;
 	border-top: 1px solid #c5c5c5;
@@ -311,9 +340,10 @@ body.minimalism-ui-theme-newspaper .markdown-reading-view .el-table table {
 
 /* .el-table 内单元格（部分 Obsidian 版本用 .ltr 容器渲染单元格内容） */
 body.minimalism-ui-theme-newspaper .markdown-reading-view .el-table .ltr {
-	padding: 0.5em 0.75em;
+	/* 行高增加约 20%：纵向内边距 0.5em→0.75em（疏朗化）；vertical-align 改 middle 使内容垂直居中 */
+	padding: 0.75em 0.75em;
 	color: #4c3a3a;
-	vertical-align: top;
+	vertical-align: middle;
 }
 
 /* 表头：灰底、大写、加粗、左对齐（两个视图） */
@@ -341,10 +371,11 @@ body.minimalism-ui-theme-newspaper .markdown-reading-view table th,
 body.minimalism-ui-theme-newspaper .markdown-reading-view table td,
 body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th,
 body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td {
-	padding: 0.5em 0.75em;
+	/* 行高增加约 20%：纵向内边距 0.5em→0.75em（疏朗化）；vertical-align 改 middle 使内容垂直居中 */
+	padding: 0.75em 0.75em;
 	font-size: 0.9em;
 	color: #4c3a3a;
-	vertical-align: top;
+	vertical-align: middle;
 	/* 仅画右 + 下内格线，外框交给 .el-table / table-editor 单层外框，避免双线 */
 	border-right: 1px solid #e0e0e0;
 	border-bottom: 1px solid #e0e0e0;

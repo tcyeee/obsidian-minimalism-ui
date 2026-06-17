@@ -53,6 +53,7 @@ const translations = {
 		filenamePrefixLengthDesc: '隐藏文件名开头的时间戳前缀，如隐藏 "202604111230-test" 前 13 个字符，在导航栏中显示为 test（0 = 不隐藏，最多 20）。',
 
 		graphView: '关系图',
+		localGraph: '本地关系图',
 	},
 	en: {
 		language: 'Language',
@@ -108,6 +109,7 @@ const translations = {
 		filenamePrefixLengthDesc: 'Hide the timestamp prefix at the start of a filename. E.g. hide the first 13 characters of "202604111230-test" so it shows as "test" in the navigation (0 = off, max 20).',
 
 		graphView: 'Graph view',
+		localGraph: 'Local Graph',
 	},
 } as const;
 
@@ -128,4 +130,9 @@ function detectLang(): Lang {
 
 export function t(key: Key): string {
 	return translations[detectLang()][key];
+}
+
+/** Resolved language ('zh' | 'en') after applying the auto/zh/en override — drives CSS lang body class. */
+export function getLang(): Lang {
+	return detectLang();
 }

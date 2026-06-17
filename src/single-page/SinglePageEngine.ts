@@ -516,7 +516,7 @@ export class SinglePageEngine {
 	}
 
 	// root leaf detach 补丁：通过捕获所有关闭路径（CMD+W、右键、X 按钮、API 调用）
-	// 在 detach 前通知 nav（移除历史条目、设置关闭标志、跳转到历史顶部），
+	// 在 detach 前通知 nav（移除历史条目、设置关闭标志），并在真正 detach 之前同步激活面包屑前一页，
 	// detach 后从 patch 注册表移除该 leaf，避免已销毁 leaf 在 Map 中无限累积（内存泄漏）。
 	// isReusingLeaf / 缓存淘汰中（leafCache.isEvictingNow）时豁免 nav 通知：属于插件内部操作而非用户关闭 tab。
 	private patchRootLeafDetach(leaf: WorkspaceLeaf) {
@@ -529,7 +529,17 @@ export class SinglePageEngine {
 				// 关闭后是否仍有其他文件 leaf（排除本 leaf）：决定历史清空时是否需吞掉 Obsidian 自动激活
 				// 残留 tab 的那次 record，使 history 保持为空、HomePageManager 据此回到首页。
 				const hasOtherFileLeaf = this.hasOtherFileLeaf(leaf);
-				this.nav.onTabClosing(closingPath, hasOtherFileLeaf);
+				const target = this.nav.onTabClosing(closingPath, hasOtherFileLeaf);
+				// 关键修复：在真正 detach（original()）**之前**同步激活面包屑前一页，使待关闭 leaf
+				// 变为非活动 leaf。否则 detach 活动 leaf 时 Obsidian 会自行挑选相邻 leaf（常是面包屑之外
+				// 的 future tab）作为新活动 leaf——它与我们此前的 setTimeout 异步激活产生竞态，Obsidian
+				// 的挑选若后触发会胜出并把无关 tab 写入历史，表现为“关闭后随意跳转到面包屑之外的 tab”。
+				// 前驱仍打开时同步激活无闪烁；已被 LRU 淘汰时 activateOrOpenFile 会先 getLeaf('tab')
+				// 拿到一个新活动 leaf（同样使待关闭 leaf 变为非活动），再异步重开文件，仍可避免自动挑选。
+				// 落到前驱页时播放与后退一致的入场动画（从左滑入）。
+				if (target !== null) {
+					this.activateOrOpenFile(target, 'minimalism-ui-slide-from-left');
+				}
 			}
 			original();
 			// leaf 已销毁，清理两个 patch 注册表，防止 Map 随累计打开的 tab 数无限增长

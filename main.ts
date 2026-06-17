@@ -12,6 +12,7 @@ import { EmptyViewButtonManager } from './src/single-page/EmptyViewButtonManager
 import { DragBarManager } from './src/layout/DragBarManager';
 import { SidebarLayoutManager } from './src/layout/SidebarLayoutManager';
 import { SidebarSuggestFocusTracker } from './src/layout/SidebarSuggestFocusTracker';
+import { PropertyKeyResizer } from './src/layout/PropertyKeyResizer';
 import { MermaidZoomManager } from './src/mermaid/MermaidZoomManager';
 import { OnboardingManager } from './src/onboarding/OnboardingManager';
 import { FirstRunCleanup } from './src/onboarding/FirstRunCleanup';
@@ -36,6 +37,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	private dragBar: DragBarManager;
 	private sidebarLayout: SidebarLayoutManager;
 	private sidebarSuggestFocus: SidebarSuggestFocusTracker;
+	private propertyKeyResizer: PropertyKeyResizer;
 	private mermaidZoom: MermaidZoomManager;
 	private onboarding: OnboardingManager;
 	// 一次性首次启用收拢；无持久副作用，不进 features[]。
@@ -69,6 +71,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.engine.setNavChangeListener((leaf) => this.dragBar.notifyNavChange(leaf));
 		this.sidebarLayout = new SidebarLayoutManager(this.app, settings, this.pinManager);
 		this.sidebarSuggestFocus = new SidebarSuggestFocusTracker();
+		this.propertyKeyResizer = new PropertyKeyResizer(settings, () => this.saveData(this.settings));
 		this.mermaidZoom = new MermaidZoomManager(this.app);
 		this.onboarding = new OnboardingManager(this.app, settings, () => this.saveData(this.settings));
 		this.firstRunCleanup = new FirstRunCleanup(this.app, async () => {
@@ -88,6 +91,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			this.dragBar,
 			this.sidebarLayout,
 			this.sidebarSuggestFocus,
+			this.propertyKeyResizer,
 			this.mermaidZoom,
 			this.onboarding,
 		];
@@ -97,6 +101,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		void this.themeLoader.apply();
 		this.bodyClasses.apply();
 		this.sidebarSuggestFocus.apply();
+		this.propertyKeyResizer.apply();
 		this.pinManager.apply();
 		this.engine.apply();
 		this.mermaidZoom.apply();

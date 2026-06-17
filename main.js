@@ -45,6 +45,8 @@ var DEFAULT_SETTINGS = {
   // 高级功能（文件名前缀）默认关闭
   filenamePrefixManual: false,
   filenamePrefixLength: 0,
+  // 默认 100px，与历史固定列宽一致
+  propertyKeyWidth: 100,
   language: "auto",
   // 动画与高级设置区块默认折叠
   collapsedSections: { animation: true, advanced: true },
@@ -226,8 +228,12 @@ body.minimalism-ui-theme-forest .markdown-reading-view hr {
 	border-top: 1px dashed var(--hr-color, #DADCDE);
 }
 
-/* \u7F16\u8F91\u89C6\u56FE\uFF1A\u5206\u5272\u7EBF */
-body.minimalism-ui-theme-forest .cm-line.HyperMD-hr,
+/* \u7F16\u8F91\u89C6\u56FE\uFF1A\u5206\u5272\u7EBF\uFF08\u53EA\u63CF\u7ED8\u5185\u5C42 .cm-hr\uFF0C\u4E0E\u9605\u8BFB\u89C6\u56FE\u7684 hr \u4E00\u81F4\uFF1B
+   \u4E0D\u8981\u7ED9\u6574\u884C .cm-line.HyperMD-hr \u52A0\u8FB9\u6846\uFF0C\u5426\u5219\u4F1A\u5728\u884C\u9876\u591A\u51FA\u4E00\u6761\u7EBF \u2192 \u53CC\u7EBF\uFF09 */
+body.minimalism-ui-theme-forest .cm-line.HyperMD-hr {
+	border: none;
+}
+
 body.minimalism-ui-theme-forest .cm-line.HyperMD-hr .cm-hr {
 	border: none;
 	border-top: 1px dashed var(--hr-color, #DADCDE);
@@ -259,6 +265,17 @@ body.minimalism-ui-theme-forest .cm-line.HyperMD-hr .cm-hr {
 .minimalism-ui-theme-forest .markdown-reading-view ::-webkit-scrollbar-track,
 .minimalism-ui-theme-forest .cm-scroller::-webkit-scrollbar-track {
 	background: transparent;
+}
+
+/* \u4EE3\u7801\u5757\u6A2A\u5411\u6EDA\u52A8\u6761\uFF1A\u5173\u95ED\u6362\u884C\u540E\u624D\u51FA\u73B0\u3002\u4E0A\u9762\u7684 .markdown-reading-view:hover \u89C4\u5219\u4F1A\u8BA9
+   \u5B83\u968F\u6B63\u6587 hover \u5E38\u9A7B\u663E\u5F62\uFF08\u770B\u8D77\u6765"\u59CB\u7EC8\u663E\u793A"\uFF09\u3002\u8FD9\u91CC\u628A\u4EE3\u7801\u5757\u7684\u6EDA\u52A8\u6761\u6536\u56DE\u5230\u53EA\u5728
+   \u60AC\u505C\u4EE3\u7801\u5757\u672C\u8EAB\u65F6\u624D\u663E\u8272\u2014\u2014\u66F4\u9AD8\u7684\u9009\u62E9\u5668\u7279\u5F02\u5EA6\u538B\u8FC7\u4E0A\u9762\u7684\u901A\u7528 hover \u89C4\u5219\u3002 */
+.minimalism-ui-theme-forest .markdown-reading-view pre.minimalism-ui-code-block > code::-webkit-scrollbar-thumb {
+	background: transparent;
+}
+
+.minimalism-ui-theme-forest .markdown-reading-view pre.minimalism-ui-code-block:hover > code::-webkit-scrollbar-thumb {
+	background: rgba(128, 128, 128, 0.4);
 }
 
 body.minimalism-ui-theme-forest .bases-view {
@@ -295,13 +312,15 @@ body.minimalism-ui-theme-forest .bases-view ::-webkit-scrollbar-track {
 	--table-border-color: #DADCDE;
 	--table-header-background: rgba(0, 153, 123, 0.03);
 	--table-row-alt-background: rgba(0, 153, 123, 0.03);
+	/* \u8868\u683C\u501F\u7EBF / \u5916\u6846\u7EDF\u4E00\u8D70\u6B64\u53D8\u91CF\uFF1A\u6D45\u6A21\u5F0F\u7EB8\u7070\uFF0C\u6697\u8272\u6A21\u5F0F\u7531\u4E0B\u65B9 body.theme-dark \u8986\u76D6\u6210\u4F4E\u900F\u660E\u767D\u7EBF */
+	--minimalism-table-line: #DADCDE;
 }
 
 /* \u9605\u8BFB\u89C6\u56FE */
 body.minimalism-ui-theme-forest .el-table {
 	border-radius: 5px;
 	overflow: hidden;
-	border: 1px solid #DADCDE;
+	border: 1px solid var(--minimalism-table-line);
 }
 
 /* \u7F16\u8F91\u89C6\u56FE\uFF1Atable-editor \u5916\u8FB9\u6846
@@ -309,7 +328,7 @@ body.minimalism-ui-theme-forest .el-table {
 body.minimalism-ui-theme-forest .cm-editor .table-editor {
 	border-radius: 5px;
 	overflow: visible;
-	outline: 1px solid #DADCDE;
+	outline: 1px solid var(--minimalism-table-line);
 	outline-offset: 0px;
 }
 
@@ -345,7 +364,7 @@ body.minimalism-ui-theme-forest .el-table table {
 
 .minimalism-ui-theme-forest .markdown-reading-view table tbody tr,
 .minimalism-ui-theme-forest .table-wrapper table.table-editor tbody tr {
-	border-bottom: 1px solid #DADCDE;
+	border-bottom: 1px solid var(--minimalism-table-line);
 }
 
 /* \u6240\u6709\u5355\u5143\u683C\uFF1A\u5B57\u4F53\u3001\u5927\u5C0F\u3001\u989C\u8272\uFF08\u9605\u8BFB\u89C6\u56FE + \u7F16\u8F91\u89C6\u56FE\uFF09 */
@@ -364,14 +383,14 @@ body.minimalism-ui-theme-forest .markdown-reading-view table th,
 body.minimalism-ui-theme-forest .markdown-reading-view table td,
 body.minimalism-ui-theme-forest .markdown-reading-view .el-table .ltr {
 	padding: 10px 13px;
-	border-left: 1px solid #DADCDE;
+	border-left: 1px solid var(--minimalism-table-line);
 }
 
 /* \u7F16\u8F91\u6A21\u5F0F\uFF1A.table-editor \u662F table \u5143\u7D20\u672C\u8EAB\u7684 class\uFF0C\u9700\u7528 table.table-editor \u5339\u914D */
 body.minimalism-ui-theme-forest .table-wrapper table.table-editor th,
 body.minimalism-ui-theme-forest .table-wrapper table.table-editor td {
 	padding: 10px 13px;
-	border-left: 1px solid #DADCDE;
+	border-left: 1px solid var(--minimalism-table-line);
 }
 
 
@@ -522,7 +541,7 @@ body.minimalism-ui-theme-forest .table-wrapper table.table-editor td:first-child
    border-color \u4E0E border-radius longhand\u3002\u53CC\u5199\u628A\u672C\u89C4\u5219\u63D0\u5230 0,4,1 \u538B\u8FC7\u5B83\uFF0C\u4E0D\u5FC5\u52A8\u7528 !important\u3002
    padding:0 \u62B9\u6389\u5D4C\u5165\u5F0F\u7684 --bases-embed-padding\uFF1A\u8BE5\u5185\u8FB9\u8DDD\u5939\u5728\u672C border \u4E0E\u8868\u683C\u4E4B\u95F4\uFF0C\u6210\u4E3A\u7A7A\u9699\u3002 */
 body.minimalism-ui-theme-forest .bases-view.bases-view[data-view-type="table"] {
-	border: 1px solid #dadcde;
+	border: 1px solid var(--minimalism-table-line);
 	border-radius: 5px;
 	padding: 0;
 }
@@ -533,7 +552,7 @@ body.minimalism-ui-theme-forest .bases-view .bases-thead .bases-td {
 	color: rgb(107, 107, 107);
 	font-weight: 900;
 	text-align: left;
-	border-bottom: 1px solid #dadcde;
+	border-bottom: 1px solid var(--minimalism-table-line);
 }
 
 /* \u5355\u5143\u683C\uFF1A\u5185\u8FB9\u8DDD + \u5B57\u53F7 + \u5B57\u8272 + \u5B57\u4F53 + \u5185\u683C\u7EBF\uFF08\u53F3 + \u4E0B\uFF09\uFF1B
@@ -546,8 +565,8 @@ body.minimalism-ui-theme-forest .bases-view .bases-td {
 	font-family: 'JetBrains Mono', -apple-system, sans-serif;
 	color: rgb(107, 107, 107);
 	vertical-align: top;
-	border-right: 1px solid #dadcde;
-	border-bottom: 1px solid #dadcde;
+	border-right: 1px solid var(--minimalism-table-line);
+	border-bottom: 1px solid var(--minimalism-table-line);
 }
 
 /* \u8868\u683C\u884C\u9AD8\u88AB Obsidian \u56FA\u5B9A\u4E3A --bases-table-row-height:30px\uFF08\u884C\u7528 absolute + top \u504F\u79FB\u865A\u62DF\u5316\uFF09\uFF0C
@@ -741,6 +760,35 @@ body.minimalism-ui-theme-forest .mermaid svg text {
 }
 
 /* =============================================================================
+   \u6697\u8272\u6A21\u5F0F\u9002\u914D\uFF1A\u6B63\u6587\u533A\u5199\u6B7B\u7684\u6D45\u8272\u503C\u8986\u76D6
+   Forest \u6B63\u6587\u8DDF\u968F Obsidian \u6697\u8272\u53D8\u91CF\uFF0C\u4F46\u884C\u5185\u4EE3\u7801\u5E95\u8272\u3001\u8868\u683C\u501F\u7EBF / \u5355\u5143\u683C\u5B57\u8272\u662F\u5199\u6B7B\u7684
+   \u6D45\u6A21\u5F0F\u7070\uFF0C\u6DF1\u5E95\u4E0B\u4F1A\u6210\u4EAE\u5757 / \u504F\u6697\u3002\u8FD9\u91CC\u53EA\u5728 body.theme-dark \u4E0B\u8986\u76D6\uFF0C\u6D45\u8272\u6A21\u5F0F\u4E0D\u53D7\u5F71\u54CD\u3002
+   ============================================================================= */
+
+/* \u8868\u683C\u501F\u7EBF\uFF1A\u6D45\u6A21\u5F0F\u7EB8\u7070\u5728\u6DF1\u5E95\u4E0B\u504F\u4EAE\uFF0C\u6362\u6210\u4F4E\u900F\u660E\u767D\u7EBF */
+body.theme-dark.minimalism-ui-theme-forest {
+	--minimalism-table-line: rgba(255, 255, 255, 0.12);
+}
+
+/* \u884C\u5185\u4EE3\u7801\uFF1A\u6D45\u7070\u5E95 #F3F3F3 \u5728\u6DF1\u5E95\u4E0B\u662F\u4EAE\u5757\uFF0C\u6362\u6210\u4F4E\u900F\u660E\u7EFF\u5E95 + \u63D0\u4EAE\u84DD\u5B57 */
+body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view :not(pre) > code,
+body.theme-dark.minimalism-ui-theme-forest .cm-inline-code {
+	color: #6fb3d6;
+	background-color: rgba(0, 153, 123, 0.16);
+}
+
+/* \u8868\u683C\u5355\u5143\u683C\u5B57\u8272\uFF1A\u5199\u6B7B\u7684 rgb(107,107,107) \u5728\u6DF1\u5E95\u4E0B\u504F\u6697\uFF0C\u8DDF\u968F --text-muted \u63D0\u4EAE */
+body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view table th,
+body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view table td,
+body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view .el-table .ltr,
+body.theme-dark.minimalism-ui-theme-forest .table-wrapper table.table-editor th,
+body.theme-dark.minimalism-ui-theme-forest .table-wrapper table.table-editor td,
+body.theme-dark.minimalism-ui-theme-forest .bases-view .bases-td,
+body.theme-dark.minimalism-ui-theme-forest .bases-view .bases-thead .bases-td {
+	color: var(--text-muted);
+}
+
+/* =============================================================================
    \u4FA7\u8FB9\u680F / Chrome \u914D\u8272\uFF08\u4ECE styles.css \u8FC1\u5165\uFF09
    \u8FD9\u4E9B\u539F\u5148\u5199\u5728 styles.css\uFF08\u88AB\u5F53\u4F5C\u4E3B\u9898\u65E0\u5173 chrome\uFF09\uFF0C\u5B9E\u4E3A Forest \u4E13\u5C5E\u7684\u6DF1\u8272\u4FA7\u8FB9\u680F\u5916\u89C2\uFF1A
    \u6DF1\u84DD\u5E95 #123342 / \u6697\u8272 #1c1c1e + \u6D45\u7070\u5B57 + \u84DD\u8272 accent + \u6DF1\u5E95\u5EFA\u8BAE\u5F39\u5C42\u3002
@@ -788,9 +836,19 @@ body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side
 /* \u6CE8\u5165\u5F0F\u5206\u533A\u6807\u9898\uFF08OUTLINE / PROPERTIES / LOCAL GRAPH\uFF09\u6D45\u767D */
 body.minimalism-ui-theme-forest.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"]::before,
 body.minimalism-ui-theme-forest.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="file-properties"]::before,
-body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content::before,
 body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-graph-header > span {
 	color: rgba(255, 255, 255, 0.88);
+}
+
+/* sticky \u5C5E\u6027\u6807\u9898\uFF1A\u6587\u5B57\u6D45\u767D + \u80CC\u666F\u987B\u4E0E\u4FA7\u8FB9\u680F\u5E95\u8272\u4E00\u81F4\uFF0C
+   \u5426\u5219 styles.css \u91CC\u7684 var(--background-secondary) \u4F1A\u5728\u6EDA\u52A8\u65F6\u9732\u51FA\u6D45\u8272\u5757\uFF08\u989C\u8272\u5F02\u5E38\uFF09\u3002 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content::before {
+	color: rgba(255, 255, 255, 0.88);
+	background-color: #123342;
+}
+
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content::before {
+	background-color: #1c1c1e;
 }
 
 /* \u5DE6\u4E0B\u89D2 vault profile\uFF1A\u6DF1\u8272\u5E95 + \u865A\u7EBF\u9876\u8FB9 */
@@ -827,6 +885,19 @@ body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .met
 body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value input,
 body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value [contenteditable] {
 	caret-color: rgba(196, 196, 196, 0.88);
+}
+
+/* \u65E5\u671F/\u65F6\u95F4\u5C5E\u6027\u7684\u539F\u751F\u65E5\u5386\u9009\u62E9\u5668\u56FE\u6807\uFF1A\u9ED8\u8BA4\u662F\u6DF1\u8272\u5B57\u5F62\uFF0C\u5728\u6DF1\u5E95\u4FA7\u8FB9\u680F\u51E0\u4E4E\u4E0D\u53EF\u89C1\uFF0C
+   \u7528 invert \u53CD\u76F8\u4E3A\u6D45\u8272\uFF0C\u4F7F\u5176\u5728 Forest \u6DF1\u5E95\u4E0A\u6E05\u6670\u53EF\u8FA8\u3002 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value input[type="date"]::-webkit-calendar-picker-indicator,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+	filter: invert(0.85);
+	opacity: 0.7;
+}
+
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value input[type="date"]::-webkit-calendar-picker-indicator:hover,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+	opacity: 1;
 }
 
 /* \u5C5E\u6027\u680F\u5EFA\u8BAE\u4E0B\u62C9\uFF1A\u6DF1\u5E95\u6D45\u5B57\uFF08\u5BF9\u9F50 localgraph \u8BBE\u7F6E\u9762\u677F #0f1e2b\uFF09 */
@@ -963,9 +1034,15 @@ body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.s
    \u8FD9\u4E9B ::before / span \u4E0D\u8D70\u53D8\u91CF\uFF0C\u9700\u5BF9\u4F4D\u8986\u76D6\u5404\u81EA\u7684\u989C\u8272\u89C4\u5219\u3002 */
 body.minimalism-ui-theme-newspaper.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"]::before,
 body.minimalism-ui-theme-newspaper.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="file-properties"]::before,
-body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content::before,
 body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-graph-header > span {
 	color: #1f0909;
+}
+
+/* sticky \u5C5E\u6027\u6807\u9898\uFF1A\u6DF1\u58A8\u5B57 + \u80CC\u666F\u987B\u4E0E\u4FA7\u8FB9\u680F\u5976\u767D\u5E95\u4E00\u81F4\uFF0C
+   \u5426\u5219 styles.css \u91CC\u7684 var(--background-secondary) \u4F1A\u5728\u6EDA\u52A8\u65F6\u9732\u51FA\u8272\u5DEE\u5757\uFF08\u989C\u8272\u5F02\u5E38\uFF09\u3002 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content::before {
+	color: #1f0909;
+	background-color: #f3f2ee;
 }
 
 /* \u5BFC\u822A\u9879 hover / active\uFF1A\u6696\u7070\u5E95\uFF0C\u66FF\u4EE3 Forest \u7684\u84DD\u8272 accent */
@@ -991,6 +1068,25 @@ body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mo
 /* \u9876\u90E8\u81EA\u5B9A\u4E49\u62D6\u62FD\u680F\uFF1A\u5976\u767D\u5E95\uFF0C\u4E0E\u6B63\u6587\u8FDE\u6210\u4E00\u7247 */
 body.minimalism-ui-theme-newspaper .minimalism-ui-drag-bar {
 	background-color: #f3f2ee;
+}
+
+/* \u4E3B\u7F16\u8F91\u533A\u5BB9\u5668 + \u6839\u6807\u7B7E\u680F\uFF1A\u5976\u767D\u7EB8\u5E95\u3002
+   newspaper \u662F\u300C\u5F3A\u5236\u4EAE\u8272\u300D\u4E3B\u9898\uFF0C\u4F46\u53EA\u5237\u4E86 .workspace-leaf-content / \u89C6\u56FE\u672C\u4F53\uFF1B\u6697\u8272\u6A21\u5F0F\u4E0B
+   mod-root \u5BB9\u5668\u672C\u4F53\u4E0E\u9876\u90E8\u6807\u7B7E\u680F\uFF08\u672A\u9690\u85CF\u6807\u7B7E\u680F\u65F6\uFF09\u4ECD\u662F Obsidian \u6DF1\u8272 chrome\uFF0C\u4F1A\u5728\u7EB8\u9762\u56DB\u5468 /
+   \u6807\u7B7E\u680F\u5904\u9732\u51FA\u6DF1\u8272\u62FC\u63A5\u3002\u8FD9\u91CC\u628A\u5B83\u4EEC\u4E00\u5E76\u5237\u6210\u7EB8\u8272\uFF0C\u4FDD\u8BC1\u6574\u7247\u7EB8\u611F\u5728\u660E / \u6697\u6A21\u5F0F\u4E0B\u90FD\u6210\u7ACB\u3002 */
+body.minimalism-ui-theme-newspaper .workspace-split.mod-root,
+body.minimalism-ui-theme-newspaper .workspace-split.mod-root .workspace-tab-header-container,
+body.minimalism-ui-theme-newspaper .workspace-split.mod-root .workspace-tab-header {
+	background-color: #f3f2ee;
+}
+
+/* \u6807\u7B7E\u9875\u6587\u5B57\uFF1A\u62A5\u520A\u6DF1\u58A8\uFF0C\u672A\u6FC0\u6D3B\u9875\u538B\u6D45\uFF0C\u4E0E\u5976\u767D\u5E95\u62C9\u5F00\u5C42\u6B21 */
+body.minimalism-ui-theme-newspaper .workspace-split.mod-root .workspace-tab-header {
+	color: #4a3838;
+}
+
+body.minimalism-ui-theme-newspaper .workspace-split.mod-root .workspace-tab-header.is-active {
+	color: #1f0909;
 }
 
 /* Canvas \u767D\u677F\uFF1A\u5E95\u8272\u4E0E\u7EB8\u5F20\u4E00\u81F4\u3002canvas \u80CC\u666F\u7531 body \u7EA7\u53D8\u91CF --canvas-background
@@ -1146,8 +1242,12 @@ body.minimalism-ui-theme-newspaper .markdown-reading-view hr {
 	border-top: 1px solid #c5c5c5;
 }
 
-/* \u7F16\u8F91\u89C6\u56FE */
-body.minimalism-ui-theme-newspaper .cm-line.HyperMD-hr,
+/* \u7F16\u8F91\u89C6\u56FE\uFF08\u53EA\u63CF\u7ED8\u5185\u5C42 .cm-hr\uFF0C\u4E0E\u9605\u8BFB\u89C6\u56FE\u4E00\u81F4\uFF1B
+   \u4E0D\u8981\u7ED9\u6574\u884C .cm-line.HyperMD-hr \u52A0\u8FB9\u6846\uFF0C\u5426\u5219\u4F1A\u5728\u884C\u9876\u591A\u51FA\u4E00\u6761\u7EBF \u2192 \u53CC\u7EBF\uFF09 */
+body.minimalism-ui-theme-newspaper .cm-line.HyperMD-hr {
+	border: none;
+}
+
 body.minimalism-ui-theme-newspaper .cm-line.HyperMD-hr .cm-hr {
 	border: none;
 	border-top: 1px solid #c5c5c5;
@@ -1172,9 +1272,10 @@ body.minimalism-ui-theme-newspaper .markdown-reading-view .el-table table {
 
 /* .el-table \u5185\u5355\u5143\u683C\uFF08\u90E8\u5206 Obsidian \u7248\u672C\u7528 .ltr \u5BB9\u5668\u6E32\u67D3\u5355\u5143\u683C\u5185\u5BB9\uFF09 */
 body.minimalism-ui-theme-newspaper .markdown-reading-view .el-table .ltr {
-	padding: 0.5em 0.75em;
+	/* \u884C\u9AD8\u589E\u52A0\u7EA6 20%\uFF1A\u7EB5\u5411\u5185\u8FB9\u8DDD 0.5em\u21920.75em\uFF08\u758F\u6717\u5316\uFF09\uFF1Bvertical-align \u6539 middle \u4F7F\u5185\u5BB9\u5782\u76F4\u5C45\u4E2D */
+	padding: 0.75em 0.75em;
 	color: #4c3a3a;
-	vertical-align: top;
+	vertical-align: middle;
 }
 
 /* \u8868\u5934\uFF1A\u7070\u5E95\u3001\u5927\u5199\u3001\u52A0\u7C97\u3001\u5DE6\u5BF9\u9F50\uFF08\u4E24\u4E2A\u89C6\u56FE\uFF09 */
@@ -1202,10 +1303,11 @@ body.minimalism-ui-theme-newspaper .markdown-reading-view table th,
 body.minimalism-ui-theme-newspaper .markdown-reading-view table td,
 body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th,
 body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td {
-	padding: 0.5em 0.75em;
+	/* \u884C\u9AD8\u589E\u52A0\u7EA6 20%\uFF1A\u7EB5\u5411\u5185\u8FB9\u8DDD 0.5em\u21920.75em\uFF08\u758F\u6717\u5316\uFF09\uFF1Bvertical-align \u6539 middle \u4F7F\u5185\u5BB9\u5782\u76F4\u5C45\u4E2D */
+	padding: 0.75em 0.75em;
 	font-size: 0.9em;
 	color: #4c3a3a;
-	vertical-align: top;
+	vertical-align: middle;
 	/* \u4EC5\u753B\u53F3 + \u4E0B\u5185\u683C\u7EBF\uFF0C\u5916\u6846\u4EA4\u7ED9 .el-table / table-editor \u5355\u5C42\u5916\u6846\uFF0C\u907F\u514D\u53CC\u7EBF */
 	border-right: 1px solid #e0e0e0;
 	border-bottom: 1px solid #e0e0e0;
@@ -1716,6 +1818,116 @@ var ThemeLoader = class {
   }
 };
 
+// src/core/i18n.ts
+var translations = {
+  zh: {
+    language: "\u8BED\u8A00",
+    languageAuto: "\u8DDF\u968F\u7CFB\u7EDF",
+    languageZh: "\u4E2D\u6587",
+    languageEn: "English",
+    introTitle: "\u4F7F\u7528\u524D\u5FC5\u8BFB",
+    introDesc1: '\u672C\u63D2\u4EF6\u662F\u4E00\u6B3E"\u505A\u51CF\u6CD5"\u7684\u5DE5\u5177,\u8BBE\u8BA1\u7406\u5FF5\u4E0E\u4E3B\u6D41\u7528\u6CD5\u76F8\u6096:\u5B83\u53EA\u4FDD\u7559\u5DE6\u4FA7\u8FB9\u680F(\u81F3\u591A\u663E\u793A\u5927\u7EB2\u3001\u5C5E\u6027\u3001\u672C\u5730\u5173\u7CFB\u56FE),\u5E76\u88C1\u526A\u6389\u4E86\u5927\u91CF\u6838\u5FC3\u529F\u80FD,\u751A\u81F3\u5305\u62EC"\u6587\u4EF6\u5939"\u3002\u5B89\u88C5\u524D\u8BF7\u5148\u786E\u8BA4\u4F60\u8BA4\u540C\u8FD9\u5957\u6781\u7B80\u7406\u5FF5\u3002',
+    introDesc2: "\u8BF7\u6307\u5B9A\u4E00\u7BC7\u7B14\u8BB0\u4F5C\u4E3A\u9996\u9875\u3002\u5B83\u5982\u540C\u4E00\u68F5\u6811\u7684\u4E3B\u5E72,\u4F60\u5728\u5176\u4E0A\u7528\u53CC\u94FE\u4E0D\u65AD\u65B0\u5EFA\u7B14\u8BB0,\u8BA9\u77E5\u8BC6\u5F00\u679D\u6563\u53F6,\u6700\u7EC8\u957F\u6210\u53C2\u5929\u5927\u6811\u3002",
+    headingGeneral: "\u901A\u7528\u8BBE\u7F6E",
+    headingAppearance: "\u4FA7\u8FB9\u680F\u8BBE\u7F6E",
+    headingInteraction: "\u4EA4\u4E92\u8BBE\u7F6E",
+    headingAnimation: "\u52A8\u753B\u8BBE\u7F6E (beta)",
+    headingAdvanced: "\u9AD8\u7EA7\u8BBE\u7F6E",
+    showProperties: "\u5C5E\u6027\u9762\u677F",
+    showLocalGraph: "\u672C\u5730\u5173\u7CFB\u56FE",
+    showVaultProfile: "\u5E95\u90E8\u7528\u6237\u8BBE\u7F6E\u533A\u57DF",
+    showRibbon: "\u529F\u80FD\u533A",
+    hideTabBar: "\u9690\u85CF\u5927\u7EB2\u6309\u94AE",
+    theme: "\u4E3B\u9898",
+    homePage: "\u7B14\u8BB0\u9996\u9875",
+    homePageDesc: "\u8BBE\u7F6E\u4E00\u4E2A\u7B14\u8BB0\u4F5C\u4E3A\u9996\u9875\u3002Obsidian \u542F\u52A8\u65F6\u81EA\u52A8\u6253\u5F00\uFF0C\u5173\u95ED\u6240\u6709\u6807\u7B7E\u540E\u81EA\u52A8\u8FD4\u56DE\u3002",
+    homePagePlaceholder: "\u8F93\u5165\u7B14\u8BB0\u8DEF\u5F84\uFF0C\u4F8B\u5982\uFF1Asrc/Home.md",
+    goHome: "\u56DE\u5230\u4E3B\u9875",
+    singlePage: "\u5F00\u542F\u5355\u9875\u6A21\u5F0F",
+    singlePageDesc1: "1. \u9690\u85CF\u9876\u90E8\u6807\u7B7E\u680F\uFF0C\u6BCF\u6B21\u53EA\u5C55\u793A\u4E00\u7BC7\u7B14\u8BB0\u3002",
+    singlePageDesc2: "2. \u542F\u7528\u9875\u9762\u7F13\u5B58\uFF0C\u5728\u5185\u5B58\u4E2D\u4FDD\u7559\u6700\u8FD1\u8BBF\u95EE\u7684 10 \u4E2A\u9875\u9762\u3002",
+    singlePageDesc3: "3. \u7981\u6B62\u901A\u8FC7\u53F3\u952E\u83DC\u5355 pin\uFF08\u56FA\u5B9A\uFF09\u6807\u7B7E\u9875\u3002",
+    singlePageDesc4: "4. \u5728\u9876\u90E8\u62D6\u62FD\u680F\u663E\u793A\u8BBF\u95EE\u8DEF\u5F84\uFF08\u9762\u5305\u5C51\uFF09\uFF0C\u65B9\u4FBF\u8FFD\u8E2A\u5BFC\u822A\u5386\u53F2\u3002",
+    navAnimation: "\u9875\u9762\u52A0\u8F7D\u52A8\u753B",
+    navAnimationDesc: "\u524D\u8FDB\u6216\u540E\u9000\u65F6\uFF0C\u4E3A\u76EE\u6807\u9875\u9762\u64AD\u653E\u6ED1\u5165\u52A8\u753B",
+    onboardingTitle: "\u65B0\u624B\u4EFB\u52A1",
+    onboardingCreateNote: "\u4F7F\u7528\u5FEB\u6377\u952E\u65B0\u5EFA\u4E00\u7BC7\u540D\u4E3A Index \u7684\u7B14\u8BB0",
+    onboardingSetHome: "\u5C06 Index \u8BBE\u7F6E\u4E3A\u4E3B\u9875",
+    onboardingOpenSettings: "\u53BB\u8BBE\u7F6E",
+    onboardingLinkNote: "\u5728 Index \u91CC\u8F93\u5165 [[ \u5173\u8054\u4E00\u7BC7\u65B0\u7B14\u8BB0",
+    onboardingGoBack: "\u4F7F\u7528\u5FEB\u6377\u952E\u540E\u9000",
+    onboardingGoForward: "\u4F7F\u7528\u5FEB\u6377\u952E\u524D\u8FDB",
+    onboardingAllDone: "\u5168\u90E8\u5B8C\u6210\uFF0C\u5F00\u59CB\u4F60\u7684\u5199\u4F5C\u5427\uFF01",
+    filenamePrefixManual: "\u624B\u52A8\u9690\u85CF\u65F6\u95F4\u6233\u524D\u7F00",
+    filenamePrefixManualDesc: "\u5173\u95ED\u65F6\u81EA\u52A8\u8DDF\u968F Obsidian\u300C\u552F\u4E00\u7B14\u8BB0\u521B\u5EFA\u5668\u300D\u914D\u7F6E\u7684\u65F6\u95F4\u6233\u683C\u5F0F\u5265\u79BB\u524D\u7F00\uFF08\u542B\u5176\u540E\u7684\u5206\u9694\u7B26\uFF09\uFF0C\u65E0\u9700\u8BBE\u7F6E\uFF1B\u5F00\u542F\u540E\u6539\u4E3A\u4E0B\u65B9\u624B\u52A8\u6307\u5B9A\u8981\u9690\u85CF\u7684\u4F4D\u6570\u3002",
+    filenamePrefixLength: "\u6307\u5B9A\u65F6\u95F4\u6233\u524D\u7F00\u957F\u5EA6",
+    filenamePrefixLengthDesc: '\u9690\u85CF\u6587\u4EF6\u540D\u5F00\u5934\u7684\u65F6\u95F4\u6233\u524D\u7F00\uFF0C\u5982\u9690\u85CF "202604111230-test" \u524D 13 \u4E2A\u5B57\u7B26\uFF0C\u5728\u5BFC\u822A\u680F\u4E2D\u663E\u793A\u4E3A test\uFF080 = \u4E0D\u9690\u85CF\uFF0C\u6700\u591A 20\uFF09\u3002',
+    graphView: "\u5173\u7CFB\u56FE",
+    localGraph: "\u672C\u5730\u5173\u7CFB\u56FE"
+  },
+  en: {
+    language: "Language",
+    languageAuto: "Follow system",
+    languageZh: "\u4E2D\u6587",
+    languageEn: "English",
+    introTitle: "Read this before you start",
+    introDesc1: "This plugin is all about subtraction, and its philosophy runs against mainstream usage: it keeps only the left sidebar (showing at most Outline, Properties, and Local Graph) and strips away many core features, including Folders. Make sure this minimalist philosophy suits you before installing.",
+    introDesc2: "Pick one note as your home page. Think of it as the trunk of a tree: keep creating notes from it through backlinks, letting your knowledge branch out until it grows into a towering tree.",
+    headingGeneral: "General",
+    headingAppearance: "Sidebar",
+    headingInteraction: "Interaction",
+    headingAnimation: "Animation (beta)",
+    headingAdvanced: "Advanced",
+    showProperties: "Properties",
+    showLocalGraph: "Local Graph",
+    showVaultProfile: "Bottom settings area",
+    showRibbon: "Ribbon",
+    hideTabBar: "Hide outline button",
+    theme: "Theme",
+    homePage: "Home note",
+    homePageDesc: "A note that opens automatically on startup and whenever all tabs are closed.",
+    homePagePlaceholder: "Note path, e.g. src/Home.md",
+    goHome: "Back to Home",
+    singlePage: "Single-page mode",
+    singlePageDesc1: "1. Hide the tab bar \u2014 show one note at a time.",
+    singlePageDesc2: "2. Keep the 10 most recently visited notes cached in memory.",
+    singlePageDesc3: "3. Prevent pinning tabs via the right-click menu.",
+    singlePageDesc4: "4. Show a breadcrumb trail in the drag bar to track navigation history.",
+    navAnimation: "Page transition animation",
+    navAnimationDesc: "Play a slide-in animation when navigating back or forward.",
+    onboardingTitle: "Getting started",
+    onboardingCreateNote: "Create a note named Index with the shortcut",
+    onboardingSetHome: "Set Index as your home page",
+    onboardingOpenSettings: "Open settings",
+    onboardingLinkNote: "In Index, type [[ to link a new note",
+    onboardingGoBack: "Go back with the shortcut",
+    onboardingGoForward: "Go forward with the shortcut",
+    onboardingAllDone: "All set \u2014 start writing!",
+    filenamePrefixManual: "Manually hide timestamp prefix",
+    filenamePrefixManualDesc: `When off, automatically follows the timestamp format configured in Obsidian's "Unique note creator" core plugin to strip the prefix (and the separator after it) \u2014 no setup needed. When on, manually specify the length to hide below.`,
+    filenamePrefixLength: "Timestamp prefix length",
+    filenamePrefixLengthDesc: 'Hide the timestamp prefix at the start of a filename. E.g. hide the first 13 characters of "202604111230-test" so it shows as "test" in the navigation (0 = off, max 20).',
+    graphView: "Graph view",
+    localGraph: "Local Graph"
+  }
+};
+var langOverride = null;
+function setLang(lang) {
+  langOverride = lang === "auto" ? null : lang;
+}
+function detectLang() {
+  var _a, _b;
+  if (langOverride) return langOverride;
+  const lang = (_b = (_a = activeDocument.documentElement.lang) == null ? void 0 : _a.slice(0, 2)) != null ? _b : "en";
+  return lang in translations ? lang : "en";
+}
+function t(key) {
+  return translations[detectLang()][key];
+}
+function getLang() {
+  return detectLang();
+}
+
 // src/core/BodyClassController.ts
 var BODY_CLASSES = [
   "minimalism-ui-mac-sidebar",
@@ -1726,7 +1938,8 @@ var BODY_CLASSES = [
   "minimalism-ui-note-style",
   "minimalism-ui-has-home",
   "minimalism-ui-hide-vault-profile",
-  "minimalism-ui-hide-ribbon"
+  "minimalism-ui-hide-ribbon",
+  "minimalism-ui-lang-zh"
 ];
 var BodyClassController = class {
   constructor(getSettings) {
@@ -1744,6 +1957,7 @@ var BodyClassController = class {
     cls.toggle("minimalism-ui-has-home", !!s.homePage);
     cls.toggle("minimalism-ui-hide-vault-profile", !s.showVaultProfile);
     cls.toggle("minimalism-ui-hide-ribbon", !s.showRibbon);
+    cls.toggle("minimalism-ui-lang-zh", getLang() === "zh");
   }
   remove() {
     activeDocument.body.classList.remove(...BODY_CLASSES);
@@ -1942,9 +2156,16 @@ var NavigationHistory = class {
       return;
     }
   }
-  // tab 关闭时调用：从 history 移除该路径的最后一次出现，使历史指针与实际位置一致；
-  // 设置 isClosingTab 阻止关闭后的自动激活被记为新导航；并主动跳转到 history 顶部，
-  // 让用户落在上一篇笔记而非 Obsidian 任意选择的相邻 leaf。
+  // tab 关闭时调用：从 history 移除该路径的最后一次出现，使历史指针与实际位置一致，
+  // 并返回关闭后应落到的「面包屑前一页」路径（即新的 history 栈顶）；无前驱时返回 null。
+  // 关键：本方法不再自行 scheduleActivate（setTimeout 异步激活）。异步激活会与 Obsidian 在
+  // detach 活动 leaf 时同步/延迟自动挑选相邻 leaf 产生竞态——若 Obsidian 的挑选后触发，它会胜出
+  // 并把面包屑之外的 future tab 写入历史（表现为“关闭后随意跳转到面包屑之外的 tab”）。改由引擎拿到
+  // 返回值后，在真正 detach **之前**同步激活该前驱，使待关闭 leaf 变为非活动 leaf，Obsidian 便不再
+  // 自动挑选，竞态根除。
+  // 仍置 jumpPath / isClosingTab：前者吞掉引擎激活前驱时写入的 record（避免重复入栈）；后者作为兜底——
+  // 前驱已被 LRU 淘汰需异步重开时，detach 仍可能让 Obsidian 自动激活相邻 leaf，置位吞掉那一次 record，
+  // 防止历史被写入无关路径。
   // future 不修改：关闭 tab 不影响前进历史，已关闭的文件路径仍可通过前进重新打开。
   // hasOtherFileLeaf：关闭后 workspace 中是否仍有其他文件 leaf（由引擎在 detach 前统计，排除本 leaf）。
   onTabClosing(closingPath, hasOtherFileLeaf) {
@@ -1953,15 +2174,15 @@ var NavigationHistory = class {
       if (idx !== -1) this.history.splice(idx, 1);
     }
     const prevPath = this.history[this.history.length - 1];
-    if (prevPath) {
+    if (prevPath !== void 0) {
       this.isClosingTab = true;
       this.jumpPath = prevPath;
-      this.scheduleActivate(prevPath, "minimalism-ui-slide-from-left");
-      return;
+      return prevPath;
     }
     if (hasOtherFileLeaf) {
       this.isClosingTab = true;
     }
+    return null;
   }
   // 前进/后退导航完成后，对已定位的目标 leaf 同步播放入场动画。
   // 由 SinglePageEngine 在 setActiveLeaf 之后用已知的目标 leaf 直接调用，不再依赖全局
@@ -2530,7 +2751,7 @@ var SinglePageEngine = class {
     this.historyPatches.clear();
   }
   // root leaf detach 补丁：通过捕获所有关闭路径（CMD+W、右键、X 按钮、API 调用）
-  // 在 detach 前通知 nav（移除历史条目、设置关闭标志、跳转到历史顶部），
+  // 在 detach 前通知 nav（移除历史条目、设置关闭标志），并在真正 detach 之前同步激活面包屑前一页，
   // detach 后从 patch 注册表移除该 leaf，避免已销毁 leaf 在 Map 中无限累积（内存泄漏）。
   // isReusingLeaf / 缓存淘汰中（leafCache.isEvictingNow）时豁免 nav 通知：属于插件内部操作而非用户关闭 tab。
   patchRootLeafDetach(leaf) {
@@ -2541,7 +2762,10 @@ var SinglePageEngine = class {
       if (!this.isReusingLeaf && !this.leafCache.isEvictingNow()) {
         const closingPath = (_a = this.navKeyForLeaf(leaf)) != null ? _a : void 0;
         const hasOtherFileLeaf = this.hasOtherFileLeaf(leaf);
-        this.nav.onTabClosing(closingPath, hasOtherFileLeaf);
+        const target = this.nav.onTabClosing(closingPath, hasOtherFileLeaf);
+        if (target !== null) {
+          this.activateOrOpenFile(target, "minimalism-ui-slide-from-left");
+        }
       }
       original();
       this.rootDetachPatches.delete(leaf);
@@ -2814,111 +3038,6 @@ var HomePageManager = class {
     }
   }
 };
-
-// src/core/i18n.ts
-var translations = {
-  zh: {
-    language: "\u8BED\u8A00",
-    languageAuto: "\u8DDF\u968F\u7CFB\u7EDF",
-    languageZh: "\u4E2D\u6587",
-    languageEn: "English",
-    introTitle: "\u4F7F\u7528\u524D\u5FC5\u8BFB",
-    introDesc1: '\u672C\u63D2\u4EF6\u662F\u4E00\u6B3E"\u505A\u51CF\u6CD5"\u7684\u5DE5\u5177,\u8BBE\u8BA1\u7406\u5FF5\u4E0E\u4E3B\u6D41\u7528\u6CD5\u76F8\u6096:\u5B83\u53EA\u4FDD\u7559\u5DE6\u4FA7\u8FB9\u680F(\u81F3\u591A\u663E\u793A\u5927\u7EB2\u3001\u5C5E\u6027\u3001\u672C\u5730\u5173\u7CFB\u56FE),\u5E76\u88C1\u526A\u6389\u4E86\u5927\u91CF\u6838\u5FC3\u529F\u80FD,\u751A\u81F3\u5305\u62EC"\u6587\u4EF6\u5939"\u3002\u5B89\u88C5\u524D\u8BF7\u5148\u786E\u8BA4\u4F60\u8BA4\u540C\u8FD9\u5957\u6781\u7B80\u7406\u5FF5\u3002',
-    introDesc2: "\u8BF7\u6307\u5B9A\u4E00\u7BC7\u7B14\u8BB0\u4F5C\u4E3A\u9996\u9875\u3002\u5B83\u5982\u540C\u4E00\u68F5\u6811\u7684\u4E3B\u5E72,\u4F60\u5728\u5176\u4E0A\u7528\u53CC\u94FE\u4E0D\u65AD\u65B0\u5EFA\u7B14\u8BB0,\u8BA9\u77E5\u8BC6\u5F00\u679D\u6563\u53F6,\u6700\u7EC8\u957F\u6210\u53C2\u5929\u5927\u6811\u3002",
-    headingGeneral: "\u901A\u7528\u8BBE\u7F6E",
-    headingAppearance: "\u4FA7\u8FB9\u680F\u8BBE\u7F6E",
-    headingInteraction: "\u4EA4\u4E92\u8BBE\u7F6E",
-    headingAnimation: "\u52A8\u753B\u8BBE\u7F6E (beta)",
-    headingAdvanced: "\u9AD8\u7EA7\u8BBE\u7F6E",
-    showProperties: "\u5C5E\u6027\u9762\u677F",
-    showLocalGraph: "\u672C\u5730\u5173\u7CFB\u56FE",
-    showVaultProfile: "\u5E95\u90E8\u7528\u6237\u8BBE\u7F6E\u533A\u57DF",
-    showRibbon: "\u529F\u80FD\u533A",
-    hideTabBar: "\u9690\u85CF\u5927\u7EB2\u6309\u94AE",
-    theme: "\u4E3B\u9898",
-    homePage: "\u7B14\u8BB0\u9996\u9875",
-    homePageDesc: "\u8BBE\u7F6E\u4E00\u4E2A\u7B14\u8BB0\u4F5C\u4E3A\u9996\u9875\u3002Obsidian \u542F\u52A8\u65F6\u81EA\u52A8\u6253\u5F00\uFF0C\u5173\u95ED\u6240\u6709\u6807\u7B7E\u540E\u81EA\u52A8\u8FD4\u56DE\u3002",
-    homePagePlaceholder: "\u8F93\u5165\u7B14\u8BB0\u8DEF\u5F84\uFF0C\u4F8B\u5982\uFF1Asrc/Home.md",
-    goHome: "\u56DE\u5230\u4E3B\u9875",
-    singlePage: "\u5F00\u542F\u5355\u9875\u6A21\u5F0F",
-    singlePageDesc1: "1. \u9690\u85CF\u9876\u90E8\u6807\u7B7E\u680F\uFF0C\u6BCF\u6B21\u53EA\u5C55\u793A\u4E00\u7BC7\u7B14\u8BB0\u3002",
-    singlePageDesc2: "2. \u542F\u7528\u9875\u9762\u7F13\u5B58\uFF0C\u5728\u5185\u5B58\u4E2D\u4FDD\u7559\u6700\u8FD1\u8BBF\u95EE\u7684 10 \u4E2A\u9875\u9762\u3002",
-    singlePageDesc3: "3. \u7981\u6B62\u901A\u8FC7\u53F3\u952E\u83DC\u5355 pin\uFF08\u56FA\u5B9A\uFF09\u6807\u7B7E\u9875\u3002",
-    singlePageDesc4: "4. \u5728\u9876\u90E8\u62D6\u62FD\u680F\u663E\u793A\u8BBF\u95EE\u8DEF\u5F84\uFF08\u9762\u5305\u5C51\uFF09\uFF0C\u65B9\u4FBF\u8FFD\u8E2A\u5BFC\u822A\u5386\u53F2\u3002",
-    navAnimation: "\u9875\u9762\u52A0\u8F7D\u52A8\u753B",
-    navAnimationDesc: "\u524D\u8FDB\u6216\u540E\u9000\u65F6\uFF0C\u4E3A\u76EE\u6807\u9875\u9762\u64AD\u653E\u6ED1\u5165\u52A8\u753B",
-    onboardingTitle: "\u65B0\u624B\u4EFB\u52A1",
-    onboardingCreateNote: "\u4F7F\u7528\u5FEB\u6377\u952E\u65B0\u5EFA\u4E00\u7BC7\u540D\u4E3A Index \u7684\u7B14\u8BB0",
-    onboardingSetHome: "\u5C06 Index \u8BBE\u7F6E\u4E3A\u4E3B\u9875",
-    onboardingOpenSettings: "\u53BB\u8BBE\u7F6E",
-    onboardingLinkNote: "\u5728 Index \u91CC\u8F93\u5165 [[ \u5173\u8054\u4E00\u7BC7\u65B0\u7B14\u8BB0",
-    onboardingGoBack: "\u4F7F\u7528\u5FEB\u6377\u952E\u540E\u9000",
-    onboardingGoForward: "\u4F7F\u7528\u5FEB\u6377\u952E\u524D\u8FDB",
-    onboardingAllDone: "\u5168\u90E8\u5B8C\u6210\uFF0C\u5F00\u59CB\u4F60\u7684\u5199\u4F5C\u5427\uFF01",
-    filenamePrefixManual: "\u624B\u52A8\u9690\u85CF\u65F6\u95F4\u6233\u524D\u7F00",
-    filenamePrefixManualDesc: "\u5173\u95ED\u65F6\u81EA\u52A8\u8DDF\u968F Obsidian\u300C\u552F\u4E00\u7B14\u8BB0\u521B\u5EFA\u5668\u300D\u914D\u7F6E\u7684\u65F6\u95F4\u6233\u683C\u5F0F\u5265\u79BB\u524D\u7F00\uFF08\u542B\u5176\u540E\u7684\u5206\u9694\u7B26\uFF09\uFF0C\u65E0\u9700\u8BBE\u7F6E\uFF1B\u5F00\u542F\u540E\u6539\u4E3A\u4E0B\u65B9\u624B\u52A8\u6307\u5B9A\u8981\u9690\u85CF\u7684\u4F4D\u6570\u3002",
-    filenamePrefixLength: "\u6307\u5B9A\u65F6\u95F4\u6233\u524D\u7F00\u957F\u5EA6",
-    filenamePrefixLengthDesc: '\u9690\u85CF\u6587\u4EF6\u540D\u5F00\u5934\u7684\u65F6\u95F4\u6233\u524D\u7F00\uFF0C\u5982\u9690\u85CF "202604111230-test" \u524D 13 \u4E2A\u5B57\u7B26\uFF0C\u5728\u5BFC\u822A\u680F\u4E2D\u663E\u793A\u4E3A test\uFF080 = \u4E0D\u9690\u85CF\uFF0C\u6700\u591A 20\uFF09\u3002',
-    graphView: "\u5173\u7CFB\u56FE"
-  },
-  en: {
-    language: "Language",
-    languageAuto: "Follow system",
-    languageZh: "\u4E2D\u6587",
-    languageEn: "English",
-    introTitle: "Read this before you start",
-    introDesc1: "This plugin is all about subtraction, and its philosophy runs against mainstream usage: it keeps only the left sidebar (showing at most Outline, Properties, and Local Graph) and strips away many core features, including Folders. Make sure this minimalist philosophy suits you before installing.",
-    introDesc2: "Pick one note as your home page. Think of it as the trunk of a tree: keep creating notes from it through backlinks, letting your knowledge branch out until it grows into a towering tree.",
-    headingGeneral: "General",
-    headingAppearance: "Sidebar",
-    headingInteraction: "Interaction",
-    headingAnimation: "Animation (beta)",
-    headingAdvanced: "Advanced",
-    showProperties: "Properties",
-    showLocalGraph: "Local Graph",
-    showVaultProfile: "Bottom settings area",
-    showRibbon: "Ribbon",
-    hideTabBar: "Hide outline button",
-    theme: "Theme",
-    homePage: "Home note",
-    homePageDesc: "A note that opens automatically on startup and whenever all tabs are closed.",
-    homePagePlaceholder: "Note path, e.g. src/Home.md",
-    goHome: "Back to Home",
-    singlePage: "Single-page mode",
-    singlePageDesc1: "1. Hide the tab bar \u2014 show one note at a time.",
-    singlePageDesc2: "2. Keep the 10 most recently visited notes cached in memory.",
-    singlePageDesc3: "3. Prevent pinning tabs via the right-click menu.",
-    singlePageDesc4: "4. Show a breadcrumb trail in the drag bar to track navigation history.",
-    navAnimation: "Page transition animation",
-    navAnimationDesc: "Play a slide-in animation when navigating back or forward.",
-    onboardingTitle: "Getting started",
-    onboardingCreateNote: "Create a note named Index with the shortcut",
-    onboardingSetHome: "Set Index as your home page",
-    onboardingOpenSettings: "Open settings",
-    onboardingLinkNote: "In Index, type [[ to link a new note",
-    onboardingGoBack: "Go back with the shortcut",
-    onboardingGoForward: "Go forward with the shortcut",
-    onboardingAllDone: "All set \u2014 start writing!",
-    filenamePrefixManual: "Manually hide timestamp prefix",
-    filenamePrefixManualDesc: `When off, automatically follows the timestamp format configured in Obsidian's "Unique note creator" core plugin to strip the prefix (and the separator after it) \u2014 no setup needed. When on, manually specify the length to hide below.`,
-    filenamePrefixLength: "Timestamp prefix length",
-    filenamePrefixLengthDesc: 'Hide the timestamp prefix at the start of a filename. E.g. hide the first 13 characters of "202604111230-test" so it shows as "test" in the navigation (0 = off, max 20).',
-    graphView: "Graph view"
-  }
-};
-var langOverride = null;
-function setLang(lang) {
-  langOverride = lang === "auto" ? null : lang;
-}
-function detectLang() {
-  var _a, _b;
-  if (langOverride) return langOverride;
-  const lang = (_b = (_a = activeDocument.documentElement.lang) == null ? void 0 : _a.slice(0, 2)) != null ? _b : "en";
-  return lang in translations ? lang : "en";
-}
-function t(key) {
-  return translations[detectLang()][key];
-}
 
 // src/single-page/EmptyViewButtonManager.ts
 var HOME_ACTION_CLASS = "minimalism-ui-home-action";
@@ -3479,7 +3598,7 @@ var SidebarLayoutManager = class {
     const header = createDiv();
     header.className = "minimalism-ui-graph-header";
     const titleSpan = createSpan();
-    titleSpan.textContent = "Local graph";
+    titleSpan.textContent = t("localGraph");
     header.appendChild(titleSpan);
     if (viewContent) {
       graphLeafContent.insertBefore(header, viewContent);
@@ -3650,6 +3769,73 @@ var SidebarSuggestFocusTracker = class {
     const active = activeDocument.activeElement;
     const focused = !!(active == null ? void 0 : active.closest(SIDEBAR_PROP_SELECTOR));
     activeDocument.body.classList.toggle(FOCUS_CLASS, focused);
+  }
+};
+
+// src/layout/PropertyKeyResizer.ts
+var WIDTH_VAR = "--minimalism-ui-prop-key-width";
+var KEY_SELECTOR = ".metadata-property-key";
+var HANDLE_ZONE = 8;
+var MIN_WIDTH = 50;
+var MAX_WIDTH = 240;
+var PropertyKeyResizer = class {
+  constructor(getSettings, save) {
+    this.getSettings = getSettings;
+    this.save = save;
+    this.bound = false;
+    // 进行中的拖拽：key 的左边界（用于 width = clientX - keyLeft）。null 表示未在拖拽。
+    this.keyLeft = null;
+    this.currentWidth = 0;
+    this.onPointerDown = (e) => {
+      const target = e.target;
+      const key = target == null ? void 0 : target.closest(KEY_SELECTOR);
+      if (!key) return;
+      const rect = key.getBoundingClientRect();
+      if (e.clientX < rect.right - HANDLE_ZONE) return;
+      e.preventDefault();
+      e.stopPropagation();
+      this.keyLeft = rect.left;
+      activeDocument.addEventListener("pointermove", this.onPointerMove, true);
+      activeDocument.addEventListener("pointerup", this.onPointerUp, true);
+    };
+    this.onPointerMove = (e) => {
+      if (this.keyLeft === null) return;
+      const raw = e.clientX - this.keyLeft;
+      this.currentWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, Math.round(raw)));
+      this.setVar(this.currentWidth);
+    };
+    this.onPointerUp = () => {
+      const width = this.currentWidth;
+      const had = this.keyLeft !== null;
+      this.endDrag();
+      if (had && width > 0) {
+        this.getSettings().propertyKeyWidth = width;
+        void this.save();
+      }
+    };
+  }
+  apply() {
+    this.remove();
+    this.setVar(this.getSettings().propertyKeyWidth);
+    activeDocument.addEventListener("pointerdown", this.onPointerDown, true);
+    this.bound = true;
+  }
+  remove() {
+    if (this.bound) {
+      activeDocument.removeEventListener("pointerdown", this.onPointerDown, true);
+      this.bound = false;
+    }
+    this.endDrag();
+    activeDocument.body.style.removeProperty(WIDTH_VAR);
+  }
+  setVar(width) {
+    activeDocument.body.style.setProperty(WIDTH_VAR, `${width}px`);
+  }
+  endDrag() {
+    if (this.keyLeft === null) return;
+    this.keyLeft = null;
+    activeDocument.removeEventListener("pointermove", this.onPointerMove, true);
+    activeDocument.removeEventListener("pointerup", this.onPointerUp, true);
   }
 };
 
@@ -4166,6 +4352,7 @@ var MinimalismUIPlugin = class extends import_obsidian8.Plugin {
     this.engine.setNavChangeListener((leaf) => this.dragBar.notifyNavChange(leaf));
     this.sidebarLayout = new SidebarLayoutManager(this.app, settings, this.pinManager);
     this.sidebarSuggestFocus = new SidebarSuggestFocusTracker();
+    this.propertyKeyResizer = new PropertyKeyResizer(settings, () => this.saveData(this.settings));
     this.mermaidZoom = new MermaidZoomManager(this.app);
     this.onboarding = new OnboardingManager(this.app, settings, () => this.saveData(this.settings));
     this.firstRunCleanup = new FirstRunCleanup(this.app, async () => {
@@ -4184,6 +4371,7 @@ var MinimalismUIPlugin = class extends import_obsidian8.Plugin {
       this.dragBar,
       this.sidebarLayout,
       this.sidebarSuggestFocus,
+      this.propertyKeyResizer,
       this.mermaidZoom,
       this.onboarding
     ];
@@ -4191,6 +4379,7 @@ var MinimalismUIPlugin = class extends import_obsidian8.Plugin {
     void this.themeLoader.apply();
     this.bodyClasses.apply();
     this.sidebarSuggestFocus.apply();
+    this.propertyKeyResizer.apply();
     this.pinManager.apply();
     this.engine.apply();
     this.mermaidZoom.apply();

@@ -168,8 +168,12 @@ body.minimalism-ui-theme-forest .markdown-reading-view hr {
 	border-top: 1px dashed var(--hr-color, #DADCDE);
 }
 
-/* 编辑视图：分割线 */
-body.minimalism-ui-theme-forest .cm-line.HyperMD-hr,
+/* 编辑视图：分割线（只描绘内层 .cm-hr，与阅读视图的 hr 一致；
+   不要给整行 .cm-line.HyperMD-hr 加边框，否则会在行顶多出一条线 → 双线） */
+body.minimalism-ui-theme-forest .cm-line.HyperMD-hr {
+	border: none;
+}
+
 body.minimalism-ui-theme-forest .cm-line.HyperMD-hr .cm-hr {
 	border: none;
 	border-top: 1px dashed var(--hr-color, #DADCDE);
@@ -201,6 +205,17 @@ body.minimalism-ui-theme-forest .cm-line.HyperMD-hr .cm-hr {
 .minimalism-ui-theme-forest .markdown-reading-view ::-webkit-scrollbar-track,
 .minimalism-ui-theme-forest .cm-scroller::-webkit-scrollbar-track {
 	background: transparent;
+}
+
+/* 代码块横向滚动条：关闭换行后才出现。上面的 .markdown-reading-view:hover 规则会让
+   它随正文 hover 常驻显形（看起来"始终显示"）。这里把代码块的滚动条收回到只在
+   悬停代码块本身时才显色——更高的选择器特异度压过上面的通用 hover 规则。 */
+.minimalism-ui-theme-forest .markdown-reading-view pre.minimalism-ui-code-block > code::-webkit-scrollbar-thumb {
+	background: transparent;
+}
+
+.minimalism-ui-theme-forest .markdown-reading-view pre.minimalism-ui-code-block:hover > code::-webkit-scrollbar-thumb {
+	background: rgba(128, 128, 128, 0.4);
 }
 
 body.minimalism-ui-theme-forest .bases-view {
@@ -237,13 +252,15 @@ body.minimalism-ui-theme-forest .bases-view ::-webkit-scrollbar-track {
 	--table-border-color: #DADCDE;
 	--table-header-background: rgba(0, 153, 123, 0.03);
 	--table-row-alt-background: rgba(0, 153, 123, 0.03);
+	/* 表格借线 / 外框统一走此变量：浅模式纸灰，暗色模式由下方 body.theme-dark 覆盖成低透明白线 */
+	--minimalism-table-line: #DADCDE;
 }
 
 /* 阅读视图 */
 body.minimalism-ui-theme-forest .el-table {
 	border-radius: 5px;
 	overflow: hidden;
-	border: 1px solid #DADCDE;
+	border: 1px solid var(--minimalism-table-line);
 }
 
 /* 编辑视图：table-editor 外边框
@@ -251,7 +268,7 @@ body.minimalism-ui-theme-forest .el-table {
 body.minimalism-ui-theme-forest .cm-editor .table-editor {
 	border-radius: 5px;
 	overflow: visible;
-	outline: 1px solid #DADCDE;
+	outline: 1px solid var(--minimalism-table-line);
 	outline-offset: 0px;
 }
 
@@ -287,7 +304,7 @@ body.minimalism-ui-theme-forest .el-table table {
 
 .minimalism-ui-theme-forest .markdown-reading-view table tbody tr,
 .minimalism-ui-theme-forest .table-wrapper table.table-editor tbody tr {
-	border-bottom: 1px solid #DADCDE;
+	border-bottom: 1px solid var(--minimalism-table-line);
 }
 
 /* 所有单元格：字体、大小、颜色（阅读视图 + 编辑视图） */
@@ -306,14 +323,14 @@ body.minimalism-ui-theme-forest .markdown-reading-view table th,
 body.minimalism-ui-theme-forest .markdown-reading-view table td,
 body.minimalism-ui-theme-forest .markdown-reading-view .el-table .ltr {
 	padding: 10px 13px;
-	border-left: 1px solid #DADCDE;
+	border-left: 1px solid var(--minimalism-table-line);
 }
 
 /* 编辑模式：.table-editor 是 table 元素本身的 class，需用 table.table-editor 匹配 */
 body.minimalism-ui-theme-forest .table-wrapper table.table-editor th,
 body.minimalism-ui-theme-forest .table-wrapper table.table-editor td {
 	padding: 10px 13px;
-	border-left: 1px solid #DADCDE;
+	border-left: 1px solid var(--minimalism-table-line);
 }
 
 
@@ -464,7 +481,7 @@ body.minimalism-ui-theme-forest .table-wrapper table.table-editor td:first-child
    border-color 与 border-radius longhand。双写把本规则提到 0,4,1 压过它，不必动用 !important。
    padding:0 抹掉嵌入式的 --bases-embed-padding：该内边距夹在本 border 与表格之间，成为空隙。 */
 body.minimalism-ui-theme-forest .bases-view.bases-view[data-view-type="table"] {
-	border: 1px solid #dadcde;
+	border: 1px solid var(--minimalism-table-line);
 	border-radius: 5px;
 	padding: 0;
 }
@@ -475,7 +492,7 @@ body.minimalism-ui-theme-forest .bases-view .bases-thead .bases-td {
 	color: rgb(107, 107, 107);
 	font-weight: 900;
 	text-align: left;
-	border-bottom: 1px solid #dadcde;
+	border-bottom: 1px solid var(--minimalism-table-line);
 }
 
 /* 单元格：内边距 + 字号 + 字色 + 字体 + 内格线（右 + 下）；
@@ -488,8 +505,8 @@ body.minimalism-ui-theme-forest .bases-view .bases-td {
 	font-family: 'JetBrains Mono', -apple-system, sans-serif;
 	color: rgb(107, 107, 107);
 	vertical-align: top;
-	border-right: 1px solid #dadcde;
-	border-bottom: 1px solid #dadcde;
+	border-right: 1px solid var(--minimalism-table-line);
+	border-bottom: 1px solid var(--minimalism-table-line);
 }
 
 /* 表格行高被 Obsidian 固定为 --bases-table-row-height:30px（行用 absolute + top 偏移虚拟化），
@@ -683,6 +700,35 @@ body.minimalism-ui-theme-forest .mermaid svg text {
 }
 
 /* =============================================================================
+   暗色模式适配：正文区写死的浅色值覆盖
+   Forest 正文跟随 Obsidian 暗色变量，但行内代码底色、表格借线 / 单元格字色是写死的
+   浅模式灰，深底下会成亮块 / 偏暗。这里只在 body.theme-dark 下覆盖，浅色模式不受影响。
+   ============================================================================= */
+
+/* 表格借线：浅模式纸灰在深底下偏亮，换成低透明白线 */
+body.theme-dark.minimalism-ui-theme-forest {
+	--minimalism-table-line: rgba(255, 255, 255, 0.12);
+}
+
+/* 行内代码：浅灰底 #F3F3F3 在深底下是亮块，换成低透明绿底 + 提亮蓝字 */
+body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view :not(pre) > code,
+body.theme-dark.minimalism-ui-theme-forest .cm-inline-code {
+	color: #6fb3d6;
+	background-color: rgba(0, 153, 123, 0.16);
+}
+
+/* 表格单元格字色：写死的 rgb(107,107,107) 在深底下偏暗，跟随 --text-muted 提亮 */
+body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view table th,
+body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view table td,
+body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view .el-table .ltr,
+body.theme-dark.minimalism-ui-theme-forest .table-wrapper table.table-editor th,
+body.theme-dark.minimalism-ui-theme-forest .table-wrapper table.table-editor td,
+body.theme-dark.minimalism-ui-theme-forest .bases-view .bases-td,
+body.theme-dark.minimalism-ui-theme-forest .bases-view .bases-thead .bases-td {
+	color: var(--text-muted);
+}
+
+/* =============================================================================
    侧边栏 / Chrome 配色（从 styles.css 迁入）
    这些原先写在 styles.css（被当作主题无关 chrome），实为 Forest 专属的深色侧边栏外观：
    深蓝底 #123342 / 暗色 #1c1c1e + 浅灰字 + 蓝色 accent + 深底建议弹层。
@@ -730,9 +776,19 @@ body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side
 /* 注入式分区标题（OUTLINE / PROPERTIES / LOCAL GRAPH）浅白 */
 body.minimalism-ui-theme-forest.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"]::before,
 body.minimalism-ui-theme-forest.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="file-properties"]::before,
-body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content::before,
 body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-graph-header > span {
 	color: rgba(255, 255, 255, 0.88);
+}
+
+/* sticky 属性标题：文字浅白 + 背景须与侧边栏底色一致，
+   否则 styles.css 里的 var(--background-secondary) 会在滚动时露出浅色块（颜色异常）。 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content::before {
+	color: rgba(255, 255, 255, 0.88);
+	background-color: #123342;
+}
+
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content::before {
+	background-color: #1c1c1e;
 }
 
 /* 左下角 vault profile：深色底 + 虚线顶边 */
@@ -769,6 +825,19 @@ body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .met
 body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value input,
 body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value [contenteditable] {
 	caret-color: rgba(196, 196, 196, 0.88);
+}
+
+/* 日期/时间属性的原生日历选择器图标：默认是深色字形，在深底侧边栏几乎不可见，
+   用 invert 反相为浅色，使其在 Forest 深底上清晰可辨。 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value input[type="date"]::-webkit-calendar-picker-indicator,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+	filter: invert(0.85);
+	opacity: 0.7;
+}
+
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value input[type="date"]::-webkit-calendar-picker-indicator:hover,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+	opacity: 1;
 }
 
 /* 属性栏建议下拉：深底浅字（对齐 localgraph 设置面板 #0f1e2b） */

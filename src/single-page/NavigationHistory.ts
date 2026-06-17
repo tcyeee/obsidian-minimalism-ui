@@ -275,27 +275,29 @@ export class NavigationHistory {
 		// future 已空或全为死条目；死条目已丢弃，无需回滚
 	}
 
-	// tab 关闭时调用：从 history 移除该路径的最后一次出现，使历史指针与实际位置一致；
-	// 设置 isClosingTab 阻止关闭后的自动激活被记为新导航；并主动跳转到 history 顶部，
-	// 让用户落在上一篇笔记而非 Obsidian 任意选择的相邻 leaf。
+	// tab 关闭时调用：从 history 移除该路径的最后一次出现，使历史指针与实际位置一致，
+	// 并返回关闭后应落到的「面包屑前一页」路径（即新的 history 栈顶）；无前驱时返回 null。
+	// 关键：本方法不再自行 scheduleActivate（setTimeout 异步激活）。异步激活会与 Obsidian 在
+	// detach 活动 leaf 时同步/延迟自动挑选相邻 leaf 产生竞态——若 Obsidian 的挑选后触发，它会胜出
+	// 并把面包屑之外的 future tab 写入历史（表现为“关闭后随意跳转到面包屑之外的 tab”）。改由引擎拿到
+	// 返回值后，在真正 detach **之前**同步激活该前驱，使待关闭 leaf 变为非活动 leaf，Obsidian 便不再
+	// 自动挑选，竞态根除。
+	// 仍置 jumpPath / isClosingTab：前者吞掉引擎激活前驱时写入的 record（避免重复入栈）；后者作为兜底——
+	// 前驱已被 LRU 淘汰需异步重开时，detach 仍可能让 Obsidian 自动激活相邻 leaf，置位吞掉那一次 record，
+	// 防止历史被写入无关路径。
 	// future 不修改：关闭 tab 不影响前进历史，已关闭的文件路径仍可通过前进重新打开。
 	// hasOtherFileLeaf：关闭后 workspace 中是否仍有其他文件 leaf（由引擎在 detach 前统计，排除本 leaf）。
-	onTabClosing(closingPath: string | undefined, hasOtherFileLeaf: boolean) {
+	onTabClosing(closingPath: string | undefined, hasOtherFileLeaf: boolean): string | null {
 		if (closingPath) {
 			const idx = this.history.lastIndexOf(closingPath);
 			if (idx !== -1) this.history.splice(idx, 1);
 		}
 
 		const prevPath = this.history[this.history.length - 1];
-		if (prevPath) {
-			// 关闭后仍有前驱文件可跳转：置 isClosingTab 吞掉 Obsidian 在关闭瞬间同步激活相邻 leaf
-			// 触发的那一次 record，再跳转到前驱。
-			// 关闭语义等同后退,落到前驱页时播放与后退一致的入场动画(从左滑入),
-			// 而非此前传 null 导致关闭路径整条链都没有动画。
+		if (prevPath !== undefined) {
 			this.isClosingTab = true;
 			this.jumpPath = prevPath;
-			this.scheduleActivate(prevPath, 'minimalism-ui-slide-from-left');
-			return;
+			return prevPath;
 		}
 
 		// 历史已空：用户关完了整条后退链。此时应回到首页（由 HomePageManager 据 isEmpty() 触发），
@@ -307,6 +309,7 @@ export class NavigationHistory {
 		if (hasOtherFileLeaf) {
 			this.isClosingTab = true;
 		}
+		return null;
 	}
 
 	// 前进/后退导航完成后，对已定位的目标 leaf 同步播放入场动画。

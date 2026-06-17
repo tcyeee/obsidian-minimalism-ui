@@ -1,5 +1,6 @@
 import { MinimalismUISettings } from './settings';
 import { Feature } from './Feature';
+import { getLang } from './i18n';
 
 const BODY_CLASSES = [
 	'minimalism-ui-mac-sidebar',
@@ -11,6 +12,7 @@ const BODY_CLASSES = [
 	'minimalism-ui-has-home',
 	'minimalism-ui-hide-vault-profile',
 	'minimalism-ui-hide-ribbon',
+	'minimalism-ui-lang-zh',
 ] as const;
 
 /**
@@ -41,6 +43,8 @@ export class BodyClassController implements Feature {
 		cls.toggle('minimalism-ui-hide-vault-profile', !s.showVaultProfile);
 		// 关闭“功能区”开关时，隐藏左侧 ribbon 活动栏
 		cls.toggle('minimalism-ui-hide-ribbon', !s.showRibbon);
+		// 解析后的语言（auto/zh/en → zh/en），驱动注入式分区标题（大纲/属性）的中文化
+		cls.toggle('minimalism-ui-lang-zh', getLang() === 'zh');
 	}
 
 	remove() {

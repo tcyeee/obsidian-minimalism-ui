@@ -10,6 +10,8 @@ export interface MinimalismUISettings {
 	homePage: string;
 	filenamePrefixManual: boolean;
 	filenamePrefixLength: number;
+	// 侧边栏 Properties 的 label（key）列宽，单位 px；由拖拽右边缘把手实时调整，全局共享、跨重启持久化。
+	propertyKeyWidth: number;
 	language: 'auto' | 'zh' | 'en';
 	collapsedSections: Record<string, boolean>;
 	onboarding: boolean;
@@ -34,6 +36,8 @@ export const DEFAULT_SETTINGS: MinimalismUISettings = {
 	// 高级功能（文件名前缀）默认关闭
 	filenamePrefixManual: false,
 	filenamePrefixLength: 0,
+	// 默认 100px，与历史固定列宽一致
+	propertyKeyWidth: 100,
 	language: 'auto',
 	// 动画与高级设置区块默认折叠
 	collapsedSections: { animation: true, advanced: true },
