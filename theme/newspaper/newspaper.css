@@ -285,6 +285,15 @@ body.minimalism-ui-theme-newspaper .cm-editor .cm-inline-code {
 	color: #1f0909;
 }
 
+/* 编辑视图：代码块关闭自动换行，超宽时由编辑器 .cm-scroller 提供横向滚动条。
+   特异性 (0,4,1) 压过上面通用的 .cm-editor .cm-line（word-break:break-word）规则；
+   white-space:pre 覆盖 CodeMirror 行包裹模式继承下来的 break-spaces。 */
+body.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-codeblock {
+	white-space: pre;
+	word-break: normal;
+	overflow-wrap: normal;
+}
+
 /* ── 快捷键 kbd：拟物按键样式（两个视图） ─────────────────────────────
    底部投影 + 顶部内高光做出微凸的实体键帽感；边框与字色沿用报刊灰调，
    键面比纸张略亮。 */
@@ -713,6 +722,15 @@ body.minimalism-ui-theme-newspaper .cm-editor .cm-content ::selection {
 }
 
 .minimalism-ui-theme-newspaper .markdown-reading-view .el-table:hover::-webkit-scrollbar-thumb {
+	background: rgba(31, 9, 9, 0.35);
+}
+
+/* 代码块横向滚动条：同理收回到只在悬停代码块本身时才显色（三层类名压过 :hover 通配规则） */
+.minimalism-ui-theme-newspaper .markdown-reading-view:hover pre::-webkit-scrollbar-thumb {
+	background: transparent;
+}
+
+.minimalism-ui-theme-newspaper .markdown-reading-view pre:hover::-webkit-scrollbar-thumb {
 	background: rgba(31, 9, 9, 0.35);
 }
 

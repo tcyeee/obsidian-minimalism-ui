@@ -210,6 +210,15 @@ body.minimalism-ui-theme-forest .cm-inline-code {
 	font-size: 0.8rem;
 }
 
+/* \u7F16\u8F91\u89C6\u56FE\uFF1A\u4EE3\u7801\u5757\u5173\u95ED\u81EA\u52A8\u6362\u884C\uFF0C\u8D85\u5BBD\u65F6\u7531\u7F16\u8F91\u5668 .cm-scroller \u63D0\u4F9B\u6A2A\u5411\u6EDA\u52A8\u6761\u3002
+   \u7279\u5F02\u6027 (0,4,1) \u538B\u8FC7\u4E0A\u9762\u901A\u7528\u7684 .cm-editor .cm-line\uFF08word-break:break-word\uFF09\u89C4\u5219\uFF1B
+   white-space:pre \u8986\u76D6 CodeMirror \u884C\u5305\u88F9\u6A21\u5F0F\u7EE7\u627F\u4E0B\u6765\u7684 break-spaces\u3002 */
+body.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-codeblock {
+	white-space: pre;
+	word-break: normal;
+	overflow-wrap: normal;
+}
+
 /* \u7F16\u8F91\u89C6\u56FE\uFF1A\u884C\u5185\u4EE3\u7801\u80CC\u666F\u8272 */
 body.minimalism-ui-theme-forest .cm-inline-code {
 	font-size: 0.8rem;
@@ -267,14 +276,14 @@ body.minimalism-ui-theme-forest .cm-line.HyperMD-hr .cm-hr {
 	background: transparent;
 }
 
-/* \u4EE3\u7801\u5757\u6A2A\u5411\u6EDA\u52A8\u6761\uFF1A\u5173\u95ED\u6362\u884C\u540E\u624D\u51FA\u73B0\u3002\u4E0A\u9762\u7684 .markdown-reading-view:hover \u89C4\u5219\u4F1A\u8BA9
+/* \u4EE3\u7801\u5757\u6A2A\u5411\u6EDA\u52A8\u6761\uFF1A\u5173\u95ED\u6362\u884C\u540E\u8D85\u5BBD\u624D\u51FA\u73B0\u3002\u4E0A\u9762\u7684 .markdown-reading-view:hover \u89C4\u5219\u4F1A\u8BA9
    \u5B83\u968F\u6B63\u6587 hover \u5E38\u9A7B\u663E\u5F62\uFF08\u770B\u8D77\u6765"\u59CB\u7EC8\u663E\u793A"\uFF09\u3002\u8FD9\u91CC\u628A\u4EE3\u7801\u5757\u7684\u6EDA\u52A8\u6761\u6536\u56DE\u5230\u53EA\u5728
-   \u60AC\u505C\u4EE3\u7801\u5757\u672C\u8EAB\u65F6\u624D\u663E\u8272\u2014\u2014\u66F4\u9AD8\u7684\u9009\u62E9\u5668\u7279\u5F02\u5EA6\u538B\u8FC7\u4E0A\u9762\u7684\u901A\u7528 hover \u89C4\u5219\u3002 */
-.minimalism-ui-theme-forest .markdown-reading-view pre.minimalism-ui-code-block > code::-webkit-scrollbar-thumb {
+   \u60AC\u505C\u4EE3\u7801\u5757\u672C\u8EAB\u65F6\u624D\u663E\u8272\u2014\u2014\u4E09\u5C42\u7C7B\u540D (0,3,2) \u538B\u8FC7\u4E0A\u9762\u7684\u901A\u7528 :hover \u89C4\u5219 (0,3,1)\u3002 */
+.minimalism-ui-theme-forest .markdown-reading-view:hover pre::-webkit-scrollbar-thumb {
 	background: transparent;
 }
 
-.minimalism-ui-theme-forest .markdown-reading-view pre.minimalism-ui-code-block:hover > code::-webkit-scrollbar-thumb {
+.minimalism-ui-theme-forest .markdown-reading-view pre:hover::-webkit-scrollbar-thumb {
 	background: rgba(128, 128, 128, 0.4);
 }
 
@@ -1217,6 +1226,15 @@ body.minimalism-ui-theme-newspaper .cm-editor .cm-inline-code {
 	color: #1f0909;
 }
 
+/* \u7F16\u8F91\u89C6\u56FE\uFF1A\u4EE3\u7801\u5757\u5173\u95ED\u81EA\u52A8\u6362\u884C\uFF0C\u8D85\u5BBD\u65F6\u7531\u7F16\u8F91\u5668 .cm-scroller \u63D0\u4F9B\u6A2A\u5411\u6EDA\u52A8\u6761\u3002
+   \u7279\u5F02\u6027 (0,4,1) \u538B\u8FC7\u4E0A\u9762\u901A\u7528\u7684 .cm-editor .cm-line\uFF08word-break:break-word\uFF09\u89C4\u5219\uFF1B
+   white-space:pre \u8986\u76D6 CodeMirror \u884C\u5305\u88F9\u6A21\u5F0F\u7EE7\u627F\u4E0B\u6765\u7684 break-spaces\u3002 */
+body.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-codeblock {
+	white-space: pre;
+	word-break: normal;
+	overflow-wrap: normal;
+}
+
 /* \u2500\u2500 \u5FEB\u6377\u952E kbd\uFF1A\u62DF\u7269\u6309\u952E\u6837\u5F0F\uFF08\u4E24\u4E2A\u89C6\u56FE\uFF09 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
    \u5E95\u90E8\u6295\u5F71 + \u9876\u90E8\u5185\u9AD8\u5149\u505A\u51FA\u5FAE\u51F8\u7684\u5B9E\u4F53\u952E\u5E3D\u611F\uFF1B\u8FB9\u6846\u4E0E\u5B57\u8272\u6CBF\u7528\u62A5\u520A\u7070\u8C03\uFF0C
    \u952E\u9762\u6BD4\u7EB8\u5F20\u7565\u4EAE\u3002 */
@@ -1645,6 +1663,15 @@ body.minimalism-ui-theme-newspaper .cm-editor .cm-content ::selection {
 }
 
 .minimalism-ui-theme-newspaper .markdown-reading-view .el-table:hover::-webkit-scrollbar-thumb {
+	background: rgba(31, 9, 9, 0.35);
+}
+
+/* \u4EE3\u7801\u5757\u6A2A\u5411\u6EDA\u52A8\u6761\uFF1A\u540C\u7406\u6536\u56DE\u5230\u53EA\u5728\u60AC\u505C\u4EE3\u7801\u5757\u672C\u8EAB\u65F6\u624D\u663E\u8272\uFF08\u4E09\u5C42\u7C7B\u540D\u538B\u8FC7 :hover \u901A\u914D\u89C4\u5219\uFF09 */
+.minimalism-ui-theme-newspaper .markdown-reading-view:hover pre::-webkit-scrollbar-thumb {
+	background: transparent;
+}
+
+.minimalism-ui-theme-newspaper .markdown-reading-view pre:hover::-webkit-scrollbar-thumb {
 	background: rgba(31, 9, 9, 0.35);
 }
 

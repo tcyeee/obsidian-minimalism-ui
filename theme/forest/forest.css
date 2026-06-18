@@ -150,6 +150,15 @@ body.minimalism-ui-theme-forest .cm-inline-code {
 	font-size: 0.8rem;
 }
 
+/* 编辑视图：代码块关闭自动换行，超宽时由编辑器 .cm-scroller 提供横向滚动条。
+   特异性 (0,4,1) 压过上面通用的 .cm-editor .cm-line（word-break:break-word）规则；
+   white-space:pre 覆盖 CodeMirror 行包裹模式继承下来的 break-spaces。 */
+body.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-codeblock {
+	white-space: pre;
+	word-break: normal;
+	overflow-wrap: normal;
+}
+
 /* 编辑视图：行内代码背景色 */
 body.minimalism-ui-theme-forest .cm-inline-code {
 	font-size: 0.8rem;
@@ -207,14 +216,14 @@ body.minimalism-ui-theme-forest .cm-line.HyperMD-hr .cm-hr {
 	background: transparent;
 }
 
-/* 代码块横向滚动条：关闭换行后才出现。上面的 .markdown-reading-view:hover 规则会让
+/* 代码块横向滚动条：关闭换行后超宽才出现。上面的 .markdown-reading-view:hover 规则会让
    它随正文 hover 常驻显形（看起来"始终显示"）。这里把代码块的滚动条收回到只在
-   悬停代码块本身时才显色——更高的选择器特异度压过上面的通用 hover 规则。 */
-.minimalism-ui-theme-forest .markdown-reading-view pre.minimalism-ui-code-block > code::-webkit-scrollbar-thumb {
+   悬停代码块本身时才显色——三层类名 (0,3,2) 压过上面的通用 :hover 规则 (0,3,1)。 */
+.minimalism-ui-theme-forest .markdown-reading-view:hover pre::-webkit-scrollbar-thumb {
 	background: transparent;
 }
 
-.minimalism-ui-theme-forest .markdown-reading-view pre.minimalism-ui-code-block:hover > code::-webkit-scrollbar-thumb {
+.minimalism-ui-theme-forest .markdown-reading-view pre:hover::-webkit-scrollbar-thumb {
 	background: rgba(128, 128, 128, 0.4);
 }
 
