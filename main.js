@@ -3799,6 +3799,96 @@ var SidebarSuggestFocusTracker = class {
   }
 };
 
+// src/layout/ResponsiveSidebarManager.ts
+var DEFAULT_READABLE_WIDTH = 700;
+var RESIZE_DEBOUNCE_MS = 100;
+var EXPAND_HYSTERESIS = 20;
+var _ResponsiveSidebarManager = class _ResponsiveSidebarManager {
+  constructor(app) {
+    this.app = app;
+    // 侧栏当前的收起是否由本功能造成(决定变宽时是否自动展开)。
+    this.autoCollapsed = false;
+    // 本功能收起时记录的窗口宽度；窗口回到此宽度(+滞回)以上才展开。
+    this.collapseWidth = 0;
+    this.debounceTimer = null;
+    this.onResize = () => {
+      if (this.debounceTimer !== null) window.clearTimeout(this.debounceTimer);
+      this.debounceTimer = window.setTimeout(() => {
+        this.debounceTimer = null;
+        this.evaluate();
+      }, RESIZE_DEBOUNCE_MS);
+    };
+  }
+  get leftSplit() {
+    var _a;
+    return (_a = this.app.workspace.leftSplit) != null ? _a : null;
+  }
+  get rootSplit() {
+    var _a;
+    return (_a = this.app.workspace.rootSplit) != null ? _a : null;
+  }
+  apply() {
+    this.remove();
+    activeWindow.addEventListener("resize", this.onResize);
+    this.evaluate();
+  }
+  remove() {
+    if (this.debounceTimer !== null) {
+      window.clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
+    activeWindow.removeEventListener("resize", this.onResize);
+    this.autoCollapsed = false;
+    this.collapseWidth = 0;
+  }
+  // 读取 readable line length 像素宽度，解析失败回退到默认值。
+  getReadableWidth() {
+    const raw = getComputedStyle(activeDocument.body).getPropertyValue("--file-line-width").trim();
+    const parsed = parseFloat(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_READABLE_WIDTH;
+  }
+  // 当前笔记文本列宽度：优先实测 .cm-sizer/.markdown-preview-sizer(受 --file-line-width 约束的真正文本列)；
+  // 实测不到则用 rootSplit 容器宽 - 兜底内边距估算。都拿不到返回 null(跳过)。
+  getColumnWidth() {
+    var _a, _b, _c;
+    const sizerEl = activeDocument.querySelector(_ResponsiveSidebarManager.SIZER_SELECTOR);
+    if (sizerEl) {
+      const width = sizerEl.getBoundingClientRect().width;
+      if (width > 0) return width;
+    }
+    const rootWidth = (_c = (_b = (_a = this.rootSplit) == null ? void 0 : _a.containerEl) == null ? void 0 : _b.clientWidth) != null ? _c : -1;
+    return rootWidth > 0 ? rootWidth - _ResponsiveSidebarManager.FALLBACK_OFFSET : null;
+  }
+  // 评估并收敛侧栏状态：
+  // - 侧栏展开 & 文本列 < readable → 收起(记下窗口宽度)，无论用户之前是否手动开关过。
+  // - 侧栏(被本功能)收起 & 窗口回到收起宽度+滞回以上 → 展开。
+  evaluate() {
+    const split = this.leftSplit;
+    if (!split) return;
+    const innerWidth = activeWindow.innerWidth;
+    if (split.collapsed) {
+      if (this.autoCollapsed && innerWidth >= this.collapseWidth + EXPAND_HYSTERESIS) {
+        split.expand();
+        this.autoCollapsed = false;
+      }
+      return;
+    }
+    const columnWidth = this.getColumnWidth();
+    if (columnWidth === null) return;
+    if (columnWidth < this.getReadableWidth()) {
+      split.collapse();
+      this.autoCollapsed = true;
+      this.collapseWidth = innerWidth;
+    }
+  }
+};
+// 文本列(受 --file-line-width 约束)元素选择器：编辑视图 .cm-sizer / 阅读视图 .markdown-preview-sizer。
+// 在 activeDocument 全局查找(侧栏面板不含 .cm-sizer，不会误命中)，不依赖 rootSplit/.mod-active 作用域。
+_ResponsiveSidebarManager.SIZER_SELECTOR = ".cm-sizer, .markdown-preview-sizer";
+// rootSplit 容器到文本列的横向内边距兜底值(实测无法拿到文本列时用)。
+_ResponsiveSidebarManager.FALLBACK_OFFSET = 60;
+var ResponsiveSidebarManager = _ResponsiveSidebarManager;
+
 // src/layout/PropertyKeyResizer.ts
 var WIDTH_VAR = "--minimalism-ui-prop-key-width";
 var KEY_SELECTOR = ".metadata-property-key";
@@ -3856,7 +3946,7 @@ var PropertyKeyResizer = class {
     activeDocument.body.style.removeProperty(WIDTH_VAR);
   }
   setVar(width) {
-    activeDocument.body.style.setProperty(WIDTH_VAR, `${width}px`);
+    activeDocument.body.setCssProps({ [WIDTH_VAR]: `${width}px` });
   }
   endDrag() {
     if (this.keyLeft === null) return;
@@ -4379,6 +4469,7 @@ var MinimalismUIPlugin = class extends import_obsidian8.Plugin {
     this.engine.setNavChangeListener((leaf) => this.dragBar.notifyNavChange(leaf));
     this.sidebarLayout = new SidebarLayoutManager(this.app, settings, this.pinManager);
     this.sidebarSuggestFocus = new SidebarSuggestFocusTracker();
+    this.responsiveSidebar = new ResponsiveSidebarManager(this.app);
     this.propertyKeyResizer = new PropertyKeyResizer(settings, () => this.saveData(this.settings));
     this.mermaidZoom = new MermaidZoomManager(this.app);
     this.onboarding = new OnboardingManager(this.app, settings, () => this.saveData(this.settings));
@@ -4398,6 +4489,7 @@ var MinimalismUIPlugin = class extends import_obsidian8.Plugin {
       this.dragBar,
       this.sidebarLayout,
       this.sidebarSuggestFocus,
+      this.responsiveSidebar,
       this.propertyKeyResizer,
       this.mermaidZoom,
       this.onboarding
@@ -4419,6 +4511,7 @@ var MinimalismUIPlugin = class extends import_obsidian8.Plugin {
       if (!this.settings.firstRunCleanupDone) void this.firstRunCleanup.run();
       void this.homePage.openHomePage();
       void this.sidebarLayout.apply();
+      this.responsiveSidebar.apply();
     });
     this.addSettingTab(new MinimalismUISettingTab(this.app, this));
   }

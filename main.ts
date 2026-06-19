@@ -12,6 +12,7 @@ import { EmptyViewButtonManager } from './src/single-page/EmptyViewButtonManager
 import { DragBarManager } from './src/layout/DragBarManager';
 import { SidebarLayoutManager } from './src/layout/SidebarLayoutManager';
 import { SidebarSuggestFocusTracker } from './src/layout/SidebarSuggestFocusTracker';
+import { ResponsiveSidebarManager } from './src/layout/ResponsiveSidebarManager';
 import { PropertyKeyResizer } from './src/layout/PropertyKeyResizer';
 import { MermaidZoomManager } from './src/mermaid/MermaidZoomManager';
 import { OnboardingManager } from './src/onboarding/OnboardingManager';
@@ -37,6 +38,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	private dragBar: DragBarManager;
 	private sidebarLayout: SidebarLayoutManager;
 	private sidebarSuggestFocus: SidebarSuggestFocusTracker;
+	private responsiveSidebar: ResponsiveSidebarManager;
 	private propertyKeyResizer: PropertyKeyResizer;
 	private mermaidZoom: MermaidZoomManager;
 	private onboarding: OnboardingManager;
@@ -71,6 +73,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.engine.setNavChangeListener((leaf) => this.dragBar.notifyNavChange(leaf));
 		this.sidebarLayout = new SidebarLayoutManager(this.app, settings, this.pinManager);
 		this.sidebarSuggestFocus = new SidebarSuggestFocusTracker();
+		this.responsiveSidebar = new ResponsiveSidebarManager(this.app);
 		this.propertyKeyResizer = new PropertyKeyResizer(settings, () => this.saveData(this.settings));
 		this.mermaidZoom = new MermaidZoomManager(this.app);
 		this.onboarding = new OnboardingManager(this.app, settings, () => this.saveData(this.settings));
@@ -91,6 +94,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			this.dragBar,
 			this.sidebarLayout,
 			this.sidebarSuggestFocus,
+			this.responsiveSidebar,
 			this.propertyKeyResizer,
 			this.mermaidZoom,
 			this.onboarding,
@@ -118,6 +122,8 @@ export default class MinimalismUIPlugin extends Plugin {
 			if (!this.settings.firstRunCleanupDone) void this.firstRunCleanup.run();
 			void this.homePage.openHomePage();
 			void this.sidebarLayout.apply();
+			// 窗口宽度自适应收起左侧栏：依赖 leftSplit 与窗口尺寸就绪。
+			this.responsiveSidebar.apply();
 		});
 
 		this.addSettingTab(new MinimalismUISettingTab(this.app, this));

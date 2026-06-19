@@ -48,7 +48,7 @@ export class PropertyKeyResizer implements Feature {
 	}
 
 	private setVar(width: number) {
-		activeDocument.body.style.setProperty(WIDTH_VAR, `${width}px`);
+		activeDocument.body.setCssProps({ [WIDTH_VAR]: `${width}px` });
 	}
 
 	private onPointerDown = (e: PointerEvent) => {
