@@ -5,6 +5,18 @@
 
 ---
 
+## Version 1.3.1
+
+- Added responsive left sidebar: it auto-collapses when the window gets too narrow to keep the note at its readable line width, and re-expands once there's room again
+- Added a draggable resizer for the Properties key column in the merged sidebar
+- Improved code block styling for better readability and smoother horizontal scrolling; removed code-block line numbers
+
+- 新增左侧栏自适应：当窗口太窄、正文无法保持可读行宽时自动收起，窗口变宽后再自动展开
+- 新增合并侧栏中 Properties 键列的可拖拽宽度调节
+- 优化代码块样式，提升可读性与横向滚动体验；移除代码块行号
+
+---
+
 ## Version 1.3.0
 
 - Added a first-run onboarding checklist that guides new users through the core features and dismisses itself once completed
