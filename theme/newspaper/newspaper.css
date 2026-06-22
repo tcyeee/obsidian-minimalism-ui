@@ -268,6 +268,18 @@ body.minimalism-ui-theme-newspaper .markdown-reading-view pre {
 	border-radius: 3px;
 }
 
+/* 阅读视图：关闭自动换行，超长行横向滚动（编辑视图仍折行，见下 .HyperMD-codeblock）。
+   滚动容器放在内层 <code> 而非 pre：pre 不滚动，绝对定位的复制按钮锚定在 pre 上不会
+   随内容滑走；code 设 display:block 才能出横向滚动条。只命中围栏代码块的 code，
+   不波及行内 :not(pre)>code。 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view pre code {
+	display: block;
+	overflow-x: auto;
+	white-space: pre;
+	word-break: normal;
+	overflow-wrap: normal;
+}
+
 /* 阅读视图：行内代码灰底（排除代码块内的 code），小字号 + 内边距收紧 */
 body.minimalism-ui-theme-newspaper .markdown-reading-view :not(pre) > code {
 	background-color: #dadada;
@@ -285,13 +297,13 @@ body.minimalism-ui-theme-newspaper .cm-editor .cm-inline-code {
 	color: #1f0909;
 }
 
-/* 编辑视图：代码块关闭自动换行，超宽时由编辑器 .cm-scroller 提供横向滚动条。
-   特异性 (0,4,1) 压过上面通用的 .cm-editor .cm-line（word-break:break-word）规则；
-   white-space:pre 覆盖 CodeMirror 行包裹模式继承下来的 break-spaces。 */
+/* 编辑视图：代码块开启自动换行，超长行折行显示而非横向滚动。
+   特异性 (0,4,1) 压过上面通用的 .cm-editor .cm-line；white-space:pre-wrap 保留缩进与空格
+   的同时允许折行，word-break/overflow-wrap 让超长 token 也能断行。 */
 body.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-codeblock {
-	white-space: pre;
-	word-break: normal;
-	overflow-wrap: normal;
+	white-space: pre-wrap;
+	word-break: break-word;
+	overflow-wrap: anywhere;
 }
 
 /* ── 快捷键 kbd：拟物按键样式（两个视图） ─────────────────────────────
@@ -725,12 +737,13 @@ body.minimalism-ui-theme-newspaper .cm-editor .cm-content ::selection {
 	background: rgba(31, 9, 9, 0.35);
 }
 
-/* 代码块横向滚动条：同理收回到只在悬停代码块本身时才显色（三层类名压过 :hover 通配规则） */
-.minimalism-ui-theme-newspaper .markdown-reading-view:hover pre::-webkit-scrollbar-thumb {
+/* 代码块横向滚动条：滚动条落在内层 code 上（见上 pre code 规则），同理收回到只在
+   悬停代码块本身时才显色（更高特异性压过 :hover 通配规则） */
+.minimalism-ui-theme-newspaper .markdown-reading-view:hover pre code::-webkit-scrollbar-thumb {
 	background: transparent;
 }
 
-.minimalism-ui-theme-newspaper .markdown-reading-view pre:hover::-webkit-scrollbar-thumb {
+.minimalism-ui-theme-newspaper .markdown-reading-view pre:hover code::-webkit-scrollbar-thumb {
 	background: rgba(31, 9, 9, 0.35);
 }
 

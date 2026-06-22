@@ -300,16 +300,26 @@ export class SinglePageEngine {
 		this.navChangeListener?.(leaf);
 	}
 
+	// 取 root leaf 对应的文件路径，对 deferred（延迟加载、尚未实例化）视图做兜底。
+	// 关键：deferred 视图（重启恢复出、尚未点开的 tab）此时 view.file 尚未就位为 null，
+	// 仅凭 view.file?.path 判断会把它当作"无文件"漏判——而 getViewState() 仍返回真实的
+	// state.file。所有去重 / "是否还有文件 leaf" 判断都必须经此函数，否则 deferred tab
+	// 永远匹配不上，导致重复打开同一文件（违反 one-file-one-leaf 不变量）。
+	private filePathForLeaf(leaf: WorkspaceLeaf): string | null {
+		const li = leaf as LeafInternal;
+		const vs = leaf.getViewState() as { state?: { file?: string } } | undefined;
+		return li.view?.file?.path ?? vs?.state?.file ?? null;
+	}
+
 	// 把 root leaf 映射为导航栈中的键：有文件则用文件路径；无文件视图（全局关系图、搜索、各类插件
 	// 自定义视图等）用按 viewType 编码的合成键，使其与笔记一样入栈、前进/后退、重开。
 	// 空视图（empty，关完所有 tab 后的占位）无内容可记，返回 null（不入栈，由 nav 的 currentRootPath 兜底）。
 	private navKeyForLeaf(leaf: WorkspaceLeaf): string | null {
-		const li = leaf as LeafInternal;
-		// getViewState() 对 deferred(延迟加载、尚未实例化)视图仍返回真实的 type/state，
-		// 而此时 view.getViewType() 可能返回 'empty'、view.file 也尚未就位。优先用前者兜底。
-		const vs = leaf.getViewState() as { type?: string; state?: { file?: string } } | undefined;
-		const filePath = li.view?.file?.path ?? vs?.state?.file;
+		const filePath = this.filePathForLeaf(leaf);
 		if (filePath) return filePath;
+		const li = leaf as LeafInternal;
+		// getViewState() 对 deferred 视图仍返回真实 type，而此时 view.getViewType() 可能返回 'empty'。优先用前者兜底。
+		const vs = leaf.getViewState() as { type?: string } | undefined;
 		const viewType = vs?.type ?? li.view?.getViewType?.();
 		if (!viewType || viewType === 'empty') return null;
 		return filelessViewKey(viewType);
@@ -321,7 +331,7 @@ export class SinglePageEngine {
 		let found = false;
 		this.app.workspace.iterateRootLeaves(l => {
 			if (found || l === except) return;
-			if ((l as LeafInternal).view?.file) found = true;
+			if (this.filePathForLeaf(l)) found = true;
 		});
 		return found;
 	}
@@ -385,7 +395,7 @@ export class SinglePageEngine {
 				let existingLeaf: WorkspaceLeaf | null = null;
 				this.app.workspace.iterateRootLeaves(l => {
 					if (existingLeaf || l === leaf) return;
-					if ((l as LeafInternal).view?.file?.path === file.path) {
+					if (this.filePathForLeaf(l) === file.path) {
 						existingLeaf = l;
 					}
 				});
@@ -487,6 +497,16 @@ export class SinglePageEngine {
 		};
 	}
 
+	// 供 SingleTabGroupGuard 调用：它经 createLeafInParent 合并分屏/弹窗产生的 root leaf 绕过了
+	// getLeaf 拦截，从未补过 history / detach 补丁——于是用户手动关这些 tab 时 detach 补丁缺位，
+	// nav.onTabClosing 不触发，导航历史残留死条目、面包屑错乱。在此把它们纳入引擎管理。
+	// 两个补丁均幂等（各自的 Map.has 去重），重复 adopt 安全。
+	adoptLeaf(leaf: WorkspaceLeaf) {
+		if (!this.getSettings().disableNoteTabs) return;
+		this.patchLeafHistory(leaf);
+		this.patchRootLeafDetach(leaf);
+	}
+
 	patchLeafHistory(leaf: WorkspaceLeaf) {
 		const history = (leaf as LeafInternal).history;
 		if (!history || this.historyPatches.has(leaf)) return;
@@ -577,7 +597,7 @@ export class SinglePageEngine {
 			let existingLeaf: WorkspaceLeaf | null = null;
 			this.app.workspace.iterateRootLeaves(l => {
 				if (existingLeaf) return;
-				if ((l as LeafInternal).view?.file?.path === file.path) existingLeaf = l;
+				if (this.filePathForLeaf(l) === file.path) existingLeaf = l;
 			});
 			if (existingLeaf) {
 				this.leafCache.touch(existingLeaf);
@@ -591,7 +611,7 @@ export class SinglePageEngine {
 			// getLeaf('tab') 在 _isOpeningHomePage 守卫下会绕过拦截器、退回原生行为,单页/非单页模式均安全。
 			const active = this.app.workspace.getMostRecentLeaf();
 			const canReuse = !!active
-				&& !(active as LeafInternal).view?.file
+				&& !this.filePathForLeaf(active)
 				&& !this.pendingInterceptLeaves.has(active);
 			const leaf = canReuse && active ? active : this.app.workspace.getLeaf('tab');
 			await (leaf as LeafInternal).openFile(file);
@@ -632,7 +652,7 @@ export class SinglePageEngine {
 		const others: WorkspaceLeaf[] = [];
 		let homeLeaf: WorkspaceLeaf | null = null;
 		this.app.workspace.iterateRootLeaves(l => {
-			if (!homeLeaf && (l as LeafInternal).view?.file?.path === file.path) {
+			if (!homeLeaf && this.filePathForLeaf(l) === file.path) {
 				homeLeaf = l;
 			} else {
 				others.push(l);

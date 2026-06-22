@@ -42,6 +42,9 @@ export class SingleTabGroupGuard implements Feature {
 	constructor(
 		private app: App,
 		private getSettings: () => MinimalismUISettings,
+		// 合并产生新 leaf 后回调（SinglePageEngine.adoptLeaf）：补 history / detach 补丁，
+		// 使这些绕过 getLeaf 拦截的 leaf 也受引擎统一管理。setViewState 异步就位后再调用。
+		private onLeafCreated?: (leaf: WorkspaceLeaf) => void,
 	) {}
 
 	apply(): void {
@@ -122,7 +125,9 @@ export class SingleTabGroupGuard implements Feature {
 					}
 					const vs = li.getViewState();
 					const newLeaf = ws.createLeafInParent(primaryGroup, index++) as LeafInternal;
-					void newLeaf.setViewState(vs as { type: string;[k: string]: unknown });
+					// setViewState 就位后再 adopt：此时 leaf.history 才实例化，patchLeafHistory 方能生效。
+					void newLeaf.setViewState(vs as { type: string;[k: string]: unknown })
+						.then(() => this.onLeafCreated?.(newLeaf));
 					if (key) existing.add(key);
 					li.detach(); // 搬走后销毁原件；空组/空弹窗随之自动回收
 				}

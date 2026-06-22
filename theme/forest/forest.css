@@ -150,13 +150,13 @@ body.minimalism-ui-theme-forest .cm-inline-code {
 	font-size: 0.8rem;
 }
 
-/* 编辑视图：代码块关闭自动换行，超宽时由编辑器 .cm-scroller 提供横向滚动条。
-   特异性 (0,4,1) 压过上面通用的 .cm-editor .cm-line（word-break:break-word）规则；
-   white-space:pre 覆盖 CodeMirror 行包裹模式继承下来的 break-spaces。 */
+/* 编辑视图：代码块开启自动换行，超长行折行显示而非横向滚动。
+   特异性 (0,4,1) 压过上面通用的 .cm-editor .cm-line；white-space:pre-wrap 保留缩进与空格
+   的同时允许折行，word-break/overflow-wrap 让超长 token 也能断行。 */
 body.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-codeblock {
-	white-space: pre;
-	word-break: normal;
-	overflow-wrap: normal;
+	white-space: pre-wrap;
+	word-break: break-word;
+	overflow-wrap: anywhere;
 }
 
 /* 编辑视图：行内代码背景色 */
@@ -166,9 +166,21 @@ body.minimalism-ui-theme-forest .cm-inline-code {
 	background-color: #F3F3F3;
 }
 
-/* 阅读视图：代码块圆角 */
+/* 阅读视图：代码块圆角。 */
 body.minimalism-ui-theme-forest .markdown-reading-view pre {
 	border-radius: 5px;
+}
+
+/* 阅读视图：关闭自动换行，超长行横向滚动（编辑视图仍折行，见上 .HyperMD-codeblock）。
+   滚动容器放在内层 <code> 而非 pre：pre 不滚动，绝对定位的复制按钮锚定在 pre 上不会
+   随内容滑走；code 设 display:block 才能出横向滚动条。只命中围栏代码块的 code，
+   不波及行内 :not(pre)>code。 */
+body.minimalism-ui-theme-forest .markdown-reading-view pre code {
+	display: block;
+	overflow-x: auto;
+	white-space: pre;
+	word-break: normal;
+	overflow-wrap: normal;
 }
 
 /* 阅读视图：分割线 */
@@ -216,14 +228,14 @@ body.minimalism-ui-theme-forest .cm-line.HyperMD-hr .cm-hr {
 	background: transparent;
 }
 
-/* 代码块横向滚动条：关闭换行后超宽才出现。上面的 .markdown-reading-view:hover 规则会让
-   它随正文 hover 常驻显形（看起来"始终显示"）。这里把代码块的滚动条收回到只在
-   悬停代码块本身时才显色——三层类名 (0,3,2) 压过上面的通用 :hover 规则 (0,3,1)。 */
-.minimalism-ui-theme-forest .markdown-reading-view:hover pre::-webkit-scrollbar-thumb {
+/* 代码块横向滚动条：关闭换行后超宽才出现，滚动条落在内层 code 上（见上 pre code 规则）。
+   上面的 .markdown-reading-view:hover 规则会让它随正文 hover 常驻显形（看起来"始终显示"）。
+   这里把代码块的滚动条收回到只在悬停代码块本身时才显色——更高特异性压过上面的通用 :hover 规则。 */
+.minimalism-ui-theme-forest .markdown-reading-view:hover pre code::-webkit-scrollbar-thumb {
 	background: transparent;
 }
 
-.minimalism-ui-theme-forest .markdown-reading-view pre:hover::-webkit-scrollbar-thumb {
+.minimalism-ui-theme-forest .markdown-reading-view pre:hover code::-webkit-scrollbar-thumb {
 	background: rgba(128, 128, 128, 0.4);
 }
 

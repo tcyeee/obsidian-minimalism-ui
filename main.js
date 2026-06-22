@@ -210,13 +210,13 @@ body.minimalism-ui-theme-forest .cm-inline-code {
 	font-size: 0.8rem;
 }
 
-/* \u7F16\u8F91\u89C6\u56FE\uFF1A\u4EE3\u7801\u5757\u5173\u95ED\u81EA\u52A8\u6362\u884C\uFF0C\u8D85\u5BBD\u65F6\u7531\u7F16\u8F91\u5668 .cm-scroller \u63D0\u4F9B\u6A2A\u5411\u6EDA\u52A8\u6761\u3002
-   \u7279\u5F02\u6027 (0,4,1) \u538B\u8FC7\u4E0A\u9762\u901A\u7528\u7684 .cm-editor .cm-line\uFF08word-break:break-word\uFF09\u89C4\u5219\uFF1B
-   white-space:pre \u8986\u76D6 CodeMirror \u884C\u5305\u88F9\u6A21\u5F0F\u7EE7\u627F\u4E0B\u6765\u7684 break-spaces\u3002 */
+/* \u7F16\u8F91\u89C6\u56FE\uFF1A\u4EE3\u7801\u5757\u5F00\u542F\u81EA\u52A8\u6362\u884C\uFF0C\u8D85\u957F\u884C\u6298\u884C\u663E\u793A\u800C\u975E\u6A2A\u5411\u6EDA\u52A8\u3002
+   \u7279\u5F02\u6027 (0,4,1) \u538B\u8FC7\u4E0A\u9762\u901A\u7528\u7684 .cm-editor .cm-line\uFF1Bwhite-space:pre-wrap \u4FDD\u7559\u7F29\u8FDB\u4E0E\u7A7A\u683C
+   \u7684\u540C\u65F6\u5141\u8BB8\u6298\u884C\uFF0Cword-break/overflow-wrap \u8BA9\u8D85\u957F token \u4E5F\u80FD\u65AD\u884C\u3002 */
 body.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-codeblock {
-	white-space: pre;
-	word-break: normal;
-	overflow-wrap: normal;
+	white-space: pre-wrap;
+	word-break: break-word;
+	overflow-wrap: anywhere;
 }
 
 /* \u7F16\u8F91\u89C6\u56FE\uFF1A\u884C\u5185\u4EE3\u7801\u80CC\u666F\u8272 */
@@ -226,9 +226,21 @@ body.minimalism-ui-theme-forest .cm-inline-code {
 	background-color: #F3F3F3;
 }
 
-/* \u9605\u8BFB\u89C6\u56FE\uFF1A\u4EE3\u7801\u5757\u5706\u89D2 */
+/* \u9605\u8BFB\u89C6\u56FE\uFF1A\u4EE3\u7801\u5757\u5706\u89D2\u3002 */
 body.minimalism-ui-theme-forest .markdown-reading-view pre {
 	border-radius: 5px;
+}
+
+/* \u9605\u8BFB\u89C6\u56FE\uFF1A\u5173\u95ED\u81EA\u52A8\u6362\u884C\uFF0C\u8D85\u957F\u884C\u6A2A\u5411\u6EDA\u52A8\uFF08\u7F16\u8F91\u89C6\u56FE\u4ECD\u6298\u884C\uFF0C\u89C1\u4E0A .HyperMD-codeblock\uFF09\u3002
+   \u6EDA\u52A8\u5BB9\u5668\u653E\u5728\u5185\u5C42 <code> \u800C\u975E pre\uFF1Apre \u4E0D\u6EDA\u52A8\uFF0C\u7EDD\u5BF9\u5B9A\u4F4D\u7684\u590D\u5236\u6309\u94AE\u951A\u5B9A\u5728 pre \u4E0A\u4E0D\u4F1A
+   \u968F\u5185\u5BB9\u6ED1\u8D70\uFF1Bcode \u8BBE display:block \u624D\u80FD\u51FA\u6A2A\u5411\u6EDA\u52A8\u6761\u3002\u53EA\u547D\u4E2D\u56F4\u680F\u4EE3\u7801\u5757\u7684 code\uFF0C
+   \u4E0D\u6CE2\u53CA\u884C\u5185 :not(pre)>code\u3002 */
+body.minimalism-ui-theme-forest .markdown-reading-view pre code {
+	display: block;
+	overflow-x: auto;
+	white-space: pre;
+	word-break: normal;
+	overflow-wrap: normal;
 }
 
 /* \u9605\u8BFB\u89C6\u56FE\uFF1A\u5206\u5272\u7EBF */
@@ -276,14 +288,14 @@ body.minimalism-ui-theme-forest .cm-line.HyperMD-hr .cm-hr {
 	background: transparent;
 }
 
-/* \u4EE3\u7801\u5757\u6A2A\u5411\u6EDA\u52A8\u6761\uFF1A\u5173\u95ED\u6362\u884C\u540E\u8D85\u5BBD\u624D\u51FA\u73B0\u3002\u4E0A\u9762\u7684 .markdown-reading-view:hover \u89C4\u5219\u4F1A\u8BA9
-   \u5B83\u968F\u6B63\u6587 hover \u5E38\u9A7B\u663E\u5F62\uFF08\u770B\u8D77\u6765"\u59CB\u7EC8\u663E\u793A"\uFF09\u3002\u8FD9\u91CC\u628A\u4EE3\u7801\u5757\u7684\u6EDA\u52A8\u6761\u6536\u56DE\u5230\u53EA\u5728
-   \u60AC\u505C\u4EE3\u7801\u5757\u672C\u8EAB\u65F6\u624D\u663E\u8272\u2014\u2014\u4E09\u5C42\u7C7B\u540D (0,3,2) \u538B\u8FC7\u4E0A\u9762\u7684\u901A\u7528 :hover \u89C4\u5219 (0,3,1)\u3002 */
-.minimalism-ui-theme-forest .markdown-reading-view:hover pre::-webkit-scrollbar-thumb {
+/* \u4EE3\u7801\u5757\u6A2A\u5411\u6EDA\u52A8\u6761\uFF1A\u5173\u95ED\u6362\u884C\u540E\u8D85\u5BBD\u624D\u51FA\u73B0\uFF0C\u6EDA\u52A8\u6761\u843D\u5728\u5185\u5C42 code \u4E0A\uFF08\u89C1\u4E0A pre code \u89C4\u5219\uFF09\u3002
+   \u4E0A\u9762\u7684 .markdown-reading-view:hover \u89C4\u5219\u4F1A\u8BA9\u5B83\u968F\u6B63\u6587 hover \u5E38\u9A7B\u663E\u5F62\uFF08\u770B\u8D77\u6765"\u59CB\u7EC8\u663E\u793A"\uFF09\u3002
+   \u8FD9\u91CC\u628A\u4EE3\u7801\u5757\u7684\u6EDA\u52A8\u6761\u6536\u56DE\u5230\u53EA\u5728\u60AC\u505C\u4EE3\u7801\u5757\u672C\u8EAB\u65F6\u624D\u663E\u8272\u2014\u2014\u66F4\u9AD8\u7279\u5F02\u6027\u538B\u8FC7\u4E0A\u9762\u7684\u901A\u7528 :hover \u89C4\u5219\u3002 */
+.minimalism-ui-theme-forest .markdown-reading-view:hover pre code::-webkit-scrollbar-thumb {
 	background: transparent;
 }
 
-.minimalism-ui-theme-forest .markdown-reading-view pre:hover::-webkit-scrollbar-thumb {
+.minimalism-ui-theme-forest .markdown-reading-view pre:hover code::-webkit-scrollbar-thumb {
 	background: rgba(128, 128, 128, 0.4);
 }
 
@@ -1209,6 +1221,18 @@ body.minimalism-ui-theme-newspaper .markdown-reading-view pre {
 	border-radius: 3px;
 }
 
+/* \u9605\u8BFB\u89C6\u56FE\uFF1A\u5173\u95ED\u81EA\u52A8\u6362\u884C\uFF0C\u8D85\u957F\u884C\u6A2A\u5411\u6EDA\u52A8\uFF08\u7F16\u8F91\u89C6\u56FE\u4ECD\u6298\u884C\uFF0C\u89C1\u4E0B .HyperMD-codeblock\uFF09\u3002
+   \u6EDA\u52A8\u5BB9\u5668\u653E\u5728\u5185\u5C42 <code> \u800C\u975E pre\uFF1Apre \u4E0D\u6EDA\u52A8\uFF0C\u7EDD\u5BF9\u5B9A\u4F4D\u7684\u590D\u5236\u6309\u94AE\u951A\u5B9A\u5728 pre \u4E0A\u4E0D\u4F1A
+   \u968F\u5185\u5BB9\u6ED1\u8D70\uFF1Bcode \u8BBE display:block \u624D\u80FD\u51FA\u6A2A\u5411\u6EDA\u52A8\u6761\u3002\u53EA\u547D\u4E2D\u56F4\u680F\u4EE3\u7801\u5757\u7684 code\uFF0C
+   \u4E0D\u6CE2\u53CA\u884C\u5185 :not(pre)>code\u3002 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view pre code {
+	display: block;
+	overflow-x: auto;
+	white-space: pre;
+	word-break: normal;
+	overflow-wrap: normal;
+}
+
 /* \u9605\u8BFB\u89C6\u56FE\uFF1A\u884C\u5185\u4EE3\u7801\u7070\u5E95\uFF08\u6392\u9664\u4EE3\u7801\u5757\u5185\u7684 code\uFF09\uFF0C\u5C0F\u5B57\u53F7 + \u5185\u8FB9\u8DDD\u6536\u7D27 */
 body.minimalism-ui-theme-newspaper .markdown-reading-view :not(pre) > code {
 	background-color: #dadada;
@@ -1226,13 +1250,13 @@ body.minimalism-ui-theme-newspaper .cm-editor .cm-inline-code {
 	color: #1f0909;
 }
 
-/* \u7F16\u8F91\u89C6\u56FE\uFF1A\u4EE3\u7801\u5757\u5173\u95ED\u81EA\u52A8\u6362\u884C\uFF0C\u8D85\u5BBD\u65F6\u7531\u7F16\u8F91\u5668 .cm-scroller \u63D0\u4F9B\u6A2A\u5411\u6EDA\u52A8\u6761\u3002
-   \u7279\u5F02\u6027 (0,4,1) \u538B\u8FC7\u4E0A\u9762\u901A\u7528\u7684 .cm-editor .cm-line\uFF08word-break:break-word\uFF09\u89C4\u5219\uFF1B
-   white-space:pre \u8986\u76D6 CodeMirror \u884C\u5305\u88F9\u6A21\u5F0F\u7EE7\u627F\u4E0B\u6765\u7684 break-spaces\u3002 */
+/* \u7F16\u8F91\u89C6\u56FE\uFF1A\u4EE3\u7801\u5757\u5F00\u542F\u81EA\u52A8\u6362\u884C\uFF0C\u8D85\u957F\u884C\u6298\u884C\u663E\u793A\u800C\u975E\u6A2A\u5411\u6EDA\u52A8\u3002
+   \u7279\u5F02\u6027 (0,4,1) \u538B\u8FC7\u4E0A\u9762\u901A\u7528\u7684 .cm-editor .cm-line\uFF1Bwhite-space:pre-wrap \u4FDD\u7559\u7F29\u8FDB\u4E0E\u7A7A\u683C
+   \u7684\u540C\u65F6\u5141\u8BB8\u6298\u884C\uFF0Cword-break/overflow-wrap \u8BA9\u8D85\u957F token \u4E5F\u80FD\u65AD\u884C\u3002 */
 body.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-codeblock {
-	white-space: pre;
-	word-break: normal;
-	overflow-wrap: normal;
+	white-space: pre-wrap;
+	word-break: break-word;
+	overflow-wrap: anywhere;
 }
 
 /* \u2500\u2500 \u5FEB\u6377\u952E kbd\uFF1A\u62DF\u7269\u6309\u952E\u6837\u5F0F\uFF08\u4E24\u4E2A\u89C6\u56FE\uFF09 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -1666,12 +1690,13 @@ body.minimalism-ui-theme-newspaper .cm-editor .cm-content ::selection {
 	background: rgba(31, 9, 9, 0.35);
 }
 
-/* \u4EE3\u7801\u5757\u6A2A\u5411\u6EDA\u52A8\u6761\uFF1A\u540C\u7406\u6536\u56DE\u5230\u53EA\u5728\u60AC\u505C\u4EE3\u7801\u5757\u672C\u8EAB\u65F6\u624D\u663E\u8272\uFF08\u4E09\u5C42\u7C7B\u540D\u538B\u8FC7 :hover \u901A\u914D\u89C4\u5219\uFF09 */
-.minimalism-ui-theme-newspaper .markdown-reading-view:hover pre::-webkit-scrollbar-thumb {
+/* \u4EE3\u7801\u5757\u6A2A\u5411\u6EDA\u52A8\u6761\uFF1A\u6EDA\u52A8\u6761\u843D\u5728\u5185\u5C42 code \u4E0A\uFF08\u89C1\u4E0A pre code \u89C4\u5219\uFF09\uFF0C\u540C\u7406\u6536\u56DE\u5230\u53EA\u5728
+   \u60AC\u505C\u4EE3\u7801\u5757\u672C\u8EAB\u65F6\u624D\u663E\u8272\uFF08\u66F4\u9AD8\u7279\u5F02\u6027\u538B\u8FC7 :hover \u901A\u914D\u89C4\u5219\uFF09 */
+.minimalism-ui-theme-newspaper .markdown-reading-view:hover pre code::-webkit-scrollbar-thumb {
 	background: transparent;
 }
 
-.minimalism-ui-theme-newspaper .markdown-reading-view pre:hover::-webkit-scrollbar-thumb {
+.minimalism-ui-theme-newspaper .markdown-reading-view pre:hover code::-webkit-scrollbar-thumb {
 	background: rgba(31, 9, 9, 0.35);
 }
 
@@ -1965,7 +1990,6 @@ var BODY_CLASSES = [
   "minimalism-ui-note-style",
   "minimalism-ui-has-home",
   "minimalism-ui-hide-vault-profile",
-  "minimalism-ui-hide-ribbon",
   "minimalism-ui-lang-zh"
 ];
 var BodyClassController = class {
@@ -1983,7 +2007,6 @@ var BodyClassController = class {
     cls.add("minimalism-ui-note-style");
     cls.toggle("minimalism-ui-has-home", !!s.homePage);
     cls.toggle("minimalism-ui-hide-vault-profile", !s.showVaultProfile);
-    cls.toggle("minimalism-ui-hide-ribbon", !s.showRibbon);
     cls.toggle("minimalism-ui-lang-zh", getLang() === "zh");
   }
   remove() {
@@ -2378,6 +2401,9 @@ var LeafCache = class {
     const rootLeaves = [];
     this.app.workspace.iterateRootLeaves((l) => rootLeaves.push(l));
     this.queue = this.queue.filter((l) => rootLeaves.includes(l));
+    const tracked = new Set(this.queue);
+    const missing = rootLeaves.filter((l) => !tracked.has(l));
+    if (missing.length) this.queue = [...missing, ...this.queue];
     if (this.queue.length > this.max) {
       this.isEvicting = true;
       try {
@@ -2602,16 +2628,27 @@ var SinglePageEngine = class {
     }
     (_c = this.navChangeListener) == null ? void 0 : _c.call(this, leaf);
   }
+  // 取 root leaf 对应的文件路径，对 deferred（延迟加载、尚未实例化）视图做兜底。
+  // 关键：deferred 视图（重启恢复出、尚未点开的 tab）此时 view.file 尚未就位为 null，
+  // 仅凭 view.file?.path 判断会把它当作"无文件"漏判——而 getViewState() 仍返回真实的
+  // state.file。所有去重 / "是否还有文件 leaf" 判断都必须经此函数，否则 deferred tab
+  // 永远匹配不上，导致重复打开同一文件（违反 one-file-one-leaf 不变量）。
+  filePathForLeaf(leaf) {
+    var _a, _b, _c, _d, _e;
+    const li = leaf;
+    const vs = leaf.getViewState();
+    return (_e = (_d = (_b = (_a = li.view) == null ? void 0 : _a.file) == null ? void 0 : _b.path) != null ? _d : (_c = vs == null ? void 0 : vs.state) == null ? void 0 : _c.file) != null ? _e : null;
+  }
   // 把 root leaf 映射为导航栈中的键：有文件则用文件路径；无文件视图（全局关系图、搜索、各类插件
   // 自定义视图等）用按 viewType 编码的合成键，使其与笔记一样入栈、前进/后退、重开。
   // 空视图（empty，关完所有 tab 后的占位）无内容可记，返回 null（不入栈，由 nav 的 currentRootPath 兜底）。
   navKeyForLeaf(leaf) {
-    var _a, _b, _c, _d, _e, _f, _g;
+    var _a, _b, _c;
+    const filePath = this.filePathForLeaf(leaf);
+    if (filePath) return filePath;
     const li = leaf;
     const vs = leaf.getViewState();
-    const filePath = (_d = (_b = (_a = li.view) == null ? void 0 : _a.file) == null ? void 0 : _b.path) != null ? _d : (_c = vs == null ? void 0 : vs.state) == null ? void 0 : _c.file;
-    if (filePath) return filePath;
-    const viewType = (_g = vs == null ? void 0 : vs.type) != null ? _g : (_f = (_e = li.view) == null ? void 0 : _e.getViewType) == null ? void 0 : _f.call(_e);
+    const viewType = (_c = vs == null ? void 0 : vs.type) != null ? _c : (_b = (_a = li.view) == null ? void 0 : _a.getViewType) == null ? void 0 : _b.call(_a);
     if (!viewType || viewType === "empty") return null;
     return filelessViewKey(viewType);
   }
@@ -2620,9 +2657,8 @@ var SinglePageEngine = class {
   hasOtherFileLeaf(except) {
     let found = false;
     this.app.workspace.iterateRootLeaves((l) => {
-      var _a;
       if (found || l === except) return;
-      if ((_a = l.view) == null ? void 0 : _a.file) found = true;
+      if (this.filePathForLeaf(l)) found = true;
     });
     return found;
   }
@@ -2676,9 +2712,8 @@ var SinglePageEngine = class {
       if (!this.isReusingLeaf) {
         let existingLeaf = null;
         this.app.workspace.iterateRootLeaves((l) => {
-          var _a, _b;
           if (existingLeaf || l === leaf) return;
-          if (((_b = (_a = l.view) == null ? void 0 : _a.file) == null ? void 0 : _b.path) === file.path) {
+          if (this.filePathForLeaf(l) === file.path) {
             existingLeaf = l;
           }
         });
@@ -2751,6 +2786,15 @@ var SinglePageEngine = class {
       return result;
     };
   }
+  // 供 SingleTabGroupGuard 调用：它经 createLeafInParent 合并分屏/弹窗产生的 root leaf 绕过了
+  // getLeaf 拦截，从未补过 history / detach 补丁——于是用户手动关这些 tab 时 detach 补丁缺位，
+  // nav.onTabClosing 不触发，导航历史残留死条目、面包屑错乱。在此把它们纳入引擎管理。
+  // 两个补丁均幂等（各自的 Map.has 去重），重复 adopt 安全。
+  adoptLeaf(leaf) {
+    if (!this.getSettings().disableNoteTabs) return;
+    this.patchLeafHistory(leaf);
+    this.patchRootLeafDetach(leaf);
+  }
   patchLeafHistory(leaf) {
     var _a, _b;
     const history = leaf.history;
@@ -2808,7 +2852,6 @@ var SinglePageEngine = class {
   }
   // 打开首页笔记：先置 _isOpeningHomePage 防止 getLeaf 拦截器介入，再补 history / detach patch
   async openHomePage() {
-    var _a;
     if (this._isOpeningHomePage) {
       this._homePageReopenQueued = true;
       return;
@@ -2823,9 +2866,8 @@ var SinglePageEngine = class {
     try {
       let existingLeaf = null;
       this.app.workspace.iterateRootLeaves((l) => {
-        var _a2, _b;
         if (existingLeaf) return;
-        if (((_b = (_a2 = l.view) == null ? void 0 : _a2.file) == null ? void 0 : _b.path) === file.path) existingLeaf = l;
+        if (this.filePathForLeaf(l) === file.path) existingLeaf = l;
       });
       if (existingLeaf) {
         this.leafCache.touch(existingLeaf);
@@ -2833,7 +2875,7 @@ var SinglePageEngine = class {
         return;
       }
       const active = this.app.workspace.getMostRecentLeaf();
-      const canReuse = !!active && !((_a = active.view) == null ? void 0 : _a.file) && !this.pendingInterceptLeaves.has(active);
+      const canReuse = !!active && !this.filePathForLeaf(active) && !this.pendingInterceptLeaves.has(active);
       const leaf = canReuse && active ? active : this.app.workspace.getLeaf("tab");
       await leaf.openFile(file);
       if (leaf.parent) {
@@ -2862,8 +2904,7 @@ var SinglePageEngine = class {
     const others = [];
     let homeLeaf = null;
     this.app.workspace.iterateRootLeaves((l) => {
-      var _a2, _b;
-      if (!homeLeaf && ((_b = (_a2 = l.view) == null ? void 0 : _a2.file) == null ? void 0 : _b.path) === file.path) {
+      if (!homeLeaf && this.filePathForLeaf(l) === file.path) {
         homeLeaf = l;
       } else {
         others.push(l);
@@ -2882,9 +2923,10 @@ var SinglePageEngine = class {
 
 // src/single-page/SingleTabGroupGuard.ts
 var SingleTabGroupGuard = class {
-  constructor(app, getSettings) {
+  constructor(app, getSettings, onLeafCreated) {
     this.app = app;
     this.getSettings = getSettings;
+    this.onLeafCreated = onLeafCreated;
     this.handler = null;
     this.isEnforcing = false;
   }
@@ -2959,7 +3001,10 @@ var SingleTabGroupGuard = class {
           }
           const vs = li.getViewState();
           const newLeaf = ws.createLeafInParent(primaryGroup, index++);
-          void newLeaf.setViewState(vs);
+          void newLeaf.setViewState(vs).then(() => {
+            var _a2;
+            return (_a2 = this.onLeafCreated) == null ? void 0 : _a2.call(this, newLeaf);
+          });
           if (key) existing.add(key);
           li.detach();
         }
@@ -4455,7 +4500,7 @@ var MinimalismUIPlugin = class extends import_obsidian8.Plugin {
     this.fontLoader = new FontLoader(settings);
     this.themeLoader = new ThemeLoader(settings);
     this.engine = new SinglePageEngine(this.app, settings);
-    this.tabGroupGuard = new SingleTabGroupGuard(this.app, settings);
+    this.tabGroupGuard = new SingleTabGroupGuard(this.app, settings, (leaf) => this.engine.adoptLeaf(leaf));
     this.pinManager = new PinManager(this.app, settings);
     this.homePage = new HomePageManager(this.app, settings, this.engine);
     this.emptyViewButton = new EmptyViewButtonManager(this.app, settings, this.engine);
@@ -4497,6 +4542,7 @@ var MinimalismUIPlugin = class extends import_obsidian8.Plugin {
     await this.fontLoader.apply();
     void this.themeLoader.apply();
     this.bodyClasses.apply();
+    this.applyRibbon();
     this.sidebarSuggestFocus.apply();
     this.propertyKeyResizer.apply();
     this.pinManager.apply();
@@ -4532,6 +4578,14 @@ var MinimalismUIPlugin = class extends import_obsidian8.Plugin {
   applyBodyClasses() {
     this.bodyClasses.apply();
   }
+  // ─── Ribbon ───────────────────────────────────────────────────────────────
+  // 左侧 ribbon（活动栏）的显隐由 Obsidian 1.8 起自己接管：原生 showRibbon 配置驱动
+  // body.show-ribbon，并以 `body:not(.show-ribbon) .workspace-ribbon{display:none}` 隐藏。
+  // 插件单靠自家 CSS 只能再叠一层 display:none，无法盖过原生隐藏——所以这里直接写原生配置，
+  // 与 Obsidian 设置面板里那个开关同源（setConfig 会触发 updateRibbonDisplay 立即生效）。
+  applyRibbon() {
+    this.app.vault.setConfig("showRibbon", this.settings.showRibbon);
+  }
   // ─── Theme ────────────────────────────────────────────────────────────────
   // 重新注入当前 theme 字段对应的主题 CSS 与字体（切换主题时调用）。
   // 字体随主题分发（theme/<name>/fonts/），故主题切换时一并重载。
@@ -4558,6 +4612,7 @@ var MinimalismUIPlugin = class extends import_obsidian8.Plugin {
   async saveSettings() {
     await this.saveData(this.settings);
     this.bodyClasses.apply();
+    this.applyRibbon();
     this.pinManager.apply();
     this.engine.apply();
     this.tabGroupGuard.apply();

@@ -46,10 +46,17 @@ export class LeafCache {
 
 		this.touch(active);
 
-		// 移除队列中已不存在于 workspace 的 leaf
 		const rootLeaves: WorkspaceLeaf[] = [];
 		this.app.workspace.iterateRootLeaves(l => rootLeaves.push(l));
+		// 移除队列中已不存在于 workspace 的 leaf
 		this.queue = this.queue.filter(l => rootLeaves.includes(l));
+		// 收录队列里缺失、但已存在于主区域的 root leaf：例如 SingleTabGroupGuard 经
+		// createLeafInParent 合并分屏/弹窗、或重启恢复出的多分屏布局，会产生从未被激活、
+		// 因而从未经 touch() 进入队列的 root leaf。若不补录，淘汰阈值就按"漏数的队列长度"
+		// 计算，真实 tab 数会突破上限。插到队首（最旧端）优先被淘汰，活动 leaf 始终在队尾不受影响。
+		const tracked = new Set(this.queue);
+		const missing = rootLeaves.filter(l => !tracked.has(l));
+		if (missing.length) this.queue = [...missing, ...this.queue];
 
 		if (this.queue.length > this.max) {
 			this.isEvicting = true;

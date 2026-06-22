@@ -178,11 +178,6 @@ body.minimalism-ui-hide-vault-profile .workspace-split.mod-left-split .workspace
 	display: none;
 }
 
-/* 关闭“功能区”开关时隐藏左侧 ribbon 活动栏 */
-body.minimalism-ui-hide-ribbon .workspace-ribbon.side-dock-ribbon.mod-left {
-	display: none;
-}
-
 /* 内容区背景透明，露出侧边栏底色 */
 body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-leaf,
 body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-leaf-content,

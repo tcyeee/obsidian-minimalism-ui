@@ -57,7 +57,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.fontLoader = new FontLoader(settings);
 		this.themeLoader = new ThemeLoader(settings);
 		this.engine = new SinglePageEngine(this.app, settings);
-		this.tabGroupGuard = new SingleTabGroupGuard(this.app, settings);
+		this.tabGroupGuard = new SingleTabGroupGuard(this.app, settings, (leaf) => this.engine.adoptLeaf(leaf));
 		this.pinManager = new PinManager(this.app, settings);
 		this.homePage = new HomePageManager(this.app, settings, this.engine);
 		this.emptyViewButton = new EmptyViewButtonManager(this.app, settings, this.engine);
@@ -104,6 +104,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		await this.fontLoader.apply();
 		void this.themeLoader.apply();
 		this.bodyClasses.apply();
+		this.applyRibbon();
 		this.sidebarSuggestFocus.apply();
 		this.propertyKeyResizer.apply();
 		this.pinManager.apply();
@@ -152,6 +153,17 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.bodyClasses.apply();
 	}
 
+	// ─── Ribbon ───────────────────────────────────────────────────────────────
+
+	// 左侧 ribbon（活动栏）的显隐由 Obsidian 1.8 起自己接管：原生 showRibbon 配置驱动
+	// body.show-ribbon，并以 `body:not(.show-ribbon) .workspace-ribbon{display:none}` 隐藏。
+	// 插件单靠自家 CSS 只能再叠一层 display:none，无法盖过原生隐藏——所以这里直接写原生配置，
+	// 与 Obsidian 设置面板里那个开关同源（setConfig 会触发 updateRibbonDisplay 立即生效）。
+	applyRibbon() {
+		type ConfigVault = { setConfig(key: string, value: unknown): void };
+		(this.app.vault as unknown as ConfigVault).setConfig('showRibbon', this.settings.showRibbon);
+	}
+
 	// ─── Theme ────────────────────────────────────────────────────────────────
 
 	// 重新注入当前 theme 字段对应的主题 CSS 与字体（切换主题时调用）。
@@ -188,6 +200,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	async saveSettings() {
 		await this.saveData(this.settings);
 		this.bodyClasses.apply();
+		this.applyRibbon();
 		this.pinManager.apply();
 		this.engine.apply();
 		this.tabGroupGuard.apply();
