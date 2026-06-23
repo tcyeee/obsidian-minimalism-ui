@@ -152,7 +152,8 @@ body.minimalism-ui-theme-forest .cm-inline-code {
 
 /* 编辑视图：代码块开启自动换行，超长行折行显示而非横向滚动。
    特异性 (0,4,1) 压过上面通用的 .cm-editor .cm-line；white-space:pre-wrap 保留缩进与空格
-   的同时允许折行，word-break/overflow-wrap 让超长 token 也能断行。 */
+   的同时允许折行，word-break/overflow-wrap 让超长 token 也能断行。
+   背景色不在此设：浅模式沿用 Obsidian 默认浅底，深底的 #333333 仅在下方 body.theme-dark 段覆盖。 */
 body.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-codeblock {
 	white-space: pre-wrap;
 	word-break: break-word;
@@ -166,7 +167,8 @@ body.minimalism-ui-theme-forest .cm-inline-code {
 	background-color: #F3F3F3;
 }
 
-/* 阅读视图：代码块圆角。 */
+/* 阅读视图：代码块圆角。背景色不在此设：浅模式沿用默认浅底，
+   深底的 #333333 仅在下方 body.theme-dark 段覆盖。 */
 body.minimalism-ui-theme-forest .markdown-reading-view pre {
 	border-radius: 5px;
 }
@@ -653,11 +655,18 @@ body.minimalism-ui-theme-forest .cm-editor .cm-callout .cm-line:not(.cm-callout-
 
 /* Mermaid 图表：超出笔记宽度时横向滚动，不缩放 */
 /* overflow-x: overlay 让滚动条浮在内容上，不占布局空间，不引起闪烁 */
+/* 背景框：浅绿底 + 描边 + 圆角 + 内边距，把图表框起来与正文区分；
+   边框走 --minimalism-table-line（浅模式纸灰 / 暗模式低透明白线），自动适配深浅模式。
+   padding 加在外层 .mermaid 容器上，不碰 SVG 内部 foreignObject 的 JS 预算尺寸。 */
 body.minimalism-ui-theme-forest .markdown-reading-view .mermaid,
 body.minimalism-ui-theme-forest .cm-editor .mermaid {
 	overflow-x: overlay;
 	overflow-y: visible;
 	max-width: 100%;
+	background-color: rgba(0, 153, 123, 0.04);
+	border: 1px solid var(--minimalism-table-line);
+	border-radius: 6px;
+	padding: 16px;
 }
 
 body.minimalism-ui-theme-forest .markdown-reading-view .mermaid svg,
@@ -726,9 +735,18 @@ body.minimalism-ui-theme-forest .mermaid svg text {
    浅模式灰，深底下会成亮块 / 偏暗。这里只在 body.theme-dark 下覆盖，浅色模式不受影响。
    ============================================================================= */
 
-/* 表格借线：浅模式纸灰在深底下偏亮，换成低透明白线 */
+/* 表格借线：浅模式纸灰在深底下偏亮，换成低透明白线。
+   --table-border-color 同步覆盖：Bases 原生表格内部格线走此变量（非 --minimalism-table-line），
+   浅模式 #DADCDE 不覆盖会在深底下保持亮白，与外框（走 --minimalism-table-line）不一致。 */
 body.theme-dark.minimalism-ui-theme-forest {
 	--minimalism-table-line: rgba(255, 255, 255, 0.12);
+	--table-border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* 内容区背景：暗色模式正文区改为 #373B40，与 #2E3033 侧边栏区分层次 */
+body.theme-dark.minimalism-ui-theme-forest {
+	--background-primary: #373B40;
+	--background-primary-alt: #373B40;
 }
 
 /* 行内代码：浅灰底 #F3F3F3 在深底下是亮块，换成低透明绿底 + 提亮蓝字 */
@@ -736,6 +754,13 @@ body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view :not(pre) > co
 body.theme-dark.minimalism-ui-theme-forest .cm-inline-code {
 	color: #6fb3d6;
 	background-color: rgba(0, 153, 123, 0.16);
+}
+
+/* 代码块底色：深底专用 #333333（阅读视图 pre + 编辑视图 HyperMD-codeblock 行）。
+   浅色模式不设此色，沿用 Obsidian 默认浅底，避免在浅页面上出现深色代码块。 */
+body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view pre,
+body.theme-dark.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-codeblock {
+	background-color: #333333;
 }
 
 /* 表格单元格字色：写死的 rgb(107,107,107) 在深底下偏暗，跟随 --text-muted 提亮 */
@@ -752,18 +777,19 @@ body.theme-dark.minimalism-ui-theme-forest .bases-view .bases-thead .bases-td {
 /* =============================================================================
    侧边栏 / Chrome 配色（从 styles.css 迁入）
    这些原先写在 styles.css（被当作主题无关 chrome），实为 Forest 专属的深色侧边栏外观：
-   深蓝底 #123342 / 暗色 #1c1c1e + 浅灰字 + 蓝色 accent + 深底建议弹层。
+   深蓝底 #123342 / 暗色 #2E3033 + 浅灰字 + 蓝色 accent + 深底建议弹层。
    现收归本主题，全部叠加 body.minimalism-ui-theme-forest 作用域，仅 Forest 激活时生效；
    其他主题（如 newspaper）各写各的。
    ============================================================================= */
 
-/* 侧边栏本体背景：浅色模式深蓝，暗色模式深灰 */
+/* 侧边栏本体背景：浅色模式深蓝，暗色模式深灰；去掉默认右侧投影 */
 body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split {
 	background-color: #123342;
+	box-shadow: none;
 }
 
 body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split {
-	background-color: #1c1c1e;
+	background-color: #2E3033;
 }
 
 /* 侧边栏文字浅色适配深色背景 */
@@ -779,7 +805,7 @@ body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side
 
 body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left,
 body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left::before {
-	background-color: #1c1c1e;
+	background-color: #2E3033;
 }
 
 /* ribbon 图标浅色适配深底 */
@@ -809,13 +835,17 @@ body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-leaf-conten
 }
 
 body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content::before {
-	background-color: #1c1c1e;
+	background-color: #2E3033;
 }
 
 /* 左下角 vault profile：深色底 + 虚线顶边 */
 body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-sidedock-vault-profile {
 	background-color: #123342;
 	border-top: 1px dashed rgba(180, 180, 180, 0.3);
+}
+
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-sidedock-vault-profile {
+	background-color: #2E3033;
 }
 
 /* 导航项 hover / active（蓝色 accent） */

@@ -305,6 +305,12 @@ body.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .vie
 	background: transparent;
 }
 
+/* 去掉大纲树各标题下方的层级缩进引导线（Obsidian 默认用 .tree-item-children 的
+   border-inline-start 表示大/小标题的包含关系），仅作用于 outline，不影响文件树 */
+body.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .tree-item-children {
+	border-inline-start: none;
+}
+
 /* 注入的 metadata-content：随 properties 数量自动高度，固定在底部。
    高度上限为侧边栏的 30%，超出后内部滚动（鼠标滚轮查看）。 */
 body.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content {

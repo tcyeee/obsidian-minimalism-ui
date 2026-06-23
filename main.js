@@ -212,7 +212,8 @@ body.minimalism-ui-theme-forest .cm-inline-code {
 
 /* \u7F16\u8F91\u89C6\u56FE\uFF1A\u4EE3\u7801\u5757\u5F00\u542F\u81EA\u52A8\u6362\u884C\uFF0C\u8D85\u957F\u884C\u6298\u884C\u663E\u793A\u800C\u975E\u6A2A\u5411\u6EDA\u52A8\u3002
    \u7279\u5F02\u6027 (0,4,1) \u538B\u8FC7\u4E0A\u9762\u901A\u7528\u7684 .cm-editor .cm-line\uFF1Bwhite-space:pre-wrap \u4FDD\u7559\u7F29\u8FDB\u4E0E\u7A7A\u683C
-   \u7684\u540C\u65F6\u5141\u8BB8\u6298\u884C\uFF0Cword-break/overflow-wrap \u8BA9\u8D85\u957F token \u4E5F\u80FD\u65AD\u884C\u3002 */
+   \u7684\u540C\u65F6\u5141\u8BB8\u6298\u884C\uFF0Cword-break/overflow-wrap \u8BA9\u8D85\u957F token \u4E5F\u80FD\u65AD\u884C\u3002
+   \u80CC\u666F\u8272\u4E0D\u5728\u6B64\u8BBE\uFF1A\u6D45\u6A21\u5F0F\u6CBF\u7528 Obsidian \u9ED8\u8BA4\u6D45\u5E95\uFF0C\u6DF1\u5E95\u7684 #333333 \u4EC5\u5728\u4E0B\u65B9 body.theme-dark \u6BB5\u8986\u76D6\u3002 */
 body.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-codeblock {
 	white-space: pre-wrap;
 	word-break: break-word;
@@ -226,7 +227,8 @@ body.minimalism-ui-theme-forest .cm-inline-code {
 	background-color: #F3F3F3;
 }
 
-/* \u9605\u8BFB\u89C6\u56FE\uFF1A\u4EE3\u7801\u5757\u5706\u89D2\u3002 */
+/* \u9605\u8BFB\u89C6\u56FE\uFF1A\u4EE3\u7801\u5757\u5706\u89D2\u3002\u80CC\u666F\u8272\u4E0D\u5728\u6B64\u8BBE\uFF1A\u6D45\u6A21\u5F0F\u6CBF\u7528\u9ED8\u8BA4\u6D45\u5E95\uFF0C
+   \u6DF1\u5E95\u7684 #333333 \u4EC5\u5728\u4E0B\u65B9 body.theme-dark \u6BB5\u8986\u76D6\u3002 */
 body.minimalism-ui-theme-forest .markdown-reading-view pre {
 	border-radius: 5px;
 }
@@ -713,11 +715,18 @@ body.minimalism-ui-theme-forest .cm-editor .cm-callout .cm-line:not(.cm-callout-
 
 /* Mermaid \u56FE\u8868\uFF1A\u8D85\u51FA\u7B14\u8BB0\u5BBD\u5EA6\u65F6\u6A2A\u5411\u6EDA\u52A8\uFF0C\u4E0D\u7F29\u653E */
 /* overflow-x: overlay \u8BA9\u6EDA\u52A8\u6761\u6D6E\u5728\u5185\u5BB9\u4E0A\uFF0C\u4E0D\u5360\u5E03\u5C40\u7A7A\u95F4\uFF0C\u4E0D\u5F15\u8D77\u95EA\u70C1 */
+/* \u80CC\u666F\u6846\uFF1A\u6D45\u7EFF\u5E95 + \u63CF\u8FB9 + \u5706\u89D2 + \u5185\u8FB9\u8DDD\uFF0C\u628A\u56FE\u8868\u6846\u8D77\u6765\u4E0E\u6B63\u6587\u533A\u5206\uFF1B
+   \u8FB9\u6846\u8D70 --minimalism-table-line\uFF08\u6D45\u6A21\u5F0F\u7EB8\u7070 / \u6697\u6A21\u5F0F\u4F4E\u900F\u660E\u767D\u7EBF\uFF09\uFF0C\u81EA\u52A8\u9002\u914D\u6DF1\u6D45\u6A21\u5F0F\u3002
+   padding \u52A0\u5728\u5916\u5C42 .mermaid \u5BB9\u5668\u4E0A\uFF0C\u4E0D\u78B0 SVG \u5185\u90E8 foreignObject \u7684 JS \u9884\u7B97\u5C3A\u5BF8\u3002 */
 body.minimalism-ui-theme-forest .markdown-reading-view .mermaid,
 body.minimalism-ui-theme-forest .cm-editor .mermaid {
 	overflow-x: overlay;
 	overflow-y: visible;
 	max-width: 100%;
+	background-color: rgba(0, 153, 123, 0.04);
+	border: 1px solid var(--minimalism-table-line);
+	border-radius: 6px;
+	padding: 16px;
 }
 
 body.minimalism-ui-theme-forest .markdown-reading-view .mermaid svg,
@@ -786,9 +795,18 @@ body.minimalism-ui-theme-forest .mermaid svg text {
    \u6D45\u6A21\u5F0F\u7070\uFF0C\u6DF1\u5E95\u4E0B\u4F1A\u6210\u4EAE\u5757 / \u504F\u6697\u3002\u8FD9\u91CC\u53EA\u5728 body.theme-dark \u4E0B\u8986\u76D6\uFF0C\u6D45\u8272\u6A21\u5F0F\u4E0D\u53D7\u5F71\u54CD\u3002
    ============================================================================= */
 
-/* \u8868\u683C\u501F\u7EBF\uFF1A\u6D45\u6A21\u5F0F\u7EB8\u7070\u5728\u6DF1\u5E95\u4E0B\u504F\u4EAE\uFF0C\u6362\u6210\u4F4E\u900F\u660E\u767D\u7EBF */
+/* \u8868\u683C\u501F\u7EBF\uFF1A\u6D45\u6A21\u5F0F\u7EB8\u7070\u5728\u6DF1\u5E95\u4E0B\u504F\u4EAE\uFF0C\u6362\u6210\u4F4E\u900F\u660E\u767D\u7EBF\u3002
+   --table-border-color \u540C\u6B65\u8986\u76D6\uFF1ABases \u539F\u751F\u8868\u683C\u5185\u90E8\u683C\u7EBF\u8D70\u6B64\u53D8\u91CF\uFF08\u975E --minimalism-table-line\uFF09\uFF0C
+   \u6D45\u6A21\u5F0F #DADCDE \u4E0D\u8986\u76D6\u4F1A\u5728\u6DF1\u5E95\u4E0B\u4FDD\u6301\u4EAE\u767D\uFF0C\u4E0E\u5916\u6846\uFF08\u8D70 --minimalism-table-line\uFF09\u4E0D\u4E00\u81F4\u3002 */
 body.theme-dark.minimalism-ui-theme-forest {
 	--minimalism-table-line: rgba(255, 255, 255, 0.12);
+	--table-border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* \u5185\u5BB9\u533A\u80CC\u666F\uFF1A\u6697\u8272\u6A21\u5F0F\u6B63\u6587\u533A\u6539\u4E3A #373B40\uFF0C\u4E0E #2E3033 \u4FA7\u8FB9\u680F\u533A\u5206\u5C42\u6B21 */
+body.theme-dark.minimalism-ui-theme-forest {
+	--background-primary: #373B40;
+	--background-primary-alt: #373B40;
 }
 
 /* \u884C\u5185\u4EE3\u7801\uFF1A\u6D45\u7070\u5E95 #F3F3F3 \u5728\u6DF1\u5E95\u4E0B\u662F\u4EAE\u5757\uFF0C\u6362\u6210\u4F4E\u900F\u660E\u7EFF\u5E95 + \u63D0\u4EAE\u84DD\u5B57 */
@@ -796,6 +814,13 @@ body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view :not(pre) > co
 body.theme-dark.minimalism-ui-theme-forest .cm-inline-code {
 	color: #6fb3d6;
 	background-color: rgba(0, 153, 123, 0.16);
+}
+
+/* \u4EE3\u7801\u5757\u5E95\u8272\uFF1A\u6DF1\u5E95\u4E13\u7528 #333333\uFF08\u9605\u8BFB\u89C6\u56FE pre + \u7F16\u8F91\u89C6\u56FE HyperMD-codeblock \u884C\uFF09\u3002
+   \u6D45\u8272\u6A21\u5F0F\u4E0D\u8BBE\u6B64\u8272\uFF0C\u6CBF\u7528 Obsidian \u9ED8\u8BA4\u6D45\u5E95\uFF0C\u907F\u514D\u5728\u6D45\u9875\u9762\u4E0A\u51FA\u73B0\u6DF1\u8272\u4EE3\u7801\u5757\u3002 */
+body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view pre,
+body.theme-dark.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-codeblock {
+	background-color: #333333;
 }
 
 /* \u8868\u683C\u5355\u5143\u683C\u5B57\u8272\uFF1A\u5199\u6B7B\u7684 rgb(107,107,107) \u5728\u6DF1\u5E95\u4E0B\u504F\u6697\uFF0C\u8DDF\u968F --text-muted \u63D0\u4EAE */
@@ -812,18 +837,19 @@ body.theme-dark.minimalism-ui-theme-forest .bases-view .bases-thead .bases-td {
 /* =============================================================================
    \u4FA7\u8FB9\u680F / Chrome \u914D\u8272\uFF08\u4ECE styles.css \u8FC1\u5165\uFF09
    \u8FD9\u4E9B\u539F\u5148\u5199\u5728 styles.css\uFF08\u88AB\u5F53\u4F5C\u4E3B\u9898\u65E0\u5173 chrome\uFF09\uFF0C\u5B9E\u4E3A Forest \u4E13\u5C5E\u7684\u6DF1\u8272\u4FA7\u8FB9\u680F\u5916\u89C2\uFF1A
-   \u6DF1\u84DD\u5E95 #123342 / \u6697\u8272 #1c1c1e + \u6D45\u7070\u5B57 + \u84DD\u8272 accent + \u6DF1\u5E95\u5EFA\u8BAE\u5F39\u5C42\u3002
+   \u6DF1\u84DD\u5E95 #123342 / \u6697\u8272 #2E3033 + \u6D45\u7070\u5B57 + \u84DD\u8272 accent + \u6DF1\u5E95\u5EFA\u8BAE\u5F39\u5C42\u3002
    \u73B0\u6536\u5F52\u672C\u4E3B\u9898\uFF0C\u5168\u90E8\u53E0\u52A0 body.minimalism-ui-theme-forest \u4F5C\u7528\u57DF\uFF0C\u4EC5 Forest \u6FC0\u6D3B\u65F6\u751F\u6548\uFF1B
    \u5176\u4ED6\u4E3B\u9898\uFF08\u5982 newspaper\uFF09\u5404\u5199\u5404\u7684\u3002
    ============================================================================= */
 
-/* \u4FA7\u8FB9\u680F\u672C\u4F53\u80CC\u666F\uFF1A\u6D45\u8272\u6A21\u5F0F\u6DF1\u84DD\uFF0C\u6697\u8272\u6A21\u5F0F\u6DF1\u7070 */
+/* \u4FA7\u8FB9\u680F\u672C\u4F53\u80CC\u666F\uFF1A\u6D45\u8272\u6A21\u5F0F\u6DF1\u84DD\uFF0C\u6697\u8272\u6A21\u5F0F\u6DF1\u7070\uFF1B\u53BB\u6389\u9ED8\u8BA4\u53F3\u4FA7\u6295\u5F71 */
 body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split {
 	background-color: #123342;
+	box-shadow: none;
 }
 
 body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split {
-	background-color: #1c1c1e;
+	background-color: #2E3033;
 }
 
 /* \u4FA7\u8FB9\u680F\u6587\u5B57\u6D45\u8272\u9002\u914D\u6DF1\u8272\u80CC\u666F */
@@ -839,7 +865,7 @@ body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side
 
 body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left,
 body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left::before {
-	background-color: #1c1c1e;
+	background-color: #2E3033;
 }
 
 /* ribbon \u56FE\u6807\u6D45\u8272\u9002\u914D\u6DF1\u5E95 */
@@ -869,13 +895,17 @@ body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-leaf-conten
 }
 
 body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content::before {
-	background-color: #1c1c1e;
+	background-color: #2E3033;
 }
 
 /* \u5DE6\u4E0B\u89D2 vault profile\uFF1A\u6DF1\u8272\u5E95 + \u865A\u7EBF\u9876\u8FB9 */
 body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-sidedock-vault-profile {
 	background-color: #123342;
 	border-top: 1px dashed rgba(180, 180, 180, 0.3);
+}
+
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-sidedock-vault-profile {
+	background-color: #2E3033;
 }
 
 /* \u5BFC\u822A\u9879 hover / active\uFF08\u84DD\u8272 accent\uFF09 */
