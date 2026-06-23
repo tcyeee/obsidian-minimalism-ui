@@ -5,6 +5,22 @@
 
 ---
 
+## Version 1.3.2
+
+- Ribbon visibility now follows Obsidian's native ribbon config, so show/hide is reliable across reloads
+- Single-Page Mode handles restored and merged tabs more reliably — de-duplication and the tab cap now account for tabs recreated on startup or by dragging
+- Code blocks wrap long lines in edit view and scroll horizontally in reading view, in both Forest and Newspaper themes
+- Forest dark mode: dedicated code-block and content-area backgrounds for better contrast, and Mermaid diagrams now render inside a framed, padded box that adapts to light/dark
+- Cleaner Outline sidebar: removed the indentation guide lines under headings
+
+- 功能区显隐改为跟随 Obsidian 原生配置，重载后状态稳定可靠
+- 单页模式更可靠地处理恢复和合并的标签——去重与标签上限现在会正确计入启动重建或拖拽产生的标签
+- 代码块在编辑视图折行显示超长行、在阅读视图横向滚动，Forest 与 Newspaper 主题均生效
+- Forest 暗色模式：为代码块与正文区设置专用背景以提升对比度，Mermaid 图表改为带边框内边距的框体并自动适配深浅模式
+- 大纲侧栏更简洁：移除各标题下方的层级缩进引导线
+
+---
+
 ## Version 1.3.1
 
 - Added responsive left sidebar: it auto-collapses when the window gets too narrow to keep the note at its readable line width, and re-expands once there's room again
