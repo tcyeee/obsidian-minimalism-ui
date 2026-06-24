@@ -990,6 +990,36 @@ body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.
 body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-circle        { color: rgba(91, 165, 220, 0.4); }
 body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-arrow         { color: rgba(180, 210, 240, 0.6); }
 body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-line          { color: rgba(180, 210, 240, 0.35); }
+
+/* \u2500\u2500 \u5185\u5D4C Ribbon \u9762\u677F\uFF08forest \u4E3B\u9898\uFF09\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+/* \u9762\u677F\u80CC\u666F\u4E0E vault profile \u540C\u8272\uFF0C\u878D\u4E3A\u4E00\u4F53 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel {
+	background-color: #123342;
+}
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel {
+	background-color: #2E3033;
+}
+
+/* Ribbon \u56FE\u6807\uFF1A\u6D45\u8272\u9002\u914D\u6DF1\u5E95 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-ribbon-action,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .clickable-icon {
+	color: rgba(196, 196, 196, 0.7);
+}
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-ribbon-action:hover,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .clickable-icon:hover {
+	color: rgba(255, 255, 255, 0.95);
+	background-color: rgba(255, 255, 255, 0.08);
+	border-radius: 4px;
+}
+
+/* \u5C55\u5F00/\u6536\u8D77\u6309\u94AE\uFF1A\u4E0E vault-actions \u5176\u4ED6\u56FE\u6807\u89C6\u89C9\u4E00\u81F4 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-toggle {
+	color: rgba(196, 196, 196, 0.7);
+}
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-toggle:hover {
+	color: rgba(255, 255, 255, 0.95);
+	background-color: rgba(255, 255, 255, 0.08);
+}
 `, "newspaper": `/* =============================================================================
    Newspaper \u2014 Minimalism UI \u7B14\u8BB0\u4E3B\u9898
    \u79FB\u690D\u81EA Typora "Newsprint" \u4E3B\u9898\uFF1A\u5976\u767D\u7EB8\u5F20 + \u8FD1\u9ED1\u886C\u7EBF + \u62A5\u520A\u6392\u7248

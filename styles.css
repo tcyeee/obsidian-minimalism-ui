@@ -173,9 +173,38 @@ body.minimalism-ui-mac-sidebar .workspace-tabs[data-properties-auto-height] {
 
 /* 侧边栏底部 vault profile 背景色为主题专属，已移至 theme/<主题>/<主题>.css */
 
-/* 关闭“底部用户设置区域”开关时隐藏 vault profile */
+/* 关闭”底部用户设置区域”开关时隐藏 vault profile */
 body.minimalism-ui-hide-vault-profile .workspace-split.mod-left-split .workspace-sidedock-vault-profile {
 	display: none;
+}
+
+/* ── 侧边栏内嵌 Ribbon 面板 ──────────────────────────────────────────── */
+/* grid-template-rows 技巧：无需已知高度即可平滑展开/收起 */
+body.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel {
+	display: grid;
+	grid-template-rows: 1fr;
+	transition: grid-template-rows 0.25s ease;
+}
+body.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel.is-collapsed {
+	grid-template-rows: 0fr;
+}
+
+/* 裁切层：overflow:hidden 配合 grid 高度动画 */
+body.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner {
+	overflow: hidden;
+}
+
+/* 图标行：水平排列，可换行 */
+body.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-actions {
+	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+	align-items: center;
+	padding: 4px 6px;
+	gap: 2px;
+	height: auto;
+	width: 100%;
+	box-sizing: border-box;
 }
 
 /* 内容区背景透明，露出侧边栏底色 */

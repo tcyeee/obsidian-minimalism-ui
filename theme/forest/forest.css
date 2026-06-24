@@ -930,3 +930,33 @@ body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.
 body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-circle        { color: rgba(91, 165, 220, 0.4); }
 body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-arrow         { color: rgba(180, 210, 240, 0.6); }
 body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-line          { color: rgba(180, 210, 240, 0.35); }
+
+/* ── 内嵌 Ribbon 面板（forest 主题）──────────────────────────────────── */
+/* 面板背景与 vault profile 同色，融为一体 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel {
+	background-color: #123342;
+}
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel {
+	background-color: #2E3033;
+}
+
+/* Ribbon 图标：浅色适配深底 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-ribbon-action,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .clickable-icon {
+	color: rgba(196, 196, 196, 0.7);
+}
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-ribbon-action:hover,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .clickable-icon:hover {
+	color: rgba(255, 255, 255, 0.95);
+	background-color: rgba(255, 255, 255, 0.08);
+	border-radius: 4px;
+}
+
+/* 展开/收起按钮：与 vault-actions 其他图标视觉一致 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-toggle {
+	color: rgba(196, 196, 196, 0.7);
+}
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-toggle:hover {
+	color: rgba(255, 255, 255, 0.95);
+	background-color: rgba(255, 255, 255, 0.08);
+}
