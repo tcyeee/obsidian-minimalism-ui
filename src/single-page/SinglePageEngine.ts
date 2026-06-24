@@ -244,6 +244,12 @@ export class SinglePageEngine {
 		return this.pendingInterceptLeaves.has(leaf);
 	}
 
+	// 释放 pending 状态：HomePageManager 在延迟确认 leaf 仍为空（无文件被加载）后调用，
+	// 使 openHomePage 的 canReuse 判断能复用该 leaf，而无需另开新 tab。
+	releasePendingLeaf(leaf: WorkspaceLeaf): void {
+		this.pendingInterceptLeaves.delete(leaf);
+	}
+
 	// 首页是否正在打开。供 HomePageManager 在 active-leaf-change 中过滤：openHomePage 自身的 getLeaf
 	// 会先产生一个临时空 leaf 并触发 active-leaf-change，此时不能再次触发打开（会无限重入）。
 	isOpeningHomePage(): boolean {

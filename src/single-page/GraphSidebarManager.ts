@@ -1,10 +1,11 @@
 /**
- * GraphSidebarManager — 进入/离开全局关系图时自动收起 / 恢复左侧边栏。
+ * GraphSidebarManager — 进入/离开全局关系图或 Canvas 时自动收起 / 恢复左侧边栏。
  *
  * 行为：
- * - 进入全局关系图(root leaf 的导航键为 GLOBAL_GRAPH_KEY)时，记录当前左侧边栏开合状态并收起。
- * - 离开关系图(切到任意其他 root 页面)时，恢复到**进入关系图那一刻**的状态：
+ * - 进入全局关系图(GLOBAL_GRAPH_KEY)或 Canvas 文件(.canvas)时，记录当前左侧边栏开合状态并收起。
+ * - 离开（切到任意其他 root 页面）时，恢复到**进入那一刻**的状态：
  *   进入前是展开的就重新展开；进入前本就收起则保持收起。
+ * - graph ↔ canvas 直接切换：首次进入时记录状态，后续切换不覆盖，最终离开时正确恢复。
  *
  * 只管左侧边栏(workspace.leftSplit)，符合插件的极简哲学。
  *
@@ -29,8 +30,8 @@ export class GraphSidebarManager {
 
 	// 由引擎在 root leaf 切换时调用，navKey 为该 root leaf 的导航键(无文件视图为 null)。
 	handleRootNav(navKey: string | null) {
-		const isGraph = navKey === GLOBAL_GRAPH_KEY;
-		if (isGraph) {
+		const isImmersive = navKey === GLOBAL_GRAPH_KEY || (navKey !== null && navKey.endsWith('.canvas'));
+		if (isImmersive) {
 			this.enterGraph();
 		} else {
 			this.leaveGraph();

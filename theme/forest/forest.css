@@ -741,12 +741,21 @@ body.minimalism-ui-theme-forest .mermaid svg text {
 body.theme-dark.minimalism-ui-theme-forest {
 	--minimalism-table-line: rgba(255, 255, 255, 0.12);
 	--table-border-color: rgba(255, 255, 255, 0.12);
+	--hr-color: rgba(180, 180, 180, 0.3);
 }
 
 /* 内容区背景：暗色模式正文区改为 #373B40，与 #2E3033 侧边栏区分层次 */
 body.theme-dark.minimalism-ui-theme-forest {
 	--background-primary: #373B40;
 	--background-primary-alt: #373B40;
+}
+
+/* 阅读视图分割线：暗色模式下 Obsidian 用 background-color 渲染 hr，dashed 不生效；
+   显式清掉 background 并重申虚线，压过默认规则。 */
+body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view hr {
+	background: none;
+	border: none;
+	border-top: 1px dashed rgba(180, 180, 180, 0.3);
 }
 
 /* 行内代码：浅灰底 #F3F3F3 在深底下是亮块，换成低透明绿底 + 提亮蓝字 */
