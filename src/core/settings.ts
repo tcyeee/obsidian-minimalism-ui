@@ -2,6 +2,7 @@ export interface MinimalismUISettings {
 	showProperties: boolean;
 	showLocalGraph: boolean;
 	showVaultProfile: boolean;
+	ribbonPanelExpanded: boolean;
 	hideTabBar: boolean;
 	disableNoteTabs: boolean;
 	enableNavAnimation: boolean;
@@ -25,6 +26,8 @@ export const DEFAULT_SETTINGS: MinimalismUISettings = {
 	showProperties: true,
 	showLocalGraph: true,
 	showVaultProfile: true,
+	// 默认展开：首次安装即可看到 ribbon 图标
+	ribbonPanelExpanded: true,
 	hideTabBar: true,
 	disableNoteTabs: true,
 	enableNavAnimation: true,
