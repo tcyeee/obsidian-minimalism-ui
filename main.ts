@@ -14,6 +14,7 @@ import { SidebarLayoutManager } from './src/layout/SidebarLayoutManager';
 import { SidebarSuggestFocusTracker } from './src/layout/SidebarSuggestFocusTracker';
 import { ResponsiveSidebarManager } from './src/layout/ResponsiveSidebarManager';
 import { PropertyKeyResizer } from './src/layout/PropertyKeyResizer';
+import { RibbonPanelManager } from './src/layout/RibbonPanelManager';
 import { MermaidZoomManager } from './src/mermaid/MermaidZoomManager';
 import { OnboardingManager } from './src/onboarding/OnboardingManager';
 import { FirstRunCleanup } from './src/onboarding/FirstRunCleanup';
@@ -40,6 +41,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	private sidebarSuggestFocus: SidebarSuggestFocusTracker;
 	private responsiveSidebar: ResponsiveSidebarManager;
 	private propertyKeyResizer: PropertyKeyResizer;
+	private ribbonPanel: RibbonPanelManager;
 	private mermaidZoom: MermaidZoomManager;
 	private onboarding: OnboardingManager;
 	// 一次性首次启用收拢；无持久副作用，不进 features[]。
@@ -75,6 +77,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.sidebarSuggestFocus = new SidebarSuggestFocusTracker();
 		this.responsiveSidebar = new ResponsiveSidebarManager(this.app);
 		this.propertyKeyResizer = new PropertyKeyResizer(settings, () => this.saveData(this.settings));
+		this.ribbonPanel = new RibbonPanelManager(settings, () => this.saveSettings());
 		this.mermaidZoom = new MermaidZoomManager(this.app);
 		this.onboarding = new OnboardingManager(this.app, settings, () => this.saveData(this.settings));
 		this.firstRunCleanup = new FirstRunCleanup(this.app, async () => {
@@ -98,6 +101,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			this.propertyKeyResizer,
 			this.mermaidZoom,
 			this.onboarding,
+			this.ribbonPanel,
 		];
 
 		// 立即生效的部分
@@ -125,6 +129,8 @@ export default class MinimalismUIPlugin extends Plugin {
 			void this.sidebarLayout.apply();
 			// 窗口宽度自适应收起左侧栏：依赖 leftSplit 与窗口尺寸就绪。
 			this.responsiveSidebar.apply();
+			// 将 .side-dock-actions 迁移至侧边栏内嵌可折叠面板。
+			this.ribbonPanel.apply();
 		});
 
 		this.addSettingTab(new MinimalismUISettingTab(this.app, this));

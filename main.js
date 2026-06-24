@@ -27,7 +27,7 @@ __export(main_exports, {
   default: () => MinimalismUIPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian8 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 
 // src/core/settings.ts
 var DEFAULT_SETTINGS = {
@@ -4052,6 +4052,67 @@ var PropertyKeyResizer = class {
   }
 };
 
+// src/layout/RibbonPanelManager.ts
+var import_obsidian6 = require("obsidian");
+var RibbonPanelManager = class {
+  constructor(getSettings, saveSettings) {
+    this.getSettings = getSettings;
+    this.saveSettings = saveSettings;
+    this.panel = null;
+    this.toggleBtn = null;
+    this.movedEl = null;
+    this.movedElOriginalParent = null;
+    this.movedElOriginalNextSibling = null;
+  }
+  apply() {
+    this.remove();
+    const sideDocActions = activeDocument.querySelector(
+      ".workspace-ribbon.side-dock-ribbon.mod-left .side-dock-actions"
+    );
+    const vaultProfile = activeDocument.querySelector(
+      ".workspace-split.mod-left-split .workspace-sidedock-vault-profile"
+    );
+    const vaultActions = vaultProfile == null ? void 0 : vaultProfile.querySelector(
+      ".workspace-drawer-vault-actions"
+    );
+    if (!sideDocActions || !vaultProfile || !vaultActions || !vaultProfile.parentElement) return;
+    this.panel = createDiv({ cls: "minimalism-ui-ribbon-panel" });
+    const inner = this.panel.createDiv({ cls: "minimalism-ui-ribbon-panel-inner" });
+    vaultProfile.parentElement.insertBefore(this.panel, vaultProfile);
+    this.movedElOriginalParent = sideDocActions.parentElement;
+    this.movedElOriginalNextSibling = sideDocActions.nextSibling;
+    this.movedEl = sideDocActions;
+    inner.appendChild(sideDocActions);
+    const expanded = this.getSettings().ribbonPanelExpanded;
+    if (!expanded) this.panel.classList.add("is-collapsed");
+    this.toggleBtn = createDiv({ cls: "minimalism-ui-ribbon-toggle clickable-icon" });
+    (0, import_obsidian6.setIcon)(this.toggleBtn, expanded ? "chevron-down" : "chevron-up");
+    this.toggleBtn.addEventListener("click", () => this.toggle());
+    vaultActions.prepend(this.toggleBtn);
+  }
+  remove() {
+    var _a, _b;
+    if (this.movedEl && this.movedElOriginalParent) {
+      this.movedElOriginalParent.insertBefore(this.movedEl, this.movedElOriginalNextSibling);
+    }
+    (_a = this.panel) == null ? void 0 : _a.remove();
+    (_b = this.toggleBtn) == null ? void 0 : _b.remove();
+    this.panel = null;
+    this.toggleBtn = null;
+    this.movedEl = null;
+    this.movedElOriginalParent = null;
+    this.movedElOriginalNextSibling = null;
+  }
+  toggle() {
+    if (!this.panel || !this.toggleBtn) return;
+    const s = this.getSettings();
+    s.ribbonPanelExpanded = !s.ribbonPanelExpanded;
+    this.panel.classList.toggle("is-collapsed", !s.ribbonPanelExpanded);
+    (0, import_obsidian6.setIcon)(this.toggleBtn, s.ribbonPanelExpanded ? "chevron-down" : "chevron-up");
+    void this.saveSettings();
+  }
+};
+
 // src/mermaid/MermaidZoomManager.ts
 var MermaidZoomManager = class {
   constructor(app) {
@@ -4116,7 +4177,7 @@ var MermaidZoomManager = class {
 };
 
 // src/onboarding/OnboardingManager.ts
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 var PANEL_CLASS = "minimalism-ui-onboarding";
 var ALL_DONE_HIDE_DELAY = 2500;
 var EXIT_DURATION = 320;
@@ -4127,8 +4188,8 @@ function hasIndexNote(app) {
 function homeNoteHasLink(app, settings) {
   const path = settings.homePage.trim();
   if (!path) return false;
-  const file = app.vault.getAbstractFileByPath((0, import_obsidian6.normalizePath)(path));
-  if (!(file instanceof import_obsidian6.TFile)) return false;
+  const file = app.vault.getAbstractFileByPath((0, import_obsidian7.normalizePath)(path));
+  if (!(file instanceof import_obsidian7.TFile)) return false;
   const links = app.metadataCache.resolvedLinks[file.path];
   return links != null && Object.keys(links).length > 0;
 }
@@ -4144,7 +4205,7 @@ function openPluginSettings(app) {
   setting == null ? void 0 : setting.open();
   setting == null ? void 0 : setting.openTabById(PLUGIN_ID);
 }
-var MOD_SYMBOLS = import_obsidian6.Platform.isMacOS ? { Mod: "\u2318", Ctrl: "\u2303", Meta: "\u2318", Alt: "\u2325", Shift: "\u21E7" } : { Mod: "Ctrl", Ctrl: "Ctrl", Meta: "Win", Alt: "Alt", Shift: "Shift" };
+var MOD_SYMBOLS = import_obsidian7.Platform.isMacOS ? { Mod: "\u2318", Ctrl: "\u2303", Meta: "\u2318", Alt: "\u2325", Shift: "\u21E7" } : { Mod: "Ctrl", Ctrl: "Ctrl", Meta: "Win", Alt: "Alt", Shift: "Shift" };
 var MOD_ORDER = ["Ctrl", "Alt", "Shift", "Meta", "Mod"];
 var KEY_LABELS = {
   ArrowLeft: "\u2190",
@@ -4381,8 +4442,8 @@ var FirstRunCleanup = class {
 };
 
 // src/SettingTab.ts
-var import_obsidian7 = require("obsidian");
-var FileSuggest = class extends import_obsidian7.AbstractInputSuggest {
+var import_obsidian8 = require("obsidian");
+var FileSuggest = class extends import_obsidian8.AbstractInputSuggest {
   constructor() {
     super(...arguments);
     this.onPickCb = null;
@@ -4404,7 +4465,7 @@ var FileSuggest = class extends import_obsidian7.AbstractInputSuggest {
     this.close();
   }
 };
-var MinimalismUISettingTab = class extends import_obsidian7.PluginSettingTab {
+var MinimalismUISettingTab = class extends import_obsidian8.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -4437,13 +4498,13 @@ var MinimalismUISettingTab = class extends import_obsidian7.PluginSettingTab {
     intro.createEl("p", { text: t("introDesc1") });
     intro.createEl("p", { text: t("introDesc2") });
     const generalEl = this.addCollapsibleSection("general", t("headingGeneral"));
-    new import_obsidian7.Setting(generalEl).setName(t("language")).addDropdown((drop) => drop.addOption("auto", t("languageAuto")).addOption("zh", t("languageZh")).addOption("en", t("languageEn")).setValue(this.plugin.settings.language).onChange(async (v) => {
+    new import_obsidian8.Setting(generalEl).setName(t("language")).addDropdown((drop) => drop.addOption("auto", t("languageAuto")).addOption("zh", t("languageZh")).addOption("en", t("languageEn")).setValue(this.plugin.settings.language).onChange(async (v) => {
       this.plugin.settings.language = v;
       setLang(v);
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian7.Setting(generalEl).setName(t("theme")).addDropdown((drop) => {
+    new import_obsidian8.Setting(generalEl).setName(t("theme")).addDropdown((drop) => {
       const names = this.plugin.listThemes();
       for (const name of names) drop.addOption(name, name);
       if (!names.includes(this.plugin.settings.theme)) {
@@ -4457,7 +4518,7 @@ var MinimalismUISettingTab = class extends import_obsidian7.PluginSettingTab {
       });
     });
     const interactionEl = this.addCollapsibleSection("interaction", t("headingInteraction"));
-    const singlePageSetting = new import_obsidian7.Setting(interactionEl).setName(t("singlePage"));
+    const singlePageSetting = new import_obsidian8.Setting(interactionEl).setName(t("singlePage"));
     singlePageSetting.settingEl.addClass("minimalism-ui-single-page-setting");
     singlePageSetting.addToggle((toggle) => toggle.setValue(this.plugin.settings.disableNoteTabs).onChange(async (v) => {
       this.plugin.settings.disableNoteTabs = v;
@@ -4471,7 +4532,7 @@ var MinimalismUISettingTab = class extends import_obsidian7.PluginSettingTab {
     singlePageSetting.descEl.createEl("br");
     singlePageSetting.descEl.createSpan({ text: t("singlePageDesc4") });
     singlePageSetting.descEl.createEl("br");
-    new import_obsidian7.Setting(interactionEl).setName(t("homePage")).setDesc(t("homePageDesc")).addText((text) => {
+    new import_obsidian8.Setting(interactionEl).setName(t("homePage")).setDesc(t("homePageDesc")).addText((text) => {
       text.setPlaceholder(t("homePagePlaceholder")).setValue(this.plugin.settings.homePage);
       const applyHomePage = (value) => {
         const changed = this.plugin.settings.homePage !== value;
@@ -4484,37 +4545,37 @@ var MinimalismUISettingTab = class extends import_obsidian7.PluginSettingTab {
       text.inputEl.addEventListener("change", () => applyHomePage(text.inputEl.value.trim()));
     });
     const appearanceEl = this.addCollapsibleSection("appearance", t("headingAppearance"));
-    new import_obsidian7.Setting(appearanceEl).setName(t("hideTabBar")).addToggle((toggle) => toggle.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
+    new import_obsidian8.Setting(appearanceEl).setName(t("hideTabBar")).addToggle((toggle) => toggle.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
       this.plugin.settings.hideTabBar = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian7.Setting(appearanceEl).setName(t("showProperties")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showProperties).onChange(async (v) => {
+    new import_obsidian8.Setting(appearanceEl).setName(t("showProperties")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showProperties).onChange(async (v) => {
       this.plugin.settings.showProperties = v;
       await this.plugin.saveSettings();
       await this.plugin.applyMacSidebarLayout();
     }));
-    new import_obsidian7.Setting(appearanceEl).setName(t("showLocalGraph")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showLocalGraph).onChange(async (v) => {
+    new import_obsidian8.Setting(appearanceEl).setName(t("showLocalGraph")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showLocalGraph).onChange(async (v) => {
       this.plugin.settings.showLocalGraph = v;
       await this.plugin.saveSettings();
       await this.plugin.applyMacSidebarLayout();
     }));
-    new import_obsidian7.Setting(appearanceEl).setName(t("showVaultProfile")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showVaultProfile).onChange(async (v) => {
+    new import_obsidian8.Setting(appearanceEl).setName(t("showVaultProfile")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showVaultProfile).onChange(async (v) => {
       this.plugin.settings.showVaultProfile = v;
       await this.plugin.saveSettings();
     }));
     const animationEl = this.addCollapsibleSection("animation", t("headingAnimation"));
-    new import_obsidian7.Setting(animationEl).setName(t("navAnimation")).setDesc(t("navAnimationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
+    new import_obsidian8.Setting(animationEl).setName(t("navAnimation")).setDesc(t("navAnimationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
       this.plugin.settings.enableNavAnimation = v;
       await this.plugin.saveSettings();
     }));
     const advancedEl = this.addCollapsibleSection("advanced", t("headingAdvanced"));
-    new import_obsidian7.Setting(advancedEl).setName(t("filenamePrefixManual")).setDesc(t("filenamePrefixManualDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.filenamePrefixManual).onChange((value) => {
+    new import_obsidian8.Setting(advancedEl).setName(t("filenamePrefixManual")).setDesc(t("filenamePrefixManualDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.filenamePrefixManual).onChange((value) => {
       this.plugin.settings.filenamePrefixManual = value;
       void this.plugin.saveSettings();
       this.display();
     }));
     if (this.plugin.settings.filenamePrefixManual) {
-      new import_obsidian7.Setting(advancedEl).setName(t("filenamePrefixLength")).setDesc(t("filenamePrefixLengthDesc")).addText((text) => {
+      new import_obsidian8.Setting(advancedEl).setName(t("filenamePrefixLength")).setDesc(t("filenamePrefixLengthDesc")).addText((text) => {
         text.inputEl.type = "number";
         text.inputEl.min = "0";
         text.inputEl.max = "20";
@@ -4533,7 +4594,7 @@ var MinimalismUISettingTab = class extends import_obsidian7.PluginSettingTab {
 };
 
 // main.ts
-var MinimalismUIPlugin = class extends import_obsidian8.Plugin {
+var MinimalismUIPlugin = class extends import_obsidian9.Plugin {
   constructor() {
     super(...arguments);
     // 所有功能单元，统一用于卸载，避免逐个手写 remove() 时遗漏。
@@ -4563,6 +4624,7 @@ var MinimalismUIPlugin = class extends import_obsidian8.Plugin {
     this.sidebarSuggestFocus = new SidebarSuggestFocusTracker();
     this.responsiveSidebar = new ResponsiveSidebarManager(this.app);
     this.propertyKeyResizer = new PropertyKeyResizer(settings, () => this.saveData(this.settings));
+    this.ribbonPanel = new RibbonPanelManager(settings, () => this.saveSettings());
     this.mermaidZoom = new MermaidZoomManager(this.app);
     this.onboarding = new OnboardingManager(this.app, settings, () => this.saveData(this.settings));
     this.firstRunCleanup = new FirstRunCleanup(this.app, async () => {
@@ -4584,7 +4646,8 @@ var MinimalismUIPlugin = class extends import_obsidian8.Plugin {
       this.responsiveSidebar,
       this.propertyKeyResizer,
       this.mermaidZoom,
-      this.onboarding
+      this.onboarding,
+      this.ribbonPanel
     ];
     await this.fontLoader.apply();
     void this.themeLoader.apply();
@@ -4605,6 +4668,7 @@ var MinimalismUIPlugin = class extends import_obsidian8.Plugin {
       void this.homePage.openHomePage();
       void this.sidebarLayout.apply();
       this.responsiveSidebar.apply();
+      this.ribbonPanel.apply();
     });
     this.addSettingTab(new MinimalismUISettingTab(this.app, this));
   }
