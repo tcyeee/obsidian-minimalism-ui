@@ -155,13 +155,11 @@ export default class MinimalismUIPlugin extends Plugin {
 
 	// ─── Ribbon ───────────────────────────────────────────────────────────────
 
-	// 左侧 ribbon（活动栏）的显隐由 Obsidian 1.8 起自己接管：原生 showRibbon 配置驱动
-	// body.show-ribbon，并以 `body:not(.show-ribbon) .workspace-ribbon{display:none}` 隐藏。
-	// 插件单靠自家 CSS 只能再叠一层 display:none，无法盖过原生隐藏——所以这里直接写原生配置，
-	// 与 Obsidian 设置面板里那个开关同源（setConfig 会触发 updateRibbonDisplay 立即生效）。
+	// 左侧 ribbon 始终隐藏：图标迁移至侧边栏内嵌 RibbonPanelManager。
+	// setConfig 立即触发 Obsidian 内部 updateRibbonDisplay，比插件 CSS 更可靠。
 	applyRibbon() {
 		type ConfigVault = { setConfig(key: string, value: unknown): void };
-		(this.app.vault as unknown as ConfigVault).setConfig('showRibbon', this.settings.showRibbon);
+		(this.app.vault as unknown as ConfigVault).setConfig('showRibbon', false);
 	}
 
 	// ─── Theme ────────────────────────────────────────────────────────────────

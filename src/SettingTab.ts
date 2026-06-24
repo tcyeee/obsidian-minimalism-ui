@@ -189,15 +189,6 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		new Setting(appearanceEl)
-			.setName(t('showRibbon'))
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.showRibbon)
-				.onChange(async v => {
-					this.plugin.settings.showRibbon = v;
-					await this.plugin.saveSettings();
-				}));
-
 		// ── Animation ──
 		const animationEl = this.addCollapsibleSection('animation', t('headingAnimation'));
 

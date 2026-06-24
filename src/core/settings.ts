@@ -2,7 +2,6 @@ export interface MinimalismUISettings {
 	showProperties: boolean;
 	showLocalGraph: boolean;
 	showVaultProfile: boolean;
-	showRibbon: boolean;
 	hideTabBar: boolean;
 	disableNoteTabs: boolean;
 	enableNavAnimation: boolean;
@@ -26,8 +25,6 @@ export const DEFAULT_SETTINGS: MinimalismUISettings = {
 	showProperties: true,
 	showLocalGraph: true,
 	showVaultProfile: true,
-	// 功能区（左侧 ribbon 活动栏）默认关闭
-	showRibbon: false,
 	hideTabBar: true,
 	disableNoteTabs: true,
 	enableNavAnimation: true,

@@ -35,8 +35,6 @@ var DEFAULT_SETTINGS = {
   showProperties: true,
   showLocalGraph: true,
   showVaultProfile: true,
-  // 功能区（左侧 ribbon 活动栏）默认关闭
-  showRibbon: false,
   hideTabBar: true,
   disableNoteTabs: true,
   enableNavAnimation: true,
@@ -801,12 +799,21 @@ body.minimalism-ui-theme-forest .mermaid svg text {
 body.theme-dark.minimalism-ui-theme-forest {
 	--minimalism-table-line: rgba(255, 255, 255, 0.12);
 	--table-border-color: rgba(255, 255, 255, 0.12);
+	--hr-color: rgba(180, 180, 180, 0.3);
 }
 
 /* \u5185\u5BB9\u533A\u80CC\u666F\uFF1A\u6697\u8272\u6A21\u5F0F\u6B63\u6587\u533A\u6539\u4E3A #373B40\uFF0C\u4E0E #2E3033 \u4FA7\u8FB9\u680F\u533A\u5206\u5C42\u6B21 */
 body.theme-dark.minimalism-ui-theme-forest {
 	--background-primary: #373B40;
 	--background-primary-alt: #373B40;
+}
+
+/* \u9605\u8BFB\u89C6\u56FE\u5206\u5272\u7EBF\uFF1A\u6697\u8272\u6A21\u5F0F\u4E0B Obsidian \u7528 background-color \u6E32\u67D3 hr\uFF0Cdashed \u4E0D\u751F\u6548\uFF1B
+   \u663E\u5F0F\u6E05\u6389 background \u5E76\u91CD\u7533\u865A\u7EBF\uFF0C\u538B\u8FC7\u9ED8\u8BA4\u89C4\u5219\u3002 */
+body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view hr {
+	background: none;
+	border: none;
+	border-top: 1px dashed rgba(180, 180, 180, 0.3);
 }
 
 /* \u884C\u5185\u4EE3\u7801\uFF1A\u6D45\u7070\u5E95 #F3F3F3 \u5728\u6DF1\u5E95\u4E0B\u662F\u4EAE\u5757\uFF0C\u6362\u6210\u4F4E\u900F\u660E\u7EFF\u5E95 + \u63D0\u4EAE\u84DD\u5B57 */
@@ -1918,7 +1925,6 @@ var translations = {
     showProperties: "\u5C5E\u6027\u9762\u677F",
     showLocalGraph: "\u672C\u5730\u5173\u7CFB\u56FE",
     showVaultProfile: "\u5E95\u90E8\u7528\u6237\u8BBE\u7F6E\u533A\u57DF",
-    showRibbon: "\u529F\u80FD\u533A",
     hideTabBar: "\u9690\u85CF\u5927\u7EB2\u6309\u94AE",
     theme: "\u4E3B\u9898",
     homePage: "\u7B14\u8BB0\u9996\u9875",
@@ -1963,7 +1969,6 @@ var translations = {
     showProperties: "Properties",
     showLocalGraph: "Local Graph",
     showVaultProfile: "Bottom settings area",
-    showRibbon: "Ribbon",
     hideTabBar: "Hide outline button",
     theme: "Theme",
     homePage: "Home note",
@@ -2463,8 +2468,8 @@ var GraphSidebarManager = class {
   }
   // 由引擎在 root leaf 切换时调用，navKey 为该 root leaf 的导航键(无文件视图为 null)。
   handleRootNav(navKey) {
-    const isGraph = navKey === GLOBAL_GRAPH_KEY;
-    if (isGraph) {
+    const isImmersive = navKey === GLOBAL_GRAPH_KEY || navKey !== null && navKey.endsWith(".canvas");
+    if (isImmersive) {
       this.enterGraph();
     } else {
       this.leaveGraph();
@@ -2612,6 +2617,11 @@ var SinglePageEngine = class {
   // 供外部（HomePageManager）判断：若为 pending 则不应触发首页跳转
   hasPendingIntercept(leaf) {
     return this.pendingInterceptLeaves.has(leaf);
+  }
+  // 释放 pending 状态：HomePageManager 在延迟确认 leaf 仍为空（无文件被加载）后调用，
+  // 使 openHomePage 的 canReuse 判断能复用该 leaf，而无需另开新 tab。
+  releasePendingLeaf(leaf) {
+    this.pendingInterceptLeaves.delete(leaf);
   }
   // 首页是否正在打开。供 HomePageManager 在 active-leaf-change 中过滤：openHomePage 自身的 getLeaf
   // 会先产生一个临时空 leaf 并触发 active-leaf-change，此时不能再次触发打开（会无限重入）。
@@ -3127,7 +3137,16 @@ var HomePageManager = class {
     if (this.engine.isOpeningHomePage()) return;
     if (!this.engine.isNavEmpty()) return;
     const active = this.app.workspace.getMostRecentLeaf();
-    if (active && this.engine.hasPendingIntercept(active)) return;
+    if (active && this.engine.hasPendingIntercept(active)) {
+      setTimeout(() => {
+        if (!this.engine.hasPendingIntercept(active)) return;
+        if (this.engine.isOpeningHomePage()) return;
+        if (!this.engine.isNavEmpty()) return;
+        this.engine.releasePendingLeaf(active);
+        void this.engine.openHomePage();
+      }, 0);
+      return;
+    }
     void this.engine.openHomePage();
   }
   async openHomePage() {
@@ -4481,10 +4500,6 @@ var MinimalismUISettingTab = class extends import_obsidian7.PluginSettingTab {
       this.plugin.settings.showVaultProfile = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian7.Setting(appearanceEl).setName(t("showRibbon")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showRibbon).onChange(async (v) => {
-      this.plugin.settings.showRibbon = v;
-      await this.plugin.saveSettings();
-    }));
     const animationEl = this.addCollapsibleSection("animation", t("headingAnimation"));
     new import_obsidian7.Setting(animationEl).setName(t("navAnimation")).setDesc(t("navAnimationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
       this.plugin.settings.enableNavAnimation = v;
@@ -4609,12 +4624,10 @@ var MinimalismUIPlugin = class extends import_obsidian8.Plugin {
     this.bodyClasses.apply();
   }
   // ─── Ribbon ───────────────────────────────────────────────────────────────
-  // 左侧 ribbon（活动栏）的显隐由 Obsidian 1.8 起自己接管：原生 showRibbon 配置驱动
-  // body.show-ribbon，并以 `body:not(.show-ribbon) .workspace-ribbon{display:none}` 隐藏。
-  // 插件单靠自家 CSS 只能再叠一层 display:none，无法盖过原生隐藏——所以这里直接写原生配置，
-  // 与 Obsidian 设置面板里那个开关同源（setConfig 会触发 updateRibbonDisplay 立即生效）。
+  // 左侧 ribbon 始终隐藏：图标迁移至侧边栏内嵌 RibbonPanelManager。
+  // setConfig 立即触发 Obsidian 内部 updateRibbonDisplay，比插件 CSS 更可靠。
   applyRibbon() {
-    this.app.vault.setConfig("showRibbon", this.settings.showRibbon);
+    this.app.vault.setConfig("showRibbon", false);
   }
   // ─── Theme ────────────────────────────────────────────────────────────────
   // 重新注入当前 theme 字段对应的主题 CSS 与字体（切换主题时调用）。
