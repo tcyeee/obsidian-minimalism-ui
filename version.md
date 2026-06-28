@@ -5,6 +5,18 @@
 
 ---
 
+## Version 1.3.3
+
+- Added a collapsible ribbon panel embedded in the left sidebar — ribbon icons now live inside the sidebar instead of the standalone ribbon bar, and can be expanded or collapsed via a toggle at the top of the panel
+- Removed the separate "Show ribbon" setting; ribbon visibility is now controlled entirely through the sidebar panel
+- Fixed Forest theme styling in editor mode (live preview and source) — layout and colors now render correctly in all editing contexts
+
+- 新增可折叠的功能区侧栏面板——Ribbon 图标嵌入左侧栏，通过面板顶部切换展开/折叠，取代原有独立功能区
+- 移除单独的「显示功能区」设置项，功能区显隐改由侧栏面板统一控制
+- 修复 Forest 主题在编辑模式（实时预览与源码模式）下的布局和颜色渲染问题
+
+---
+
 ## Version 1.3.2
 
 - Ribbon visibility now follows Obsidian's native ribbon config, so show/hide is reliable across reloads
