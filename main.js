@@ -205,8 +205,8 @@ body.minimalism-ui-theme-forest .markdown-reading-view :not(pre) > code {
 }
 
 /* \u7F16\u8F91\u89C6\u56FE\uFF08Live Preview\uFF09\uFF1A\u56F4\u680F\u4EE3\u7801\u5757 & \u884C\u5185\u4EE3\u7801 */
-body.minimalism-ui-theme-forest .HyperMD-codeblock,
-body.minimalism-ui-theme-forest .cm-inline-code {
+body.minimalism-ui-theme-forest .markdown-source-view:not(.is-source-mode) .HyperMD-codeblock,
+body.minimalism-ui-theme-forest .markdown-source-view:not(.is-source-mode) .cm-inline-code {
 	font-size: 0.8rem;
 }
 
@@ -214,14 +214,14 @@ body.minimalism-ui-theme-forest .cm-inline-code {
    \u7279\u5F02\u6027 (0,4,1) \u538B\u8FC7\u4E0A\u9762\u901A\u7528\u7684 .cm-editor .cm-line\uFF1Bwhite-space:pre-wrap \u4FDD\u7559\u7F29\u8FDB\u4E0E\u7A7A\u683C
    \u7684\u540C\u65F6\u5141\u8BB8\u6298\u884C\uFF0Cword-break/overflow-wrap \u8BA9\u8D85\u957F token \u4E5F\u80FD\u65AD\u884C\u3002
    \u80CC\u666F\u8272\u4E0D\u5728\u6B64\u8BBE\uFF1A\u6D45\u6A21\u5F0F\u6CBF\u7528 Obsidian \u9ED8\u8BA4\u6D45\u5E95\uFF0C\u6DF1\u5E95\u7684 #333333 \u4EC5\u5728\u4E0B\u65B9 body.theme-dark \u6BB5\u8986\u76D6\u3002 */
-body.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-codeblock {
+body.minimalism-ui-theme-forest .markdown-source-view:not(.is-source-mode) .cm-editor .cm-line.HyperMD-codeblock {
 	white-space: pre-wrap;
 	word-break: break-word;
 	overflow-wrap: anywhere;
 }
 
-/* \u7F16\u8F91\u89C6\u56FE\uFF1A\u884C\u5185\u4EE3\u7801\u80CC\u666F\u8272 */
-body.minimalism-ui-theme-forest .cm-inline-code {
+/* \u7F16\u8F91\u89C6\u56FE\uFF08Live Preview\uFF09\uFF1A\u884C\u5185\u4EE3\u7801\u80CC\u666F\u8272\uFF1B\u6E90\u7801\u6A21\u5F0F\u4E0B\u4E0D\u6E32\u67D3 */
+body.minimalism-ui-theme-forest .markdown-source-view:not(.is-source-mode) .cm-inline-code {
 	font-size: 0.8rem;
 	color: #347698;
 	background-color: #F3F3F3;
@@ -251,16 +251,31 @@ body.minimalism-ui-theme-forest .markdown-reading-view hr {
 	border-top: 1px dashed var(--hr-color, #DADCDE);
 }
 
-/* \u7F16\u8F91\u89C6\u56FE\uFF1A\u5206\u5272\u7EBF\uFF08\u53EA\u63CF\u7ED8\u5185\u5C42 .cm-hr\uFF0C\u4E0E\u9605\u8BFB\u89C6\u56FE\u7684 hr \u4E00\u81F4\uFF1B
-   \u4E0D\u8981\u7ED9\u6574\u884C .cm-line.HyperMD-hr \u52A0\u8FB9\u6846\uFF0C\u5426\u5219\u4F1A\u5728\u884C\u9876\u591A\u51FA\u4E00\u6761\u7EBF \u2192 \u53CC\u7EBF\uFF09 */
-body.minimalism-ui-theme-forest .cm-line.HyperMD-hr {
+/* \u5B9E\u65F6\u9884\u89C8\uFF08Live Preview\uFF09\uFF1A\u5206\u5272\u7EBF\uFF08\u53EA\u63CF\u7ED8\u5185\u5C42 .cm-hr\uFF0C\u4E0E\u9605\u8BFB\u89C6\u56FE\u7684 hr \u4E00\u81F4\uFF1B
+   \u4E0D\u8981\u7ED9\u6574\u884C .cm-line.HyperMD-hr \u52A0\u8FB9\u6846\uFF0C\u5426\u5219\u4F1A\u5728\u884C\u9876\u591A\u51FA\u4E00\u6761\u7EBF \u2192 \u53CC\u7EBF\uFF1B
+   \u6E90\u7801\u6A21\u5F0F\u4E0B\u4E0D\u6E32\u67D3\uFF0C\u4FDD\u7559\u539F\u59CB --- \u6587\u672C\u6837\u5F0F\uFF09
+   \u6CE8\u610F\uFF1A\u533A\u5206\u7F16\u8F91\u6A21\u5F0F\u7684\u6B63\u786E CSS \u7C7B\u662F .is-live-preview\uFF0C.is-source-mode \u4E0D\u5B58\u5728 */
+body.minimalism-ui-theme-forest .markdown-source-view.is-live-preview .cm-line.HyperMD-hr {
 	border: none;
 }
 
-body.minimalism-ui-theme-forest .cm-line.HyperMD-hr .cm-hr {
+body.minimalism-ui-theme-forest .markdown-source-view.is-live-preview .cm-line.HyperMD-hr .cm-hr {
 	border: none;
 	border-top: 1px dashed var(--hr-color, #DADCDE);
 	color: transparent;
+}
+
+/* \u6E90\u7801\u6A21\u5F0F\uFF08:not(.is-live-preview)\uFF09\uFF1A--- \u4FDD\u6301\u7EAF\u6587\u672C\u5916\u89C2 */
+body.minimalism-ui-theme-forest .markdown-source-view:not(.is-live-preview) .cm-line.HyperMD-hr {
+	background: none;
+	border: none;
+	height: auto;
+	line-height: inherit;
+}
+
+body.minimalism-ui-theme-forest .markdown-source-view:not(.is-live-preview) .cm-line.HyperMD-hr .cm-hr {
+	color: inherit;
+	border: none;
 }
 
 /* \u2500\u2500 \u6EDA\u52A8\u6761 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
@@ -810,17 +825,21 @@ body.theme-dark.minimalism-ui-theme-forest {
 	--background-primary-alt: #373B40;
 }
 
-/* \u9605\u8BFB\u89C6\u56FE\u5206\u5272\u7EBF\uFF1A\u6697\u8272\u6A21\u5F0F\u4E0B Obsidian \u7528 background-color \u6E32\u67D3 hr\uFF0Cdashed \u4E0D\u751F\u6548\uFF1B
-   \u663E\u5F0F\u6E05\u6389 background \u5E76\u91CD\u7533\u865A\u7EBF\uFF0C\u538B\u8FC7\u9ED8\u8BA4\u89C4\u5219\u3002 */
+/* \u6697\u8272\u6A21\u5F0F\uFF1AObsidian \u7528 background-color \u6E32\u67D3 hr\uFF0Cdashed \u4E0D\u751F\u6548\uFF1B
+   \u9605\u8BFB\u89C6\u56FE\u548C\u5B9E\u65F6\u9884\u89C8\u7EDF\u4E00\u6E05\u6389 background \u5E76\u91CD\u7533\u865A\u7EBF\uFF0C\u538B\u8FC7\u9ED8\u8BA4\u89C4\u5219\u3002 */
 body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view hr {
 	background: none;
 	border: none;
-	border-top: 1px dashed rgba(180, 180, 180, 0.3);
+	border-top: 1px dashed var(--hr-color);
+}
+
+body.theme-dark.minimalism-ui-theme-forest .markdown-source-view.is-live-preview .cm-line.HyperMD-hr .cm-hr {
+	background: none;
 }
 
 /* \u884C\u5185\u4EE3\u7801\uFF1A\u6D45\u7070\u5E95 #F3F3F3 \u5728\u6DF1\u5E95\u4E0B\u662F\u4EAE\u5757\uFF0C\u6362\u6210\u4F4E\u900F\u660E\u7EFF\u5E95 + \u63D0\u4EAE\u84DD\u5B57 */
 body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view :not(pre) > code,
-body.theme-dark.minimalism-ui-theme-forest .cm-inline-code {
+body.theme-dark.minimalism-ui-theme-forest .markdown-source-view:not(.is-source-mode) .cm-inline-code {
 	color: #6fb3d6;
 	background-color: rgba(0, 153, 123, 0.16);
 }
@@ -3170,7 +3189,7 @@ var HomePageManager = class {
     if (!this.engine.isNavEmpty()) return;
     const active = this.app.workspace.getMostRecentLeaf();
     if (active && this.engine.hasPendingIntercept(active)) {
-      setTimeout(() => {
+      window.setTimeout(() => {
         if (!this.engine.hasPendingIntercept(active)) return;
         if (this.engine.isOpeningHomePage()) return;
         if (!this.engine.isNavEmpty()) return;
@@ -4090,9 +4109,8 @@ var RibbonPanelManager = class {
     this.saveSettings = saveSettings;
     this.panel = null;
     this.toggleBtn = null;
-    this.movedEl = null;
-    this.movedElOriginalParent = null;
-    this.movedElOriginalNextSibling = null;
+    this.vaultRow = null;
+    this.movedNodes = [];
   }
   apply() {
     this.remove();
@@ -4105,13 +4123,28 @@ var RibbonPanelManager = class {
     const vaultActions = vaultProfile == null ? void 0 : vaultProfile.querySelector(
       ".workspace-drawer-vault-actions"
     );
-    if (!sideDocActions || !vaultProfile || !vaultActions || !vaultProfile.parentElement) return;
+    const vaultSwitcher = vaultProfile == null ? void 0 : vaultProfile.querySelector(
+      ".workspace-drawer-vault-switcher"
+    );
+    if (!sideDocActions || !vaultProfile || !vaultActions) return;
+    let panelAnchor = vaultActions;
+    if (vaultSwitcher && vaultSwitcher.parentElement === vaultProfile && vaultActions.parentElement === vaultProfile) {
+      this.vaultRow = createDiv({ cls: "minimalism-ui-vault-row" });
+      this.recordMove(vaultSwitcher);
+      this.recordMove(vaultActions);
+      vaultProfile.insertBefore(this.vaultRow, vaultSwitcher);
+      this.vaultRow.appendChild(vaultSwitcher);
+      this.vaultRow.appendChild(vaultActions);
+      panelAnchor = this.vaultRow;
+    }
     this.panel = createDiv({ cls: "minimalism-ui-ribbon-panel" });
     const inner = this.panel.createDiv({ cls: "minimalism-ui-ribbon-panel-inner" });
-    vaultProfile.parentElement.insertBefore(this.panel, vaultProfile);
-    this.movedElOriginalParent = sideDocActions.parentElement;
-    this.movedElOriginalNextSibling = sideDocActions.nextSibling;
-    this.movedEl = sideDocActions;
+    if (panelAnchor.parentElement === vaultProfile) {
+      vaultProfile.insertBefore(this.panel, panelAnchor);
+    } else {
+      vaultProfile.prepend(this.panel);
+    }
+    this.recordMove(sideDocActions);
     inner.appendChild(sideDocActions);
     const expanded = this.getSettings().ribbonPanelExpanded;
     if (!expanded) this.panel.classList.add("is-collapsed");
@@ -4121,17 +4154,25 @@ var RibbonPanelManager = class {
     vaultActions.prepend(this.toggleBtn);
   }
   remove() {
-    var _a, _b;
-    if (this.movedEl && this.movedElOriginalParent) {
-      this.movedElOriginalParent.insertBefore(this.movedEl, this.movedElOriginalNextSibling);
+    var _a, _b, _c;
+    for (let i = this.movedNodes.length - 1; i >= 0; i--) {
+      const { el, parent, next } = this.movedNodes[i];
+      if (next && next.parentNode === parent) {
+        parent.insertBefore(el, next);
+      } else {
+        parent.appendChild(el);
+      }
     }
+    this.movedNodes = [];
     (_a = this.panel) == null ? void 0 : _a.remove();
     (_b = this.toggleBtn) == null ? void 0 : _b.remove();
+    (_c = this.vaultRow) == null ? void 0 : _c.remove();
     this.panel = null;
     this.toggleBtn = null;
-    this.movedEl = null;
-    this.movedElOriginalParent = null;
-    this.movedElOriginalNextSibling = null;
+    this.vaultRow = null;
+  }
+  recordMove(el) {
+    this.movedNodes.push({ el, parent: el.parentElement, next: el.nextSibling });
   }
   toggle() {
     if (!this.panel || !this.toggleBtn) return;

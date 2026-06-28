@@ -52,7 +52,7 @@ export class HomePageManager {
 		// 若 leaf 仍在 pending，说明无文件将加载，此时再打开首页。
 		const active = this.app.workspace.getMostRecentLeaf();
 		if (active && this.engine.hasPendingIntercept(active)) {
-			setTimeout(() => {
+			window.setTimeout(() => {
 				if (!this.engine.hasPendingIntercept(active)) return; // openFile 已调用，跳过
 				if (this.engine.isOpeningHomePage()) return;
 				if (!this.engine.isNavEmpty()) return;
