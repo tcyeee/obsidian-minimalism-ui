@@ -145,8 +145,8 @@ body.minimalism-ui-theme-forest .markdown-reading-view :not(pre) > code {
 }
 
 /* 编辑视图（Live Preview）：围栏代码块 & 行内代码 */
-body.minimalism-ui-theme-forest .HyperMD-codeblock,
-body.minimalism-ui-theme-forest .cm-inline-code {
+body.minimalism-ui-theme-forest .markdown-source-view:not(.is-source-mode) .HyperMD-codeblock,
+body.minimalism-ui-theme-forest .markdown-source-view:not(.is-source-mode) .cm-inline-code {
 	font-size: 0.8rem;
 }
 
@@ -154,14 +154,14 @@ body.minimalism-ui-theme-forest .cm-inline-code {
    特异性 (0,4,1) 压过上面通用的 .cm-editor .cm-line；white-space:pre-wrap 保留缩进与空格
    的同时允许折行，word-break/overflow-wrap 让超长 token 也能断行。
    背景色不在此设：浅模式沿用 Obsidian 默认浅底，深底的 #333333 仅在下方 body.theme-dark 段覆盖。 */
-body.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-codeblock {
+body.minimalism-ui-theme-forest .markdown-source-view:not(.is-source-mode) .cm-editor .cm-line.HyperMD-codeblock {
 	white-space: pre-wrap;
 	word-break: break-word;
 	overflow-wrap: anywhere;
 }
 
-/* 编辑视图：行内代码背景色 */
-body.minimalism-ui-theme-forest .cm-inline-code {
+/* 编辑视图（Live Preview）：行内代码背景色；源码模式下不渲染 */
+body.minimalism-ui-theme-forest .markdown-source-view:not(.is-source-mode) .cm-inline-code {
 	font-size: 0.8rem;
 	color: #347698;
 	background-color: #F3F3F3;
@@ -191,16 +191,31 @@ body.minimalism-ui-theme-forest .markdown-reading-view hr {
 	border-top: 1px dashed var(--hr-color, #DADCDE);
 }
 
-/* 编辑视图：分割线（只描绘内层 .cm-hr，与阅读视图的 hr 一致；
-   不要给整行 .cm-line.HyperMD-hr 加边框，否则会在行顶多出一条线 → 双线） */
-body.minimalism-ui-theme-forest .cm-line.HyperMD-hr {
+/* 实时预览（Live Preview）：分割线（只描绘内层 .cm-hr，与阅读视图的 hr 一致；
+   不要给整行 .cm-line.HyperMD-hr 加边框，否则会在行顶多出一条线 → 双线；
+   源码模式下不渲染，保留原始 --- 文本样式）
+   注意：区分编辑模式的正确 CSS 类是 .is-live-preview，.is-source-mode 不存在 */
+body.minimalism-ui-theme-forest .markdown-source-view.is-live-preview .cm-line.HyperMD-hr {
 	border: none;
 }
 
-body.minimalism-ui-theme-forest .cm-line.HyperMD-hr .cm-hr {
+body.minimalism-ui-theme-forest .markdown-source-view.is-live-preview .cm-line.HyperMD-hr .cm-hr {
 	border: none;
 	border-top: 1px dashed var(--hr-color, #DADCDE);
 	color: transparent;
+}
+
+/* 源码模式（:not(.is-live-preview)）：--- 保持纯文本外观 */
+body.minimalism-ui-theme-forest .markdown-source-view:not(.is-live-preview) .cm-line.HyperMD-hr {
+	background: none;
+	border: none;
+	height: auto;
+	line-height: inherit;
+}
+
+body.minimalism-ui-theme-forest .markdown-source-view:not(.is-live-preview) .cm-line.HyperMD-hr .cm-hr {
+	color: inherit;
+	border: none;
 }
 
 /* ── 滚动条 ──────────────────────────────────────────────────────────── */
@@ -750,17 +765,21 @@ body.theme-dark.minimalism-ui-theme-forest {
 	--background-primary-alt: #373B40;
 }
 
-/* 阅读视图分割线：暗色模式下 Obsidian 用 background-color 渲染 hr，dashed 不生效；
-   显式清掉 background 并重申虚线，压过默认规则。 */
+/* 暗色模式：Obsidian 用 background-color 渲染 hr，dashed 不生效；
+   阅读视图和实时预览统一清掉 background 并重申虚线，压过默认规则。 */
 body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view hr {
 	background: none;
 	border: none;
-	border-top: 1px dashed rgba(180, 180, 180, 0.3);
+	border-top: 1px dashed var(--hr-color);
+}
+
+body.theme-dark.minimalism-ui-theme-forest .markdown-source-view.is-live-preview .cm-line.HyperMD-hr .cm-hr {
+	background: none;
 }
 
 /* 行内代码：浅灰底 #F3F3F3 在深底下是亮块，换成低透明绿底 + 提亮蓝字 */
 body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view :not(pre) > code,
-body.theme-dark.minimalism-ui-theme-forest .cm-inline-code {
+body.theme-dark.minimalism-ui-theme-forest .markdown-source-view:not(.is-source-mode) .cm-inline-code {
 	color: #6fb3d6;
 	background-color: rgba(0, 153, 123, 0.16);
 }

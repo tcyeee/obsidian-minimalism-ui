@@ -189,6 +189,23 @@ body.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel.is-collapsed {
 	grid-template-rows: 0fr;
 }
 
+/* 面板已内嵌于 vault profile：令容器纵向堆叠（面板在上、vault-actions 行在下），
+   随内容自适应高度。只设 flex-direction/align-items，不碰 display，避免覆盖
+   hide-vault-profile 的 display:none。 */
+body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-sidedock-vault-profile {
+	flex-direction: column;
+	align-items: stretch;
+	height: auto;
+}
+
+/* vault-switcher（左·名称）与 vault-actions（右·操作图标）合并为一行，左右分布 */
+body.minimalism-ui-mac-sidebar .minimalism-ui-vault-row {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: space-between;
+}
+
 /* 裁切层：overflow:hidden 配合 grid 高度动画 */
 body.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner {
 	overflow: hidden;
