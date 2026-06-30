@@ -211,17 +211,40 @@ body.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner {
 	overflow: hidden;
 }
 
-/* 图标行：水平排列，可换行 */
+/* 隐藏原始 side-dock-actions（图标已迁入 minimalism-ui-ribbon-icons） */
 body.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-actions {
+	display: none;
+}
+
+/* 图标行：水平排列，可换行，靠左对齐 */
+body.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-icons {
 	display: flex;
 	flex-direction: row;
 	flex-wrap: wrap;
-	align-items: center;
+	align-items: flex-start;
+	justify-content: flex-start;
+	align-content: flex-start;
 	padding: 4px 6px;
 	gap: 2px;
-	height: auto;
 	width: 100%;
 	box-sizing: border-box;
+}
+
+/* 每个图标 wrapper 固定尺寸，icon 本身居中显示，带背景框 */
+body.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-icon-wrap {
+	flex: 0 0 28px;
+	width: 28px;
+	height: 28px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	background: var(--background-secondary);
+	border-radius: 5px;
+}
+
+body.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-icon-wrap:hover {
+	background: var(--background-modifier-hover);
 }
 
 /* 内容区背景透明，露出侧边栏底色 */
@@ -528,6 +551,19 @@ body.minimalism-ui-disable-note-tabs .workspace-split.mod-root .workspace-tab-he
 /* 设了首页时由面包屑里的房屋 icon 代表起点，隐藏装饰小圆点（二者只出现其一）*/
 body.minimalism-ui-has-home .minimalism-ui-drag-bar-count {
 	display: none;
+}
+
+/* 隐藏原生编辑器模式切换按钮，由锁图标替代 */
+.plugin-editor-status {
+	display: none !important;
+}
+
+/* 阅读模式锁图标 */
+.minimalism-ui-editor-lock {
+	display: flex;
+	align-items: center;
+	cursor: pointer;
+	padding: 0 4px;
 }
 
 /* status-bar 搬入 row1 后重置定位，推到最右侧 */

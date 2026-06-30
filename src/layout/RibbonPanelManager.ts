@@ -3,6 +3,7 @@ import { Feature } from '../core/Feature';
 import { MinimalismUISettings } from '../core/settings';
 
 type MovedNode = { el: HTMLElement; parent: HTMLElement; next: ChildNode | null };
+type WrappedIcon = { icon: HTMLElement; wrapper: HTMLElement };
 
 /**
  * RibbonPanelManager — 重排左下角 vault profile 区：
@@ -20,6 +21,8 @@ export class RibbonPanelManager implements Feature {
 	private panel: HTMLElement | null = null;
 	private toggleBtn: HTMLElement | null = null;
 	private vaultRow: HTMLElement | null = null;
+	private iconsContainer: HTMLElement | null = null;
+	private wrappedIcons: WrappedIcon[] = [];
 	private movedNodes: MovedNode[] = [];
 
 	constructor(
@@ -72,9 +75,19 @@ export class RibbonPanelManager implements Feature {
 			vaultProfile.prepend(this.panel);
 		}
 
-		// 将 .side-dock-actions 移入 inner，记录原位以便还原
-		this.recordMove(sideDocActions);
-		inner.appendChild(sideDocActions);
+		// 将每个图标从 .side-dock-actions 迁入我们自己的容器（div 包装）。
+		// 直接移动 sideDocActions 整体会继承 Obsidian 原始 flex-direction:column 及子项
+		// width:100%，导致横排换行后宽度异常。用自建容器可完全控制布局。
+		this.iconsContainer = inner.createDiv({ cls: 'minimalism-ui-ribbon-icons' });
+		const icons = Array.from(sideDocActions.children) as HTMLElement[];
+		for (const icon of icons) {
+			const wrapper = createDiv({ cls: 'minimalism-ui-ribbon-icon-wrap' });
+			sideDocActions.insertBefore(wrapper, icon);
+			wrapper.appendChild(icon);
+			this.wrappedIcons.push({ icon, wrapper });
+			this.iconsContainer.appendChild(wrapper);
+		}
+
 
 		// 按持久化状态设置初始折叠
 		const expanded = this.getSettings().ribbonPanelExpanded;
@@ -88,8 +101,16 @@ export class RibbonPanelManager implements Feature {
 	}
 
 	remove() {
-		// 逆序还原被移动的节点：彼此 nextSibling 互相依赖，逆序 + 在场校验最稳，
-		// 参照节点已不在原父节点时降级为 appendChild（append 保序）。
+		// 还原被包装的图标：从 wrapper 取出 icon，放回 sideDocActions
+		for (const { icon, wrapper } of this.wrappedIcons) {
+			wrapper.before(icon);
+			wrapper.remove();
+		}
+		this.wrappedIcons = [];
+		this.iconsContainer?.remove();
+		this.iconsContainer = null;
+
+		// 逆序还原被移动的节点
 		for (let i = this.movedNodes.length - 1; i >= 0; i--) {
 			const { el, parent, next } = this.movedNodes[i];
 			if (next && next.parentNode === parent) {

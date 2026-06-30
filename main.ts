@@ -15,6 +15,7 @@ import { SidebarSuggestFocusTracker } from './src/layout/SidebarSuggestFocusTrac
 import { ResponsiveSidebarManager } from './src/layout/ResponsiveSidebarManager';
 import { PropertyKeyResizer } from './src/layout/PropertyKeyResizer';
 import { RibbonPanelManager } from './src/layout/RibbonPanelManager';
+import { EditorStatusManager } from './src/layout/EditorStatusManager';
 import { MermaidZoomManager } from './src/mermaid/MermaidZoomManager';
 import { OnboardingManager } from './src/onboarding/OnboardingManager';
 import { FirstRunCleanup } from './src/onboarding/FirstRunCleanup';
@@ -42,6 +43,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	private responsiveSidebar: ResponsiveSidebarManager;
 	private propertyKeyResizer: PropertyKeyResizer;
 	private ribbonPanel: RibbonPanelManager;
+	private editorStatus: EditorStatusManager;
 	private mermaidZoom: MermaidZoomManager;
 	private onboarding: OnboardingManager;
 	// 一次性首次启用收拢；无持久副作用，不进 features[]。
@@ -78,6 +80,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.responsiveSidebar = new ResponsiveSidebarManager(this.app);
 		this.propertyKeyResizer = new PropertyKeyResizer(settings, () => this.saveData(this.settings));
 		this.ribbonPanel = new RibbonPanelManager(settings, () => this.saveSettings());
+		this.editorStatus = new EditorStatusManager(this.app, this);
 		this.mermaidZoom = new MermaidZoomManager(this.app);
 		this.onboarding = new OnboardingManager(this.app, settings, () => this.saveData(this.settings));
 		this.firstRunCleanup = new FirstRunCleanup(this.app, async () => {
@@ -102,6 +105,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			this.mermaidZoom,
 			this.onboarding,
 			this.ribbonPanel,
+			this.editorStatus,
 		];
 
 		// 立即生效的部分
@@ -113,6 +117,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.propertyKeyResizer.apply();
 		this.pinManager.apply();
 		this.engine.apply();
+		this.editorStatus.apply();
 		this.mermaidZoom.apply();
 		this.onboarding.apply();
 

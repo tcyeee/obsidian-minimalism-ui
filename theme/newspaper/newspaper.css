@@ -806,3 +806,368 @@ body.minimalism-ui-theme-newspaper .cm-editor .mermaid svg {
 	max-width: none;
 	height: auto;
 }
+
+/* =============================================================================
+   Newspaper — 暗色模式（Dark Mode）
+   调色板：深墨纸 #1c1b18 · 正文暖白 #ddd8cc · 链接暗蓝 #6fa8d4
+   body.theme-dark 由 Obsidian 在暗色模式下自动添加到 <body>
+   ============================================================================= */
+
+/* ── CSS 变量覆盖（链接 / 引用块 / 表格） ────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper {
+	--link-color: #6fa8d4;
+	--link-external-color: #6fa8d4;
+	--blockquote-border-color: #4a4844;
+	--blockquote-color: #888880;
+	--blockquote-background-color: transparent;
+	--table-border-color: #3a3835;
+	--table-header-background: #252320;
+	--table-row-alt-background: #201f1c;
+}
+
+/* ── 纸张背景：深墨暖褐 ─────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view {
+	background-color: #1c1b18;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-source-view.mod-cm6,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-source-view.mod-cm6 .cm-editor,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-source-view.mod-cm6 .cm-scroller,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-source-view.mod-cm6 .cm-gutters {
+	background-color: #1c1b18;
+}
+
+/* ── Workspace chrome：侧边栏 / 主区域 / 拖拽栏 ──────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .workspace-leaf-content {
+	background-color: #1c1b18;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .workspace-split.mod-left-split,
+body.theme-dark.minimalism-ui-theme-newspaper .workspace-split.mod-right-split {
+	background-color: #1c1b18;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split {
+	border-right: 1px dashed #3a3835;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .workspace-split.mod-left-split > .workspace-leaf-resize-handle:not(:hover) {
+	border-color: transparent;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split * {
+	color: #a09890;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left,
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left::before {
+	background-color: #1c1b18;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action,
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon {
+	color: #a09890;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action:hover,
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon:hover {
+	color: #ddd8cc;
+	background-color: #2a2925;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"]::before,
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="file-properties"]::before,
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-graph-header > span {
+	color: #ddd8cc;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content::before {
+	color: #ddd8cc;
+	background-color: #1c1b18;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title:hover,
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-folder-title:hover {
+	background: #2a2925;
+	border-radius: 6px;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active,
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active:hover {
+	background: #333128;
+	color: #ddd8cc;
+	border-radius: 6px;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-sidedock-vault-profile {
+	background-color: #1c1b18;
+	border-top: 1px solid #3a3835;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .minimalism-ui-drag-bar {
+	background-color: #1c1b18;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .workspace-split.mod-root,
+body.theme-dark.minimalism-ui-theme-newspaper .workspace-split.mod-root .workspace-tab-header-container,
+body.theme-dark.minimalism-ui-theme-newspaper .workspace-split.mod-root .workspace-tab-header {
+	background-color: #1c1b18;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .workspace-split.mod-root .workspace-tab-header {
+	color: #7a756e;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .workspace-split.mod-root .workspace-tab-header.is-active {
+	color: #ddd8cc;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .workspace-leaf-content[data-type="canvas"] {
+	--canvas-background: #1c1b18;
+	--canvas-dot-pattern: #2a2925;
+}
+
+/* ── 正文字体 + 字色 ─────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section p,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section li,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h1,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h2,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h3,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h4,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h5,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h6,
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-content,
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-line,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-source-view .inline-title {
+	color: #ddd8cc;
+}
+
+/* ── 标题分隔线 ──────────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h1,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-source-view .inline-title {
+	border-bottom-color: #3a3835;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-header-1 {
+	border-bottom-color: #3a3835;
+}
+
+/* ── 链接 ────────────────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view a.internal-link,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view a.external-link,
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-hmd-internal-link,
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-link {
+	color: #6fa8d4;
+}
+
+/* ── 引用块 ──────────────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view blockquote {
+	border-left-color: #4a4844;
+	color: #888880;
+	background-color: transparent;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .cm-blockquote-border {
+	border-left-color: #4a4844;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-quote {
+	color: #888880;
+	background-color: transparent;
+}
+
+/* ── 代码块 ──────────────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view pre {
+	background-color: #252320;
+	color: #ddd8cc;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view :not(pre) > code {
+	background-color: #252320;
+	color: #b0a898;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .HyperMD-codeblock,
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-inline-code {
+	background-color: #252320;
+	color: #ddd8cc;
+}
+
+/* ── kbd ─────────────────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view kbd,
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor kbd {
+	color: #a09890;
+	background-color: #252320;
+	border-color: #3a3835;
+	box-shadow: 0 1px 0 #141310, inset 0 1px 0 #2e2d29;
+}
+
+/* ── 分割线 ──────────────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view hr {
+	border-top-color: #3a3835;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .cm-line.HyperMD-hr .cm-hr {
+	border-top-color: #3a3835;
+}
+
+/* ── 表格 ────────────────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .el-table {
+	border-color: #3a3835;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .el-table .ltr {
+	color: #a09890;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view table thead,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view table thead th,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor thead,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor thead th {
+	background-color: #252320;
+	color: #a09890;
+	border-bottom-color: #3a3835;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view table tbody tr:nth-child(even),
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor tbody tr:nth-child(even) {
+	background-color: #201f1c;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view table th,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view table td,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td {
+	color: #a09890;
+	border-right-color: #2e2d29;
+	border-bottom-color: #2e2d29;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view table tbody td,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .el-table tbody .ltr,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor tbody td {
+	color: #7a756e;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .table-editor {
+	outline-color: #3a3835;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-editor,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-editor .cm-content,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-editor .cm-line,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-editor .cm-scroller {
+	color: #7a756e;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th .table-col-drag-handle {
+	background: rgba(255, 255, 255, 0.06);
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th:hover .table-col-drag-handle,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th .table-col-drag-handle:hover {
+	background: rgba(221, 216, 204, 0.16);
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th:first-child .table-row-drag-handle,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td:first-child .table-row-drag-handle {
+	background: rgba(255, 255, 255, 0.06);
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor tr:hover th:first-child .table-row-drag-handle,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor tr:hover td:first-child .table-row-drag-handle,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th:first-child .table-row-drag-handle:hover,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td:first-child .table-row-drag-handle:hover {
+	background: rgba(221, 216, 204, 0.16);
+}
+
+/* ── Bases 表格视图 ──────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .bases-view.bases-view[data-view-type="table"] {
+	border-color: #3a3835;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .bases-view .bases-thead .bases-td {
+	background-color: #252320;
+	color: #a09890;
+	border-bottom-color: #3a3835;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-tbody .bases-tr {
+	background-color: #201f1c;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .bases-view .bases-td {
+	color: #7a756e;
+	border-right-color: #2a2925;
+	border-bottom-color: #2a2925;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-thead {
+	background-color: #252320;
+}
+
+/* Bases 卡片视图 */
+body.theme-dark.minimalism-ui-theme-newspaper .bases-view[data-view-type="cards"] {
+	--bases-cards-background: #222120;
+	--bases-cards-shadow: 0 0 0 1px #2e2d29;
+}
+
+/* ── 选区高亮 ────────────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view ::selection,
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-content ::selection {
+	background-color: rgba(111, 168, 212, 0.30);
+	color: #ddd8cc;
+}
+
+/* ── 滚动条 ──────────────────────────────────────────────────────────────── */
+
+.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view:hover ::-webkit-scrollbar-thumb,
+.theme-dark.minimalism-ui-theme-newspaper .cm-scroller:hover::-webkit-scrollbar-thumb {
+	background: rgba(221, 216, 204, 0.25);
+}
+
+.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .el-table:hover::-webkit-scrollbar-thumb {
+	background: rgba(221, 216, 204, 0.25);
+}
+
+.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view pre:hover code::-webkit-scrollbar-thumb {
+	background: rgba(221, 216, 204, 0.25);
+}
+
+.theme-dark.minimalism-ui-theme-newspaper .bases-view:hover ::-webkit-scrollbar-thumb {
+	background: rgba(221, 216, 204, 0.25);
+}
+
+/* ── Callout ─────────────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .callout-content,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .callout-content p,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .callout-content li {
+	color: #a09890;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-callout .cm-line:not(.cm-callout-title) {
+	color: #a09890;
+}
+
+/* ── 脚注 ────────────────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .footnotes,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .footnotes li,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .footnotes p {
+	color: #606060;
+}
