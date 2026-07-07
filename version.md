@@ -5,6 +5,14 @@
 
 ---
 
+## Version 1.3.5
+
+- Internal cleanup: replaced a direct innerHTML assignment and inline style writes with safer DOM/class-based equivalents, removed redundant type casts, and dropped a `!important` CSS override in favor of higher selector specificity — no user-visible behavior change
+
+- 内部清理：将直接的 innerHTML 赋值与内联样式写入替换为更安全的 DOM/class 方式，移除多余的类型强转，并以更高选择器优先级取代一处 `!important` 覆盖——无用户可见行为变化
+
+---
+
 ## Version 1.3.4
 
 - Added a status bar lock icon that shows and toggles between reading and editing mode
