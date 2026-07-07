@@ -5,6 +5,14 @@
 
 ---
 
+## Version 1.3.6
+
+- CI only: fixed the release workflow silently falling back to the tagged commit's subject line instead of the changelog content written into the tag annotation, by force-fetching the real annotated tag object before reading it — no plugin code change
+
+- 仅 CI：修复发布流程在读取标签时静默回退为提交信息而非标注中写入的更新日志内容的问题，方式是在读取前强制重新拉取真实的标注标签对象——插件代码无变化
+
+---
+
 ## Version 1.3.5
 
 - Internal cleanup: replaced a direct innerHTML assignment and inline style writes with safer DOM/class-based equivalents, removed redundant type casts, and dropped a `!important` CSS override in favor of higher selector specificity — no user-visible behavior change
