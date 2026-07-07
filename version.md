@@ -5,6 +5,18 @@
 
 ---
 
+## Version 1.3.4
+
+- Added a status bar lock icon that shows and toggles between reading and editing mode
+- Ribbon panel icons are now wrapped in a dedicated container for cleaner layout, with the original side-dock actions hidden
+- Newspaper theme: live-preview horizontal rules are now scoped correctly so source mode keeps its plain `---` text; selection color is fixed in live preview; task list checkbox indent is halved consistently across reading and live-preview views; the local graph settings panel background now matches the sidebar in both light and dark variants
+
+- 状态栏新增锁形图标，用于显示并切换阅读/编辑模式
+- 功能区面板图标改为包裹在专用容器中以获得更整洁的布局，原生的侧边停靠操作已隐藏
+- Newspaper 主题：修复实时预览下分割线的作用域（源码模式下 `---` 保持纯文本）；修复实时预览选区颜色；统一阅读与实时预览下任务列表复选框的缩进（减半）；侧边栏局部关系图设置面板背景在深浅色下均与侧栏底色一致
+
+---
+
 ## Version 1.3.3
 
 - Added a collapsible ribbon panel embedded in the left sidebar — ribbon icons now live inside the sidebar instead of the standalone ribbon bar, and can be expanded or collapsed via a toggle at the top of the panel
