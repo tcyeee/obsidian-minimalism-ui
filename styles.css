@@ -554,8 +554,8 @@ body.minimalism-ui-has-home .minimalism-ui-drag-bar-count {
 }
 
 /* 隐藏原生编辑器模式切换按钮，由锁图标替代 */
-.plugin-editor-status {
-	display: none !important;
+.workspace .plugin-editor-status {
+	display: none;
 }
 
 /* 阅读模式锁图标 */
@@ -564,6 +564,10 @@ body.minimalism-ui-has-home .minimalism-ui-drag-bar-count {
 	align-items: center;
 	cursor: pointer;
 	padding: 0 4px;
+}
+
+.minimalism-ui-editor-lock.is-hidden {
+	display: none;
 }
 
 /* status-bar 搬入 row1 后重置定位，推到最右侧 */

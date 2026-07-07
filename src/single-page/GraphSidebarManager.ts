@@ -25,7 +25,8 @@ export class GraphSidebarManager {
 	constructor(private app: App) {}
 
 	private get leftSplit(): WorkspaceSidedock | null {
-		return (this.app.workspace.leftSplit as unknown as WorkspaceSidedock) ?? null;
+		const split = this.app.workspace.leftSplit;
+		return split ?? null;
 	}
 
 	// 由引擎在 root leaf 切换时调用，navKey 为该 root leaf 的导航键(无文件视图为 null)。

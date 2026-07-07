@@ -48,7 +48,8 @@ export class ResponsiveSidebarManager implements Feature {
 	constructor(private app: App) {}
 
 	private get leftSplit(): WorkspaceSidedock | null {
-		return (this.app.workspace.leftSplit as unknown as WorkspaceSidedock) ?? null;
+		const split = this.app.workspace.leftSplit;
+		return split ?? null;
 	}
 
 	private get rootSplit(): WorkspaceSplit | null {

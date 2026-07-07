@@ -408,6 +408,10 @@ export class SidebarLayoutManager {
 		const children = (item as { children?: unknown[] }).children;
 		if (!Array.isArray(children)) return [];
 
-		return children.flatMap(child => this.collectLeavesFromItem(child));
+		const leaves: WorkspaceLeaf[] = [];
+		for (const child of children) {
+			leaves.push(...this.collectLeavesFromItem(child));
+		}
+		return leaves;
 	}
 }

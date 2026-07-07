@@ -212,8 +212,8 @@ export class OnboardingManager implements Feature {
 			this.patchedSetting = setting;
 			this.originalSettingClose = setting.close;
 			const original = setting.close;
-			setting.close = (...args: unknown[]) => {
-				(original as (...a: unknown[]) => void).apply(setting, args);
+			setting.close = () => {
+				original.call(setting);
 				this.refresh();
 			};
 		}

@@ -3,6 +3,8 @@ import { Feature } from '../core/Feature';
 
 // 锁图标 SVG（Lucide lock）
 const LOCK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+// 解析一次，运行期用 cloneNode 复用，避免 innerHTML 赋值
+const LOCK_SVG_EL = new DOMParser().parseFromString(LOCK_SVG, 'image/svg+xml').documentElement;
 
 /**
  * EditorStatusManager — 阅读模式锁图标。
@@ -22,16 +24,16 @@ export class EditorStatusManager implements Feature {
 
 		this.statusBarItem = this.plugin.addStatusBarItem();
 		this.statusBarItem.addClass('minimalism-ui-editor-lock');
-		this.statusBarItem.innerHTML = LOCK_SVG;
+		this.statusBarItem.addClass('is-hidden');
+		this.statusBarItem.appendChild(LOCK_SVG_EL.cloneNode(true));
 		this.statusBarItem.setAttribute('aria-label', '阅读模式 — 点击切换编辑');
 		this.statusBarItem.setAttribute('data-tooltip-position', 'top');
-		this.statusBarItem.style.display = 'none';
 
 		this.statusBarItem.addEventListener('click', () => {
 			const leaf = this.app.workspace.getActiveViewOfType(MarkdownView)?.leaf;
 			if (!leaf) return;
 			const state = leaf.getViewState();
-			leaf.setViewState({ ...state, state: { ...state.state, mode: 'source' } });
+			void leaf.setViewState({ ...state, state: { ...state.state, mode: 'source' } });
 		});
 
 		const update = () => this.updateVisibility();
@@ -48,7 +50,7 @@ export class EditorStatusManager implements Feature {
 		if (!this.statusBarItem) return;
 		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 		const isReading = view?.getState().mode === 'preview';
-		this.statusBarItem.style.display = isReading ? '' : 'none';
+		this.statusBarItem.toggleClass('is-hidden', !isReading);
 	}
 
 	remove(): void {

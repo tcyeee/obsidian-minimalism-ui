@@ -2929,8 +2929,8 @@ var GraphSidebarManager = class {
     this.savedCollapsed = null;
   }
   get leftSplit() {
-    var _a;
-    return (_a = this.app.workspace.leftSplit) != null ? _a : null;
+    const split = this.app.workspace.leftSplit;
+    return split != null ? split : null;
   }
   // 由引擎在 root leaf 切换时调用，navKey 为该 root leaf 的导航键(无文件视图为 null)。
   handleRootNav(navKey) {
@@ -4323,7 +4323,11 @@ var SidebarLayoutManager = class {
     if (item instanceof import_obsidian5.WorkspaceLeaf) return [item];
     const children = item.children;
     if (!Array.isArray(children)) return [];
-    return children.flatMap((child) => this.collectLeavesFromItem(child));
+    const leaves = [];
+    for (const child of children) {
+      leaves.push(...this.collectLeavesFromItem(child));
+    }
+    return leaves;
   }
 };
 
@@ -4380,8 +4384,8 @@ var _ResponsiveSidebarManager = class _ResponsiveSidebarManager {
     };
   }
   get leftSplit() {
-    var _a;
-    return (_a = this.app.workspace.leftSplit) != null ? _a : null;
+    const split = this.app.workspace.leftSplit;
+    return split != null ? split : null;
   }
   get rootSplit() {
     var _a;
@@ -4618,6 +4622,7 @@ var RibbonPanelManager = class {
 // src/layout/EditorStatusManager.ts
 var import_obsidian7 = require("obsidian");
 var LOCK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+var LOCK_SVG_EL = new DOMParser().parseFromString(LOCK_SVG, "image/svg+xml").documentElement;
 var EditorStatusManager = class {
   constructor(app, plugin) {
     this.app = app;
@@ -4630,16 +4635,16 @@ var EditorStatusManager = class {
     this.remove();
     this.statusBarItem = this.plugin.addStatusBarItem();
     this.statusBarItem.addClass("minimalism-ui-editor-lock");
-    this.statusBarItem.innerHTML = LOCK_SVG;
+    this.statusBarItem.addClass("is-hidden");
+    this.statusBarItem.appendChild(LOCK_SVG_EL.cloneNode(true));
     this.statusBarItem.setAttribute("aria-label", "\u9605\u8BFB\u6A21\u5F0F \u2014 \u70B9\u51FB\u5207\u6362\u7F16\u8F91");
     this.statusBarItem.setAttribute("data-tooltip-position", "top");
-    this.statusBarItem.style.display = "none";
     this.statusBarItem.addEventListener("click", () => {
       var _a;
       const leaf = (_a = this.app.workspace.getActiveViewOfType(import_obsidian7.MarkdownView)) == null ? void 0 : _a.leaf;
       if (!leaf) return;
       const state = leaf.getViewState();
-      leaf.setViewState({ ...state, state: { ...state.state, mode: "source" } });
+      void leaf.setViewState({ ...state, state: { ...state.state, mode: "source" } });
     });
     const update = () => this.updateVisibility();
     this.leafChangeHandler = update;
@@ -4652,7 +4657,7 @@ var EditorStatusManager = class {
     if (!this.statusBarItem) return;
     const view = this.app.workspace.getActiveViewOfType(import_obsidian7.MarkdownView);
     const isReading = (view == null ? void 0 : view.getState().mode) === "preview";
-    this.statusBarItem.style.display = isReading ? "" : "none";
+    this.statusBarItem.toggleClass("is-hidden", !isReading);
   }
   remove() {
     if (this.leafChangeHandler) {
@@ -4859,8 +4864,8 @@ var OnboardingManager = class {
       this.patchedSetting = setting;
       this.originalSettingClose = setting.close;
       const original = setting.close;
-      setting.close = (...args) => {
-        original.apply(setting, args);
+      setting.close = () => {
+        original.call(setting);
         this.refresh();
       };
     }
