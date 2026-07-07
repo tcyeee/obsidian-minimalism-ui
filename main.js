@@ -1154,6 +1154,11 @@ body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-leaf-con
 	background-color: #f3f2ee;
 }
 
+/* \u4FA7\u8FB9\u680F\u5C40\u90E8\u5173\u7CFB\u56FE\u8BBE\u7F6E\u9762\u677F\u5C55\u5F00\u6001\uFF1A\u80CC\u666F\u4E0E\u4FA7\u8FB9\u680F\u5976\u767D\u5E95\u4E00\u81F4\uFF08styles.css \u91CC\u8BBE\u4E3A transparent\uFF0C\u4E3B\u9898\u4E13\u5C5E\u80CC\u666F\u5728\u6B64\u8865\u9F50\uFF09 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="localgraph"].minimalism-ui-injected-graph .graph-controls:not(.is-close) {
+	background: #f3f2ee;
+}
+
 /* \u5BFC\u822A\u9879 hover / active\uFF1A\u6696\u7070\u5E95\uFF0C\u66FF\u4EE3 Forest \u7684\u84DD\u8272 accent */
 body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title:hover,
 body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-folder-title:hover {
@@ -1372,16 +1377,30 @@ body.minimalism-ui-theme-newspaper .markdown-reading-view hr {
 	border-top: 1px solid #c5c5c5;
 }
 
-/* \u7F16\u8F91\u89C6\u56FE\uFF08\u53EA\u63CF\u7ED8\u5185\u5C42 .cm-hr\uFF0C\u4E0E\u9605\u8BFB\u89C6\u56FE\u4E00\u81F4\uFF1B
-   \u4E0D\u8981\u7ED9\u6574\u884C .cm-line.HyperMD-hr \u52A0\u8FB9\u6846\uFF0C\u5426\u5219\u4F1A\u5728\u884C\u9876\u591A\u51FA\u4E00\u6761\u7EBF \u2192 \u53CC\u7EBF\uFF09 */
-body.minimalism-ui-theme-newspaper .cm-line.HyperMD-hr {
+/* \u5B9E\u65F6\u9884\u89C8\uFF08Live Preview\uFF09\uFF1A\u5206\u5272\u7EBF\uFF08\u53EA\u63CF\u7ED8\u5185\u5C42 .cm-hr\uFF0C\u4E0E\u9605\u8BFB\u89C6\u56FE\u4E00\u81F4\uFF1B
+   \u4E0D\u8981\u7ED9\u6574\u884C .cm-line.HyperMD-hr \u52A0\u8FB9\u6846\uFF0C\u5426\u5219\u4F1A\u5728\u884C\u9876\u591A\u51FA\u4E00\u6761\u7EBF \u2192 \u53CC\u7EBF\uFF1B
+   \u6E90\u7801\u6A21\u5F0F\u4E0B\u4E0D\u6E32\u67D3\uFF0C\u4FDD\u7559\u539F\u59CB --- \u6587\u672C\u6837\u5F0F\uFF09 */
+body.minimalism-ui-theme-newspaper .markdown-source-view.is-live-preview .cm-line.HyperMD-hr {
 	border: none;
 }
 
-body.minimalism-ui-theme-newspaper .cm-line.HyperMD-hr .cm-hr {
+body.minimalism-ui-theme-newspaper .markdown-source-view.is-live-preview .cm-line.HyperMD-hr .cm-hr {
 	border: none;
 	border-top: 1px solid #c5c5c5;
 	color: transparent;
+}
+
+/* \u6E90\u7801\u6A21\u5F0F\uFF1A--- \u4FDD\u6301\u7EAF\u6587\u672C\u5916\u89C2 */
+body.minimalism-ui-theme-newspaper .markdown-source-view:not(.is-live-preview) .cm-line.HyperMD-hr {
+	background: none;
+	border: none;
+	height: auto;
+	line-height: inherit;
+}
+
+body.minimalism-ui-theme-newspaper .markdown-source-view:not(.is-live-preview) .cm-line.HyperMD-hr .cm-hr {
+	color: inherit;
+	border: none;
 }
 
 /* \u2500\u2500 \u8868\u683C\uFF1A\u62A5\u520A\u5F0F\u8868\u5934\u7070\u5E95 + \u5927\u5199 + \u9694\u884C\u6D45\u7070 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
@@ -1741,6 +1760,12 @@ body.minimalism-ui-theme-newspaper .cm-editor .cm-content ::selection {
 	color: #ffffff;
 }
 
+/* Live Preview\uFF08\u7F16\u8F91\u6A21\u5F0F\uFF09\u4E0B CM6 \u7528 .cm-selectionBackground \u56FE\u5C42\u7ED8\u5236\u9009\u533A\uFF0C
+   \u4E0D\u8D70\u539F\u751F ::selection\uFF0C\u9700\u5355\u72EC\u8986\u76D6 --text-selection \u5BF9\u5E94\u7684\u56FE\u5C42\u989C\u8272 */
+body.minimalism-ui-theme-newspaper .cm-editor .cm-selectionBackground {
+	background-color: rgba(32, 43, 51, 0.63);
+}
+
 /* \u2500\u2500 \u6EDA\u52A8\u6761\uFF1A\u7EC6\u6761\uFF0C\u60AC\u505C\u65F6\u624D\u663E\u8272 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
 
 .minimalism-ui-theme-newspaper .markdown-reading-view ::-webkit-scrollbar,
@@ -1827,9 +1852,24 @@ body.minimalism-ui-theme-newspaper .markdown-reading-view .footnotes p {
 	color: #808080;
 }
 
-/* \u2500\u2500 \u4EFB\u52A1\u5217\u8868\u590D\u9009\u6846\uFF1A\u53BB\u6389\u81EA\u5E26\u7684\u884C\u9996\u5916\u8FB9\u8DDD\uFF0C\u4E0E\u6587\u5B57\u5DE6\u7F18\u5BF9\u9F50 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
-body.minimalism-ui-theme-newspaper .markdown-reading-view .task-list-item-checkbox,
-body.minimalism-ui-theme-newspaper .cm-editor .task-list-item-checkbox {
+/* \u2500\u2500 \u4EFB\u52A1\u5217\u8868\uFF1A\u590D\u9009\u6846\u5DE6\u7F29\u8FDB\u51CF\u534A\uFF0C\u4E24\u4E2A\u89C6\u56FE\u4FDD\u6301\u4E00\u81F4 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+   Obsidian \u9ED8\u8BA4\u7684\u884C\u9996\u7F29\u8FDB\u673A\u5236\u4E24\u4E2A\u89C6\u56FE\u4E0D\u540C\uFF1A
+   \xB7 \u9605\u8BFB\u89C6\u56FE\uFF1Aul \u7684 padding \u4E3A 0\uFF0C\u7F29\u8FDB\u6765\u81EA li \u7684 margin-inline-start: 3ch\uFF1B
+   \xB7 \u5B9E\u65F6\u9884\u89C8\uFF1A\u9760 .task-list-label \u5185 checkbox \u7684 margin-inline-start: 0.85em \u6491\u5F00\u3002
+   \u4E0B\u9762\u5206\u522B\u628A\u8FD9\u6BB5\u5DE6\u7F29\u8FDB\u51CF\u534A\uFF0F\u5F52\u96F6\uFF0C\u4F7F\u89C2\u611F\u4E00\u81F4\u3002 */
+
+/* \u9605\u8BFB\u89C6\u56FE\uFF1Ali \u7F29\u8FDB 3ch \u2192 1.5ch\uFF08\u51CF\u534A\uFF09\uFF1Bcheckbox \u81EA\u8EAB\u8D34 li \u5DE6\u7F18 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view .contains-task-list > li.task-list-item {
+	margin-inline-start: 1.5ch;
+}
+body.minimalism-ui-theme-newspaper .markdown-reading-view .task-list-item-checkbox {
+	margin-inline-start: 0;
+}
+
+/* \u5B9E\u65F6\u9884\u89C8\uFF1Acheckbox \u81EA\u5E26 0.85em \u5DE6\u5916\u8FB9\u8DDD \u2192 0\u3002Obsidian \u7528
+   .task-list-label .task-list-item-checkbox \u9009\u4E2D\uFF0C\u6743\u91CD\u8F83\u9AD8\uFF0C\u5FC5\u987B\u6CBF\u540C\u4E00\u6761\u94FE\u8DEF
+   \u53E0\u52A0\u7C7B\u540D\u624D\u80FD\u8986\u76D6\uFF08\u800C\u975E !important\uFF09\u3002 */
+body.minimalism-ui-theme-newspaper .markdown-source-view.mod-cm6 .task-list-label .task-list-item-checkbox {
 	margin-inline-start: 0;
 }
 
@@ -1928,6 +1968,11 @@ body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimal
 body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content::before {
 	color: #ddd8cc;
 	background-color: #1c1b18;
+}
+
+/* \u4FA7\u8FB9\u680F\u5C40\u90E8\u5173\u7CFB\u56FE\u8BBE\u7F6E\u9762\u677F\u5C55\u5F00\u6001\uFF1A\u80CC\u666F\u4E0E\u4FA7\u8FB9\u680F\u6DF1\u8272\u5E95\u4E00\u81F4 */
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="localgraph"].minimalism-ui-injected-graph .graph-controls:not(.is-close) {
+	background: #1c1b18;
 }
 
 body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title:hover,
@@ -2059,7 +2104,7 @@ body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view hr {
 	border-top-color: #3a3835;
 }
 
-body.theme-dark.minimalism-ui-theme-newspaper .cm-line.HyperMD-hr .cm-hr {
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-source-view.is-live-preview .cm-line.HyperMD-hr .cm-hr {
 	border-top-color: #3a3835;
 }
 
@@ -2172,6 +2217,11 @@ body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view ::selection
 body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-content ::selection {
 	background-color: rgba(111, 168, 212, 0.30);
 	color: #ddd8cc;
+}
+
+/* Live Preview\uFF08\u7F16\u8F91\u6A21\u5F0F\uFF09\u540C\u6837\u9700\u8981\u8986\u76D6 .cm-selectionBackground \u56FE\u5C42 */
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-selectionBackground {
+	background-color: rgba(111, 168, 212, 0.30);
 }
 
 /* \u2500\u2500 \u6EDA\u52A8\u6761 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */

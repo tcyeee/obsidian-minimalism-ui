@@ -113,6 +113,11 @@ body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-leaf-con
 	background-color: #f3f2ee;
 }
 
+/* 侧边栏局部关系图设置面板展开态：背景与侧边栏奶白底一致（styles.css 里设为 transparent，主题专属背景在此补齐） */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="localgraph"].minimalism-ui-injected-graph .graph-controls:not(.is-close) {
+	background: #f3f2ee;
+}
+
 /* 导航项 hover / active：暖灰底，替代 Forest 的蓝色 accent */
 body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title:hover,
 body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-folder-title:hover {
@@ -331,16 +336,30 @@ body.minimalism-ui-theme-newspaper .markdown-reading-view hr {
 	border-top: 1px solid #c5c5c5;
 }
 
-/* 编辑视图（只描绘内层 .cm-hr，与阅读视图一致；
-   不要给整行 .cm-line.HyperMD-hr 加边框，否则会在行顶多出一条线 → 双线） */
-body.minimalism-ui-theme-newspaper .cm-line.HyperMD-hr {
+/* 实时预览（Live Preview）：分割线（只描绘内层 .cm-hr，与阅读视图一致；
+   不要给整行 .cm-line.HyperMD-hr 加边框，否则会在行顶多出一条线 → 双线；
+   源码模式下不渲染，保留原始 --- 文本样式） */
+body.minimalism-ui-theme-newspaper .markdown-source-view.is-live-preview .cm-line.HyperMD-hr {
 	border: none;
 }
 
-body.minimalism-ui-theme-newspaper .cm-line.HyperMD-hr .cm-hr {
+body.minimalism-ui-theme-newspaper .markdown-source-view.is-live-preview .cm-line.HyperMD-hr .cm-hr {
 	border: none;
 	border-top: 1px solid #c5c5c5;
 	color: transparent;
+}
+
+/* 源码模式：--- 保持纯文本外观 */
+body.minimalism-ui-theme-newspaper .markdown-source-view:not(.is-live-preview) .cm-line.HyperMD-hr {
+	background: none;
+	border: none;
+	height: auto;
+	line-height: inherit;
+}
+
+body.minimalism-ui-theme-newspaper .markdown-source-view:not(.is-live-preview) .cm-line.HyperMD-hr .cm-hr {
+	color: inherit;
+	border: none;
 }
 
 /* ── 表格：报刊式表头灰底 + 大写 + 隔行浅灰 ───────────────────────────── */
@@ -700,6 +719,12 @@ body.minimalism-ui-theme-newspaper .cm-editor .cm-content ::selection {
 	color: #ffffff;
 }
 
+/* Live Preview（编辑模式）下 CM6 用 .cm-selectionBackground 图层绘制选区，
+   不走原生 ::selection，需单独覆盖 --text-selection 对应的图层颜色 */
+body.minimalism-ui-theme-newspaper .cm-editor .cm-selectionBackground {
+	background-color: rgba(32, 43, 51, 0.63);
+}
+
 /* ── 滚动条：细条，悬停时才显色 ─────────────────────────────────────── */
 
 .minimalism-ui-theme-newspaper .markdown-reading-view ::-webkit-scrollbar,
@@ -786,9 +811,24 @@ body.minimalism-ui-theme-newspaper .markdown-reading-view .footnotes p {
 	color: #808080;
 }
 
-/* ── 任务列表复选框：去掉自带的行首外边距，与文字左缘对齐 ─────────────── */
-body.minimalism-ui-theme-newspaper .markdown-reading-view .task-list-item-checkbox,
-body.minimalism-ui-theme-newspaper .cm-editor .task-list-item-checkbox {
+/* ── 任务列表：复选框左缩进减半，两个视图保持一致 ──────────────────────
+   Obsidian 默认的行首缩进机制两个视图不同：
+   · 阅读视图：ul 的 padding 为 0，缩进来自 li 的 margin-inline-start: 3ch；
+   · 实时预览：靠 .task-list-label 内 checkbox 的 margin-inline-start: 0.85em 撑开。
+   下面分别把这段左缩进减半／归零，使观感一致。 */
+
+/* 阅读视图：li 缩进 3ch → 1.5ch（减半）；checkbox 自身贴 li 左缘 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view .contains-task-list > li.task-list-item {
+	margin-inline-start: 1.5ch;
+}
+body.minimalism-ui-theme-newspaper .markdown-reading-view .task-list-item-checkbox {
+	margin-inline-start: 0;
+}
+
+/* 实时预览：checkbox 自带 0.85em 左外边距 → 0。Obsidian 用
+   .task-list-label .task-list-item-checkbox 选中，权重较高，必须沿同一条链路
+   叠加类名才能覆盖（而非 !important）。 */
+body.minimalism-ui-theme-newspaper .markdown-source-view.mod-cm6 .task-list-label .task-list-item-checkbox {
 	margin-inline-start: 0;
 }
 
@@ -887,6 +927,11 @@ body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimal
 body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content::before {
 	color: #ddd8cc;
 	background-color: #1c1b18;
+}
+
+/* 侧边栏局部关系图设置面板展开态：背景与侧边栏深色底一致 */
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="localgraph"].minimalism-ui-injected-graph .graph-controls:not(.is-close) {
+	background: #1c1b18;
 }
 
 body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title:hover,
@@ -1018,7 +1063,7 @@ body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view hr {
 	border-top-color: #3a3835;
 }
 
-body.theme-dark.minimalism-ui-theme-newspaper .cm-line.HyperMD-hr .cm-hr {
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-source-view.is-live-preview .cm-line.HyperMD-hr .cm-hr {
 	border-top-color: #3a3835;
 }
 
@@ -1131,6 +1176,11 @@ body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view ::selection
 body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-content ::selection {
 	background-color: rgba(111, 168, 212, 0.30);
 	color: #ddd8cc;
+}
+
+/* Live Preview（编辑模式）同样需要覆盖 .cm-selectionBackground 图层 */
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-selectionBackground {
+	background-color: rgba(111, 168, 212, 0.30);
 }
 
 /* ── 滚动条 ──────────────────────────────────────────────────────────────── */
