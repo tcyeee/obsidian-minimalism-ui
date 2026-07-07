@@ -37,8 +37,19 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           tag="${GITHUB_REF#refs/tags/}"
+          notes="$(git tag -l --format='%(contents)' "$tag")"
 
-          gh release create "$tag" \
-            --title="$tag" \
-            --draft \
-            main.js manifest.json styles.css
+          if [ -n "$notes" ]; then
+            echo "$notes" > /tmp/release-notes.md
+            gh release create "$tag" \
+              --title="$tag" \
+              --draft \
+              --notes-file /tmp/release-notes.md \
+              main.js manifest.json styles.css
+          else
+            gh release create "$tag" \
+              --title="$tag" \
+              --draft \
+              --generate-notes \
+              main.js manifest.json styles.css
+          fi
