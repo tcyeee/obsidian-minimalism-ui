@@ -37,6 +37,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           tag="${GITHUB_REF#refs/tags/}"
+
+          # actions/checkout only fetches the commit the tag points to and creates
+          # a local lightweight ref for it, discarding the annotated tag object (and
+          # its message). Force-fetch the real tag object by ref name so `%(contents)`
+          # below reflects the annotation we wrote, not the commit's message.
+          git fetch origin "refs/tags/$tag:refs/tags/$tag" --force
+
           notes="$(git tag -l --format='%(contents)' "$tag")"
 
           if [ -n "$notes" ]; then
