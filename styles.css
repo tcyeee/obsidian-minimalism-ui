@@ -666,6 +666,182 @@ body.minimalism-ui-mac-sidebar .workspace-tab-header-tab-list {
 	display: none;
 }
 
+/* ── 右下角悬浮按钮 + 视图切换图标堆叠 ────────────────────────────────── */
+/* 由 RightSidebarButtonManager 注入到 body，纯 CSS 驱动开合/展开动效。 */
+
+.minimalism-ui-rsb-launcher {
+	position: fixed;
+	right: 20px;
+	bottom: 20px;
+	z-index: 30;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	-webkit-app-region: no-drag;
+}
+
+.minimalism-ui-rsb-button {
+	flex-shrink: 0;
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--background-secondary);
+	color: var(--text-muted);
+	border: 1px solid var(--background-modifier-border);
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+	cursor: pointer;
+	user-select: none;
+	transition: transform 0.15s ease, background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.minimalism-ui-rsb-button:hover {
+	color: var(--text-normal);
+	transform: scale(1.06);
+}
+
+.minimalism-ui-rsb-button:active {
+	transform: scale(0.9);
+}
+
+.minimalism-ui-rsb-button.minimalism-ui-rsb-button-active {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+}
+
+.minimalism-ui-rsb-button svg {
+	width: 18px;
+	height: 18px;
+}
+
+.minimalism-ui-rsb-panel {
+	position: fixed;
+	right: 20px;
+	bottom: 72px;
+	z-index: 29;
+	/* 实际宽高由 RightSidebarButtonManager 按设置/拖拽结果内联设置；这里只兜底初始值。 */
+	width: 360px;
+	height: 480px;
+	max-width: calc(100vw - 40px);
+	max-height: calc(100vh - 92px);
+	display: flex;
+	flex-direction: column;
+	border-radius: 12px;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+	overflow: hidden;
+	transform-origin: bottom right;
+	transform: scale(0.9) translateY(10px);
+	opacity: 0;
+	pointer-events: none;
+	transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+.minimalism-ui-rsb-panel.minimalism-ui-rsb-panel-open {
+	transform: scale(1) translateY(0);
+	opacity: 1;
+	pointer-events: auto;
+}
+
+/* 收起态：整叠图标退到按钮下方，透明且不可交互（被按钮完全遮挡）；展开态整体
+   向左滑出显示，供选择。显隐节奏由 RightSidebarButtonManager 的定时器/悬浮逻辑
+   驱动，不再是逐个图标叠放——见该文件类注释。 */
+.minimalism-ui-rsb-stack {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	opacity: 0;
+	transform: translateX(16px);
+	pointer-events: none;
+	transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.minimalism-ui-rsb-stack.minimalism-ui-rsb-stack-expanded {
+	opacity: 1;
+	transform: translateX(0);
+	pointer-events: auto;
+}
+
+.minimalism-ui-rsb-stack-icon {
+	flex-shrink: 0;
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--background-secondary);
+	color: var(--text-muted);
+	border: 2px solid var(--background-primary);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
+	cursor: pointer;
+	transition: transform 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.minimalism-ui-rsb-stack-icon svg {
+	width: 15px;
+	height: 15px;
+}
+
+.minimalism-ui-rsb-stack-icon:hover {
+	color: var(--text-normal);
+	transform: translateY(-3px);
+}
+
+/* 选中态用主题色实心填充表达，不叠加额外的描边/光晕。 */
+.minimalism-ui-rsb-stack-icon.minimalism-ui-rsb-stack-icon-active {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
+.minimalism-ui-rsb-content {
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+	position: relative;
+}
+
+/* Obsidian 核心样式里 .view-content 默认按 `calc(100% - var(--header-height))` 让出
+   顶部 view-header 的空间，仅在 .workspace-split.mod-left-split/.mod-right-split 内
+   才会被覆盖回 height: 100%（因为侧边栏里 view-header 本就是隐藏的）。挂进本面板的
+   leaf DOM 已脱离原来的 split 容器，上面那条覆盖规则不再命中，40px 就会在底部露出
+   一块空白——这里针对面板内容区把它同等覆盖回来。 */
+.minimalism-ui-rsb-content .view-content {
+	height: 100%;
+}
+
+.minimalism-ui-rsb-empty {
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--text-faint);
+	font-size: 13px;
+	text-align: center;
+	padding: 16px;
+}
+
+.minimalism-ui-rsb-resize-handle {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 16px;
+	height: 16px;
+	cursor: nwse-resize;
+	-webkit-app-region: no-drag;
+	z-index: 1;
+}
+
+/* 拖拽调整尺寸期间：避免鼠标划过下方文本被意外选中。 */
+body.minimalism-ui-rsb-resizing {
+	user-select: none;
+}
+
 /* ── 信息面板容器 ─────────────────────────────────────────────────────── */
 
 .minimalism-ui-view-container {

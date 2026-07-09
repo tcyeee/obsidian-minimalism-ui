@@ -189,6 +189,16 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+		new Setting(appearanceEl)
+			.setName(t('showRightSidebarButton'))
+			.setDesc(t('showRightSidebarButtonDesc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.showRightSidebarButton)
+				.onChange(async v => {
+					this.plugin.settings.showRightSidebarButton = v;
+					await this.plugin.saveSettings();
+				}));
+
 		// ── Animation ──
 		const animationEl = this.addCollapsibleSection('animation', t('headingAnimation'));
 

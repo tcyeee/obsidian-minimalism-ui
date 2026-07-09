@@ -21,6 +21,11 @@ const translations = {
 
 		hideTabBar: '隐藏大纲按钮',
 
+		showRightSidebarButton: '右侧栏悬浮按钮',
+		showRightSidebarButtonDesc: '在右下角显示一个悬浮按钮，用于展开/收起右侧边栏（供依赖右侧栏的插件，如 AI 对话插件使用）。',
+		rightSidebarButtonLabel: '右侧边栏',
+		rightSidebarPanelEmpty: '右侧边栏暂无内容',
+
 		theme: '主题',
 
 		homePage: '笔记首页',
@@ -75,6 +80,11 @@ const translations = {
 		showVaultProfile: 'Bottom settings area',
 
 		hideTabBar: 'Hide outline button',
+
+		showRightSidebarButton: 'Right sidebar button',
+		showRightSidebarButtonDesc: 'Show a floating button in the bottom-right corner to expand/collapse the right sidebar (for plugins that need it, e.g. AI chat plugins).',
+		rightSidebarButtonLabel: 'Right sidebar',
+		rightSidebarPanelEmpty: 'Nothing in the right sidebar yet',
 
 		theme: 'Theme',
 

@@ -27,7 +27,7 @@ __export(main_exports, {
   default: () => MinimalismUIPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian10 = require("obsidian");
+var import_obsidian11 = require("obsidian");
 
 // src/core/settings.ts
 var DEFAULT_SETTINGS = {
@@ -54,7 +54,10 @@ var DEFAULT_SETTINGS = {
   // 默认无已完成任务；loadSettings 合并后老用户也会得到空数组。
   onboardingDone: [],
   // 默认未执行；仅全新安装会保持 false 并触发一次收拢，老用户在 loadSettings 里被置 true。
-  firstRunCleanupDone: false
+  firstRunCleanupDone: false,
+  showRightSidebarButton: true,
+  rightSidebarPanelWidth: 360,
+  rightSidebarPanelHeight: 480
 };
 
 // src/generated/theme-assets.ts
@@ -2392,6 +2395,10 @@ var translations = {
     showLocalGraph: "\u672C\u5730\u5173\u7CFB\u56FE",
     showVaultProfile: "\u5E95\u90E8\u7528\u6237\u8BBE\u7F6E\u533A\u57DF",
     hideTabBar: "\u9690\u85CF\u5927\u7EB2\u6309\u94AE",
+    showRightSidebarButton: "\u53F3\u4FA7\u680F\u60AC\u6D6E\u6309\u94AE",
+    showRightSidebarButtonDesc: "\u5728\u53F3\u4E0B\u89D2\u663E\u793A\u4E00\u4E2A\u60AC\u6D6E\u6309\u94AE\uFF0C\u7528\u4E8E\u5C55\u5F00/\u6536\u8D77\u53F3\u4FA7\u8FB9\u680F\uFF08\u4F9B\u4F9D\u8D56\u53F3\u4FA7\u680F\u7684\u63D2\u4EF6\uFF0C\u5982 AI \u5BF9\u8BDD\u63D2\u4EF6\u4F7F\u7528\uFF09\u3002",
+    rightSidebarButtonLabel: "\u53F3\u4FA7\u8FB9\u680F",
+    rightSidebarPanelEmpty: "\u53F3\u4FA7\u8FB9\u680F\u6682\u65E0\u5185\u5BB9",
     theme: "\u4E3B\u9898",
     homePage: "\u7B14\u8BB0\u9996\u9875",
     homePageDesc: "\u8BBE\u7F6E\u4E00\u4E2A\u7B14\u8BB0\u4F5C\u4E3A\u9996\u9875\u3002Obsidian \u542F\u52A8\u65F6\u81EA\u52A8\u6253\u5F00\uFF0C\u5173\u95ED\u6240\u6709\u6807\u7B7E\u540E\u81EA\u52A8\u8FD4\u56DE\u3002",
@@ -2436,6 +2443,10 @@ var translations = {
     showLocalGraph: "Local Graph",
     showVaultProfile: "Bottom settings area",
     hideTabBar: "Hide outline button",
+    showRightSidebarButton: "Right sidebar button",
+    showRightSidebarButtonDesc: "Show a floating button in the bottom-right corner to expand/collapse the right sidebar (for plugins that need it, e.g. AI chat plugins).",
+    rightSidebarButtonLabel: "Right sidebar",
+    rightSidebarPanelEmpty: "Nothing in the right sidebar yet",
     theme: "Theme",
     homePage: "Home note",
     homePageDesc: "A note that opens automatically on startup and whenever all tabs are closed.",
@@ -4738,9 +4749,441 @@ var MermaidZoomManager = class {
   }
 };
 
-// src/onboarding/OnboardingManager.ts
+// src/right-sidebar/RightSidebarButtonManager.ts
 var import_obsidian8 = require("obsidian");
-var PANEL_CLASS = "minimalism-ui-onboarding";
+var LAUNCHER_CLASS = "minimalism-ui-rsb-launcher";
+var BUTTON_CLASS = "minimalism-ui-rsb-button";
+var PANEL_CLASS = "minimalism-ui-rsb-panel";
+var OPEN_CLASS = "minimalism-ui-rsb-panel-open";
+var BUTTON_ACTIVE_CLASS = "minimalism-ui-rsb-button-active";
+var RESIZE_HANDLE_CLASS = "minimalism-ui-rsb-resize-handle";
+var RESIZING_BODY_CLASS = "minimalism-ui-rsb-resizing";
+var STACK_CLASS = "minimalism-ui-rsb-stack";
+var STACK_EXPANDED_CLASS = "minimalism-ui-rsb-stack-expanded";
+var STACK_ICON_CLASS = "minimalism-ui-rsb-stack-icon";
+var STACK_ICON_ACTIVE_CLASS = "minimalism-ui-rsb-stack-icon-active";
+var CONTENT_CLASS = "minimalism-ui-rsb-content";
+var EMPTY_CLASS = "minimalism-ui-rsb-empty";
+var DEFAULT_ICON = "panel-right";
+var MANAGED_LEFT_VIEW_TYPES = /* @__PURE__ */ new Set(["outline", "localgraph", "file-properties"]);
+var DOCUMENT_VIEW_TYPES = /* @__PURE__ */ new Set([
+  "markdown",
+  "canvas",
+  "pdf",
+  "image",
+  "audio",
+  "video",
+  "empty",
+  "release-notes",
+  "webviewer",
+  "bases"
+]);
+var MIN_WIDTH2 = 280;
+var MAX_WIDTH2 = 720;
+var MIN_HEIGHT = 220;
+var MAX_HEIGHT = 800;
+var VIEWPORT_MARGIN_X = 40;
+var VIEWPORT_MARGIN_Y = 92;
+var STACK_AUTO_EXPAND_DELAY = 500;
+var STACK_AUTO_COLLAPSE_DELAY = 2e3;
+var STACK_HOVER_LEAVE_DELAY = 300;
+var RightSidebarButtonManager = class {
+  constructor(app, getSettings, save) {
+    this.app = app;
+    this.getSettings = getSettings;
+    this.save = save;
+    this.launcherEl = null;
+    this.buttonEl = null;
+    this.stackEl = null;
+    this.panelEl = null;
+    this.contentEl = null;
+    this.resizeHandleEl = null;
+    this.outsideClickHandler = null;
+    this.keydownHandler = null;
+    this.layoutChangeHandler = null;
+    this.isOpen = false;
+    this.stackExpanded = false;
+    // 每次 apply() 只做一次全量探测（见 ensureAllToolViewsExist），避免每次开面板都重复扫描/创建。
+    this.hasProbedAllViewTypes = false;
+    // 当前挂进 contentEl 的 leaf，及其原本所在的位置（用于切走/卸载时移回）。
+    this.mountedLeaf = null;
+    this.mountedOriginal = null;
+    // 图标堆叠的发现顺序，选中不再改变它（见类注释）。
+    this.leafOrder = [];
+    // 当前选中项，独立于 leafOrder 的顺序记录。
+    this.activeLeaf = null;
+    // 鼠标是否停留在 launcher（按钮 + 堆叠）范围内——决定自动收起定时器要不要暂停。
+    this.isHovering = false;
+    this.autoExpandTimer = null;
+    this.autoCollapseTimer = null;
+    // 进行中的拖拽起点；null 表示未在拖拽。
+    this.resizeStart = null;
+    this.currentSize = null;
+    // 拖拽超出可调节范围时，松手瞬间指针已远离面板：随之而来的 click 会落在面板外，
+    // 被“点击外部关闭”误判。此标记在拖拽结束后短暂生效，让该次 click 被忽略。
+    this.suppressNextOutsideClick = false;
+    // 堆叠隐藏态下唤出跳过 500ms 延迟（那个延迟只属于“面板刚打开”那一次）；
+    // 已经展开时悬浮只是暂停当前倒计时（清掉定时器），不重新触发亮相动画。
+    this.onLauncherMouseEnter = () => {
+      this.isHovering = true;
+      if (!this.isOpen) return;
+      if (!this.stackExpanded) {
+        this.showStack();
+        return;
+      }
+      if (this.autoCollapseTimer !== null) {
+        window.clearTimeout(this.autoCollapseTimer);
+        this.autoCollapseTimer = null;
+      }
+    };
+    // 鼠标移出 launcher：用户已经主动看过、决定移开了，收起前只留 300ms 短缓冲
+    // （区别于“面板刚打开、无人理会”那次的 2s——见 showStack）。
+    this.onLauncherMouseLeave = () => {
+      this.isHovering = false;
+      if (!this.isOpen) return;
+      if (this.stackExpanded) this.scheduleAutoCollapse(STACK_HOVER_LEAVE_DELAY);
+    };
+    // ─── 拖拽调整面板尺寸 ───────────────────────────────────────────────────
+    this.onResizePointerDown = (e) => {
+      if (!this.panelEl) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = this.panelEl.getBoundingClientRect();
+      this.resizeStart = { x: e.clientX, y: e.clientY, width: rect.width, height: rect.height };
+      activeDocument.body.addClass(RESIZING_BODY_CLASS);
+      activeDocument.addEventListener("pointermove", this.onResizePointerMove, true);
+      activeDocument.addEventListener("pointerup", this.onResizePointerUp, true);
+    };
+    this.onResizePointerMove = (e) => {
+      if (!this.resizeStart || !this.panelEl) return;
+      const dx = this.resizeStart.x - e.clientX;
+      const dy = this.resizeStart.y - e.clientY;
+      const maxWidth = Math.min(MAX_WIDTH2, activeWindow.innerWidth - VIEWPORT_MARGIN_X);
+      const maxHeight = Math.min(MAX_HEIGHT, activeWindow.innerHeight - VIEWPORT_MARGIN_Y);
+      const width = Math.max(MIN_WIDTH2, Math.min(maxWidth, Math.round(this.resizeStart.width + dx)));
+      const height = Math.max(MIN_HEIGHT, Math.min(maxHeight, Math.round(this.resizeStart.height + dy)));
+      this.currentSize = { width, height };
+      this.panelEl.setCssStyles({ width: `${width}px`, height: `${height}px` });
+      if (this.mountedLeaf) this.notifyResize(this.mountedLeaf);
+    };
+    this.onResizePointerUp = () => {
+      const size = this.currentSize;
+      const had = this.resizeStart !== null;
+      if (had) {
+        this.suppressNextOutsideClick = true;
+        window.setTimeout(() => {
+          this.suppressNextOutsideClick = false;
+        }, 300);
+      }
+      this.endResizeDrag();
+      if (had && size) {
+        const s = this.getSettings();
+        s.rightSidebarPanelWidth = size.width;
+        s.rightSidebarPanelHeight = size.height;
+        void this.save();
+      }
+    };
+  }
+  apply() {
+    this.remove();
+    if (!this.getSettings().showRightSidebarButton) return;
+    this.inject();
+  }
+  inject() {
+    this.hasProbedAllViewTypes = false;
+    this.panelEl = activeDocument.body.createDiv({ cls: PANEL_CLASS });
+    const s = this.getSettings();
+    this.panelEl.setCssStyles({
+      width: `${s.rightSidebarPanelWidth}px`,
+      height: `${s.rightSidebarPanelHeight}px`
+    });
+    this.contentEl = this.panelEl.createDiv({ cls: CONTENT_CLASS });
+    this.resizeHandleEl = this.panelEl.createDiv({ cls: RESIZE_HANDLE_CLASS });
+    this.resizeHandleEl.addEventListener("pointerdown", this.onResizePointerDown);
+    this.launcherEl = activeDocument.body.createDiv({ cls: LAUNCHER_CLASS });
+    this.stackEl = this.launcherEl.createDiv({ cls: STACK_CLASS });
+    this.launcherEl.addEventListener("mouseenter", this.onLauncherMouseEnter);
+    this.launcherEl.addEventListener("mouseleave", this.onLauncherMouseLeave);
+    this.buttonEl = this.launcherEl.createDiv({
+      cls: BUTTON_CLASS,
+      attr: { "aria-label": t("rightSidebarButtonLabel") }
+    });
+    (0, import_obsidian8.setIcon)(this.buttonEl, DEFAULT_ICON);
+    this.buttonEl.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.setStackExpanded(false);
+      this.toggle();
+    });
+    this.outsideClickHandler = (e) => {
+      if (this.suppressNextOutsideClick) {
+        this.suppressNextOutsideClick = false;
+        return;
+      }
+      const path = e.composedPath();
+      const inStack = this.stackEl != null && path.includes(this.stackEl);
+      if (this.stackExpanded && !inStack) {
+        this.clearStackTimers();
+        this.setStackExpanded(false);
+      }
+      if (!this.isOpen) return;
+      if (this.launcherEl && path.includes(this.launcherEl) || this.panelEl && path.includes(this.panelEl)) return;
+      this.close();
+    };
+    activeDocument.addEventListener("click", this.outsideClickHandler);
+    this.keydownHandler = (e) => {
+      if (e.key !== "Escape" || !this.isOpen) return;
+      e.stopPropagation();
+      this.close();
+    };
+    activeDocument.addEventListener("keydown", this.keydownHandler);
+    this.layoutChangeHandler = () => {
+      if (this.isOpen) this.refreshStack();
+    };
+    this.app.workspace.on("layout-change", this.layoutChangeHandler);
+  }
+  toggle() {
+    if (this.isOpen) this.close();
+    else this.open();
+  }
+  open() {
+    var _a, _b;
+    this.isOpen = true;
+    (_a = this.panelEl) == null ? void 0 : _a.addClass(OPEN_CLASS);
+    (_b = this.buttonEl) == null ? void 0 : _b.addClass(BUTTON_ACTIVE_CLASS);
+    this.refreshStack();
+    this.clearStackTimers();
+    this.autoExpandTimer = window.setTimeout(() => {
+      this.autoExpandTimer = null;
+      if (this.isOpen) this.showStack();
+    }, STACK_AUTO_EXPAND_DELAY);
+    if (!this.hasProbedAllViewTypes) {
+      this.hasProbedAllViewTypes = true;
+      void this.ensureAllToolViewsExist().then(() => {
+        if (this.isOpen) this.refreshStack();
+      });
+    }
+  }
+  close() {
+    var _a, _b;
+    this.isOpen = false;
+    this.clearStackTimers();
+    this.setStackExpanded(false);
+    (_a = this.panelEl) == null ? void 0 : _a.removeClass(OPEN_CLASS);
+    (_b = this.buttonEl) == null ? void 0 : _b.removeClass(BUTTON_ACTIVE_CLASS);
+  }
+  setStackExpanded(expanded) {
+    var _a;
+    this.stackExpanded = expanded;
+    (_a = this.stackEl) == null ? void 0 : _a.toggleClass(STACK_EXPANDED_CLASS, expanded);
+  }
+  // 堆叠从隐藏变为可见的唯一入口：500ms 自动亮相定时器、悬浮唤出都走这里。
+  // 亮相当下鼠标没停在 launcher 上才排“首次亮相”的 2s 自动收起——否则等 mouseleave
+  // 再排（见 onLauncherMouseLeave，用的是更短的 300ms），避免鼠标正停在上面时
+  // 列表突然从指针底下收走。
+  showStack() {
+    this.setStackExpanded(true);
+    if (this.autoCollapseTimer !== null) {
+      window.clearTimeout(this.autoCollapseTimer);
+      this.autoCollapseTimer = null;
+    }
+    if (!this.isHovering) this.scheduleAutoCollapse(STACK_AUTO_COLLAPSE_DELAY);
+  }
+  scheduleAutoCollapse(delayMs) {
+    if (this.autoCollapseTimer !== null) window.clearTimeout(this.autoCollapseTimer);
+    this.autoCollapseTimer = window.setTimeout(() => {
+      this.autoCollapseTimer = null;
+      if (!this.isHovering) this.setStackExpanded(false);
+    }, delayMs);
+  }
+  clearStackTimers() {
+    if (this.autoExpandTimer !== null) {
+      window.clearTimeout(this.autoExpandTimer);
+      this.autoExpandTimer = null;
+    }
+    if (this.autoCollapseTimer !== null) {
+      window.clearTimeout(this.autoCollapseTimer);
+      this.autoCollapseTimer = null;
+    }
+  }
+  // ─── 视图枚举 / 渲染图标堆叠 / 挂载切换 ─────────────────────────────────
+  // 右侧栏的全部 leaf，加上左侧栏里不属于 Outline/Graph/Properties 合并三件套的“外来” leaf。
+  collectSwitchableLeaves() {
+    const { leftSplit, rightSplit } = this.app.workspace;
+    const leaves = [];
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      const root = leaf.getRoot();
+      if (rightSplit && root === rightSplit) {
+        leaves.push(leaf);
+      } else if (leftSplit && root === leftSplit && !MANAGED_LEFT_VIEW_TYPES.has(leaf.getViewState().type)) {
+        leaves.push(leaf);
+      }
+    });
+    return leaves;
+  }
+  // 全部已注册的“工具类” view type：viewByType 里排除文档类（DOCUMENT_VIEW_TYPES）和
+  // 已被 SidebarLayoutManager 合并管理的三种（MANAGED_LEFT_VIEW_TYPES）。
+  // viewByType 是内部 API（未出现在官方类型声明中），随 Obsidian 插件注册 registerView 时写入，
+  // 与是否有 leaf 打开无关 —— 这正是探测“已关闭但曾注册过”的 view 所需要的入口。
+  allRegisteredToolViewTypes() {
+    var _a;
+    const registry = this.app.viewRegistry;
+    const types = Object.keys((_a = registry == null ? void 0 : registry.viewByType) != null ? _a : {});
+    return types.filter((type) => !DOCUMENT_VIEW_TYPES.has(type) && !MANAGED_LEFT_VIEW_TYPES.has(type));
+  }
+  // 为每个尚无 leaf 的工具类 view type 在（CSS 整体隐藏的）右侧栏静默创建一个 leaf 占位，
+  // 使其之后能被 collectSwitchableLeaves 发现。逐个 await 而非 Promise.all，避免并发调用
+  // getRightLeaf/setViewState 在 Obsidian 工作区内部产生竞态。
+  // 某个类型探测失败（第三方 view 在无文件上下文下抛错）不影响其余类型，失败时把刚创建的
+  // 空/半初始化 leaf 一并 detach 掉，不留垃圾条目。
+  async ensureAllToolViewsExist() {
+    for (const type of this.allRegisteredToolViewTypes()) {
+      if (this.app.workspace.getLeavesOfType(type).length > 0) continue;
+      let leaf = null;
+      try {
+        leaf = this.app.workspace.getRightLeaf(true);
+        if (!leaf) continue;
+        await leaf.setViewState({ type, active: false });
+      } catch (err) {
+        console.error(`[minimalism-ui] probing view type "${type}" failed, skipping`, err);
+        leaf == null ? void 0 : leaf.detach();
+      }
+    }
+  }
+  // 用最新扫描结果更新堆叠顺序：保留既有相对顺序，已关闭的 leaf 剔除，
+  // 新出现的 leaf 追加到最前（选中不再触发重排，见类注释）。
+  syncLeafOrder(leaves) {
+    const present = new Set(leaves);
+    this.leafOrder = this.leafOrder.filter((l) => present.has(l));
+    const known = new Set(this.leafOrder);
+    for (const leaf of leaves) if (!known.has(leaf)) this.leafOrder.unshift(leaf);
+  }
+  refreshStack() {
+    if (!this.stackEl) return;
+    const leaves = this.collectSwitchableLeaves();
+    this.syncLeafOrder(leaves);
+    if (this.leafOrder.length === 0) {
+      this.activeLeaf = null;
+      this.stackEl.empty();
+      this.showEmpty();
+      return;
+    }
+    if (!this.activeLeaf || !this.leafOrder.includes(this.activeLeaf)) {
+      this.activeLeaf = this.leafOrder[this.leafOrder.length - 1];
+    }
+    this.renderStackIcons();
+    void this.showLeaf(this.activeLeaf);
+  }
+  renderStackIcons() {
+    if (!this.stackEl) return;
+    this.stackEl.empty();
+    for (const leaf of this.leafOrder) {
+      const iconEl = this.stackEl.createDiv({
+        cls: STACK_ICON_CLASS,
+        attr: { "aria-label": leaf.getDisplayText() }
+      });
+      iconEl.toggleClass(STACK_ICON_ACTIVE_CLASS, leaf === this.activeLeaf);
+      (0, import_obsidian8.setIcon)(iconEl, leaf.getIcon());
+      iconEl.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.selectLeaf(leaf);
+      });
+    }
+  }
+  selectLeaf(leaf) {
+    this.activeLeaf = leaf;
+    this.clearStackTimers();
+    this.setStackExpanded(false);
+    if (!this.isOpen) this.open();
+    else {
+      this.renderStackIcons();
+      void this.showLeaf(leaf);
+    }
+  }
+  async showLeaf(leaf) {
+    var _a, _b;
+    if (this.mountedLeaf === leaf) return;
+    this.restoreMounted();
+    if (leaf.isDeferred) await leaf.loadIfDeferred();
+    const viewEl = leaf.view.containerEl;
+    if (!viewEl.parentElement) return;
+    this.mountedOriginal = { parent: viewEl.parentElement, nextSibling: viewEl.nextSibling };
+    (_a = this.contentEl) == null ? void 0 : _a.empty();
+    (_b = this.contentEl) == null ? void 0 : _b.appendChild(viewEl);
+    this.mountedLeaf = leaf;
+    if (this.buttonEl) (0, import_obsidian8.setIcon)(this.buttonEl, leaf.getIcon());
+    this.notifyResize(leaf);
+  }
+  showEmpty() {
+    var _a, _b;
+    this.restoreMounted();
+    (_a = this.contentEl) == null ? void 0 : _a.empty();
+    (_b = this.contentEl) == null ? void 0 : _b.createDiv({ cls: EMPTY_CLASS, text: t("rightSidebarPanelEmpty") });
+    if (this.buttonEl) (0, import_obsidian8.setIcon)(this.buttonEl, DEFAULT_ICON);
+  }
+  // onResize() 跑的是任意第三方/核心视图的代码，出错也不该拖垮我们自己的挂载逻辑。
+  notifyResize(leaf) {
+    try {
+      leaf.onResize();
+    } catch (err) {
+      console.error("[minimalism-ui] right sidebar view onResize() failed", err);
+    }
+  }
+  // 把当前挂载的 leaf 视图移回它原本所在的 DOM 位置（隐藏的右侧栏内）。
+  restoreMounted() {
+    if (!this.mountedLeaf || !this.mountedOriginal) return;
+    const viewEl = this.mountedLeaf.view.containerEl;
+    this.mountedOriginal.parent.insertBefore(viewEl, this.mountedOriginal.nextSibling);
+    this.mountedLeaf = null;
+    this.mountedOriginal = null;
+  }
+  endResizeDrag() {
+    if (!this.resizeStart) return;
+    this.resizeStart = null;
+    this.currentSize = null;
+    activeDocument.body.removeClass(RESIZING_BODY_CLASS);
+    activeDocument.removeEventListener("pointermove", this.onResizePointerMove, true);
+    activeDocument.removeEventListener("pointerup", this.onResizePointerUp, true);
+  }
+  remove() {
+    var _a, _b, _c, _d, _e;
+    if (this.outsideClickHandler) {
+      activeDocument.removeEventListener("click", this.outsideClickHandler);
+      this.outsideClickHandler = null;
+    }
+    if (this.keydownHandler) {
+      activeDocument.removeEventListener("keydown", this.keydownHandler);
+      this.keydownHandler = null;
+    }
+    if (this.layoutChangeHandler) {
+      this.app.workspace.off("layout-change", this.layoutChangeHandler);
+      this.layoutChangeHandler = null;
+    }
+    this.endResizeDrag();
+    activeDocument.body.removeClass(RESIZING_BODY_CLASS);
+    this.restoreMounted();
+    this.clearStackTimers();
+    this.leafOrder = [];
+    this.activeLeaf = null;
+    this.isHovering = false;
+    (_a = this.resizeHandleEl) == null ? void 0 : _a.removeEventListener("pointerdown", this.onResizePointerDown);
+    this.resizeHandleEl = null;
+    this.stackEl = null;
+    this.contentEl = null;
+    (_b = this.launcherEl) == null ? void 0 : _b.removeEventListener("mouseenter", this.onLauncherMouseEnter);
+    (_c = this.launcherEl) == null ? void 0 : _c.removeEventListener("mouseleave", this.onLauncherMouseLeave);
+    (_d = this.launcherEl) == null ? void 0 : _d.remove();
+    (_e = this.panelEl) == null ? void 0 : _e.remove();
+    this.launcherEl = null;
+    this.buttonEl = null;
+    this.panelEl = null;
+    this.isOpen = false;
+    this.stackExpanded = false;
+  }
+};
+
+// src/onboarding/OnboardingManager.ts
+var import_obsidian9 = require("obsidian");
+var PANEL_CLASS2 = "minimalism-ui-onboarding";
 var ALL_DONE_HIDE_DELAY = 2500;
 var EXIT_DURATION = 320;
 var PLUGIN_ID = "minimalism-ui";
@@ -4750,8 +5193,8 @@ function hasIndexNote(app) {
 function homeNoteHasLink(app, settings) {
   const path = settings.homePage.trim();
   if (!path) return false;
-  const file = app.vault.getAbstractFileByPath((0, import_obsidian8.normalizePath)(path));
-  if (!(file instanceof import_obsidian8.TFile)) return false;
+  const file = app.vault.getAbstractFileByPath((0, import_obsidian9.normalizePath)(path));
+  if (!(file instanceof import_obsidian9.TFile)) return false;
   const links = app.metadataCache.resolvedLinks[file.path];
   return links != null && Object.keys(links).length > 0;
 }
@@ -4767,7 +5210,7 @@ function openPluginSettings(app) {
   setting == null ? void 0 : setting.open();
   setting == null ? void 0 : setting.openTabById(PLUGIN_ID);
 }
-var MOD_SYMBOLS = import_obsidian8.Platform.isMacOS ? { Mod: "\u2318", Ctrl: "\u2303", Meta: "\u2318", Alt: "\u2325", Shift: "\u21E7" } : { Mod: "Ctrl", Ctrl: "Ctrl", Meta: "Win", Alt: "Alt", Shift: "Shift" };
+var MOD_SYMBOLS = import_obsidian9.Platform.isMacOS ? { Mod: "\u2318", Ctrl: "\u2303", Meta: "\u2318", Alt: "\u2325", Shift: "\u21E7" } : { Mod: "Ctrl", Ctrl: "Ctrl", Meta: "Win", Alt: "Alt", Shift: "Shift" };
 var MOD_ORDER = ["Ctrl", "Alt", "Shift", "Meta", "Mod"];
 var KEY_LABELS = {
   ArrowLeft: "\u2190",
@@ -4822,16 +5265,16 @@ var OnboardingManager = class {
   apply() {
     this.remove();
     if (!this.getSettings().onboarding) return;
-    const panel = activeDocument.body.createDiv({ cls: PANEL_CLASS });
-    panel.createDiv({ cls: `${PANEL_CLASS}-header`, text: t("onboardingTitle") });
-    const list = panel.createDiv({ cls: `${PANEL_CLASS}-tasks` });
+    const panel = activeDocument.body.createDiv({ cls: PANEL_CLASS2 });
+    panel.createDiv({ cls: `${PANEL_CLASS2}-header`, text: t("onboardingTitle") });
+    const list = panel.createDiv({ cls: `${PANEL_CLASS2}-tasks` });
     for (const def of TASKS) {
-      const item = list.createDiv({ cls: `${PANEL_CLASS}-task` });
-      item.createSpan({ cls: `${PANEL_CLASS}-task-check` });
-      item.createSpan({ cls: `${PANEL_CLASS}-task-label`, text: t(def.label) });
+      const item = list.createDiv({ cls: `${PANEL_CLASS2}-task` });
+      item.createSpan({ cls: `${PANEL_CLASS2}-task-check` });
+      item.createSpan({ cls: `${PANEL_CLASS2}-task-label`, text: t(def.label) });
       if (def.openSettings) {
         const btn = item.createEl("button", {
-          cls: `${PANEL_CLASS}-task-action`,
+          cls: `${PANEL_CLASS2}-task-action`,
           text: t("onboardingOpenSettings")
         });
         btn.addEventListener("click", () => openPluginSettings(this.app));
@@ -4898,16 +5341,16 @@ var OnboardingManager = class {
   renderHotkey(item, def) {
     if (!def.commandId) return;
     const next = readHotkeyTokens(this.app, def.commandId);
-    let keys = item.querySelector(`.${PANEL_CLASS}-task-hotkey`);
-    const current = keys ? Array.from(keys.querySelectorAll(`.${PANEL_CLASS}-task-key`)).map((s) => {
+    let keys = item.querySelector(`.${PANEL_CLASS2}-task-hotkey`);
+    const current = keys ? Array.from(keys.querySelectorAll(`.${PANEL_CLASS2}-task-key`)).map((s) => {
       var _a;
       return (_a = s.textContent) != null ? _a : "";
     }) : null;
     if (JSON.stringify(current) === JSON.stringify(next)) return;
     if (keys) keys.remove();
     if (next) {
-      keys = item.createDiv({ cls: `${PANEL_CLASS}-task-hotkey` });
-      for (const tk of next) keys.createSpan({ cls: `${PANEL_CLASS}-task-key`, text: tk });
+      keys = item.createDiv({ cls: `${PANEL_CLASS2}-task-hotkey` });
+      for (const tk of next) keys.createSpan({ cls: `${PANEL_CLASS2}-task-key`, text: tk });
     }
   }
   // 重新派生每条任务三态并切换样式（只改 class，不重建 DOM）。
@@ -4950,11 +5393,11 @@ var OnboardingManager = class {
   }
   // 在任务清单下方弹出一条「全部完成」的庆祝反馈（带 pop 入场动画，见 styles.css）。
   showAllDoneFeedback() {
-    if (!this.panel || this.panel.querySelector(`.${PANEL_CLASS}-feedback`)) return;
+    if (!this.panel || this.panel.querySelector(`.${PANEL_CLASS2}-feedback`)) return;
     this.panel.addClass("is-celebrate");
-    const fb = this.panel.createDiv({ cls: `${PANEL_CLASS}-feedback` });
-    fb.createSpan({ cls: `${PANEL_CLASS}-feedback-icon`, text: "\u{1F389}" });
-    fb.createSpan({ cls: `${PANEL_CLASS}-feedback-text`, text: t("onboardingAllDone") });
+    const fb = this.panel.createDiv({ cls: `${PANEL_CLASS2}-feedback` });
+    fb.createSpan({ cls: `${PANEL_CLASS2}-feedback-icon`, text: "\u{1F389}" });
+    fb.createSpan({ cls: `${PANEL_CLASS2}-feedback-text`, text: t("onboardingAllDone") });
   }
   remove() {
     for (const id of this.timers) window.clearTimeout(id);
@@ -4985,7 +5428,7 @@ var OnboardingManager = class {
       this.panel.remove();
       this.panel = null;
     }
-    activeDocument.querySelectorAll(`.${PANEL_CLASS}`).forEach((el) => el.remove());
+    activeDocument.querySelectorAll(`.${PANEL_CLASS2}`).forEach((el) => el.remove());
   }
 };
 
@@ -5004,8 +5447,8 @@ var FirstRunCleanup = class {
 };
 
 // src/SettingTab.ts
-var import_obsidian9 = require("obsidian");
-var FileSuggest = class extends import_obsidian9.AbstractInputSuggest {
+var import_obsidian10 = require("obsidian");
+var FileSuggest = class extends import_obsidian10.AbstractInputSuggest {
   constructor() {
     super(...arguments);
     this.onPickCb = null;
@@ -5027,7 +5470,7 @@ var FileSuggest = class extends import_obsidian9.AbstractInputSuggest {
     this.close();
   }
 };
-var MinimalismUISettingTab = class extends import_obsidian9.PluginSettingTab {
+var MinimalismUISettingTab = class extends import_obsidian10.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -5060,13 +5503,13 @@ var MinimalismUISettingTab = class extends import_obsidian9.PluginSettingTab {
     intro.createEl("p", { text: t("introDesc1") });
     intro.createEl("p", { text: t("introDesc2") });
     const generalEl = this.addCollapsibleSection("general", t("headingGeneral"));
-    new import_obsidian9.Setting(generalEl).setName(t("language")).addDropdown((drop) => drop.addOption("auto", t("languageAuto")).addOption("zh", t("languageZh")).addOption("en", t("languageEn")).setValue(this.plugin.settings.language).onChange(async (v) => {
+    new import_obsidian10.Setting(generalEl).setName(t("language")).addDropdown((drop) => drop.addOption("auto", t("languageAuto")).addOption("zh", t("languageZh")).addOption("en", t("languageEn")).setValue(this.plugin.settings.language).onChange(async (v) => {
       this.plugin.settings.language = v;
       setLang(v);
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian9.Setting(generalEl).setName(t("theme")).addDropdown((drop) => {
+    new import_obsidian10.Setting(generalEl).setName(t("theme")).addDropdown((drop) => {
       const names = this.plugin.listThemes();
       for (const name of names) drop.addOption(name, name);
       if (!names.includes(this.plugin.settings.theme)) {
@@ -5080,7 +5523,7 @@ var MinimalismUISettingTab = class extends import_obsidian9.PluginSettingTab {
       });
     });
     const interactionEl = this.addCollapsibleSection("interaction", t("headingInteraction"));
-    const singlePageSetting = new import_obsidian9.Setting(interactionEl).setName(t("singlePage"));
+    const singlePageSetting = new import_obsidian10.Setting(interactionEl).setName(t("singlePage"));
     singlePageSetting.settingEl.addClass("minimalism-ui-single-page-setting");
     singlePageSetting.addToggle((toggle) => toggle.setValue(this.plugin.settings.disableNoteTabs).onChange(async (v) => {
       this.plugin.settings.disableNoteTabs = v;
@@ -5094,7 +5537,7 @@ var MinimalismUISettingTab = class extends import_obsidian9.PluginSettingTab {
     singlePageSetting.descEl.createEl("br");
     singlePageSetting.descEl.createSpan({ text: t("singlePageDesc4") });
     singlePageSetting.descEl.createEl("br");
-    new import_obsidian9.Setting(interactionEl).setName(t("homePage")).setDesc(t("homePageDesc")).addText((text) => {
+    new import_obsidian10.Setting(interactionEl).setName(t("homePage")).setDesc(t("homePageDesc")).addText((text) => {
       text.setPlaceholder(t("homePagePlaceholder")).setValue(this.plugin.settings.homePage);
       const applyHomePage = (value) => {
         const changed = this.plugin.settings.homePage !== value;
@@ -5107,37 +5550,41 @@ var MinimalismUISettingTab = class extends import_obsidian9.PluginSettingTab {
       text.inputEl.addEventListener("change", () => applyHomePage(text.inputEl.value.trim()));
     });
     const appearanceEl = this.addCollapsibleSection("appearance", t("headingAppearance"));
-    new import_obsidian9.Setting(appearanceEl).setName(t("hideTabBar")).addToggle((toggle) => toggle.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
+    new import_obsidian10.Setting(appearanceEl).setName(t("hideTabBar")).addToggle((toggle) => toggle.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
       this.plugin.settings.hideTabBar = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian9.Setting(appearanceEl).setName(t("showProperties")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showProperties).onChange(async (v) => {
+    new import_obsidian10.Setting(appearanceEl).setName(t("showProperties")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showProperties).onChange(async (v) => {
       this.plugin.settings.showProperties = v;
       await this.plugin.saveSettings();
       await this.plugin.applyMacSidebarLayout();
     }));
-    new import_obsidian9.Setting(appearanceEl).setName(t("showLocalGraph")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showLocalGraph).onChange(async (v) => {
+    new import_obsidian10.Setting(appearanceEl).setName(t("showLocalGraph")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showLocalGraph).onChange(async (v) => {
       this.plugin.settings.showLocalGraph = v;
       await this.plugin.saveSettings();
       await this.plugin.applyMacSidebarLayout();
     }));
-    new import_obsidian9.Setting(appearanceEl).setName(t("showVaultProfile")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showVaultProfile).onChange(async (v) => {
+    new import_obsidian10.Setting(appearanceEl).setName(t("showVaultProfile")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showVaultProfile).onChange(async (v) => {
       this.plugin.settings.showVaultProfile = v;
       await this.plugin.saveSettings();
     }));
+    new import_obsidian10.Setting(appearanceEl).setName(t("showRightSidebarButton")).setDesc(t("showRightSidebarButtonDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showRightSidebarButton).onChange(async (v) => {
+      this.plugin.settings.showRightSidebarButton = v;
+      await this.plugin.saveSettings();
+    }));
     const animationEl = this.addCollapsibleSection("animation", t("headingAnimation"));
-    new import_obsidian9.Setting(animationEl).setName(t("navAnimation")).setDesc(t("navAnimationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
+    new import_obsidian10.Setting(animationEl).setName(t("navAnimation")).setDesc(t("navAnimationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
       this.plugin.settings.enableNavAnimation = v;
       await this.plugin.saveSettings();
     }));
     const advancedEl = this.addCollapsibleSection("advanced", t("headingAdvanced"));
-    new import_obsidian9.Setting(advancedEl).setName(t("filenamePrefixManual")).setDesc(t("filenamePrefixManualDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.filenamePrefixManual).onChange((value) => {
+    new import_obsidian10.Setting(advancedEl).setName(t("filenamePrefixManual")).setDesc(t("filenamePrefixManualDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.filenamePrefixManual).onChange((value) => {
       this.plugin.settings.filenamePrefixManual = value;
       void this.plugin.saveSettings();
       this.display();
     }));
     if (this.plugin.settings.filenamePrefixManual) {
-      new import_obsidian9.Setting(advancedEl).setName(t("filenamePrefixLength")).setDesc(t("filenamePrefixLengthDesc")).addText((text) => {
+      new import_obsidian10.Setting(advancedEl).setName(t("filenamePrefixLength")).setDesc(t("filenamePrefixLengthDesc")).addText((text) => {
         text.inputEl.type = "number";
         text.inputEl.min = "0";
         text.inputEl.max = "20";
@@ -5156,7 +5603,7 @@ var MinimalismUISettingTab = class extends import_obsidian9.PluginSettingTab {
 };
 
 // main.ts
-var MinimalismUIPlugin = class extends import_obsidian10.Plugin {
+var MinimalismUIPlugin = class extends import_obsidian11.Plugin {
   constructor() {
     super(...arguments);
     // 所有功能单元，统一用于卸载，避免逐个手写 remove() 时遗漏。
@@ -5189,6 +5636,7 @@ var MinimalismUIPlugin = class extends import_obsidian10.Plugin {
     this.ribbonPanel = new RibbonPanelManager(settings, () => this.saveSettings());
     this.editorStatus = new EditorStatusManager(this.app, this);
     this.mermaidZoom = new MermaidZoomManager(this.app);
+    this.rightSidebarButton = new RightSidebarButtonManager(this.app, settings, () => this.saveData(this.settings));
     this.onboarding = new OnboardingManager(this.app, settings, () => this.saveData(this.settings));
     this.firstRunCleanup = new FirstRunCleanup(this.app, async () => {
       this.settings.firstRunCleanupDone = true;
@@ -5210,6 +5658,7 @@ var MinimalismUIPlugin = class extends import_obsidian10.Plugin {
       this.propertyKeyResizer,
       this.mermaidZoom,
       this.onboarding,
+      this.rightSidebarButton,
       this.ribbonPanel,
       this.editorStatus
     ];
@@ -5224,6 +5673,7 @@ var MinimalismUIPlugin = class extends import_obsidian10.Plugin {
     this.editorStatus.apply();
     this.mermaidZoom.apply();
     this.onboarding.apply();
+    this.rightSidebarButton.apply();
     this.app.workspace.onLayoutReady(() => {
       this.dragBar.apply();
       this.homePage.apply();
@@ -5294,5 +5744,6 @@ var MinimalismUIPlugin = class extends import_obsidian10.Plugin {
     this.homePage.apply();
     this.emptyViewButton.apply();
     this.onboarding.apply();
+    this.rightSidebarButton.apply();
   }
 };

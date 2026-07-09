@@ -17,6 +17,7 @@ import { PropertyKeyResizer } from './src/layout/PropertyKeyResizer';
 import { RibbonPanelManager } from './src/layout/RibbonPanelManager';
 import { EditorStatusManager } from './src/layout/EditorStatusManager';
 import { MermaidZoomManager } from './src/mermaid/MermaidZoomManager';
+import { RightSidebarButtonManager } from './src/right-sidebar/RightSidebarButtonManager';
 import { OnboardingManager } from './src/onboarding/OnboardingManager';
 import { FirstRunCleanup } from './src/onboarding/FirstRunCleanup';
 import { MinimalismUISettingTab } from './src/SettingTab';
@@ -45,6 +46,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	private ribbonPanel: RibbonPanelManager;
 	private editorStatus: EditorStatusManager;
 	private mermaidZoom: MermaidZoomManager;
+	private rightSidebarButton: RightSidebarButtonManager;
 	private onboarding: OnboardingManager;
 	// 一次性首次启用收拢；无持久副作用，不进 features[]。
 	private firstRunCleanup: FirstRunCleanup;
@@ -82,6 +84,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.ribbonPanel = new RibbonPanelManager(settings, () => this.saveSettings());
 		this.editorStatus = new EditorStatusManager(this.app, this);
 		this.mermaidZoom = new MermaidZoomManager(this.app);
+		this.rightSidebarButton = new RightSidebarButtonManager(this.app, settings, () => this.saveData(this.settings));
 		this.onboarding = new OnboardingManager(this.app, settings, () => this.saveData(this.settings));
 		this.firstRunCleanup = new FirstRunCleanup(this.app, async () => {
 			this.settings.firstRunCleanupDone = true;
@@ -104,6 +107,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			this.propertyKeyResizer,
 			this.mermaidZoom,
 			this.onboarding,
+			this.rightSidebarButton,
 			this.ribbonPanel,
 			this.editorStatus,
 		];
@@ -120,6 +124,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.editorStatus.apply();
 		this.mermaidZoom.apply();
 		this.onboarding.apply();
+		this.rightSidebarButton.apply();
 
 		// 依赖 workspace 布局就绪的部分
 		this.app.workspace.onLayoutReady(() => {
@@ -217,5 +222,6 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.homePage.apply();
 		this.emptyViewButton.apply();
 		this.onboarding.apply();
+		this.rightSidebarButton.apply();
 	}
 }

@@ -19,6 +19,11 @@ export interface MinimalismUISettings {
 	onboardingDone: string[];
 	// 内部标记（无 UI）：首次启用插件时的一次性多余 leaf 收拢是否已执行。
 	firstRunCleanupDone: boolean;
+	// 右下角悬浮按钮：展开/收起右侧边栏（供依赖右侧栏的第三方插件，如 AI 对话插件使用）。
+	showRightSidebarButton: boolean;
+	// 右侧栏悬浮面板的宽/高，单位 px；由左上角把手拖拽调整，跨重启持久化。
+	rightSidebarPanelWidth: number;
+	rightSidebarPanelHeight: number;
 }
 
 export const DEFAULT_SETTINGS: MinimalismUISettings = {
@@ -46,4 +51,7 @@ export const DEFAULT_SETTINGS: MinimalismUISettings = {
 	onboardingDone: [],
 	// 默认未执行；仅全新安装会保持 false 并触发一次收拢，老用户在 loadSettings 里被置 true。
 	firstRunCleanupDone: false,
+	showRightSidebarButton: true,
+	rightSidebarPanelWidth: 360,
+	rightSidebarPanelHeight: 480,
 };
