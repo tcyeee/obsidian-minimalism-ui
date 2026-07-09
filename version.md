@@ -5,6 +5,18 @@
 
 ---
 
+## Version 1.3.7
+
+- Added a right sidebar panel: a floating button expands/collapses a panel that hosts your right-side leaves (backlinks, outgoing links, etc.), with a stack of switchable icons, resizing, and a pin toggle to keep it open across sessions
+- Status bar reading/editing indicator visibility improved; ribbon panel now moves its actions container as a whole for better sync with dynamically added icons; deferred leaves now render correctly when switched to
+- Internal cleanup: removed temporary DOM-mutation tracing scaffolding used while debugging the right sidebar panel, and replaced a direct inline style assignment with `setCssStyles()` — no user-visible behavior change
+
+- 新增右侧栏面板：悬浮按钮展开/收起一个承载右侧 leaf（反向链接、出链等）的面板，支持图标堆叠切换、拖拽调整大小，并可固定钉住以在会话间保持展开
+- 优化状态栏阅读/编辑模式指示器的显隐；功能区面板改为整体移动其操作容器，与动态新增的图标更好同步；修复切换到延迟加载视图时的渲染问题
+- 内部清理：移除此前为排查右侧栏面板问题而加入的临时 DOM 变更追踪代码，并将一处直接内联样式赋值替换为 `setCssStyles()`——无用户可见行为变化
+
+---
+
 ## Version 1.3.6
 
 - CI only: fixed the release workflow silently falling back to the tagged commit's subject line instead of the changelog content written into the tag annotation, by force-fetching the real annotated tag object before reading it — no plugin code change
