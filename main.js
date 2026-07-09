@@ -4870,13 +4870,6 @@ var RightSidebarButtonManager = class {
     this.isPinned = false;
     // 每次 apply() 只做一次全量探测（见 ensureAllToolViewsExist），避免每次开面板都重复扫描/创建。
     this.hasProbedAllViewTypes = false;
-    // 临时排障用，见 watchForUnexpectedRemoval / patchDomTrackingOnce。
-    this.watchedNodes = /* @__PURE__ */ new Map();
-    this.domPatched = false;
-    this.originalAppendChild = null;
-    this.originalInsertBefore = null;
-    this.originalRemoveChild = null;
-    this.originalRemove = null;
     // 当前挂进 contentEl 的 leaf，及其原本所在的位置（用于切走/卸载时移回）。
     this.mountedLeaf = null;
     this.mountedOriginal = null;
@@ -5192,62 +5185,10 @@ var RightSidebarButtonManager = class {
     const known = new Set(this.leafOrder);
     for (const leaf of leaves) if (!known.has(leaf)) this.leafOrder.unshift(leaf);
   }
-  // 临时排障：MutationObserver 回调是微任务，跑到的时候原始调用栈已经丢了（之前那版日志
-  // 只能看到 eval@... 两行，看不出是谁干的）。改成直接 patch Node.prototype 的四个会移动/
-  // 摘除节点的方法，命中被盯住的 containerEl 时同步打 console.trace()——这时调用栈还是完整
-  // 的，能看出到底是我们自己（restoreMounted/showLeaf）还是 Obsidian 内部或某个三方插件
-  // 干的。只在 debug 期间打这个补丁，remove() 里要还原。
-  watchForUnexpectedRemoval(leaves) {
-    this.watchedNodes = new Map(leaves.map((l) => [l.view.containerEl, l.view.getViewType()]));
-    this.patchDomTrackingOnce();
-  }
-  logIfWatched(node, action) {
-    const viewType = this.watchedNodes.get(node);
-    if (!viewType) return;
-  }
-  patchDomTrackingOnce() {
-    if (this.domPatched) return;
-    this.domPatched = true;
-    const self = this;
-    this.originalAppendChild = Node.prototype.appendChild;
-    Node.prototype.appendChild = function(child) {
-      self.logIfWatched(child, "appendChild");
-      return self.originalAppendChild.call(this, child);
-    };
-    this.originalInsertBefore = Node.prototype.insertBefore;
-    Node.prototype.insertBefore = function(child, ref) {
-      self.logIfWatched(child, "insertBefore");
-      return self.originalInsertBefore.call(this, child, ref);
-    };
-    this.originalRemoveChild = Node.prototype.removeChild;
-    Node.prototype.removeChild = function(child) {
-      self.logIfWatched(child, "removeChild");
-      return self.originalRemoveChild.call(this, child);
-    };
-    this.originalRemove = Element.prototype.remove;
-    Element.prototype.remove = function() {
-      self.logIfWatched(this, "remove()");
-      self.originalRemove.call(this);
-    };
-  }
-  unpatchDomTracking() {
-    if (!this.domPatched) return;
-    this.domPatched = false;
-    if (this.originalAppendChild) Node.prototype.appendChild = this.originalAppendChild;
-    if (this.originalInsertBefore) Node.prototype.insertBefore = this.originalInsertBefore;
-    if (this.originalRemoveChild) Node.prototype.removeChild = this.originalRemoveChild;
-    if (this.originalRemove) Element.prototype.remove = this.originalRemove;
-    this.originalAppendChild = null;
-    this.originalInsertBefore = null;
-    this.originalRemoveChild = null;
-    this.originalRemove = null;
-  }
   refreshStack() {
-    var _a, _b;
     if (!this.stackEl) return;
     const leaves = this.collectSwitchableLeaves();
     this.syncLeafOrder(leaves);
-    this.watchForUnexpectedRemoval(leaves);
     if (this.leafOrder.length === 0) {
       this.activeLeaf = null;
       this.stackEl.empty();
@@ -5286,26 +5227,9 @@ var RightSidebarButtonManager = class {
       void this.showLeaf(leaf);
     }
   }
-  // 临时排障用：打印 leaf 视图容器当下的可见性/尺寸/实际渲染出的行数，不做任何判断，
-  // 只是留痕，方便对照“切走前”“搬进面板后”“resize 后”“resize 后 300ms”几个时间点的差异。
-  debugSnapshot(label, leaf) {
-    const el = leaf.view.containerEl;
-    console.log("[rsb-debug]", label, {
-      viewType: leaf.view.getViewType(),
-      parentClass: el.parentElement ? el.parentElement.className : null,
-      offsetParent: !!el.offsetParent,
-      clientWidth: el.clientWidth,
-      clientHeight: el.clientHeight,
-      treeItems: el.querySelectorAll(".tree-item").length,
-      emptyStateEls: el.querySelectorAll(".pane-empty").length,
-      innerHTMLLength: el.innerHTML.length
-    });
-  }
   async showLeaf(leaf) {
     var _a, _b;
     if (this.mountedLeaf === leaf) return;
-    console.log("[rsb-debug] showLeaf() called for", leaf.view.getViewType());
-    this.debugSnapshot("showLeaf: target leaf state before touching anything", leaf);
     this.restoreMounted();
     if (leaf.isDeferred) await leaf.loadIfDeferred();
     const viewEl = leaf.view.containerEl;
@@ -5314,11 +5238,8 @@ var RightSidebarButtonManager = class {
     (_a = this.contentEl) == null ? void 0 : _a.empty();
     (_b = this.contentEl) == null ? void 0 : _b.appendChild(viewEl);
     this.mountedLeaf = leaf;
-    this.debugSnapshot("showLeaf: right after appendChild, before onResize", leaf);
     if (this.buttonEl) (0, import_obsidian8.setIcon)(this.buttonEl, leaf.getIcon());
     this.notifyResize(leaf);
-    this.debugSnapshot("showLeaf: right after notifyResize", leaf);
-    window.setTimeout(() => this.debugSnapshot("showLeaf: +300ms after notifyResize", leaf), 300);
   }
   showEmpty() {
     var _a, _b;
@@ -5339,42 +5260,28 @@ var RightSidebarButtonManager = class {
   notifyResize(leaf) {
     const el = leaf.view.containerEl;
     const originalWidth = el.style.width;
-    console.log("[rsb-debug] notifyResize: clientWidth before nudge =", el.clientWidth);
     try {
-      el.style.width = `${el.clientWidth + 1}px`;
+      el.setCssStyles({ width: `${el.clientWidth + 1}px` });
       leaf.onResize();
     } catch (err) {
       console.error("[minimalism-ui] right sidebar view onResize() failed", err);
     } finally {
-      el.style.width = originalWidth;
+      el.setCssStyles({ width: originalWidth });
     }
     try {
       leaf.onResize();
     } catch (err) {
       console.error("[minimalism-ui] right sidebar view onResize() failed", err);
     }
-    console.log("[rsb-debug] notifyResize: clientWidth after restore+2nd onResize =", el.clientWidth);
   }
   // 把当前挂载的 leaf 视图移回它原本所在的 DOM 位置（隐藏的右侧栏内）。
   restoreMounted() {
-    if (this.mountedLeaf) {
-      console.log("[rsb-debug] restoreMounted() moving out", this.mountedLeaf.view.getViewType());
-      this.debugSnapshot("restoreMounted: state right before moving back to hidden sidebar", this.mountedLeaf);
-    }
     if (!this.mountedLeaf || !this.mountedOriginal) return;
     const viewEl = this.mountedLeaf.view.containerEl;
     try {
       this.mountedOriginal.parent.insertBefore(viewEl, this.mountedOriginal.nextSibling);
     } catch (err) {
-      console.error(
-        "[rsb-debug] restoreMounted() insertBefore failed for",
-        this.mountedLeaf.view.getViewType(),
-        "parent =",
-        this.mountedOriginal.parent,
-        "nextSibling =",
-        this.mountedOriginal.nextSibling,
-        err
-      );
+      console.error("[minimalism-ui] restoreMounted() insertBefore failed", err);
       this.mountedOriginal.parent.appendChild(viewEl);
     }
     this.mountedLeaf = null;
@@ -5409,8 +5316,6 @@ var RightSidebarButtonManager = class {
     }
     this.endResizeDrag();
     activeDocument.body.removeClass(RESIZING_BODY_CLASS);
-    this.unpatchDomTracking();
-    this.watchedNodes.clear();
     this.restoreMounted();
     this.clearStackTimers();
     this.leafOrder = [];

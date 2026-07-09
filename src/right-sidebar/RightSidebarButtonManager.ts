@@ -127,13 +127,6 @@ export class RightSidebarButtonManager implements Feature {
 	private isPinned = false;
 	// 每次 apply() 只做一次全量探测（见 ensureAllToolViewsExist），避免每次开面板都重复扫描/创建。
 	private hasProbedAllViewTypes = false;
-	// 临时排障用，见 watchForUnexpectedRemoval / patchDomTrackingOnce。
-	private watchedNodes = new Map<Node, string>();
-	private domPatched = false;
-	private originalAppendChild: typeof Node.prototype.appendChild | null = null;
-	private originalInsertBefore: typeof Node.prototype.insertBefore | null = null;
-	private originalRemoveChild: typeof Node.prototype.removeChild | null = null;
-	private originalRemove: (() => void) | null = null;
 
 	// 当前挂进 contentEl 的 leaf，及其原本所在的位置（用于切走/卸载时移回）。
 	private mountedLeaf: WorkspaceLeaf | null = null;
@@ -468,73 +461,10 @@ export class RightSidebarButtonManager implements Feature {
 		for (const leaf of leaves) if (!known.has(leaf)) this.leafOrder.unshift(leaf);
 	}
 
-	// 临时排障：MutationObserver 回调是微任务，跑到的时候原始调用栈已经丢了（之前那版日志
-	// 只能看到 eval@... 两行，看不出是谁干的）。改成直接 patch Node.prototype 的四个会移动/
-	// 摘除节点的方法，命中被盯住的 containerEl 时同步打 console.trace()——这时调用栈还是完整
-	// 的，能看出到底是我们自己（restoreMounted/showLeaf）还是 Obsidian 内部或某个三方插件
-	// 干的。只在 debug 期间打这个补丁，remove() 里要还原。
-	private watchForUnexpectedRemoval(leaves: WorkspaceLeaf[]) {
-		this.watchedNodes = new Map(leaves.map((l) => [l.view.containerEl as Node, l.view.getViewType()]));
-		this.patchDomTrackingOnce();
-	}
-
-	private logIfWatched(node: Node, action: string) {
-		const viewType = this.watchedNodes.get(node);
-		if (!viewType) return;
-		console.log(`[rsb-debug] DOM ${action} on watched containerEl, viewType =`, viewType);
-		console.trace(`[rsb-debug] sync stack for ${action} (${viewType})`);
-	}
-
-	private patchDomTrackingOnce() {
-		if (this.domPatched) return;
-		this.domPatched = true;
-		const self = this;
-
-		this.originalAppendChild = Node.prototype.appendChild;
-		Node.prototype.appendChild = function <T extends Node>(this: Node, child: T): T {
-			self.logIfWatched(child, 'appendChild');
-			return self.originalAppendChild!.call(this, child) as T;
-		} as typeof Node.prototype.appendChild;
-
-		this.originalInsertBefore = Node.prototype.insertBefore;
-		Node.prototype.insertBefore = function <T extends Node>(this: Node, child: T, ref: Node | null): T {
-			self.logIfWatched(child, 'insertBefore');
-			return self.originalInsertBefore!.call(this, child, ref) as T;
-		} as typeof Node.prototype.insertBefore;
-
-		this.originalRemoveChild = Node.prototype.removeChild;
-		Node.prototype.removeChild = function <T extends Node>(this: Node, child: T): T {
-			self.logIfWatched(child, 'removeChild');
-			return self.originalRemoveChild!.call(this, child) as T;
-		} as typeof Node.prototype.removeChild;
-
-		this.originalRemove = Element.prototype.remove;
-		Element.prototype.remove = function (this: Element) {
-			self.logIfWatched(this, 'remove()');
-			self.originalRemove!.call(this);
-		};
-	}
-
-	private unpatchDomTracking() {
-		if (!this.domPatched) return;
-		this.domPatched = false;
-		if (this.originalAppendChild) Node.prototype.appendChild = this.originalAppendChild;
-		if (this.originalInsertBefore) Node.prototype.insertBefore = this.originalInsertBefore;
-		if (this.originalRemoveChild) Node.prototype.removeChild = this.originalRemoveChild;
-		if (this.originalRemove) Element.prototype.remove = this.originalRemove;
-		this.originalAppendChild = null;
-		this.originalInsertBefore = null;
-		this.originalRemoveChild = null;
-		this.originalRemove = null;
-	}
-
 	private refreshStack() {
 		if (!this.stackEl) return;
 		const leaves = this.collectSwitchableLeaves();
 		this.syncLeafOrder(leaves);
-		this.watchForUnexpectedRemoval(leaves);
-		console.log('[rsb-debug] refreshStack() leafOrder =', this.leafOrder.map((l) => l.view.getViewType()),
-			'activeLeaf =', this.activeLeaf?.view.getViewType() ?? null);
 
 		if (this.leafOrder.length === 0) {
 			this.activeLeaf = null;
@@ -546,7 +476,6 @@ export class RightSidebarButtonManager implements Feature {
 		// activeLeaf 缺失（首次扫描）或其 leaf 已被关闭时，回退到最新发现的一项。
 		if (!this.activeLeaf || !this.leafOrder.includes(this.activeLeaf)) {
 			this.activeLeaf = this.leafOrder[this.leafOrder.length - 1];
-			console.log('[rsb-debug] refreshStack() activeLeaf fallback ->', this.activeLeaf.view.getViewType());
 		}
 
 		this.renderStackIcons();
@@ -581,26 +510,8 @@ export class RightSidebarButtonManager implements Feature {
 		}
 	}
 
-	// 临时排障用：打印 leaf 视图容器当下的可见性/尺寸/实际渲染出的行数，不做任何判断，
-	// 只是留痕，方便对照“切走前”“搬进面板后”“resize 后”“resize 后 300ms”几个时间点的差异。
-	private debugSnapshot(label: string, leaf: WorkspaceLeaf) {
-		const el = leaf.view.containerEl;
-		console.log('[rsb-debug]', label, {
-			viewType: leaf.view.getViewType(),
-			parentClass: el.parentElement ? el.parentElement.className : null,
-			offsetParent: !!el.offsetParent,
-			clientWidth: el.clientWidth,
-			clientHeight: el.clientHeight,
-			treeItems: el.querySelectorAll('.tree-item').length,
-			emptyStateEls: el.querySelectorAll('.pane-empty').length,
-			innerHTMLLength: el.innerHTML.length,
-		});
-	}
-
 	private async showLeaf(leaf: WorkspaceLeaf) {
 		if (this.mountedLeaf === leaf) return;
-		console.log('[rsb-debug] showLeaf() called for', leaf.view.getViewType());
-		this.debugSnapshot('showLeaf: target leaf state before touching anything', leaf);
 		this.restoreMounted();
 
 		if (leaf.isDeferred) await leaf.loadIfDeferred();
@@ -611,7 +522,6 @@ export class RightSidebarButtonManager implements Feature {
 		this.contentEl?.empty();
 		this.contentEl?.appendChild(viewEl);
 		this.mountedLeaf = leaf;
-		this.debugSnapshot('showLeaf: right after appendChild, before onResize', leaf);
 
 		if (this.buttonEl) setIcon(this.buttonEl, leaf.getIcon());
 		// 该 leaf 原本渲染在被 CSS 永久隐藏（display:none）的右侧栏里；不少核心视图
@@ -620,8 +530,6 @@ export class RightSidebarButtonManager implements Feature {
 		// 自动触发它们预期的重新measure。用官方 onResize() 钩子显式通知一次，
 		// 让它们据当前真实容器尺寸重新布局。
 		this.notifyResize(leaf);
-		this.debugSnapshot('showLeaf: right after notifyResize', leaf);
-		window.setTimeout(() => this.debugSnapshot('showLeaf: +300ms after notifyResize', leaf), 300);
 	}
 
 	private showEmpty() {
@@ -643,42 +551,33 @@ export class RightSidebarButtonManager implements Feature {
 	private notifyResize(leaf: WorkspaceLeaf) {
 		const el = leaf.view.containerEl;
 		const originalWidth = el.style.width;
-		console.log('[rsb-debug] notifyResize: clientWidth before nudge =', el.clientWidth);
 		try {
-			el.style.width = `${el.clientWidth + 1}px`;
+			el.setCssStyles({ width: `${el.clientWidth + 1}px` });
 			leaf.onResize();
 		} catch (err: unknown) {
 			console.error('[minimalism-ui] right sidebar view onResize() failed', err);
 		} finally {
-			el.style.width = originalWidth;
+			el.setCssStyles({ width: originalWidth });
 		}
 		try {
 			leaf.onResize();
 		} catch (err: unknown) {
 			console.error('[minimalism-ui] right sidebar view onResize() failed', err);
 		}
-		console.log('[rsb-debug] notifyResize: clientWidth after restore+2nd onResize =', el.clientWidth);
 	}
 
 	// 把当前挂载的 leaf 视图移回它原本所在的 DOM 位置（隐藏的右侧栏内）。
 	private restoreMounted() {
-		if (this.mountedLeaf) {
-			console.log('[rsb-debug] restoreMounted() moving out', this.mountedLeaf.view.getViewType());
-			this.debugSnapshot('restoreMounted: state right before moving back to hidden sidebar', this.mountedLeaf);
-		}
 		if (!this.mountedLeaf || !this.mountedOriginal) return;
 		const viewEl = this.mountedLeaf.view.containerEl;
-		// 临时排障：showLeaf() 是 async 函数，调用方全是 void this.showLeaf(...) 不接 .catch()——
-		// 这里如果 insertBefore 因为 nextSibling 已经不是 parent 的子节点（比如 Obsidian 内部
-		// 在这期间重建了右侧栏的 tab 结构）而抛 DOMException，会变成一个没人处理的 promise
-		// rejection，函数从这里直接中断，后面移动"要显示的新 leaf"那段代码根本不会跑——
-		// 之前几轮日志里看到的"目标 leaf parentElement 为 null"很可能就是这么来的。加 try/catch
-		// 把异常打出来，并退化成 appendChild（插到最后，位置不对但至少不丢）。
+		// showLeaf() 是 async 函数，调用方全是 void this.showLeaf(...) 不接 .catch()——这里如果
+		// insertBefore 因为 nextSibling 已经不是 parent 的子节点（比如 Obsidian 内部在这期间
+		// 重建了右侧栏的 tab 结构）而抛 DOMException，会变成一个没人处理的 promise rejection，
+		// 函数从这里直接中断。加 try/catch 兜底，退化成 appendChild（插到最后，位置不对但至少不丢）。
 		try {
 			this.mountedOriginal.parent.insertBefore(viewEl, this.mountedOriginal.nextSibling);
 		} catch (err: unknown) {
-			console.error('[rsb-debug] restoreMounted() insertBefore failed for', this.mountedLeaf.view.getViewType(),
-				'parent =', this.mountedOriginal.parent, 'nextSibling =', this.mountedOriginal.nextSibling, err);
+			console.error('[minimalism-ui] restoreMounted() insertBefore failed', err);
 			this.mountedOriginal.parent.appendChild(viewEl);
 		}
 		this.mountedLeaf = null;
@@ -760,8 +659,6 @@ export class RightSidebarButtonManager implements Feature {
 		}
 		this.endResizeDrag();
 		activeDocument.body.removeClass(RESIZING_BODY_CLASS);
-		this.unpatchDomTracking();
-		this.watchedNodes.clear();
 		this.restoreMounted();
 		this.clearStackTimers();
 		this.leafOrder = [];
