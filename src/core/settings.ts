@@ -24,6 +24,9 @@ export interface MinimalismUISettings {
 	// 右侧栏悬浮面板的宽/高，单位 px；由左上角把手拖拽调整，跨重启持久化。
 	rightSidebarPanelWidth: number;
 	rightSidebarPanelHeight: number;
+	// 右侧栏悬浮面板是否被用户 pin 住：pin 后失焦/Esc 均不关闭面板，仅能点击右下角
+	// 悬浮按钮关闭；跨重启持久化，因此关闭后再次打开 pin 状态依然保留。
+	rightSidebarPanelPinned: boolean;
 }
 
 export const DEFAULT_SETTINGS: MinimalismUISettings = {
@@ -54,4 +57,5 @@ export const DEFAULT_SETTINGS: MinimalismUISettings = {
 	showRightSidebarButton: true,
 	rightSidebarPanelWidth: 360,
 	rightSidebarPanelHeight: 480,
+	rightSidebarPanelPinned: false,
 };

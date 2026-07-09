@@ -98,6 +98,36 @@ body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.s
 	background-color: #e8e7e7;
 }
 
+/* ── 内嵌 Ribbon 面板（newspaper 主题）─────────────────────────────────
+   图标从上面的 side-dock-ribbon 迁入 vault-profile 内嵌面板后，原位规则不再命中，
+   须对新位置补一份同色规则（对齐 forest 主题的写法）。 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel {
+	background-color: #f3f2ee;
+}
+
+/* 背景色一并覆盖 styles.css 里默认的 core var(--background-secondary)——
+   否则奶白面板上会露出与纸色不一致的方块。 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-ribbon-action,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .clickable-icon {
+	color: #4a3838;
+	background-color: rgba(0, 0, 0, 0.045);
+}
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-ribbon-action:hover,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .clickable-icon:hover {
+	color: #1f0909;
+	background-color: #e8e7e7;
+	border-radius: 4px;
+}
+
+/* 展开/收起按钮：与 vault-actions 其他图标视觉一致 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-toggle {
+	color: #4a3838;
+}
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-toggle:hover {
+	color: #1f0909;
+	background-color: #e8e7e7;
+}
+
 /* 注入式分区标题（OUTLINE / PROPERTIES / LOCAL GRAPH）：报刊近黑，比正文略重作 kicker。
    这些 ::before / span 不走变量，需对位覆盖各自的颜色规则。 */
 body.minimalism-ui-theme-newspaper.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"]::before,
@@ -914,6 +944,31 @@ body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspa
 
 body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action:hover,
 body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon:hover {
+	color: #ddd8cc;
+	background-color: #2a2925;
+}
+
+/* ── 内嵌 Ribbon 面板（newspaper 主题·深色）────────────────────────── */
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel {
+	background-color: #1c1b18;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-ribbon-action,
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .clickable-icon {
+	color: #a09890;
+	background-color: rgba(255, 255, 255, 0.05);
+}
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-ribbon-action:hover,
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .clickable-icon:hover {
+	color: #ddd8cc;
+	background-color: #2a2925;
+	border-radius: 4px;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-toggle {
+	color: #a09890;
+}
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-toggle:hover {
 	color: #ddd8cc;
 	background-color: #2a2925;
 }

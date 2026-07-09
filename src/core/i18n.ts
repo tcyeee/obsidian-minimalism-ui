@@ -25,6 +25,8 @@ const translations = {
 		showRightSidebarButtonDesc: '在右下角显示一个悬浮按钮，用于展开/收起右侧边栏（供依赖右侧栏的插件，如 AI 对话插件使用）。',
 		rightSidebarButtonLabel: '右侧边栏',
 		rightSidebarPanelEmpty: '右侧边栏暂无内容',
+		rightSidebarPanelPin: '固定面板（失焦/Esc 不再关闭）',
+		rightSidebarPanelUnpin: '取消固定',
 
 		theme: '主题',
 
@@ -85,6 +87,8 @@ const translations = {
 		showRightSidebarButtonDesc: 'Show a floating button in the bottom-right corner to expand/collapse the right sidebar (for plugins that need it, e.g. AI chat plugins).',
 		rightSidebarButtonLabel: 'Right sidebar',
 		rightSidebarPanelEmpty: 'Nothing in the right sidebar yet',
+		rightSidebarPanelPin: 'Pin panel (stays open on blur/Esc)',
+		rightSidebarPanelUnpin: 'Unpin',
 
 		theme: 'Theme',
 

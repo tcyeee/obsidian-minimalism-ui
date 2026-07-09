@@ -9,8 +9,8 @@ const LOCK_SVG_EL = new DOMParser().parseFromString(LOCK_SVG, 'image/svg+xml').d
 /**
  * EditorStatusManager — 阅读模式锁图标。
  *
- * 隐藏 Obsidian 原生 plugin-editor-status 状态栏条目，
- * 仅在阅读视图时显示一把锁图标；点击切换回实时预览模式。
+ * 隐藏 Obsidian 原生 plugin-editor-status 状态栏条目，常驻显示一把锁图标：
+ * 阅读模式下图标变为主题强调色，编辑模式下为浅灰色（未激活态）；点击在两种模式间切换。
  */
 export class EditorStatusManager implements Feature {
 	private statusBarItem: HTMLElement | null = null;
@@ -24,33 +24,33 @@ export class EditorStatusManager implements Feature {
 
 		this.statusBarItem = this.plugin.addStatusBarItem();
 		this.statusBarItem.addClass('minimalism-ui-editor-lock');
-		this.statusBarItem.addClass('is-hidden');
 		this.statusBarItem.appendChild(LOCK_SVG_EL.cloneNode(true));
-		this.statusBarItem.setAttribute('aria-label', '阅读模式 — 点击切换编辑');
 		this.statusBarItem.setAttribute('data-tooltip-position', 'top');
 
 		this.statusBarItem.addEventListener('click', () => {
 			const leaf = this.app.workspace.getActiveViewOfType(MarkdownView)?.leaf;
 			if (!leaf) return;
 			const state = leaf.getViewState();
-			void leaf.setViewState({ ...state, state: { ...state.state, mode: 'source' } });
+			const nextMode = state.state?.mode === 'preview' ? 'source' : 'preview';
+			void leaf.setViewState({ ...state, state: { ...state.state, mode: nextMode } });
 		});
 
-		const update = () => this.updateVisibility();
+		const update = () => this.updateState();
 		this.leafChangeHandler = update;
 		this.layoutChangeHandler = update;
 
 		this.app.workspace.on('active-leaf-change', this.leafChangeHandler);
 		this.app.workspace.on('layout-change', this.layoutChangeHandler);
 
-		this.updateVisibility();
+		this.updateState();
 	}
 
-	private updateVisibility(): void {
+	private updateState(): void {
 		if (!this.statusBarItem) return;
 		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 		const isReading = view?.getState().mode === 'preview';
-		this.statusBarItem.toggleClass('is-hidden', !isReading);
+		this.statusBarItem.toggleClass('is-reading', isReading);
+		this.statusBarItem.setAttribute('aria-label', isReading ? '阅读模式 — 点击切换编辑' : '编辑模式 — 点击切换阅读');
 	}
 
 	remove(): void {

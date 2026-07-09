@@ -3,7 +3,6 @@ import { Feature } from '../core/Feature';
 import { MinimalismUISettings } from '../core/settings';
 
 type MovedNode = { el: HTMLElement; parent: HTMLElement; next: ChildNode | null };
-type WrappedIcon = { icon: HTMLElement; wrapper: HTMLElement };
 
 /**
  * RibbonPanelManager — 重排左下角 vault profile 区：
@@ -14,6 +13,14 @@ type WrappedIcon = { icon: HTMLElement; wrapper: HTMLElement };
  * 注入策略与 SidebarLayoutManager 一致：移动既有节点前先记录 (parent, nextSibling)，
  * remove() 逆序用 insertBefore 精确还原；自建容器（面板 / 行）直接 remove()。
  *
+ * .side-dock-actions 本身整体迁移（不拆解其子节点）：早期实现是把每个图标单独拆出来包一层
+ * wrapper div 再搬走，副作用是留下一个空的原容器——之后其它插件通过 addRibbonIcon() 动态增删
+ * 图标时，新节点会插进这个已被搬空、之后又被样式隐藏的原容器里，界面上完全不可见，且随图标
+ * 增减导致展示状态与实际不同步。整体搬移 sideDocActions 后，它依然是 Obsidian 内部引用着的那
+ * 一个活节点，后续增删都作用在这同一个容器上，天然保持同步，无需任何监听/重建。
+ * 布局改造统一放在 CSS 里（见 styles.css `.minimalism-ui-ribbon-icons .side-dock-actions` /
+ * `.side-dock-ribbon-action`），覆盖 Obsidian 原生的纵向排布，不再需要每图标一个 wrapper div。
+ *
  * 动画：CSS grid-template-rows 0fr ↔ 1fr trick，无需已知面板高度。
  * 状态：ribbonPanelExpanded 存入 settings，通过 saveSettings 回调持久化。
  */
@@ -22,7 +29,6 @@ export class RibbonPanelManager implements Feature {
 	private toggleBtn: HTMLElement | null = null;
 	private vaultRow: HTMLElement | null = null;
 	private iconsContainer: HTMLElement | null = null;
-	private wrappedIcons: WrappedIcon[] = [];
 	private movedNodes: MovedNode[] = [];
 
 	constructor(
@@ -75,19 +81,10 @@ export class RibbonPanelManager implements Feature {
 			vaultProfile.prepend(this.panel);
 		}
 
-		// 将每个图标从 .side-dock-actions 迁入我们自己的容器（div 包装）。
-		// 直接移动 sideDocActions 整体会继承 Obsidian 原始 flex-direction:column 及子项
-		// width:100%，导致横排换行后宽度异常。用自建容器可完全控制布局。
+		// 整体迁移 .side-dock-actions（保留其内部子节点结构不变），横向排布交给 CSS 覆盖。
 		this.iconsContainer = inner.createDiv({ cls: 'minimalism-ui-ribbon-icons' });
-		const icons = Array.from(sideDocActions.children) as HTMLElement[];
-		for (const icon of icons) {
-			const wrapper = createDiv({ cls: 'minimalism-ui-ribbon-icon-wrap' });
-			sideDocActions.insertBefore(wrapper, icon);
-			wrapper.appendChild(icon);
-			this.wrappedIcons.push({ icon, wrapper });
-			this.iconsContainer.appendChild(wrapper);
-		}
-
+		this.recordMove(sideDocActions);
+		this.iconsContainer.appendChild(sideDocActions);
 
 		// 按持久化状态设置初始折叠
 		const expanded = this.getSettings().ribbonPanelExpanded;
@@ -101,16 +98,10 @@ export class RibbonPanelManager implements Feature {
 	}
 
 	remove() {
-		// 还原被包装的图标：从 wrapper 取出 icon，放回 sideDocActions
-		for (const { icon, wrapper } of this.wrappedIcons) {
-			wrapper.before(icon);
-			wrapper.remove();
-		}
-		this.wrappedIcons = [];
 		this.iconsContainer?.remove();
 		this.iconsContainer = null;
 
-		// 逆序还原被移动的节点
+		// 逆序还原被移动的节点（含整体迁移的 sideDocActions）
 		for (let i = this.movedNodes.length - 1; i >= 0; i--) {
 			const { el, parent, next } = this.movedNodes[i];
 			if (next && next.parentNode === parent) {

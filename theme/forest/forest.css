@@ -959,10 +959,12 @@ body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism
 	background-color: #2E3033;
 }
 
-/* Ribbon 图标：浅色适配深底 */
+/* Ribbon 图标：浅色适配深底。背景色一并覆盖 styles.css 里默认的 core
+   var(--background-secondary)（浅色）——否则深底面板上会露出一个个白色方块。 */
 body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-ribbon-action,
 body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .clickable-icon {
 	color: rgba(196, 196, 196, 0.7);
+	background-color: rgba(255, 255, 255, 0.06);
 }
 body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-ribbon-action:hover,
 body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .clickable-icon:hover {

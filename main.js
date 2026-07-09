@@ -57,7 +57,8 @@ var DEFAULT_SETTINGS = {
   firstRunCleanupDone: false,
   showRightSidebarButton: true,
   rightSidebarPanelWidth: 360,
-  rightSidebarPanelHeight: 480
+  rightSidebarPanelHeight: 480,
+  rightSidebarPanelPinned: false
 };
 
 // src/generated/theme-assets.ts
@@ -1022,10 +1023,12 @@ body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism
 	background-color: #2E3033;
 }
 
-/* Ribbon \u56FE\u6807\uFF1A\u6D45\u8272\u9002\u914D\u6DF1\u5E95 */
+/* Ribbon \u56FE\u6807\uFF1A\u6D45\u8272\u9002\u914D\u6DF1\u5E95\u3002\u80CC\u666F\u8272\u4E00\u5E76\u8986\u76D6 styles.css \u91CC\u9ED8\u8BA4\u7684 core
+   var(--background-secondary)\uFF08\u6D45\u8272\uFF09\u2014\u2014\u5426\u5219\u6DF1\u5E95\u9762\u677F\u4E0A\u4F1A\u9732\u51FA\u4E00\u4E2A\u4E2A\u767D\u8272\u65B9\u5757\u3002 */
 body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-ribbon-action,
 body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .clickable-icon {
 	color: rgba(196, 196, 196, 0.7);
+	background-color: rgba(255, 255, 255, 0.06);
 }
 body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-ribbon-action:hover,
 body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .clickable-icon:hover {
@@ -1138,6 +1141,36 @@ body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.s
 
 body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action:hover,
 body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon:hover {
+	color: #1f0909;
+	background-color: #e8e7e7;
+}
+
+/* \u2500\u2500 \u5185\u5D4C Ribbon \u9762\u677F\uFF08newspaper \u4E3B\u9898\uFF09\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+   \u56FE\u6807\u4ECE\u4E0A\u9762\u7684 side-dock-ribbon \u8FC1\u5165 vault-profile \u5185\u5D4C\u9762\u677F\u540E\uFF0C\u539F\u4F4D\u89C4\u5219\u4E0D\u518D\u547D\u4E2D\uFF0C
+   \u987B\u5BF9\u65B0\u4F4D\u7F6E\u8865\u4E00\u4EFD\u540C\u8272\u89C4\u5219\uFF08\u5BF9\u9F50 forest \u4E3B\u9898\u7684\u5199\u6CD5\uFF09\u3002 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel {
+	background-color: #f3f2ee;
+}
+
+/* \u80CC\u666F\u8272\u4E00\u5E76\u8986\u76D6 styles.css \u91CC\u9ED8\u8BA4\u7684 core var(--background-secondary)\u2014\u2014
+   \u5426\u5219\u5976\u767D\u9762\u677F\u4E0A\u4F1A\u9732\u51FA\u4E0E\u7EB8\u8272\u4E0D\u4E00\u81F4\u7684\u65B9\u5757\u3002 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-ribbon-action,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .clickable-icon {
+	color: #4a3838;
+	background-color: rgba(0, 0, 0, 0.045);
+}
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-ribbon-action:hover,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .clickable-icon:hover {
+	color: #1f0909;
+	background-color: #e8e7e7;
+	border-radius: 4px;
+}
+
+/* \u5C55\u5F00/\u6536\u8D77\u6309\u94AE\uFF1A\u4E0E vault-actions \u5176\u4ED6\u56FE\u6807\u89C6\u89C9\u4E00\u81F4 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-toggle {
+	color: #4a3838;
+}
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-toggle:hover {
 	color: #1f0909;
 	background-color: #e8e7e7;
 }
@@ -1962,6 +1995,31 @@ body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspa
 	background-color: #2a2925;
 }
 
+/* \u2500\u2500 \u5185\u5D4C Ribbon \u9762\u677F\uFF08newspaper \u4E3B\u9898\xB7\u6DF1\u8272\uFF09\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel {
+	background-color: #1c1b18;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-ribbon-action,
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .clickable-icon {
+	color: #a09890;
+	background-color: rgba(255, 255, 255, 0.05);
+}
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-ribbon-action:hover,
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .clickable-icon:hover {
+	color: #ddd8cc;
+	background-color: #2a2925;
+	border-radius: 4px;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-toggle {
+	color: #a09890;
+}
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-toggle:hover {
+	color: #ddd8cc;
+	background-color: #2a2925;
+}
+
 body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"]::before,
 body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="file-properties"]::before,
 body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-graph-header > span {
@@ -2399,6 +2457,8 @@ var translations = {
     showRightSidebarButtonDesc: "\u5728\u53F3\u4E0B\u89D2\u663E\u793A\u4E00\u4E2A\u60AC\u6D6E\u6309\u94AE\uFF0C\u7528\u4E8E\u5C55\u5F00/\u6536\u8D77\u53F3\u4FA7\u8FB9\u680F\uFF08\u4F9B\u4F9D\u8D56\u53F3\u4FA7\u680F\u7684\u63D2\u4EF6\uFF0C\u5982 AI \u5BF9\u8BDD\u63D2\u4EF6\u4F7F\u7528\uFF09\u3002",
     rightSidebarButtonLabel: "\u53F3\u4FA7\u8FB9\u680F",
     rightSidebarPanelEmpty: "\u53F3\u4FA7\u8FB9\u680F\u6682\u65E0\u5185\u5BB9",
+    rightSidebarPanelPin: "\u56FA\u5B9A\u9762\u677F\uFF08\u5931\u7126/Esc \u4E0D\u518D\u5173\u95ED\uFF09",
+    rightSidebarPanelUnpin: "\u53D6\u6D88\u56FA\u5B9A",
     theme: "\u4E3B\u9898",
     homePage: "\u7B14\u8BB0\u9996\u9875",
     homePageDesc: "\u8BBE\u7F6E\u4E00\u4E2A\u7B14\u8BB0\u4F5C\u4E3A\u9996\u9875\u3002Obsidian \u542F\u52A8\u65F6\u81EA\u52A8\u6253\u5F00\uFF0C\u5173\u95ED\u6240\u6709\u6807\u7B7E\u540E\u81EA\u52A8\u8FD4\u56DE\u3002",
@@ -2447,6 +2507,8 @@ var translations = {
     showRightSidebarButtonDesc: "Show a floating button in the bottom-right corner to expand/collapse the right sidebar (for plugins that need it, e.g. AI chat plugins).",
     rightSidebarButtonLabel: "Right sidebar",
     rightSidebarPanelEmpty: "Nothing in the right sidebar yet",
+    rightSidebarPanelPin: "Pin panel (stays open on blur/Esc)",
+    rightSidebarPanelUnpin: "Unpin",
     theme: "Theme",
     homePage: "Home note",
     homePageDesc: "A note that opens automatically on startup and whenever all tabs are closed.",
@@ -4541,7 +4603,6 @@ var RibbonPanelManager = class {
     this.toggleBtn = null;
     this.vaultRow = null;
     this.iconsContainer = null;
-    this.wrappedIcons = [];
     this.movedNodes = [];
   }
   apply() {
@@ -4577,14 +4638,8 @@ var RibbonPanelManager = class {
       vaultProfile.prepend(this.panel);
     }
     this.iconsContainer = inner.createDiv({ cls: "minimalism-ui-ribbon-icons" });
-    const icons = Array.from(sideDocActions.children);
-    for (const icon of icons) {
-      const wrapper = createDiv({ cls: "minimalism-ui-ribbon-icon-wrap" });
-      sideDocActions.insertBefore(wrapper, icon);
-      wrapper.appendChild(icon);
-      this.wrappedIcons.push({ icon, wrapper });
-      this.iconsContainer.appendChild(wrapper);
-    }
+    this.recordMove(sideDocActions);
+    this.iconsContainer.appendChild(sideDocActions);
     const expanded = this.getSettings().ribbonPanelExpanded;
     if (!expanded) this.panel.classList.add("is-collapsed");
     this.toggleBtn = createDiv({ cls: "minimalism-ui-ribbon-toggle clickable-icon" });
@@ -4594,11 +4649,6 @@ var RibbonPanelManager = class {
   }
   remove() {
     var _a, _b, _c, _d;
-    for (const { icon, wrapper } of this.wrappedIcons) {
-      wrapper.before(icon);
-      wrapper.remove();
-    }
-    this.wrappedIcons = [];
     (_a = this.iconsContainer) == null ? void 0 : _a.remove();
     this.iconsContainer = null;
     for (let i = this.movedNodes.length - 1; i >= 0; i--) {
@@ -4646,29 +4696,29 @@ var EditorStatusManager = class {
     this.remove();
     this.statusBarItem = this.plugin.addStatusBarItem();
     this.statusBarItem.addClass("minimalism-ui-editor-lock");
-    this.statusBarItem.addClass("is-hidden");
     this.statusBarItem.appendChild(LOCK_SVG_EL.cloneNode(true));
-    this.statusBarItem.setAttribute("aria-label", "\u9605\u8BFB\u6A21\u5F0F \u2014 \u70B9\u51FB\u5207\u6362\u7F16\u8F91");
     this.statusBarItem.setAttribute("data-tooltip-position", "top");
     this.statusBarItem.addEventListener("click", () => {
-      var _a;
+      var _a, _b;
       const leaf = (_a = this.app.workspace.getActiveViewOfType(import_obsidian7.MarkdownView)) == null ? void 0 : _a.leaf;
       if (!leaf) return;
       const state = leaf.getViewState();
-      void leaf.setViewState({ ...state, state: { ...state.state, mode: "source" } });
+      const nextMode = ((_b = state.state) == null ? void 0 : _b.mode) === "preview" ? "source" : "preview";
+      void leaf.setViewState({ ...state, state: { ...state.state, mode: nextMode } });
     });
-    const update = () => this.updateVisibility();
+    const update = () => this.updateState();
     this.leafChangeHandler = update;
     this.layoutChangeHandler = update;
     this.app.workspace.on("active-leaf-change", this.leafChangeHandler);
     this.app.workspace.on("layout-change", this.layoutChangeHandler);
-    this.updateVisibility();
+    this.updateState();
   }
-  updateVisibility() {
+  updateState() {
     if (!this.statusBarItem) return;
     const view = this.app.workspace.getActiveViewOfType(import_obsidian7.MarkdownView);
     const isReading = (view == null ? void 0 : view.getState().mode) === "preview";
-    this.statusBarItem.toggleClass("is-hidden", !isReading);
+    this.statusBarItem.toggleClass("is-reading", isReading);
+    this.statusBarItem.setAttribute("aria-label", isReading ? "\u9605\u8BFB\u6A21\u5F0F \u2014 \u70B9\u51FB\u5207\u6362\u7F16\u8F91" : "\u7F16\u8F91\u6A21\u5F0F \u2014 \u70B9\u51FB\u5207\u6362\u9605\u8BFB");
   }
   remove() {
     if (this.leafChangeHandler) {
@@ -4756,6 +4806,10 @@ var BUTTON_CLASS = "minimalism-ui-rsb-button";
 var PANEL_CLASS = "minimalism-ui-rsb-panel";
 var OPEN_CLASS = "minimalism-ui-rsb-panel-open";
 var BUTTON_ACTIVE_CLASS = "minimalism-ui-rsb-button-active";
+var SURFACE_CLASS = "minimalism-ui-rsb-surface";
+var PIN_CLASS = "minimalism-ui-rsb-pin";
+var PIN_HINT_CLASS = "minimalism-ui-rsb-pin-hint";
+var PIN_ACTIVE_CLASS = "minimalism-ui-rsb-pin-active";
 var RESIZE_HANDLE_CLASS = "minimalism-ui-rsb-resize-handle";
 var RESIZING_BODY_CLASS = "minimalism-ui-rsb-resizing";
 var STACK_CLASS = "minimalism-ui-rsb-stack";
@@ -4784,6 +4838,8 @@ var MIN_HEIGHT = 220;
 var MAX_HEIGHT = 800;
 var VIEWPORT_MARGIN_X = 40;
 var VIEWPORT_MARGIN_Y = 92;
+var PIN_HOVER_ZONE_PX = 40;
+var PIN_ICON = "pin";
 var STACK_AUTO_EXPAND_DELAY = 500;
 var STACK_AUTO_COLLAPSE_DELAY = 2e3;
 var STACK_HOVER_LEAVE_DELAY = 300;
@@ -4796,15 +4852,31 @@ var RightSidebarButtonManager = class {
     this.buttonEl = null;
     this.stackEl = null;
     this.panelEl = null;
+    this.surfaceEl = null;
     this.contentEl = null;
     this.resizeHandleEl = null;
+    this.pinEl = null;
     this.outsideClickHandler = null;
+    this.pointerDownHandler = null;
+    // pointerdown（capture 阶段，先于 click）时记录的“按下点是否在面板/launcher 内”——
+    // 见 outsideClickHandler 顶部注释，click 事件的 composedPath() 在某些场景不可靠，
+    // 这个提前一步、DOM 还未被任何 mousedown 触发的副作用改动过的快照更可信。
+    this.pointerDownInsidePanel = false;
     this.keydownHandler = null;
     this.layoutChangeHandler = null;
     this.isOpen = false;
     this.stackExpanded = false;
+    // 面板是否被 pin 住；跨重启持久化于设置，见类注释。
+    this.isPinned = false;
     // 每次 apply() 只做一次全量探测（见 ensureAllToolViewsExist），避免每次开面板都重复扫描/创建。
     this.hasProbedAllViewTypes = false;
+    // 临时排障用，见 watchForUnexpectedRemoval / patchDomTrackingOnce。
+    this.watchedNodes = /* @__PURE__ */ new Map();
+    this.domPatched = false;
+    this.originalAppendChild = null;
+    this.originalInsertBefore = null;
+    this.originalRemoveChild = null;
+    this.originalRemove = null;
     // 当前挂进 contentEl 的 leaf，及其原本所在的位置（用于切走/卸载时移回）。
     this.mountedLeaf = null;
     this.mountedOriginal = null;
@@ -4842,6 +4914,19 @@ var RightSidebarButtonManager = class {
       this.isHovering = false;
       if (!this.isOpen) return;
       if (this.stackExpanded) this.scheduleAutoCollapse(STACK_HOVER_LEAVE_DELAY);
+    };
+    // 鼠标距面板顶边 PIN_HOVER_ZONE_PX 以内时探出 pin 按钮；已 pin 住的话本就常驻显示
+    // （由 PIN_ACTIVE_CLASS 控制），这里只管未 pin 时的悬浮提示态。
+    this.onPanelMouseMove = (e) => {
+      var _a;
+      if (!this.panelEl || this.isPinned) return;
+      const rect = this.panelEl.getBoundingClientRect();
+      const nearTop = e.clientY - rect.top <= PIN_HOVER_ZONE_PX;
+      (_a = this.pinEl) == null ? void 0 : _a.toggleClass(PIN_HINT_CLASS, nearTop);
+    };
+    this.onPanelMouseLeave = () => {
+      var _a;
+      (_a = this.pinEl) == null ? void 0 : _a.removeClass(PIN_HINT_CLASS);
     };
     // ─── 拖拽调整面板尺寸 ───────────────────────────────────────────────────
     this.onResizePointerDown = (e) => {
@@ -4891,15 +4976,29 @@ var RightSidebarButtonManager = class {
   }
   inject() {
     this.hasProbedAllViewTypes = false;
+    this.isPinned = this.getSettings().rightSidebarPanelPinned;
     this.panelEl = activeDocument.body.createDiv({ cls: PANEL_CLASS });
     const s = this.getSettings();
     this.panelEl.setCssStyles({
       width: `${s.rightSidebarPanelWidth}px`,
       height: `${s.rightSidebarPanelHeight}px`
     });
-    this.contentEl = this.panelEl.createDiv({ cls: CONTENT_CLASS });
-    this.resizeHandleEl = this.panelEl.createDiv({ cls: RESIZE_HANDLE_CLASS });
+    this.surfaceEl = this.panelEl.createDiv({ cls: SURFACE_CLASS });
+    this.contentEl = this.surfaceEl.createDiv({ cls: CONTENT_CLASS });
+    this.resizeHandleEl = this.surfaceEl.createDiv({ cls: RESIZE_HANDLE_CLASS });
     this.resizeHandleEl.addEventListener("pointerdown", this.onResizePointerDown);
+    this.pinEl = this.panelEl.createDiv({
+      cls: PIN_CLASS,
+      attr: { "aria-label": t(this.isPinned ? "rightSidebarPanelUnpin" : "rightSidebarPanelPin") }
+    });
+    (0, import_obsidian8.setIcon)(this.pinEl, PIN_ICON);
+    this.pinEl.toggleClass(PIN_ACTIVE_CLASS, this.isPinned);
+    this.pinEl.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.togglePinned();
+    });
+    this.panelEl.addEventListener("mousemove", this.onPanelMouseMove);
+    this.panelEl.addEventListener("mouseleave", this.onPanelMouseLeave);
     this.launcherEl = activeDocument.body.createDiv({ cls: LAUNCHER_CLASS });
     this.stackEl = this.launcherEl.createDiv({ cls: STACK_CLASS });
     this.launcherEl.addEventListener("mouseenter", this.onLauncherMouseEnter);
@@ -4914,6 +5013,11 @@ var RightSidebarButtonManager = class {
       this.setStackExpanded(false);
       this.toggle();
     });
+    this.pointerDownHandler = (e) => {
+      const path = e.composedPath();
+      this.pointerDownInsidePanel = this.launcherEl != null && path.includes(this.launcherEl) || this.panelEl != null && path.includes(this.panelEl);
+    };
+    activeDocument.addEventListener("pointerdown", this.pointerDownHandler, true);
     this.outsideClickHandler = (e) => {
       if (this.suppressNextOutsideClick) {
         this.suppressNextOutsideClick = false;
@@ -4926,12 +5030,15 @@ var RightSidebarButtonManager = class {
         this.setStackExpanded(false);
       }
       if (!this.isOpen) return;
-      if (this.launcherEl && path.includes(this.launcherEl) || this.panelEl && path.includes(this.panelEl)) return;
+      const insidePanel = this.pointerDownInsidePanel || this.launcherEl != null && path.includes(this.launcherEl) || this.panelEl != null && path.includes(this.panelEl);
+      if (insidePanel) return;
+      if (this.isPinned) return;
       this.close();
     };
     activeDocument.addEventListener("click", this.outsideClickHandler);
     this.keydownHandler = (e) => {
       if (e.key !== "Escape" || !this.isOpen) return;
+      if (this.isPinned) return;
       e.stopPropagation();
       this.close();
     };
@@ -4958,9 +5065,28 @@ var RightSidebarButtonManager = class {
     }, STACK_AUTO_EXPAND_DELAY);
     if (!this.hasProbedAllViewTypes) {
       this.hasProbedAllViewTypes = true;
-      void this.ensureAllToolViewsExist().then(() => {
+      void this.ensureAllToolViewsExist().then(() => this.materializeDeferredLeaves()).then(() => {
         if (this.isOpen) this.refreshStack();
       });
+    } else {
+      void this.materializeDeferredLeaves();
+    }
+  }
+  // Obsidian 的 deferred leaf 只有在“第一次真正被用到”时才物化真正的 View 实例，物化过程
+  // 会触发一次它所在 tab group 的内部重渲染——这个重渲染不知道我们把某个 sibling leaf 的
+  // containerEl 偷偷搬进了悬浮面板，会把它当垃圾一并摘掉（表现为那个 leaf 的 containerEl
+  // parentElement 变 null，内容清空，且不会再恢复）。日志实测证实：切到一个还没被物化过
+  // 的视图时，触发的重渲染会把"当前挂在面板里的另一个视图"顺带摘掉。
+  // 把物化这一步提前到用户开始点选之前（面板里还什么都没挂的时候）做，就没有东西可误伤。
+  // 逐个 await 而非 Promise.all，理由同 ensureAllToolViewsExist：避免物化过程互相踩踏。
+  async materializeDeferredLeaves() {
+    for (const leaf of this.collectSwitchableLeaves()) {
+      if (!leaf.isDeferred) continue;
+      try {
+        await leaf.loadIfDeferred();
+      } catch (err) {
+        console.error("[minimalism-ui] failed to materialize deferred leaf", leaf.view.getViewType(), err);
+      }
     }
   }
   close() {
@@ -5004,6 +5130,15 @@ var RightSidebarButtonManager = class {
       window.clearTimeout(this.autoCollapseTimer);
       this.autoCollapseTimer = null;
     }
+  }
+  togglePinned() {
+    var _a, _b;
+    this.isPinned = !this.isPinned;
+    (_a = this.pinEl) == null ? void 0 : _a.toggleClass(PIN_ACTIVE_CLASS, this.isPinned);
+    (_b = this.pinEl) == null ? void 0 : _b.setAttribute("aria-label", t(this.isPinned ? "rightSidebarPanelUnpin" : "rightSidebarPanelPin"));
+    const s = this.getSettings();
+    s.rightSidebarPanelPinned = this.isPinned;
+    void this.save();
   }
   // ─── 视图枚举 / 渲染图标堆叠 / 挂载切换 ─────────────────────────────────
   // 右侧栏的全部 leaf，加上左侧栏里不属于 Outline/Graph/Properties 合并三件套的“外来” leaf。
@@ -5057,10 +5192,62 @@ var RightSidebarButtonManager = class {
     const known = new Set(this.leafOrder);
     for (const leaf of leaves) if (!known.has(leaf)) this.leafOrder.unshift(leaf);
   }
+  // 临时排障：MutationObserver 回调是微任务，跑到的时候原始调用栈已经丢了（之前那版日志
+  // 只能看到 eval@... 两行，看不出是谁干的）。改成直接 patch Node.prototype 的四个会移动/
+  // 摘除节点的方法，命中被盯住的 containerEl 时同步打 console.trace()——这时调用栈还是完整
+  // 的，能看出到底是我们自己（restoreMounted/showLeaf）还是 Obsidian 内部或某个三方插件
+  // 干的。只在 debug 期间打这个补丁，remove() 里要还原。
+  watchForUnexpectedRemoval(leaves) {
+    this.watchedNodes = new Map(leaves.map((l) => [l.view.containerEl, l.view.getViewType()]));
+    this.patchDomTrackingOnce();
+  }
+  logIfWatched(node, action) {
+    const viewType = this.watchedNodes.get(node);
+    if (!viewType) return;
+  }
+  patchDomTrackingOnce() {
+    if (this.domPatched) return;
+    this.domPatched = true;
+    const self = this;
+    this.originalAppendChild = Node.prototype.appendChild;
+    Node.prototype.appendChild = function(child) {
+      self.logIfWatched(child, "appendChild");
+      return self.originalAppendChild.call(this, child);
+    };
+    this.originalInsertBefore = Node.prototype.insertBefore;
+    Node.prototype.insertBefore = function(child, ref) {
+      self.logIfWatched(child, "insertBefore");
+      return self.originalInsertBefore.call(this, child, ref);
+    };
+    this.originalRemoveChild = Node.prototype.removeChild;
+    Node.prototype.removeChild = function(child) {
+      self.logIfWatched(child, "removeChild");
+      return self.originalRemoveChild.call(this, child);
+    };
+    this.originalRemove = Element.prototype.remove;
+    Element.prototype.remove = function() {
+      self.logIfWatched(this, "remove()");
+      self.originalRemove.call(this);
+    };
+  }
+  unpatchDomTracking() {
+    if (!this.domPatched) return;
+    this.domPatched = false;
+    if (this.originalAppendChild) Node.prototype.appendChild = this.originalAppendChild;
+    if (this.originalInsertBefore) Node.prototype.insertBefore = this.originalInsertBefore;
+    if (this.originalRemoveChild) Node.prototype.removeChild = this.originalRemoveChild;
+    if (this.originalRemove) Element.prototype.remove = this.originalRemove;
+    this.originalAppendChild = null;
+    this.originalInsertBefore = null;
+    this.originalRemoveChild = null;
+    this.originalRemove = null;
+  }
   refreshStack() {
+    var _a, _b;
     if (!this.stackEl) return;
     const leaves = this.collectSwitchableLeaves();
     this.syncLeafOrder(leaves);
+    this.watchForUnexpectedRemoval(leaves);
     if (this.leafOrder.length === 0) {
       this.activeLeaf = null;
       this.stackEl.empty();
@@ -5099,9 +5286,26 @@ var RightSidebarButtonManager = class {
       void this.showLeaf(leaf);
     }
   }
+  // 临时排障用：打印 leaf 视图容器当下的可见性/尺寸/实际渲染出的行数，不做任何判断，
+  // 只是留痕，方便对照“切走前”“搬进面板后”“resize 后”“resize 后 300ms”几个时间点的差异。
+  debugSnapshot(label, leaf) {
+    const el = leaf.view.containerEl;
+    console.log("[rsb-debug]", label, {
+      viewType: leaf.view.getViewType(),
+      parentClass: el.parentElement ? el.parentElement.className : null,
+      offsetParent: !!el.offsetParent,
+      clientWidth: el.clientWidth,
+      clientHeight: el.clientHeight,
+      treeItems: el.querySelectorAll(".tree-item").length,
+      emptyStateEls: el.querySelectorAll(".pane-empty").length,
+      innerHTMLLength: el.innerHTML.length
+    });
+  }
   async showLeaf(leaf) {
     var _a, _b;
     if (this.mountedLeaf === leaf) return;
+    console.log("[rsb-debug] showLeaf() called for", leaf.view.getViewType());
+    this.debugSnapshot("showLeaf: target leaf state before touching anything", leaf);
     this.restoreMounted();
     if (leaf.isDeferred) await leaf.loadIfDeferred();
     const viewEl = leaf.view.containerEl;
@@ -5110,8 +5314,11 @@ var RightSidebarButtonManager = class {
     (_a = this.contentEl) == null ? void 0 : _a.empty();
     (_b = this.contentEl) == null ? void 0 : _b.appendChild(viewEl);
     this.mountedLeaf = leaf;
+    this.debugSnapshot("showLeaf: right after appendChild, before onResize", leaf);
     if (this.buttonEl) (0, import_obsidian8.setIcon)(this.buttonEl, leaf.getIcon());
     this.notifyResize(leaf);
+    this.debugSnapshot("showLeaf: right after notifyResize", leaf);
+    window.setTimeout(() => this.debugSnapshot("showLeaf: +300ms after notifyResize", leaf), 300);
   }
   showEmpty() {
     var _a, _b;
@@ -5121,18 +5328,55 @@ var RightSidebarButtonManager = class {
     if (this.buttonEl) (0, import_obsidian8.setIcon)(this.buttonEl, DEFAULT_ICON);
   }
   // onResize() 跑的是任意第三方/核心视图的代码，出错也不该拖垮我们自己的挂载逻辑。
+  //
+  // 核心的 All Properties / Tags / Backlinks 等面板内部用虚拟滚动实现列表，其 onResize()
+  // 只有在“测得的宽度与上次可见时缓存的宽度不同”时才会真正重新排布；宽度相同则只重放上次
+  // 的缓存布局。缓存宽度的初值是 0，所以第一次挂进面板（宽度从 0 变为真实值）一定会触发
+  // 真正的重排,看起来正常;但只要面板尺寸不变,之后每次切走再切回来,宽度都和缓存一致,
+  // 于是只重放旧布局——如果内容在切走期间失效（如属性列表变化）就会一直空着，不会再重新
+  // 计算。这是 Obsidian 内部实现的私有细节，各视图的虚拟滚动字段名不通用，没法针对性调用；
+  // 索性手动把宽度先改一格再改回真实值，逼它认为“宽度变了”从而完整重排一次。
   notifyResize(leaf) {
+    const el = leaf.view.containerEl;
+    const originalWidth = el.style.width;
+    console.log("[rsb-debug] notifyResize: clientWidth before nudge =", el.clientWidth);
+    try {
+      el.style.width = `${el.clientWidth + 1}px`;
+      leaf.onResize();
+    } catch (err) {
+      console.error("[minimalism-ui] right sidebar view onResize() failed", err);
+    } finally {
+      el.style.width = originalWidth;
+    }
     try {
       leaf.onResize();
     } catch (err) {
       console.error("[minimalism-ui] right sidebar view onResize() failed", err);
     }
+    console.log("[rsb-debug] notifyResize: clientWidth after restore+2nd onResize =", el.clientWidth);
   }
   // 把当前挂载的 leaf 视图移回它原本所在的 DOM 位置（隐藏的右侧栏内）。
   restoreMounted() {
+    if (this.mountedLeaf) {
+      console.log("[rsb-debug] restoreMounted() moving out", this.mountedLeaf.view.getViewType());
+      this.debugSnapshot("restoreMounted: state right before moving back to hidden sidebar", this.mountedLeaf);
+    }
     if (!this.mountedLeaf || !this.mountedOriginal) return;
     const viewEl = this.mountedLeaf.view.containerEl;
-    this.mountedOriginal.parent.insertBefore(viewEl, this.mountedOriginal.nextSibling);
+    try {
+      this.mountedOriginal.parent.insertBefore(viewEl, this.mountedOriginal.nextSibling);
+    } catch (err) {
+      console.error(
+        "[rsb-debug] restoreMounted() insertBefore failed for",
+        this.mountedLeaf.view.getViewType(),
+        "parent =",
+        this.mountedOriginal.parent,
+        "nextSibling =",
+        this.mountedOriginal.nextSibling,
+        err
+      );
+      this.mountedOriginal.parent.appendChild(viewEl);
+    }
     this.mountedLeaf = null;
     this.mountedOriginal = null;
   }
@@ -5145,11 +5389,16 @@ var RightSidebarButtonManager = class {
     activeDocument.removeEventListener("pointerup", this.onResizePointerUp, true);
   }
   remove() {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d, _e, _f, _g;
     if (this.outsideClickHandler) {
       activeDocument.removeEventListener("click", this.outsideClickHandler);
       this.outsideClickHandler = null;
     }
+    if (this.pointerDownHandler) {
+      activeDocument.removeEventListener("pointerdown", this.pointerDownHandler, true);
+      this.pointerDownHandler = null;
+    }
+    this.pointerDownInsidePanel = false;
     if (this.keydownHandler) {
       activeDocument.removeEventListener("keydown", this.keydownHandler);
       this.keydownHandler = null;
@@ -5160,6 +5409,8 @@ var RightSidebarButtonManager = class {
     }
     this.endResizeDrag();
     activeDocument.body.removeClass(RESIZING_BODY_CLASS);
+    this.unpatchDomTracking();
+    this.watchedNodes.clear();
     this.restoreMounted();
     this.clearStackTimers();
     this.leafOrder = [];
@@ -5171,13 +5422,18 @@ var RightSidebarButtonManager = class {
     this.contentEl = null;
     (_b = this.launcherEl) == null ? void 0 : _b.removeEventListener("mouseenter", this.onLauncherMouseEnter);
     (_c = this.launcherEl) == null ? void 0 : _c.removeEventListener("mouseleave", this.onLauncherMouseLeave);
-    (_d = this.launcherEl) == null ? void 0 : _d.remove();
-    (_e = this.panelEl) == null ? void 0 : _e.remove();
+    (_d = this.panelEl) == null ? void 0 : _d.removeEventListener("mousemove", this.onPanelMouseMove);
+    (_e = this.panelEl) == null ? void 0 : _e.removeEventListener("mouseleave", this.onPanelMouseLeave);
+    (_f = this.launcherEl) == null ? void 0 : _f.remove();
+    (_g = this.panelEl) == null ? void 0 : _g.remove();
     this.launcherEl = null;
     this.buttonEl = null;
     this.panelEl = null;
+    this.surfaceEl = null;
+    this.pinEl = null;
     this.isOpen = false;
     this.stackExpanded = false;
+    this.isPinned = false;
   }
 };
 

@@ -8,6 +8,10 @@ const BUTTON_CLASS = 'minimalism-ui-rsb-button';
 const PANEL_CLASS = 'minimalism-ui-rsb-panel';
 const OPEN_CLASS = 'minimalism-ui-rsb-panel-open';
 const BUTTON_ACTIVE_CLASS = 'minimalism-ui-rsb-button-active';
+const SURFACE_CLASS = 'minimalism-ui-rsb-surface';
+const PIN_CLASS = 'minimalism-ui-rsb-pin';
+const PIN_HINT_CLASS = 'minimalism-ui-rsb-pin-hint';
+const PIN_ACTIVE_CLASS = 'minimalism-ui-rsb-pin-active';
 const RESIZE_HANDLE_CLASS = 'minimalism-ui-rsb-resize-handle';
 const RESIZING_BODY_CLASS = 'minimalism-ui-rsb-resizing';
 const STACK_CLASS = 'minimalism-ui-rsb-stack';
@@ -40,6 +44,10 @@ const MAX_HEIGHT = 800;
 // 面板固定 right: 20px / bottom: 72px（见 styles.css），为视口裁剪预留同等边距。
 const VIEWPORT_MARGIN_X = 40;
 const VIEWPORT_MARGIN_Y = 92;
+
+// 鼠标距面板顶边多近算“顶部区域”，命中时探出 pin 按钮（未 pin 住时）。
+const PIN_HOVER_ZONE_PX = 40;
+const PIN_ICON = 'pin';
 
 // 面板打开后堆叠自动亮相的延迟，及亮相后（未被悬浮打断时）自动收起前的停留时长。
 const STACK_AUTO_EXPAND_DELAY = 500;
@@ -80,6 +88,14 @@ const STACK_HOVER_LEAVE_DELAY = 300;
  * 拖拽逻辑与 PropertyKeyResizer 同构：拖拽中用 setCssStyles 直接改尺寸，
  * 松手才写入设置持久化，避免拖拽过程中频繁触发保存。
  *
+ * Pin：panelEl 不再自己裁剪溢出，真正的圆角/背景/裁剪挪到内层 surfaceEl，
+ * 好让 pin 按钮（挂在 panelEl 上，绝对定位）探出面板右上角之外。鼠标移到面板
+ * 顶部一小段区域内时探出（mousemove 判 clientY 距顶边距离，见 PIN_HOVER_ZONE_PX），
+ * 移出面板则收回；点击后切到“常驻显示”的 pinned 态并写入设置（跨重启持久化，
+ * 因此关闭面板再打开、甚至重载插件后 pin 状态都还在）。
+ * pinned 时 outsideClickHandler / keydownHandler 的关闭分支直接跳过——失焦、Esc
+ * 都不再关闭面板，唯一出口是再次点击右下角悬浮按钮（toggle 不受 pinned 影响）。
+ *
  * 容错兜底：collectSwitchableLeaves 只能看到当前存在的 leaf —— 一个 view 一旦被用户
  * Cmd+W 关闭，leaf 就被销毁，不再出现在任何遍历里（这不是“隐藏”，是真的不存在了）。
  * 为了让本面板成为“任何 view 都能找回来”的最后入口，面板首次展开时会调用
@@ -93,15 +109,31 @@ export class RightSidebarButtonManager implements Feature {
 	private buttonEl: HTMLElement | null = null;
 	private stackEl: HTMLElement | null = null;
 	private panelEl: HTMLElement | null = null;
+	private surfaceEl: HTMLElement | null = null;
 	private contentEl: HTMLElement | null = null;
 	private resizeHandleEl: HTMLElement | null = null;
+	private pinEl: HTMLElement | null = null;
 	private outsideClickHandler: ((e: MouseEvent) => void) | null = null;
+	private pointerDownHandler: ((e: PointerEvent) => void) | null = null;
+	// pointerdown（capture 阶段，先于 click）时记录的“按下点是否在面板/launcher 内”——
+	// 见 outsideClickHandler 顶部注释，click 事件的 composedPath() 在某些场景不可靠，
+	// 这个提前一步、DOM 还未被任何 mousedown 触发的副作用改动过的快照更可信。
+	private pointerDownInsidePanel = false;
 	private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
 	private layoutChangeHandler: (() => void) | null = null;
 	private isOpen = false;
 	private stackExpanded = false;
+	// 面板是否被 pin 住；跨重启持久化于设置，见类注释。
+	private isPinned = false;
 	// 每次 apply() 只做一次全量探测（见 ensureAllToolViewsExist），避免每次开面板都重复扫描/创建。
 	private hasProbedAllViewTypes = false;
+	// 临时排障用，见 watchForUnexpectedRemoval / patchDomTrackingOnce。
+	private watchedNodes = new Map<Node, string>();
+	private domPatched = false;
+	private originalAppendChild: typeof Node.prototype.appendChild | null = null;
+	private originalInsertBefore: typeof Node.prototype.insertBefore | null = null;
+	private originalRemoveChild: typeof Node.prototype.removeChild | null = null;
+	private originalRemove: (() => void) | null = null;
 
 	// 当前挂进 contentEl 的 leaf，及其原本所在的位置（用于切走/卸载时移回）。
 	private mountedLeaf: WorkspaceLeaf | null = null;
@@ -137,15 +169,30 @@ export class RightSidebarButtonManager implements Feature {
 
 	private inject() {
 		this.hasProbedAllViewTypes = false;
+		this.isPinned = this.getSettings().rightSidebarPanelPinned;
 		this.panelEl = activeDocument.body.createDiv({ cls: PANEL_CLASS });
 		const s = this.getSettings();
 		this.panelEl.setCssStyles({
 			width: `${s.rightSidebarPanelWidth}px`,
 			height: `${s.rightSidebarPanelHeight}px`,
 		});
-		this.contentEl = this.panelEl.createDiv({ cls: CONTENT_CLASS });
-		this.resizeHandleEl = this.panelEl.createDiv({ cls: RESIZE_HANDLE_CLASS });
+		this.surfaceEl = this.panelEl.createDiv({ cls: SURFACE_CLASS });
+		this.contentEl = this.surfaceEl.createDiv({ cls: CONTENT_CLASS });
+		this.resizeHandleEl = this.surfaceEl.createDiv({ cls: RESIZE_HANDLE_CLASS });
 		this.resizeHandleEl.addEventListener('pointerdown', this.onResizePointerDown);
+
+		this.pinEl = this.panelEl.createDiv({
+			cls: PIN_CLASS,
+			attr: { 'aria-label': t(this.isPinned ? 'rightSidebarPanelUnpin' : 'rightSidebarPanelPin') },
+		});
+		setIcon(this.pinEl, PIN_ICON);
+		this.pinEl.toggleClass(PIN_ACTIVE_CLASS, this.isPinned);
+		this.pinEl.addEventListener('click', (e) => {
+			e.stopPropagation();
+			this.togglePinned();
+		});
+		this.panelEl.addEventListener('mousemove', this.onPanelMouseMove);
+		this.panelEl.addEventListener('mouseleave', this.onPanelMouseLeave);
 
 		this.launcherEl = activeDocument.body.createDiv({ cls: LAUNCHER_CLASS });
 		this.stackEl = this.launcherEl.createDiv({ cls: STACK_CLASS });
@@ -164,6 +211,18 @@ export class RightSidebarButtonManager implements Feature {
 			this.toggle();
 		});
 
+		// pointerdown 在 capture 阶段先于 click 触发，此刻这次交互（无论是我们自己、Obsidian
+		// 核心还是某个三方插件）都还没来得及跑任何同步副作用去改动 DOM——是整个交互序列里
+		// DOM 结构最可信的一个快照点。用它兜底记录"按下点是否在面板/launcher 内"，弥补下面
+		// click 阶段 composedPath() 可能已经不可靠的情况（见其注释）。
+		this.pointerDownHandler = (e: PointerEvent) => {
+			const path = e.composedPath();
+			this.pointerDownInsidePanel =
+				(this.launcherEl != null && path.includes(this.launcherEl)) ||
+				(this.panelEl != null && path.includes(this.panelEl));
+		};
+		activeDocument.addEventListener('pointerdown', this.pointerDownHandler, true);
+
 		this.outsideClickHandler = (e: MouseEvent) => {
 			if (this.suppressNextOutsideClick) {
 				this.suppressNextOutsideClick = false;
@@ -172,7 +231,11 @@ export class RightSidebarButtonManager implements Feature {
 			// 用 composedPath() 而非 target.contains()：部分挂载视图（如 Search 结果列表用了虚拟
 			// 渲染）会在冒泡到 document 之前就同步重建/替换被点击的 DOM 节点，届时 target 已从
 			// 文档树摘除，.contains() 恒为 false，会把"点击面板内部"误判成"点击外部"进而误关闭。
-			// composedPath() 返回事件刚开始派发时（DOM 变动前）就已固定的冒泡路径快照，不受影响。
+			// composedPath() 返回事件刚开始派发时（DOM 变动前）就已固定的冒泡路径快照，不受影响
+			// ——但这只覆盖"click 事件自身触发的副作用"这一种情况：如果 DOM 变动发生在更早的
+			// mousedown 阶段（同一次交互里 click 是后触发的独立事件），click 派发时快照本身就已经
+			// 是变动后的了，此时这里会失真。故以 pointerDownInsidePanel（见上）作为更早、更可信的
+			// 兜底信号，两者任一为真都判定"在面板内"。
 			const path = e.composedPath();
 			const inStack = this.stackEl != null && path.includes(this.stackEl);
 			if (this.stackExpanded && !inStack) {
@@ -180,7 +243,12 @@ export class RightSidebarButtonManager implements Feature {
 				this.setStackExpanded(false);
 			}
 			if (!this.isOpen) return;
-			if ((this.launcherEl && path.includes(this.launcherEl)) || (this.panelEl && path.includes(this.panelEl))) return;
+			const insidePanel = this.pointerDownInsidePanel
+				|| (this.launcherEl != null && path.includes(this.launcherEl))
+				|| (this.panelEl != null && path.includes(this.panelEl));
+			if (insidePanel) return;
+			// pin 住之后失焦（点击面板外）不再关闭，唯一出口是再点一次悬浮按钮（toggle，见 open/close）。
+			if (this.isPinned) return;
 			this.close();
 		};
 		activeDocument.addEventListener('click', this.outsideClickHandler);
@@ -190,6 +258,8 @@ export class RightSidebarButtonManager implements Feature {
 		// 退出面板——close() 本身已经会收起堆叠，直接统一走它即可，一次 Escape 关到底。
 		this.keydownHandler = (e: KeyboardEvent) => {
 			if (e.key !== 'Escape' || !this.isOpen) return;
+			// pin 住之后 Esc 不再关闭，交给其它监听者处理（如退出编辑）。
+			if (this.isPinned) return;
 			e.stopPropagation();
 			this.close();
 		};
@@ -224,9 +294,31 @@ export class RightSidebarButtonManager implements Feature {
 		// 纳入堆叠。先同步 refreshStack 一次是为了不让已存在的 leaf 因为等待探测而白屏。
 		if (!this.hasProbedAllViewTypes) {
 			this.hasProbedAllViewTypes = true;
-			void this.ensureAllToolViewsExist().then(() => {
-				if (this.isOpen) this.refreshStack();
-			});
+			void this.ensureAllToolViewsExist()
+				.then(() => this.materializeDeferredLeaves())
+				.then(() => { if (this.isOpen) this.refreshStack(); });
+		} else {
+			// 已经探测过 view type，但本次打开面板前可能还有 leaf 从未被真正物化过（用户这次话
+			// 还没点过它）——每次打开都补一遍，把“物化”这一次性副作用提前到用户开始切换之前。
+			void this.materializeDeferredLeaves();
+		}
+	}
+
+	// Obsidian 的 deferred leaf 只有在“第一次真正被用到”时才物化真正的 View 实例，物化过程
+	// 会触发一次它所在 tab group 的内部重渲染——这个重渲染不知道我们把某个 sibling leaf 的
+	// containerEl 偷偷搬进了悬浮面板，会把它当垃圾一并摘掉（表现为那个 leaf 的 containerEl
+	// parentElement 变 null，内容清空，且不会再恢复）。日志实测证实：切到一个还没被物化过
+	// 的视图时，触发的重渲染会把"当前挂在面板里的另一个视图"顺带摘掉。
+	// 把物化这一步提前到用户开始点选之前（面板里还什么都没挂的时候）做，就没有东西可误伤。
+	// 逐个 await 而非 Promise.all，理由同 ensureAllToolViewsExist：避免物化过程互相踩踏。
+	private async materializeDeferredLeaves() {
+		for (const leaf of this.collectSwitchableLeaves()) {
+			if (!leaf.isDeferred) continue;
+			try {
+				await leaf.loadIfDeferred();
+			} catch (err: unknown) {
+				console.error('[minimalism-ui] failed to materialize deferred leaf', leaf.view.getViewType(), err);
+			}
 		}
 	}
 
@@ -298,6 +390,28 @@ export class RightSidebarButtonManager implements Feature {
 		if (this.stackExpanded) this.scheduleAutoCollapse(STACK_HOVER_LEAVE_DELAY);
 	};
 
+	// 鼠标距面板顶边 PIN_HOVER_ZONE_PX 以内时探出 pin 按钮；已 pin 住的话本就常驻显示
+	// （由 PIN_ACTIVE_CLASS 控制），这里只管未 pin 时的悬浮提示态。
+	private onPanelMouseMove = (e: MouseEvent) => {
+		if (!this.panelEl || this.isPinned) return;
+		const rect = this.panelEl.getBoundingClientRect();
+		const nearTop = e.clientY - rect.top <= PIN_HOVER_ZONE_PX;
+		this.pinEl?.toggleClass(PIN_HINT_CLASS, nearTop);
+	};
+
+	private onPanelMouseLeave = () => {
+		this.pinEl?.removeClass(PIN_HINT_CLASS);
+	};
+
+	private togglePinned() {
+		this.isPinned = !this.isPinned;
+		this.pinEl?.toggleClass(PIN_ACTIVE_CLASS, this.isPinned);
+		this.pinEl?.setAttribute('aria-label', t(this.isPinned ? 'rightSidebarPanelUnpin' : 'rightSidebarPanelPin'));
+		const s = this.getSettings();
+		s.rightSidebarPanelPinned = this.isPinned;
+		void this.save();
+	}
+
 	// ─── 视图枚举 / 渲染图标堆叠 / 挂载切换 ─────────────────────────────────
 
 	// 右侧栏的全部 leaf，加上左侧栏里不属于 Outline/Graph/Properties 合并三件套的“外来” leaf。
@@ -354,10 +468,73 @@ export class RightSidebarButtonManager implements Feature {
 		for (const leaf of leaves) if (!known.has(leaf)) this.leafOrder.unshift(leaf);
 	}
 
+	// 临时排障：MutationObserver 回调是微任务，跑到的时候原始调用栈已经丢了（之前那版日志
+	// 只能看到 eval@... 两行，看不出是谁干的）。改成直接 patch Node.prototype 的四个会移动/
+	// 摘除节点的方法，命中被盯住的 containerEl 时同步打 console.trace()——这时调用栈还是完整
+	// 的，能看出到底是我们自己（restoreMounted/showLeaf）还是 Obsidian 内部或某个三方插件
+	// 干的。只在 debug 期间打这个补丁，remove() 里要还原。
+	private watchForUnexpectedRemoval(leaves: WorkspaceLeaf[]) {
+		this.watchedNodes = new Map(leaves.map((l) => [l.view.containerEl as Node, l.view.getViewType()]));
+		this.patchDomTrackingOnce();
+	}
+
+	private logIfWatched(node: Node, action: string) {
+		const viewType = this.watchedNodes.get(node);
+		if (!viewType) return;
+		console.log(`[rsb-debug] DOM ${action} on watched containerEl, viewType =`, viewType);
+		console.trace(`[rsb-debug] sync stack for ${action} (${viewType})`);
+	}
+
+	private patchDomTrackingOnce() {
+		if (this.domPatched) return;
+		this.domPatched = true;
+		const self = this;
+
+		this.originalAppendChild = Node.prototype.appendChild;
+		Node.prototype.appendChild = function <T extends Node>(this: Node, child: T): T {
+			self.logIfWatched(child, 'appendChild');
+			return self.originalAppendChild!.call(this, child) as T;
+		} as typeof Node.prototype.appendChild;
+
+		this.originalInsertBefore = Node.prototype.insertBefore;
+		Node.prototype.insertBefore = function <T extends Node>(this: Node, child: T, ref: Node | null): T {
+			self.logIfWatched(child, 'insertBefore');
+			return self.originalInsertBefore!.call(this, child, ref) as T;
+		} as typeof Node.prototype.insertBefore;
+
+		this.originalRemoveChild = Node.prototype.removeChild;
+		Node.prototype.removeChild = function <T extends Node>(this: Node, child: T): T {
+			self.logIfWatched(child, 'removeChild');
+			return self.originalRemoveChild!.call(this, child) as T;
+		} as typeof Node.prototype.removeChild;
+
+		this.originalRemove = Element.prototype.remove;
+		Element.prototype.remove = function (this: Element) {
+			self.logIfWatched(this, 'remove()');
+			self.originalRemove!.call(this);
+		};
+	}
+
+	private unpatchDomTracking() {
+		if (!this.domPatched) return;
+		this.domPatched = false;
+		if (this.originalAppendChild) Node.prototype.appendChild = this.originalAppendChild;
+		if (this.originalInsertBefore) Node.prototype.insertBefore = this.originalInsertBefore;
+		if (this.originalRemoveChild) Node.prototype.removeChild = this.originalRemoveChild;
+		if (this.originalRemove) Element.prototype.remove = this.originalRemove;
+		this.originalAppendChild = null;
+		this.originalInsertBefore = null;
+		this.originalRemoveChild = null;
+		this.originalRemove = null;
+	}
+
 	private refreshStack() {
 		if (!this.stackEl) return;
 		const leaves = this.collectSwitchableLeaves();
 		this.syncLeafOrder(leaves);
+		this.watchForUnexpectedRemoval(leaves);
+		console.log('[rsb-debug] refreshStack() leafOrder =', this.leafOrder.map((l) => l.view.getViewType()),
+			'activeLeaf =', this.activeLeaf?.view.getViewType() ?? null);
 
 		if (this.leafOrder.length === 0) {
 			this.activeLeaf = null;
@@ -369,6 +546,7 @@ export class RightSidebarButtonManager implements Feature {
 		// activeLeaf 缺失（首次扫描）或其 leaf 已被关闭时，回退到最新发现的一项。
 		if (!this.activeLeaf || !this.leafOrder.includes(this.activeLeaf)) {
 			this.activeLeaf = this.leafOrder[this.leafOrder.length - 1];
+			console.log('[rsb-debug] refreshStack() activeLeaf fallback ->', this.activeLeaf.view.getViewType());
 		}
 
 		this.renderStackIcons();
@@ -403,8 +581,26 @@ export class RightSidebarButtonManager implements Feature {
 		}
 	}
 
+	// 临时排障用：打印 leaf 视图容器当下的可见性/尺寸/实际渲染出的行数，不做任何判断，
+	// 只是留痕，方便对照“切走前”“搬进面板后”“resize 后”“resize 后 300ms”几个时间点的差异。
+	private debugSnapshot(label: string, leaf: WorkspaceLeaf) {
+		const el = leaf.view.containerEl;
+		console.log('[rsb-debug]', label, {
+			viewType: leaf.view.getViewType(),
+			parentClass: el.parentElement ? el.parentElement.className : null,
+			offsetParent: !!el.offsetParent,
+			clientWidth: el.clientWidth,
+			clientHeight: el.clientHeight,
+			treeItems: el.querySelectorAll('.tree-item').length,
+			emptyStateEls: el.querySelectorAll('.pane-empty').length,
+			innerHTMLLength: el.innerHTML.length,
+		});
+	}
+
 	private async showLeaf(leaf: WorkspaceLeaf) {
 		if (this.mountedLeaf === leaf) return;
+		console.log('[rsb-debug] showLeaf() called for', leaf.view.getViewType());
+		this.debugSnapshot('showLeaf: target leaf state before touching anything', leaf);
 		this.restoreMounted();
 
 		if (leaf.isDeferred) await leaf.loadIfDeferred();
@@ -415,6 +611,7 @@ export class RightSidebarButtonManager implements Feature {
 		this.contentEl?.empty();
 		this.contentEl?.appendChild(viewEl);
 		this.mountedLeaf = leaf;
+		this.debugSnapshot('showLeaf: right after appendChild, before onResize', leaf);
 
 		if (this.buttonEl) setIcon(this.buttonEl, leaf.getIcon());
 		// 该 leaf 原本渲染在被 CSS 永久隐藏（display:none）的右侧栏里；不少核心视图
@@ -423,6 +620,8 @@ export class RightSidebarButtonManager implements Feature {
 		// 自动触发它们预期的重新measure。用官方 onResize() 钩子显式通知一次，
 		// 让它们据当前真实容器尺寸重新布局。
 		this.notifyResize(leaf);
+		this.debugSnapshot('showLeaf: right after notifyResize', leaf);
+		window.setTimeout(() => this.debugSnapshot('showLeaf: +300ms after notifyResize', leaf), 300);
 	}
 
 	private showEmpty() {
@@ -433,19 +632,55 @@ export class RightSidebarButtonManager implements Feature {
 	}
 
 	// onResize() 跑的是任意第三方/核心视图的代码，出错也不该拖垮我们自己的挂载逻辑。
+	//
+	// 核心的 All Properties / Tags / Backlinks 等面板内部用虚拟滚动实现列表，其 onResize()
+	// 只有在“测得的宽度与上次可见时缓存的宽度不同”时才会真正重新排布；宽度相同则只重放上次
+	// 的缓存布局。缓存宽度的初值是 0，所以第一次挂进面板（宽度从 0 变为真实值）一定会触发
+	// 真正的重排,看起来正常;但只要面板尺寸不变,之后每次切走再切回来,宽度都和缓存一致,
+	// 于是只重放旧布局——如果内容在切走期间失效（如属性列表变化）就会一直空着，不会再重新
+	// 计算。这是 Obsidian 内部实现的私有细节，各视图的虚拟滚动字段名不通用，没法针对性调用；
+	// 索性手动把宽度先改一格再改回真实值，逼它认为“宽度变了”从而完整重排一次。
 	private notifyResize(leaf: WorkspaceLeaf) {
+		const el = leaf.view.containerEl;
+		const originalWidth = el.style.width;
+		console.log('[rsb-debug] notifyResize: clientWidth before nudge =', el.clientWidth);
+		try {
+			el.style.width = `${el.clientWidth + 1}px`;
+			leaf.onResize();
+		} catch (err: unknown) {
+			console.error('[minimalism-ui] right sidebar view onResize() failed', err);
+		} finally {
+			el.style.width = originalWidth;
+		}
 		try {
 			leaf.onResize();
 		} catch (err: unknown) {
 			console.error('[minimalism-ui] right sidebar view onResize() failed', err);
 		}
+		console.log('[rsb-debug] notifyResize: clientWidth after restore+2nd onResize =', el.clientWidth);
 	}
 
 	// 把当前挂载的 leaf 视图移回它原本所在的 DOM 位置（隐藏的右侧栏内）。
 	private restoreMounted() {
+		if (this.mountedLeaf) {
+			console.log('[rsb-debug] restoreMounted() moving out', this.mountedLeaf.view.getViewType());
+			this.debugSnapshot('restoreMounted: state right before moving back to hidden sidebar', this.mountedLeaf);
+		}
 		if (!this.mountedLeaf || !this.mountedOriginal) return;
 		const viewEl = this.mountedLeaf.view.containerEl;
-		this.mountedOriginal.parent.insertBefore(viewEl, this.mountedOriginal.nextSibling);
+		// 临时排障：showLeaf() 是 async 函数，调用方全是 void this.showLeaf(...) 不接 .catch()——
+		// 这里如果 insertBefore 因为 nextSibling 已经不是 parent 的子节点（比如 Obsidian 内部
+		// 在这期间重建了右侧栏的 tab 结构）而抛 DOMException，会变成一个没人处理的 promise
+		// rejection，函数从这里直接中断，后面移动"要显示的新 leaf"那段代码根本不会跑——
+		// 之前几轮日志里看到的"目标 leaf parentElement 为 null"很可能就是这么来的。加 try/catch
+		// 把异常打出来，并退化成 appendChild（插到最后，位置不对但至少不丢）。
+		try {
+			this.mountedOriginal.parent.insertBefore(viewEl, this.mountedOriginal.nextSibling);
+		} catch (err: unknown) {
+			console.error('[rsb-debug] restoreMounted() insertBefore failed for', this.mountedLeaf.view.getViewType(),
+				'parent =', this.mountedOriginal.parent, 'nextSibling =', this.mountedOriginal.nextSibling, err);
+			this.mountedOriginal.parent.appendChild(viewEl);
+		}
 		this.mountedLeaf = null;
 		this.mountedOriginal = null;
 	}
@@ -510,6 +745,11 @@ export class RightSidebarButtonManager implements Feature {
 			activeDocument.removeEventListener('click', this.outsideClickHandler);
 			this.outsideClickHandler = null;
 		}
+		if (this.pointerDownHandler) {
+			activeDocument.removeEventListener('pointerdown', this.pointerDownHandler, true);
+			this.pointerDownHandler = null;
+		}
+		this.pointerDownInsidePanel = false;
 		if (this.keydownHandler) {
 			activeDocument.removeEventListener('keydown', this.keydownHandler);
 			this.keydownHandler = null;
@@ -520,6 +760,8 @@ export class RightSidebarButtonManager implements Feature {
 		}
 		this.endResizeDrag();
 		activeDocument.body.removeClass(RESIZING_BODY_CLASS);
+		this.unpatchDomTracking();
+		this.watchedNodes.clear();
 		this.restoreMounted();
 		this.clearStackTimers();
 		this.leafOrder = [];
@@ -531,12 +773,17 @@ export class RightSidebarButtonManager implements Feature {
 		this.contentEl = null;
 		this.launcherEl?.removeEventListener('mouseenter', this.onLauncherMouseEnter);
 		this.launcherEl?.removeEventListener('mouseleave', this.onLauncherMouseLeave);
+		this.panelEl?.removeEventListener('mousemove', this.onPanelMouseMove);
+		this.panelEl?.removeEventListener('mouseleave', this.onPanelMouseLeave);
 		this.launcherEl?.remove();
 		this.panelEl?.remove();
 		this.launcherEl = null;
 		this.buttonEl = null;
 		this.panelEl = null;
+		this.surfaceEl = null;
+		this.pinEl = null;
 		this.isOpen = false;
 		this.stackExpanded = false;
+		this.isPinned = false;
 	}
 }

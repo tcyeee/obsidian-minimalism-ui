@@ -211,30 +211,38 @@ body.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner {
 	overflow: hidden;
 }
 
-/* 隐藏原始 side-dock-actions（图标已迁入 minimalism-ui-ribbon-icons） */
-body.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-actions {
-	display: none;
+/* 图标行容器：.side-dock-actions 本体被整体搬入其中（DOM 节点未拆解，
+   见 RibbonPanelManager 注释），后续 addRibbonIcon() 动态增删的图标都落在
+   同一个活节点上，天然保持同步。这里只负责外层留白，内层排布交给下条规则。 */
+body.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-icons {
+	padding: 4px 6px;
+	width: 100%;
+	box-sizing: border-box;
 }
 
-/* 图标行：水平排列，可换行，靠左对齐 */
-body.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-icons {
+/* 覆盖 .side-dock-actions 原生的纵向排布（flex-direction: column），
+   改为可换行的横向排布；specificity 用类名堆叠压过 Obsidian 原生规则，不用 !important。 */
+body.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-icons .side-dock-actions {
 	display: flex;
 	flex-direction: row;
 	flex-wrap: wrap;
 	align-items: flex-start;
 	justify-content: flex-start;
 	align-content: flex-start;
-	padding: 4px 6px;
 	gap: 2px;
 	width: 100%;
-	box-sizing: border-box;
+	padding: 0;
+	margin: 0;
 }
 
-/* 每个图标 wrapper 固定尺寸，icon 本身居中显示，带背景框 */
-body.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-icon-wrap {
+/* 每个图标（.side-dock-ribbon-action）固定尺寸、居中显示、带背景框；
+   直接覆盖原生图标节点本身（不再需要额外 wrapper div），
+   覆盖其原生的 width:100%/margin，同一规则天然适用于日后动态新增的图标。 */
+body.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-icons .side-dock-actions .side-dock-ribbon-action {
 	flex: 0 0 28px;
 	width: 28px;
 	height: 28px;
+	margin: 0;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -243,7 +251,7 @@ body.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-icon-wrap {
 	border-radius: 5px;
 }
 
-body.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-icon-wrap:hover {
+body.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-icons .side-dock-actions .side-dock-ribbon-action:hover {
 	background: var(--background-modifier-hover);
 }
 
@@ -558,16 +566,17 @@ body.minimalism-ui-has-home .minimalism-ui-drag-bar-count {
 	display: none;
 }
 
-/* 阅读模式锁图标 */
+/* 阅读模式锁图标：常驻显示，非阅读模式为浅灰色（未激活态），阅读模式变为主题强调色 */
 .minimalism-ui-editor-lock {
 	display: flex;
 	align-items: center;
 	cursor: pointer;
 	padding: 0 4px;
+	color: var(--text-faint);
 }
 
-.minimalism-ui-editor-lock.is-hidden {
-	display: none;
+.minimalism-ui-editor-lock.is-reading {
+	color: var(--interactive-accent);
 }
 
 /* status-bar 搬入 row1 后重置定位，推到最右侧 */
@@ -727,13 +736,6 @@ body.minimalism-ui-mac-sidebar .workspace-tab-header-tab-list {
 	height: 480px;
 	max-width: calc(100vw - 40px);
 	max-height: calc(100vh - 92px);
-	display: flex;
-	flex-direction: column;
-	border-radius: 12px;
-	background: var(--background-primary);
-	border: 1px solid var(--background-modifier-border);
-	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
-	overflow: hidden;
 	transform-origin: bottom right;
 	transform: scale(0.9) translateY(10px);
 	opacity: 0;
@@ -745,6 +747,68 @@ body.minimalism-ui-mac-sidebar .workspace-tab-header-tab-list {
 	transform: scale(1) translateY(0);
 	opacity: 1;
 	pointer-events: auto;
+}
+
+/* 面板本身不再裁剪溢出（见 .minimalism-ui-rsb-pin 需要探出圆角外侧）；
+   真正承载圆角/背景/裁剪的是这层填满面板的 surface。 */
+.minimalism-ui-rsb-surface {
+	width: 100%;
+	height: 100%;
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	border-radius: 12px;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+	overflow: hidden;
+}
+
+/* Pin 按钮：常态不可见，鼠标移到面板顶部区域或已被 pin 住时才显现（见
+   RightSidebarButtonManager 的 mousemove 监听 + pin-hint/pin-active 类）。
+   挂在 panelEl（而非 surfaceEl）上，借助面板不裁剪溢出探出右上角之外。 */
+.minimalism-ui-rsb-pin {
+	position: absolute;
+	top: -14px;
+	right: -14px;
+	z-index: 1;
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--background-secondary);
+	color: var(--text-muted);
+	border: 1px solid var(--background-modifier-border);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+	cursor: pointer;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.15s ease, transform 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+	-webkit-app-region: no-drag;
+}
+
+.minimalism-ui-rsb-pin svg {
+	width: 14px;
+	height: 14px;
+}
+
+.minimalism-ui-rsb-pin:hover {
+	color: var(--text-normal);
+	transform: scale(1.08);
+}
+
+.minimalism-ui-rsb-panel-open .minimalism-ui-rsb-pin.minimalism-ui-rsb-pin-hint,
+.minimalism-ui-rsb-panel-open .minimalism-ui-rsb-pin.minimalism-ui-rsb-pin-active {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.minimalism-ui-rsb-pin.minimalism-ui-rsb-pin-active {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
 }
 
 /* 收起态：整叠图标退到按钮下方，透明且不可交互（被按钮完全遮挡）；展开态整体
@@ -1222,9 +1286,11 @@ body.is-mac.minimalism-ui-mac-sidebar .titlebar-button-container.mod-left {
 
 .minimalism-ui-onboarding-task-label {
 	flex: 1;
+	min-width: 0;
 	font-size: 13px;
 	color: var(--text-muted);
-	white-space: nowrap;
+	white-space: normal;
+	word-break: break-word;
 }
 
 .minimalism-ui-onboarding-task.is-done .minimalism-ui-onboarding-task-label {
