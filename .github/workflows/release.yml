@@ -50,13 +50,11 @@ jobs:
             echo "$notes" > /tmp/release-notes.md
             gh release create "$tag" \
               --title="$tag" \
-              --draft \
               --notes-file /tmp/release-notes.md \
               main.js manifest.json styles.css
           else
             gh release create "$tag" \
               --title="$tag" \
-              --draft \
               --generate-notes \
               main.js manifest.json styles.css
           fi
