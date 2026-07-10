@@ -156,7 +156,13 @@ export class OnboardingManager implements Feature {
 		if (!this.getSettings().onboarding) return;
 
 		const panel = activeDocument.body.createDiv({ cls: PANEL_CLASS });
-		panel.createDiv({ cls: `${PANEL_CLASS}-header`, text: t('onboardingTitle') });
+		const header = panel.createDiv({ cls: `${PANEL_CLASS}-header` });
+		header.createSpan({ text: t('onboardingTitle') });
+		const skipBtn = header.createEl('button', {
+			cls: `${PANEL_CLASS}-skip`,
+			text: t('onboardingSkip'),
+		});
+		skipBtn.addEventListener('click', () => this.dismiss());
 
 		const list = panel.createDiv({ cls: `${PANEL_CLASS}-tasks` });
 		for (const def of TASKS) {
@@ -298,14 +304,20 @@ export class OnboardingManager implements Feature {
 		if (this.hideScheduled) return;
 		this.hideScheduled = true;
 		this.showAllDoneFeedback();
+		this.timers.push(window.setTimeout(() => this.dismiss(), ALL_DONE_HIDE_DELAY));
+	}
+
+	// 退场动画 → 移除节点、关闭 onboarding 设置并落盘。用户主动跳过或全部完成后都走这条路径。
+	// 以 is-hiding class 而非 hideScheduled 做重入保护：跳过可能在「全部完成」的停留期内
+	// 被点击，此时 hideScheduled 已为 true 但尚未真正退场，仍需放行。
+	private dismiss() {
+		if (this.panel?.hasClass('is-hiding')) return;
+		if (this.panel) this.panel.addClass('is-hiding');
 		this.timers.push(window.setTimeout(() => {
-			if (this.panel) this.panel.addClass('is-hiding');
-			this.timers.push(window.setTimeout(() => {
-				this.getSettings().onboarding = false;
-				void this.persist();
-				this.remove();
-			}, EXIT_DURATION));
-		}, ALL_DONE_HIDE_DELAY));
+			this.getSettings().onboarding = false;
+			void this.persist();
+			this.remove();
+		}, EXIT_DURATION));
 	}
 
 	// 在任务清单下方弹出一条「全部完成」的庆祝反馈（带 pop 入场动画，见 styles.css）。

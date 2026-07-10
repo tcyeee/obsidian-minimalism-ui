@@ -2479,6 +2479,7 @@ var translations = {
     onboardingGoBack: "\u4F7F\u7528\u5FEB\u6377\u952E\u540E\u9000",
     onboardingGoForward: "\u4F7F\u7528\u5FEB\u6377\u952E\u524D\u8FDB",
     onboardingAllDone: "\u5168\u90E8\u5B8C\u6210\uFF0C\u5F00\u59CB\u4F60\u7684\u5199\u4F5C\u5427\uFF01",
+    onboardingSkip: "\u8DF3\u8FC7\u6559\u7A0B",
     filenamePrefixManual: "\u624B\u52A8\u9690\u85CF\u65F6\u95F4\u6233\u524D\u7F00",
     filenamePrefixManualDesc: "\u5173\u95ED\u65F6\u81EA\u52A8\u8DDF\u968F Obsidian\u300C\u552F\u4E00\u7B14\u8BB0\u521B\u5EFA\u5668\u300D\u914D\u7F6E\u7684\u65F6\u95F4\u6233\u683C\u5F0F\u5265\u79BB\u524D\u7F00\uFF08\u542B\u5176\u540E\u7684\u5206\u9694\u7B26\uFF09\uFF0C\u65E0\u9700\u8BBE\u7F6E\uFF1B\u5F00\u542F\u540E\u6539\u4E3A\u4E0B\u65B9\u624B\u52A8\u6307\u5B9A\u8981\u9690\u85CF\u7684\u4F4D\u6570\u3002",
     filenamePrefixLength: "\u6307\u5B9A\u65F6\u95F4\u6233\u524D\u7F00\u957F\u5EA6",
@@ -2529,6 +2530,7 @@ var translations = {
     onboardingGoBack: "Go back with the shortcut",
     onboardingGoForward: "Go forward with the shortcut",
     onboardingAllDone: "All set \u2014 start writing!",
+    onboardingSkip: "Skip tutorial",
     filenamePrefixManual: "Manually hide timestamp prefix",
     filenamePrefixManualDesc: `When off, automatically follows the timestamp format configured in Obsidian's "Unique note creator" core plugin to strip the prefix (and the separator after it) \u2014 no setup needed. When on, manually specify the length to hide below.`,
     filenamePrefixLength: "Timestamp prefix length",
@@ -5438,7 +5440,13 @@ var OnboardingManager = class {
     this.remove();
     if (!this.getSettings().onboarding) return;
     const panel = activeDocument.body.createDiv({ cls: PANEL_CLASS2 });
-    panel.createDiv({ cls: `${PANEL_CLASS2}-header`, text: t("onboardingTitle") });
+    const header = panel.createDiv({ cls: `${PANEL_CLASS2}-header` });
+    header.createSpan({ text: t("onboardingTitle") });
+    const skipBtn = header.createEl("button", {
+      cls: `${PANEL_CLASS2}-skip`,
+      text: t("onboardingSkip")
+    });
+    skipBtn.addEventListener("click", () => this.dismiss());
     const list = panel.createDiv({ cls: `${PANEL_CLASS2}-tasks` });
     for (const def of TASKS) {
       const item = list.createDiv({ cls: `${PANEL_CLASS2}-task` });
@@ -5554,14 +5562,20 @@ var OnboardingManager = class {
     if (this.hideScheduled) return;
     this.hideScheduled = true;
     this.showAllDoneFeedback();
+    this.timers.push(window.setTimeout(() => this.dismiss(), ALL_DONE_HIDE_DELAY));
+  }
+  // 退场动画 → 移除节点、关闭 onboarding 设置并落盘。用户主动跳过或全部完成后都走这条路径。
+  // 以 is-hiding class 而非 hideScheduled 做重入保护：跳过可能在「全部完成」的停留期内
+  // 被点击，此时 hideScheduled 已为 true 但尚未真正退场，仍需放行。
+  dismiss() {
+    var _a;
+    if ((_a = this.panel) == null ? void 0 : _a.hasClass("is-hiding")) return;
+    if (this.panel) this.panel.addClass("is-hiding");
     this.timers.push(window.setTimeout(() => {
-      if (this.panel) this.panel.addClass("is-hiding");
-      this.timers.push(window.setTimeout(() => {
-        this.getSettings().onboarding = false;
-        void this.persist();
-        this.remove();
-      }, EXIT_DURATION));
-    }, ALL_DONE_HIDE_DELAY));
+      this.getSettings().onboarding = false;
+      void this.persist();
+      this.remove();
+    }, EXIT_DURATION));
   }
   // 在任务清单下方弹出一条「全部完成」的庆祝反馈（带 pop 入场动画，见 styles.css）。
   showAllDoneFeedback() {

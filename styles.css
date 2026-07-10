@@ -1230,10 +1230,31 @@ body.is-mac.minimalism-ui-mac-sidebar .titlebar-button-container.mod-left {
 }
 
 .minimalism-ui-onboarding-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
 	font-size: 13px;
 	font-weight: 600;
 	color: var(--text-normal);
 	margin-bottom: 10px;
+}
+
+.minimalism-ui-onboarding-skip {
+	flex-shrink: 0;
+	padding: 0;
+	border: none;
+	background: transparent;
+	color: var(--text-faint);
+	cursor: pointer;
+	font-size: 12px;
+	font-weight: 400;
+	box-shadow: none;
+}
+
+.minimalism-ui-onboarding-skip:hover {
+	color: var(--text-normal);
+	text-decoration: underline;
 }
 
 .minimalism-ui-onboarding-tasks {

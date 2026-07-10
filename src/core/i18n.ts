@@ -52,6 +52,7 @@ const translations = {
 		onboardingGoBack: '使用快捷键后退',
 		onboardingGoForward: '使用快捷键前进',
 		onboardingAllDone: '全部完成，开始你的写作吧！',
+		onboardingSkip: '跳过教程',
 
 		filenamePrefixManual: '手动隐藏时间戳前缀',
 		filenamePrefixManualDesc: '关闭时自动跟随 Obsidian「唯一笔记创建器」配置的时间戳格式剥离前缀（含其后的分隔符），无需设置；开启后改为下方手动指定要隐藏的位数。',
@@ -114,6 +115,7 @@ const translations = {
 		onboardingGoBack: 'Go back with the shortcut',
 		onboardingGoForward: 'Go forward with the shortcut',
 		onboardingAllDone: 'All set — start writing!',
+		onboardingSkip: 'Skip tutorial',
 
 		filenamePrefixManual: 'Manually hide timestamp prefix',
 		filenamePrefixManualDesc: 'When off, automatically follows the timestamp format configured in Obsidian\'s "Unique note creator" core plugin to strip the prefix (and the separator after it) — no setup needed. When on, manually specify the length to hide below.',
