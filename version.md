@@ -5,6 +5,14 @@
 
 ---
 
+## Version 1.3.9
+
+- Added a "Skip tutorial" button to the getting-started onboarding panel, so it can be dismissed at any point instead of only after completing every task
+
+- 新手引导面板新增"跳过教程"按钮，无需完成全部任务即可随时关闭引导
+
+---
+
 ## Version 1.3.8
 
 - Fixed: the right sidebar panel (backlinks, outgoing links, etc.) no longer closes itself when any other setting is saved — its open/pinned state is now preserved across the panel's internal rebuild
