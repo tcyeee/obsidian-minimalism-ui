@@ -11,7 +11,7 @@
     "isolatedModules": true,
     "strictNullChecks": true,
     "strictBindCallApply": true,
-    "lib": ["ES6", "DOM"]
+    "lib": ["ES2016", "DOM"]
   },
   "include": ["**/*.ts"]
 }
