@@ -5,6 +5,14 @@
 
 ---
 
+## Version 1.3.10
+
+- Fixed a TypeScript build-config gap flagged by Obsidian's plugin review: `tsconfig.json`'s target library was one version short of what the code actually relied on (`Array.prototype.includes`), which only worked locally by accident; no functional change
+
+- 修复 Obsidian 插件审核指出的 TypeScript 构建配置问题：`tsconfig.json` 的目标库版本比代码实际依赖的（`Array.prototype.includes`）低了一版，此前只是本地环境凑巧能跑通；无功能变化
+
+---
+
 ## Version 1.3.9
 
 - Added a "Skip tutorial" button to the getting-started onboarding panel, so it can be dismissed at any point instead of only after completing every task
