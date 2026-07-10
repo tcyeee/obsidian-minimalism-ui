@@ -5,6 +5,16 @@
 
 ---
 
+## Version 1.3.11
+
+- The right sidebar's floating icon stack now supports drag-to-reorder, and a new collapse ("stow") toggle lets you hide icons you rarely use behind a chevron — both the order and the collapse boundary persist across restarts
+- Internal: fixed a direct inline-style assignment in the new drag-reorder code, replaced with `setCssStyles()` to match Obsidian's plugin review guidelines — no user-visible behavior change
+
+- 右侧栏悬浮图标堆叠现已支持拖拽重新排序，并新增"收纳"折叠开关（点击箭头图标），可将不常用的图标隐藏起来——排序与收纳分界均跨重启保留
+- 内部修复：新增的拖拽排序代码中一处直接内联样式赋值，已替换为 `setCssStyles()` 以符合 Obsidian 插件审核规范——无用户可见行为变化
+
+---
+
 ## Version 1.3.10
 
 - Fixed a TypeScript build-config gap flagged by Obsidian's plugin review: `tsconfig.json`'s target library was one version short of what the code actually relied on (`Array.prototype.includes`), which only worked locally by accident; no functional change
