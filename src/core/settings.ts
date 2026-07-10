@@ -27,6 +27,12 @@ export interface MinimalismUISettings {
 	// 右侧栏悬浮面板是否被用户 pin 住：pin 后失焦/Esc 均不关闭面板，仅能点击右下角
 	// 悬浮按钮关闭；跨重启持久化，因此关闭后再次打开 pin 状态依然保留。
 	rightSidebarPanelPinned: boolean;
+	// 右下角视图图标堆叠的自定义顺序 + 收纳分界，按 leaf 的 view type 字符串存储，
+	// 混入一个收纳图标哨兵（常量定义在 RightSidebarButtonManager 内，此处不耦合具体值）；
+	// 哨兵左侧的 key 默认隐藏，右侧默认可见。跨重启持久化。
+	// 已知局限：无法区分同一 view type 的多个 leaf（如两篇笔记被拖进右侧栏）。
+	// 空数组表示“哨兵隐式在最前，所有已发现视图可见”。
+	rightSidebarStackOrder: string[];
 }
 
 export const DEFAULT_SETTINGS: MinimalismUISettings = {
@@ -58,4 +64,5 @@ export const DEFAULT_SETTINGS: MinimalismUISettings = {
 	rightSidebarPanelWidth: 360,
 	rightSidebarPanelHeight: 480,
 	rightSidebarPanelPinned: false,
+	rightSidebarStackOrder: [],
 };

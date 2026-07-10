@@ -817,7 +817,6 @@ body.minimalism-ui-mac-sidebar .workspace-tab-header-tab-list {
 .minimalism-ui-rsb-stack {
 	display: flex;
 	align-items: center;
-	gap: 6px;
 	opacity: 0;
 	transform: translateX(16px);
 	pointer-events: none;
@@ -834,6 +833,7 @@ body.minimalism-ui-mac-sidebar .workspace-tab-header-tab-list {
 	flex-shrink: 0;
 	width: 36px;
 	height: 36px;
+	margin-right: 6px;
 	border-radius: 50%;
 	display: flex;
 	align-items: center;
@@ -843,7 +843,13 @@ body.minimalism-ui-mac-sidebar .workspace-tab-header-tab-list {
 	border: 2px solid var(--background-primary);
 	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
 	cursor: pointer;
-	transition: transform 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+	transition: transform 0.15s ease, box-shadow 0.15s ease, color 0.15s ease,
+		background-color 0.15s ease, border-color 0.15s ease,
+		width 0.2s ease, margin-right 0.2s ease, opacity 0.2s ease, filter 0.15s ease;
+}
+
+.minimalism-ui-rsb-stack-icon:last-child {
+	margin-right: 0;
 }
 
 .minimalism-ui-rsb-stack-icon svg {
@@ -861,6 +867,67 @@ body.minimalism-ui-mac-sidebar .workspace-tab-header-tab-list {
 	background: var(--interactive-accent);
 	color: var(--text-on-accent);
 	border-color: var(--interactive-accent);
+}
+
+/* 收纳分界左侧、未展开时的隐藏态：宽度/外边距/透明度归零而非移出 DOM，方便折叠动画，
+   且拖拽重排时目标下标可直接对应 DOM 下标（见 RightSidebarButtonManager.updateIconDragTarget）。 */
+.minimalism-ui-rsb-stack-icon.minimalism-ui-rsb-stack-icon-hidden {
+	width: 0;
+	margin-right: 0;
+	border-width: 0;
+	opacity: 0;
+	pointer-events: none;
+	overflow: hidden;
+}
+
+/* “已收纳”灰化提示：哨兵左侧即命中，与图标当下是否肉眼可见（展开/拖拽强制显形）无关——
+   纯粹是位置语义，跟随拖拽实时重排同步刷新（见 RightSidebarButtonManager.applyStowedClasses）。 */
+.minimalism-ui-rsb-stack-icon.minimalism-ui-rsb-stack-icon-stowed {
+	filter: grayscale(1);
+	opacity: 0.55;
+}
+
+.minimalism-ui-rsb-stack-icon.minimalism-ui-rsb-stack-icon-stowed:hover {
+	opacity: 0.85;
+}
+
+/* 当前选中项即使被拖进收纳区也不灰化——它仍是屏幕上正在展示的内容，灰化会误导成“已禁用”。 */
+.minimalism-ui-rsb-stack-icon.minimalism-ui-rsb-stack-icon-active.minimalism-ui-rsb-stack-icon-stowed {
+	filter: none;
+	opacity: 1;
+}
+
+/* 拖拽进行中：隐藏态图标临时强制展回全尺寸（且不过渡，瞬时生效），否则 0 宽度的图标
+   无法参与拖拽目标位置的命中判断；真正的隐藏态（由收纳展开/收起决定）在拖拽结束后重新生效。 */
+.minimalism-ui-rsb-stack.minimalism-ui-rsb-stack-dragging .minimalism-ui-rsb-stack-icon.minimalism-ui-rsb-stack-icon-hidden {
+	width: 36px;
+	margin-right: 6px;
+	border-width: 2px;
+	opacity: 1;
+	pointer-events: auto;
+	transition: none;
+}
+
+/* 收纳（占位/分界）图标：复用普通图标的圆形基础样式，只加展开态的 chevron 旋转指示方向。 */
+.minimalism-ui-rsb-stow-icon svg {
+	transition: transform 0.15s ease;
+}
+
+.minimalism-ui-rsb-stow-icon.minimalism-ui-rsb-stow-icon-expanded svg {
+	transform: rotate(180deg);
+}
+
+.minimalism-ui-rsb-stow-icon.minimalism-ui-rsb-stow-icon-expanded {
+	color: var(--text-normal);
+}
+
+/* 正在被拖拽的图标：提升层级、放大手势反馈，拖拽中不参与位移/尺寸过渡（避免和实时重排打架）。 */
+.minimalism-ui-rsb-stack-icon.minimalism-ui-rsb-stack-icon-drag-active {
+	z-index: 1;
+	cursor: grabbing;
+	transform: scale(1.12);
+	box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+	transition: none;
 }
 
 .minimalism-ui-rsb-content {
@@ -903,6 +970,11 @@ body.minimalism-ui-mac-sidebar .workspace-tab-header-tab-list {
 
 /* 拖拽调整尺寸期间：避免鼠标划过下方文本被意外选中。 */
 body.minimalism-ui-rsb-resizing {
+	user-select: none;
+}
+
+/* 拖拽重排图标期间：同上，独立于 rsb-resizing——两条拖拽流程各自收尾，互不干扰。 */
+body.minimalism-ui-rsb-icon-dragging {
 	user-select: none;
 }
 

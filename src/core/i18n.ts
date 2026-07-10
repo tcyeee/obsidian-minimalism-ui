@@ -27,6 +27,8 @@ const translations = {
 		rightSidebarPanelEmpty: '右侧边栏暂无内容',
 		rightSidebarPanelPin: '固定面板（失焦/Esc 不再关闭）',
 		rightSidebarPanelUnpin: '取消固定',
+		rightSidebarStowExpand: '展开已收纳的视图',
+		rightSidebarStowCollapse: '收起视图列表',
 
 		theme: '主题',
 
@@ -90,6 +92,8 @@ const translations = {
 		rightSidebarPanelEmpty: 'Nothing in the right sidebar yet',
 		rightSidebarPanelPin: 'Pin panel (stays open on blur/Esc)',
 		rightSidebarPanelUnpin: 'Unpin',
+		rightSidebarStowExpand: 'Show stowed views',
+		rightSidebarStowCollapse: 'Collapse view list',
 
 		theme: 'Theme',
 

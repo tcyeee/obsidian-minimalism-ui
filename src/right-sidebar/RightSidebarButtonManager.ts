@@ -56,6 +56,25 @@ const STACK_AUTO_COLLAPSE_DELAY = 2000;
 // 因为用户已经主动看过、移开了，不需要再等 2s。
 const STACK_HOVER_LEAVE_DELAY = 300;
 
+// 收纳分界哨兵：混入 rightSidebarStackOrder / computeRenderOrder() 的返回序列，标记
+// “左侧默认隐藏、右侧默认可见”的分界位置。用普通 view type 字符串不可能撞上的前缀。
+const STOW_KEY = 'minimalism-ui-rsb-stow';
+const STOW_ICON_CLASS = 'minimalism-ui-rsb-stow-icon';
+const STOW_ICON_EXPANDED_CLASS = 'minimalism-ui-rsb-stow-icon-expanded';
+const STOW_ICON_GLYPH = 'chevrons-left';
+const STACK_ICON_HIDDEN_CLASS = 'minimalism-ui-rsb-stack-icon-hidden';
+// “已收纳”视觉提示（灰化）：哨兵左侧即命中，与是否肉眼可见（展开/拖拽强制显形）无关——
+// 纯粹是位置语义的提示，STACK_ICON_HIDDEN_CLASS 管的是“收起态下要不要占位/可见”。
+const STACK_ICON_STOWED_CLASS = 'minimalism-ui-rsb-stack-icon-stowed';
+const STACK_DRAGGING_CLASS = 'minimalism-ui-rsb-stack-dragging';
+const ICON_DRAG_ACTIVE_CLASS = 'minimalism-ui-rsb-stack-icon-drag-active';
+const ICON_DRAGGING_BODY_CLASS = 'minimalism-ui-rsb-icon-dragging';
+// 拖拽判定阈值：移动小于此距离视为点击（触发选中/收纳切换），超过才进入真正的重排拖拽态。
+const ICON_DRAG_THRESHOLD_PX = 4;
+
+// 渲染序列里的一项：真实的可切换视图，或收纳哨兵。
+type StackItem = WorkspaceLeaf | typeof STOW_KEY;
+
 /**
  * RightSidebarButtonManager — 右下角悬浮按钮，展开一个悬浮面板承载右侧边栏（及左侧栏里
  * 未被合并管理的“外来” leaf，如手动加入的 File Explorer/Tags/Search）的视图。
@@ -81,8 +100,17 @@ const STACK_HOVER_LEAVE_DELAY = 300;
  *     只属于“面板刚打开”这一次）；
  *   - 用户点选某个视图 = 立即收起并清空所有计时器，不等 2s。
  * isHovering 是这套逻辑的唯一状态位，靠 launcherEl 的 mouseenter/mouseleave 维护。
- * 选中项不再把 leafOrder 里的顺序打乱——activeLeaf 单独记录“当前选中项”，堆叠顺序
- * 保持发现时的先后不变。
+ * 选中项不再把 leafOrder 里的顺序打乱——activeLeaf 单独记录“当前选中项”，leafOrder
+ * 保持发现时的先后不变（它现在只负责“视图是否存在”+ activeLeaf 兜底）。
+ *
+ * 图标可拖拽重排、且序列中混入一个“收纳”哨兵图标（STOW_KEY）：哨兵左侧的图标默认隐藏
+ * （宽度/透明度归零，纯 CSS 折叠），右侧始终可见；点击哨兵切换展开/收起；拖拽任意图标
+ * 越过哨兵即改变其隐藏/可见归属，拖拽哨兵本身直接挪动分界。真正的视觉顺序由
+ * computeRenderOrder() 从 settings.rightSidebarStackOrder（按 view type 持久化、跨重启
+ * 保留）解析得到，与 leafOrder 是两层独立的东西——后者只管存在性。拖拽用本文件已有的
+ * 裸 pointerdown/move/up 范式（同 onResizePointerDown 系列），越过 4px 阈值才真正接管
+ * 顺序、并吞掉紧随其后的一次 click（suppressNextIconClick），阈值内则是普通点击
+ * （选中视图 / 切换收纳）。
  *
  * 面板左上角有一个拖拽把手（面板锚定在右下角，故只能从左上角调整宽高）。
  * 拖拽逻辑与 PropertyKeyResizer 同构：拖拽中用 setCssStyles 直接改尺寸，
@@ -131,10 +159,29 @@ export class RightSidebarButtonManager implements Feature {
 	// 当前挂进 contentEl 的 leaf，及其原本所在的位置（用于切走/卸载时移回）。
 	private mountedLeaf: WorkspaceLeaf | null = null;
 	private mountedOriginal: { parent: HTMLElement; nextSibling: ChildNode | null } | null = null;
-	// 图标堆叠的发现顺序，选中不再改变它（见类注释）。
+	// 图标堆叠的发现顺序：只负责“视图是否存在” + activeLeaf 兜底，不再是视觉顺序（见类注释）。
+	// 视觉顺序 + 收纳分界由 computeRenderOrder() 结合 settings.rightSidebarStackOrder 派生。
 	private leafOrder: WorkspaceLeaf[] = [];
 	// 当前选中项，独立于 leafOrder 的顺序记录。
 	private activeLeaf: WorkspaceLeaf | null = null;
+	// 收纳图标是否处于展开态（显示分界左侧的隐藏图标）。不跨 apply() 重建保留、整排收起时
+	// 一并复位（见 setStackExpanded()），理由同 stackExpanded 的既有处理。
+	private stowExpanded = false;
+	// 进行中的图标拖拽重排；null 表示未在拖拽。dragging 为 false 时表示还未越过阈值
+	// （此时仍可能是一次普通点击），越过阈值后才真正接管顺序 + 吞掉尾随的 click。
+	private iconDrag: {
+		key: string;
+		startX: number;
+		startY: number;
+		dragging: boolean;
+		order: string[];
+		// 抓取时指针相对图标左边缘的偏移，及当前已叠加的跟手位移——见 followIconPointer。
+		grabOffsetX: number;
+		translateX: number;
+	} | null = null;
+	// 拖拽越过阈值后置位：吞掉这次拖拽松手后紧随而来的 click，避免误触发选中/收纳切换。
+	// 超时兜底同 suppressNextOutsideClick，防止浏览器这次没派发 click 导致标记卡死。
+	private suppressNextIconClick = false;
 
 	// 鼠标是否停留在 launcher（按钮 + 堆叠）范围内——决定自动收起定时器要不要暂停。
 	private isHovering = false;
@@ -344,6 +391,9 @@ export class RightSidebarButtonManager implements Feature {
 	private setStackExpanded(expanded: boolean) {
 		this.stackExpanded = expanded;
 		this.stackEl?.toggleClass(STACK_EXPANDED_CLASS, expanded);
+		// 整排堆叠收起时，收纳展开态一并复位（不持久化、不跨这次收起保留）——下次 refreshStack()
+		// 重新渲染时自然按复位后的状态显示。覆盖 close()/自动收起定时器/selectLeaf() 三处收起入口。
+		if (!expanded) this.stowExpanded = false;
 	}
 
 	// 堆叠从隐藏变为可见的唯一入口：500ms 自动亮相定时器、悬浮唤出都走这里。
@@ -500,21 +550,100 @@ export class RightSidebarButtonManager implements Feature {
 		void this.showLeaf(this.activeLeaf);
 	}
 
+	// leaf 的持久化 key：按 view type 字符串，跨重启稳定。已知局限（用户已接受）：无法区分
+	// 同一 view type 的多个 leaf——池化解析算法（见 computeRenderOrder）令这种情况有确定性
+	// 表现而不至于崩溃，但不保证严格身份对应。
+	private keyOf(leaf: WorkspaceLeaf): string {
+		return leaf.getViewState().type;
+	}
+
+	// 把 settings.rightSidebarStackOrder（持久化的 key 序列，含 STOW_KEY 哨兵）解析成当前
+	// 实际渲染序列：按 leaf 的 view type 从 leafOrder 里“消费”对应 leaf；持久化序列里指向
+	// 已关闭 leaf 的 key 静默丢弃；不在持久化序列里出现过的 leaf（新视图，或同 type 的额外
+	// leaf）追加到末尾——末尾即哨兵之后，天然是可见区。全程缺失哨兵时补在最前（对应默认值
+	// 空数组的语义：哨兵隐式在最前，所有已发现视图可见）。
+	private computeRenderOrder(): StackItem[] {
+		const pool = new Map<string, WorkspaceLeaf[]>();
+		for (const leaf of this.leafOrder) {
+			const key = this.keyOf(leaf);
+			const bucket = pool.get(key);
+			if (bucket) bucket.push(leaf); else pool.set(key, [leaf]);
+		}
+
+		const result: StackItem[] = [];
+		let sawStow = false;
+		for (const key of this.getSettings().rightSidebarStackOrder) {
+			if (key === STOW_KEY) {
+				result.push(STOW_KEY);
+				sawStow = true;
+				continue;
+			}
+			const leaf = pool.get(key)?.shift();
+			if (leaf) result.push(leaf);
+		}
+		for (const bucket of pool.values()) {
+			for (const leaf of bucket) result.push(leaf);
+		}
+		if (!sawStow) result.unshift(STOW_KEY);
+		return result;
+	}
+
 	private renderStackIcons() {
 		if (!this.stackEl) return;
 		this.stackEl.empty();
-		for (const leaf of this.leafOrder) {
-			const iconEl = this.stackEl.createDiv({
+		const order = this.computeRenderOrder();
+		const stowIndex = order.indexOf(STOW_KEY);
+
+		order.forEach((item, idx) => {
+			if (item === STOW_KEY) {
+				const stowEl = this.stackEl!.createDiv({
+					cls: `${STACK_ICON_CLASS} ${STOW_ICON_CLASS}`,
+					attr: {
+						'aria-label': t(this.stowExpanded ? 'rightSidebarStowCollapse' : 'rightSidebarStowExpand'),
+						'data-rsb-key': STOW_KEY,
+					},
+				});
+				stowEl.toggleClass(STOW_ICON_EXPANDED_CLASS, this.stowExpanded);
+				setIcon(stowEl, STOW_ICON_GLYPH);
+				stowEl.addEventListener('click', (e) => {
+					e.stopPropagation();
+					this.onIconClick(() => this.toggleStowExpanded());
+				});
+				stowEl.addEventListener('pointerdown', (e) => this.startIconDrag(e, STOW_KEY));
+				return;
+			}
+
+			const leaf = item;
+			const key = this.keyOf(leaf);
+			const iconEl = this.stackEl!.createDiv({
 				cls: STACK_ICON_CLASS,
-				attr: { 'aria-label': leaf.getDisplayText() },
+				attr: { 'aria-label': leaf.getDisplayText(), 'data-rsb-key': key },
 			});
 			iconEl.toggleClass(STACK_ICON_ACTIVE_CLASS, leaf === this.activeLeaf);
+			iconEl.toggleClass(STACK_ICON_HIDDEN_CLASS, !this.stowExpanded && idx < stowIndex);
+			iconEl.toggleClass(STACK_ICON_STOWED_CLASS, idx < stowIndex);
 			setIcon(iconEl, leaf.getIcon());
 			iconEl.addEventListener('click', (e) => {
 				e.stopPropagation();
-				this.selectLeaf(leaf);
+				this.onIconClick(() => this.selectLeaf(leaf));
 			});
+			iconEl.addEventListener('pointerdown', (e) => this.startIconDrag(e, key));
+		});
+	}
+
+	// 拖拽越过阈值后会置位 suppressNextIconClick，吞掉紧随拖拽而来的一次 click——
+	// 供收纳切换/选中共用的统一入口。
+	private onIconClick(action: () => void) {
+		if (this.suppressNextIconClick) {
+			this.suppressNextIconClick = false;
+			return;
 		}
+		action();
+	}
+
+	private toggleStowExpanded() {
+		this.stowExpanded = !this.stowExpanded;
+		this.renderStackIcons();
 	}
 
 	private selectLeaf(leaf: WorkspaceLeaf) {
@@ -526,6 +655,175 @@ export class RightSidebarButtonManager implements Feature {
 			this.renderStackIcons();
 			void this.showLeaf(leaf);
 		}
+	}
+
+	// ─── 图标拖拽重排 ───────────────────────────────────────────────────────
+
+	private startIconDrag(e: PointerEvent, key: string) {
+		if (e.button !== 0) return;
+		const el = this.stackEl?.querySelector<HTMLElement>(`[data-rsb-key="${CSS.escape(key)}"]`);
+		this.iconDrag = {
+			key,
+			startX: e.clientX,
+			startY: e.clientY,
+			dragging: false,
+			order: this.computeRenderOrder().map((item) => (item === STOW_KEY ? STOW_KEY : this.keyOf(item))),
+			grabOffsetX: el ? e.clientX - el.getBoundingClientRect().left : 0,
+			translateX: 0,
+		};
+		activeDocument.addEventListener('pointermove', this.onIconPointerMove, true);
+		activeDocument.addEventListener('pointerup', this.onIconPointerUp, true);
+	}
+
+	private onIconPointerMove = (e: PointerEvent) => {
+		const drag = this.iconDrag;
+		if (!drag) return;
+		if (!drag.dragging) {
+			const dx = e.clientX - drag.startX;
+			const dy = e.clientY - drag.startY;
+			if (Math.hypot(dx, dy) < ICON_DRAG_THRESHOLD_PX) return;
+			drag.dragging = true;
+			this.suppressNextIconClick = true;
+			window.setTimeout(() => { this.suppressNextIconClick = false; }, 300);
+			this.stackEl?.addClass(STACK_DRAGGING_CLASS);
+			activeDocument.body.addClass(ICON_DRAGGING_BODY_CLASS);
+			this.stackEl?.querySelector<HTMLElement>(`[data-rsb-key="${CSS.escape(drag.key)}"]`)
+				?.addClass(ICON_DRAG_ACTIVE_CLASS);
+		}
+		e.preventDefault();
+		// 先按虚拟位置排序重排 DOM（可能改变被拖图标的“自然位置”），再让它贴回指针——
+		// 顺序不能反，否则跟手位移会用上一帧的自然位置算出错误的偏移。
+		this.updateIconDragTarget(e.clientX);
+		this.followIconPointer(e.clientX);
+	};
+
+	// 被拖拽图标的“跟手”位移：越过阈值后每帧都让它的视觉位置贴着指针（保留抓取时指针相对
+	// 图标左边缘的偏移，而不是让图标左边缘直接对齐指针）。它在 DOM 流里的“自然位置”只由
+	// updateIconDragTarget 的重排决定，这里在自然位置之上叠加一段 translateX 补足到指针实际
+	// 位置——与 flipIconPositions 处理其余图标各自独立，互不干扰。
+	// ICON_DRAG_ACTIVE_CLASS 的 scale(1.12) 由 CSS 类声明，但内联 transform 会整体覆盖它，
+	// 故这里把两者写进同一个 transform 字符串里。
+	private followIconPointer(clientX: number) {
+		const drag = this.iconDrag;
+		if (!drag || !drag.dragging || !this.stackEl) return;
+		const el = this.stackEl.querySelector<HTMLElement>(`[data-rsb-key="${CSS.escape(drag.key)}"]`);
+		if (!el) return;
+		const rect = el.getBoundingClientRect();
+		const naturalLeft = rect.left - drag.translateX;
+		const desiredLeft = clientX - drag.grabOffsetX;
+		drag.translateX = desiredLeft - naturalLeft;
+		el.setCssStyles({ transform: `translateX(${drag.translateX}px) scale(1.12)` });
+	}
+
+	// 用“虚拟位置排序”而非逐格判断相邻位来求新顺序：把被拖项当成一个中心点在当前指针 clientX
+	// 的虚拟条目，和其余各项按各自实时测得的 bounding rect 中点一起排序——天然避免相邻位判断的
+	// 边界抖动，也不需要区分拖拽方向。容器 right 固定、内容变宽会让兄弟节点左移，故每次都
+	// 现场测量，不用拖拽起点缓存的 rect。
+	private updateIconDragTarget(clientX: number) {
+		const drag = this.iconDrag;
+		if (!drag || !drag.dragging || !this.stackEl) return;
+		const children = Array.from(this.stackEl.children) as HTMLElement[];
+		const byKey = (key: string) => children.find((c) => c.dataset.rsbKey === key) ?? null;
+
+		const entries: { key: string; center: number }[] = [];
+		for (const key of drag.order) {
+			if (key === drag.key) continue;
+			const el = byKey(key);
+			if (!el) continue;
+			const rect = el.getBoundingClientRect();
+			entries.push({ key, center: rect.left + rect.width / 2 });
+		}
+		entries.push({ key: drag.key, center: clientX });
+		entries.sort((a, b) => a.center - b.center);
+		const newOrder = entries.map((entry) => entry.key);
+		if (newOrder.join(' ') === drag.order.join(' ')) return;
+		drag.order = newOrder;
+
+		// 被拖拽的图标自身跳过滑动动画：它由 ICON_DRAG_ACTIVE_CLASS 控制 transform: scale(...)，
+		// 叠加位移会互相打架，且它的挪动本就由指针驱动。其余因让位而挪动的图标用 FLIP 补一段
+		// 滑动过渡，而不是随 insertBefore 瞬间跳位（见 flipIconPositions）。
+		const others = children.filter((el) => el.dataset.rsbKey !== drag.key);
+		this.flipIconPositions(others, () => {
+			// 按新顺序物理重排 DOM，只挪动实际错位的节点。
+			let cursor: ChildNode | null = this.stackEl!.firstChild;
+			for (const key of newOrder) {
+				const el = byKey(key);
+				if (!el) continue;
+				if (cursor !== el) this.stackEl!.insertBefore(el, cursor);
+				cursor = el.nextSibling;
+			}
+		});
+
+		// 收纳分界随拖拽实时移动：灰化提示必须跟着每一步重排同步刷新，不能只在松手/展开切换
+		// 时算一次——否则拖拽过程中会出现“已经越过分界线但还没变灰/变回”的滞后。
+		this.applyStowedClasses(newOrder, byKey);
+	}
+
+	// 按当前顺序把哨兵左侧的图标标记为“已收纳”（灰化提示，见 STACK_ICON_STOWED_CLASS）；
+	// 拖拽重排的每一步、以及 renderStackIcons() 的静态渲染共用同一套判定逻辑。
+	private applyStowedClasses(order: string[], byKey: (key: string) => HTMLElement | null) {
+		const stowIndex = order.indexOf(STOW_KEY);
+		order.forEach((key, idx) => {
+			if (key === STOW_KEY) return;
+			byKey(key)?.toggleClass(STACK_ICON_STOWED_CLASS, idx < stowIndex);
+		});
+	}
+
+	// FLIP（First-Last-Invert-Play）：mutate 前先清掉每个元素可能残留的上一轮位移（无过渡、
+	// 瞬间归位——先清后测才准，也让连续快速重排时动画能被自然打断重启，不会越叠越乱），
+	// 记录 First 位置；跑 mutate；量出 Last 位置，用位移差瞬时“倒回” First（同样无过渡）；
+	// 强制回流后清空 transform——图标自身的 CSS 已带 transform 0.15s ease 过渡，这一步会被
+	// 浏览器动画成滑向 Last，不需要额外声明过渡时长。
+	private flipIconPositions(els: HTMLElement[], mutate: () => void) {
+		for (const el of els) {
+			el.setCssStyles({ transition: 'none', transform: '' });
+		}
+		void this.stackEl?.offsetWidth;
+		const firstLeft = new Map<HTMLElement, number>();
+		for (const el of els) firstLeft.set(el, el.getBoundingClientRect().left);
+
+		mutate();
+
+		for (const el of els) {
+			const first = firstLeft.get(el);
+			if (first === undefined) continue;
+			const delta = first - el.getBoundingClientRect().left;
+			if (delta !== 0) el.setCssStyles({ transform: `translateX(${delta}px)` });
+		}
+		void this.stackEl?.offsetWidth;
+		for (const el of els) {
+			el.setCssStyles({ transition: '', transform: '' });
+		}
+	}
+
+	private onIconPointerUp = () => {
+		const drag = this.iconDrag;
+		this.iconDrag = null;
+		activeDocument.removeEventListener('pointermove', this.onIconPointerMove, true);
+		activeDocument.removeEventListener('pointerup', this.onIconPointerUp, true);
+		if (!drag || !drag.dragging) return;
+
+		this.stackEl?.removeClass(STACK_DRAGGING_CLASS);
+		activeDocument.body.removeClass(ICON_DRAGGING_BODY_CLASS);
+
+		const s = this.getSettings();
+		s.rightSidebarStackOrder = [...drag.order];
+		void this.save();
+
+		// 拖拽松手点可能落在 launcher/panel 外，避免被 outsideClickHandler 误判为点击外部关闭。
+		this.suppressNextOutsideClick = true;
+		window.setTimeout(() => { this.suppressNextOutsideClick = false; }, 300);
+
+		this.renderStackIcons();
+	};
+
+	private endIconDrag() {
+		if (!this.iconDrag) return;
+		this.iconDrag = null;
+		activeDocument.removeEventListener('pointermove', this.onIconPointerMove, true);
+		activeDocument.removeEventListener('pointerup', this.onIconPointerUp, true);
+		this.stackEl?.removeClass(STACK_DRAGGING_CLASS);
+		activeDocument.body.removeClass(ICON_DRAGGING_BODY_CLASS);
 	}
 
 	private async showLeaf(leaf: WorkspaceLeaf) {
@@ -677,6 +975,9 @@ export class RightSidebarButtonManager implements Feature {
 		}
 		this.endResizeDrag();
 		activeDocument.body.removeClass(RESIZING_BODY_CLASS);
+		this.endIconDrag();
+		this.stowExpanded = false;
+		this.suppressNextIconClick = false;
 		this.restoreMounted();
 		this.clearStackTimers();
 		this.leafOrder = [];
