@@ -4963,9 +4963,20 @@ var RightSidebarButtonManager = class {
     };
   }
   apply() {
+    const wasOpen = this.isOpen;
     this.remove();
     if (!this.getSettings().showRightSidebarButton) return;
     this.inject();
+    if (wasOpen) this.restoreOpenState();
+  }
+  // 重建后原样恢复“已打开”态：只還原面板可见性与当前挂载的视图内容，不触碰堆叠展开/收起
+  // 动画计时器（那套只属于用户主动点击 launcher 的那一次，见类注释）。
+  restoreOpenState() {
+    var _a, _b;
+    this.isOpen = true;
+    (_a = this.panelEl) == null ? void 0 : _a.addClass(OPEN_CLASS);
+    (_b = this.buttonEl) == null ? void 0 : _b.addClass(BUTTON_ACTIVE_CLASS);
+    this.refreshStack();
   }
   inject() {
     this.hasProbedAllViewTypes = false;

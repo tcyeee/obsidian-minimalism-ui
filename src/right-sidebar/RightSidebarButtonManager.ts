@@ -155,9 +155,27 @@ export class RightSidebarButtonManager implements Feature {
 	) {}
 
 	apply() {
+		// remove() 会整体重建面板 DOM 并把 isOpen 复位为 false——但 apply() 不只在插件加载时跑
+		// 一次，任何设置变更（如切换左下角 ribbon 面板的展开/收起）都会经 saveSettings() 触发一次
+		// 全量重应用。如果面板此刻正开着（尤其是 pin 住常驻显示的情况），重建后不恢复开启态
+		// 就会让它凭空消失——用户观感是“pin 住了还是被隐藏了”。故记住重建前的开启状态，重建后
+		// 原样恢复；用 restoreOpenState() 而非 open()，避免重放“图标堆叠 500ms 后自动滑出、
+		// 2s 后自动收起”这套只该在用户主动点击展开时触发的动画——否则每次无关设置保存都会让
+		// 底部图标堆叠列表跟着自己开合一次。
+		const wasOpen = this.isOpen;
 		this.remove();
 		if (!this.getSettings().showRightSidebarButton) return;
 		this.inject();
+		if (wasOpen) this.restoreOpenState();
+	}
+
+	// 重建后原样恢复“已打开”态：只還原面板可见性与当前挂载的视图内容，不触碰堆叠展开/收起
+	// 动画计时器（那套只属于用户主动点击 launcher 的那一次，见类注释）。
+	private restoreOpenState() {
+		this.isOpen = true;
+		this.panelEl?.addClass(OPEN_CLASS);
+		this.buttonEl?.addClass(BUTTON_ACTIVE_CLASS);
+		this.refreshStack();
 	}
 
 	private inject() {
