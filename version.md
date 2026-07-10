@@ -5,6 +5,16 @@
 
 ---
 
+## Version 1.3.8
+
+- Fixed: the right sidebar panel (backlinks, outgoing links, etc.) no longer closes itself when any other setting is saved — its open/pinned state is now preserved across the panel's internal rebuild
+- CI: releases are now published directly instead of landing as an unpublished draft, so the plugin's manifest version always has a matching downloadable release
+
+- 修复：保存任意其他设置时右侧栏面板（反向链接、出链等）不再被意外关闭——重建面板 DOM 时会保留其展开/固定状态
+- CI：发布流程改为直接发布正式版本，不再停留在未发布的草稿状态，确保插件清单版本始终对应一个可下载的正式发布
+
+---
+
 ## Version 1.3.7
 
 - Added a right sidebar panel: a floating button expands/collapses a panel that hosts your right-side leaves (backlinks, outgoing links, etc.), with a stack of switchable icons, resizing, and a pin toggle to keep it open across sessions
