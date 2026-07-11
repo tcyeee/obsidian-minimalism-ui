@@ -11,7 +11,7 @@ const HOME_ACTION_CLASS = 'minimalism-ui-home-action';
  *
  * 空页面的动作列表（.empty-state-action-list）在每次 EmptyView.onOpen 时被清空并重建，
  * 因此监听 layout-change / active-leaf-change，在视图渲染后补注入；注入幂等，重复调用安全。
- * 点击委托给 {@link SinglePageEngine.openHomePage}。仅在配置了首页时启用。
+ * 点击委托给 {@link SinglePageEngine.goHome}。仅在配置了首页时启用。
  */
 export class EmptyViewButtonManager implements Feature {
 	private handler: (() => void) | null = null;
@@ -43,7 +43,7 @@ export class EmptyViewButtonManager implements Feature {
 				cls: `empty-state-action tappable ${HOME_ACTION_CLASS}`,
 				text: t('goHome'),
 			});
-			btn.addEventListener('click', () => void this.engine.openHomePage());
+			btn.addEventListener('click', () => this.engine.goHome());
 		});
 	}
 

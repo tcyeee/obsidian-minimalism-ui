@@ -246,16 +246,31 @@ export class NavigationHistory {
 	// index+1..末尾的条目按原顺序整体移入 future 头部,前进键仍可逐级返回。
 	// 守卫:下标越界、点的就是当前栈顶、或目标已失效(死条目)时不做任何操作。
 	jumpToIndex(index: number) {
-		if (index < 0 || index >= this.history.length - 1) return;
 		const target = this.history[index];
-		if (!this.isReopenable(target)) return;
+		if (!this.foldTo(index)) return;
+		this.scheduleActivate(target, 'minimalism-ui-slide-from-left');
+	}
+
+	// 只做"折叠历史到 index"的簿记(裁剪 history / 前置 future / 置 jumpPath),不触发
+	// activateOrOpen——供调用方需要自行决定如何定位/复用目标 leaf 时使用（例如
+	// SinglePageEngine.goHome 要复用 openHomePage 的空 leaf 复用与去重逻辑,不能走
+	// jumpToIndex 通用的"找现有 leaf 否则新开 tab"流程,那会在已存在同路径 leaf 时把当前
+	// 空 leaf 晾成一个多余的空标签页）。调用方随后自行触发的一次 active-leaf-change 里,
+	// record() 会因 jumpPath 命中而把这次识别为"我们自己发起的跳转"直接跳过 push,不再
+	// 重复记录目标路径,从而避免面包屑出现重复词条。
+	// 返回 true 表示已折叠(调用方应据此自行完成定位/打开);false 表示下标越界、目标就是
+	// 当前栈顶、或目标已失效,调用方应退回常规打开逻辑(当作全新导航,交由 record 正常 push)。
+	foldTo(index: number): boolean {
+		if (index < 0 || index >= this.history.length - 1) return false;
+		const target = this.history[index];
+		if (!this.isReopenable(target)) return false;
 
 		this.cancelTimer();
 		const removed = this.history.splice(index + 1);
 		this.future = removed.concat(this.future);
 
 		this.jumpPath = target;
-		this.scheduleActivate(target, 'minimalism-ui-slide-from-left');
+		return true;
 	}
 
 	forward() {

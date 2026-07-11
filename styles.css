@@ -281,8 +281,9 @@ body.minimalism-ui-hide-tab-bar .workspace-tab-container-inner {
 }
 
 /* 隐藏主视图（中央根分屏）文章顶部的 view-header（标题栏），
-   导航交由顶部拖拽栏面包屑 + 快捷键承担 */
-body.minimalism-ui-mac-sidebar .workspace-split.mod-root .workspace-leaf-content[data-type="markdown"] .view-header {
+   仅在单页模式下生效——此时导航交由顶部拖拽栏面包屑 + 快捷键承担；
+   非单页模式没有面包屑，标题栏需保留作为唯一导航/标题展示 */
+body.minimalism-ui-disable-note-tabs .workspace-split.mod-root .workspace-leaf-content[data-type="markdown"] .view-header {
 	display: none;
 }
 
@@ -844,7 +845,7 @@ body.minimalism-ui-mac-sidebar .workspace-tab-header-tab-list {
 	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
 	cursor: pointer;
 	transition: transform 0.15s ease, box-shadow 0.15s ease, color 0.15s ease,
-		background-color 0.15s ease, border-color 0.15s ease,
+		background-color 0.15s ease, border-color 0.15s ease, border-width 0.2s ease,
 		width 0.2s ease, margin-right 0.2s ease, opacity 0.2s ease, filter 0.15s ease;
 }
 

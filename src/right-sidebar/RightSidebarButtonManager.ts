@@ -98,7 +98,9 @@ type StackItem = WorkspaceLeaf | typeof STOW_KEY;
  *   - 鼠标悬浮在 launcher（按钮或已展开的堆叠）上会清掉/暂停这个 2s 倒计时，移开后
  *     重新起算；堆叠处于隐藏态时悬浮 launcher 会立即唤出（跳过 500ms 延迟，那个延迟
  *     只属于“面板刚打开”这一次）；
- *   - 用户点选某个视图 = 立即收起并清空所有计时器，不等 2s。
+ *   - 用户点选某个视图不再强制收起——鼠标此刻大概率还停在堆叠上（isHovering 为真），
+ *     收起与否仍统一交给 mouseenter/mouseleave 的计时器逻辑判断，选中操作本身只负责
+ *     切换 activeLeaf 和挂载内容。
  * isHovering 是这套逻辑的唯一状态位，靠 launcherEl 的 mouseenter/mouseleave 维护。
  * 选中项不再把 leafOrder 里的顺序打乱——activeLeaf 单独记录“当前选中项”，leafOrder
  * 保持发现时的先后不变（它现在只负责“视图是否存在”+ activeLeaf 兜底）。
@@ -164,8 +166,17 @@ export class RightSidebarButtonManager implements Feature {
 	private leafOrder: WorkspaceLeaf[] = [];
 	// 当前选中项，独立于 leafOrder 的顺序记录。
 	private activeLeaf: WorkspaceLeaf | null = null;
-	// 收纳图标是否处于展开态（显示分界左侧的隐藏图标）。不跨 apply() 重建保留、整排收起时
-	// 一并复位（见 setStackExpanded()），理由同 stackExpanded 的既有处理。
+	// leaf 实例 → 稳定的每实例 key（区别于 keyOf() 返回的 view type 字符串）：DOM 的
+	// data-rsb-key 及拖拽排序全程用它，只有落盘到 settings.rightSidebarStackOrder 时才
+	// 换回 view type。原先直接复用 keyOf() 当 DOM key，导致同一 view type 的多个 leaf
+	// 在 DOM 上共享同一个 data-rsb-key、querySelector 永远只命中第一个——拖动其中一个会
+	// 连带影响另一个。key 只在本次运行时有效，不跨重启持久化（无此需要，settings 里仍是
+	// 按 view type 存储，见 keyOf() 与 computeRenderOrder() 的既有局限）。
+	private leafInstanceKeys = new WeakMap<WorkspaceLeaf, string>();
+	private instanceKeyToLeaf = new Map<string, WorkspaceLeaf>();
+	private instanceKeyCounter = 0;
+	// 收纳图标是否处于展开态（显示分界左侧的隐藏图标）；跨重启持久化于 settings，
+	// 只由用户点击哨兵图标改变——切视图、堆叠自动收起等操作不再连带重置它（见类注释）。
 	private stowExpanded = false;
 	// 进行中的图标拖拽重排；null 表示未在拖拽。dragging 为 false 时表示还未越过阈值
 	// （此时仍可能是一次普通点击），越过阈值后才真正接管顺序 + 吞掉尾随的 click。
@@ -228,6 +239,7 @@ export class RightSidebarButtonManager implements Feature {
 	private inject() {
 		this.hasProbedAllViewTypes = false;
 		this.isPinned = this.getSettings().rightSidebarPanelPinned;
+		this.stowExpanded = this.getSettings().rightSidebarStowExpanded;
 		this.panelEl = activeDocument.body.createDiv({ cls: PANEL_CLASS });
 		const s = this.getSettings();
 		this.panelEl.setCssStyles({
@@ -391,9 +403,6 @@ export class RightSidebarButtonManager implements Feature {
 	private setStackExpanded(expanded: boolean) {
 		this.stackExpanded = expanded;
 		this.stackEl?.toggleClass(STACK_EXPANDED_CLASS, expanded);
-		// 整排堆叠收起时，收纳展开态一并复位（不持久化、不跨这次收起保留）——下次 refreshStack()
-		// 重新渲染时自然按复位后的状态显示。覆盖 close()/自动收起定时器/selectLeaf() 三处收起入口。
-		if (!expanded) this.stowExpanded = false;
 	}
 
 	// 堆叠从隐藏变为可见的唯一入口：500ms 自动亮相定时器、悬浮唤出都走这里。
@@ -505,19 +514,51 @@ export class RightSidebarButtonManager implements Feature {
 	// getRightLeaf/setViewState 在 Obsidian 工作区内部产生竞态。
 	// 某个类型探测失败（第三方 view 在无文件上下文下抛错）不影响其余类型，失败时把刚创建的
 	// 空/半初始化 leaf 一并 detach 掉，不留垃圾条目。
+	// 共享同一个 tab 组而非每个 type 各 split 一块分屏：getRightLeaf(true) 的 split 语义是
+	// "把现有分栏再拆一个新的"，若每个 type 都调它，右侧栏会被拆成几十个分屏（虽然整体 CSS
+	// 隐藏，但仍是几十个 WorkspaceTabs/split 节点的 DOM 与内部状态开销）。优先复用右侧栏里
+	// 已存在的某个 leaf 所在的组；侧栏全空时才靠 getRightLeaf(true) 建第一个组，之后一律
+	// createLeafInParent 把新 leaf 挂到同一组下（与 SingleTabGroupGuard 合并主区分屏同一手法）。
 	private async ensureAllToolViewsExist() {
+		const ws = this.app.workspace as unknown as { createLeafInParent: (parent: unknown, index: number) => WorkspaceLeaf };
+		let sharedParent: unknown = this.findExistingRightSidebarParent();
+
 		for (const type of this.allRegisteredToolViewTypes()) {
 			if (this.app.workspace.getLeavesOfType(type).length > 0) continue;
 			let leaf: WorkspaceLeaf | null = null;
 			try {
-				leaf = this.app.workspace.getRightLeaf(true);
+				if (sharedParent) {
+					const index = (sharedParent as { children?: unknown[] }).children?.length ?? 0;
+					leaf = ws.createLeafInParent(sharedParent, index);
+				} else {
+					leaf = this.app.workspace.getRightLeaf(true);
+					if (leaf) sharedParent = (leaf as unknown as { parent: unknown }).parent;
+				}
 				if (!leaf) continue;
 				await leaf.setViewState({ type, active: false });
 			} catch (err: unknown) {
 				console.error(`[minimalism-ui] probing view type "${type}" failed, skipping`, err);
 				leaf?.detach();
+				// detach 后若该组因此清空（唯一子 leaf 探测失败），Obsidian 会自动回收这个空组，
+				// sharedParent 引用随之失效——重置为 null，下一个 type 走 getRightLeaf(true) 重新建组。
+				if (sharedParent && ((sharedParent as { children?: unknown[] }).children?.length ?? 0) === 0) {
+					sharedParent = null;
+				}
 			}
 		}
+	}
+
+	// 右侧栏里任意一个已存在 leaf 所属的 tab 组（原生已打开的面板，或此前探测遗留的），
+	// 用于把新探测出的 leaf 并入同一组，而不是各自新开一块分屏。
+	private findExistingRightSidebarParent(): unknown | null {
+		const { rightSplit } = this.app.workspace;
+		if (!rightSplit) return null;
+		let found: WorkspaceLeaf | null = null;
+		this.app.workspace.iterateAllLeaves((leaf) => {
+			if (found) return;
+			if (leaf.getRoot() === rightSplit) found = leaf;
+		});
+		return found ? (found as unknown as { parent: unknown }).parent : null;
 	}
 
 	// 用最新扫描结果更新堆叠顺序：保留既有相对顺序，已关闭的 leaf 剔除，
@@ -527,6 +568,10 @@ export class RightSidebarButtonManager implements Feature {
 		this.leafOrder = this.leafOrder.filter((l) => present.has(l));
 		const known = new Set(this.leafOrder);
 		for (const leaf of leaves) if (!known.has(leaf)) this.leafOrder.unshift(leaf);
+		// 已关闭的 leaf 从 instanceKeyToLeaf 里摘掉，避免这个 Map 一直强引用已销毁的 leaf。
+		for (const [key, leaf] of this.instanceKeyToLeaf) {
+			if (!present.has(leaf)) this.instanceKeyToLeaf.delete(key);
+		}
 	}
 
 	private refreshStack() {
@@ -555,6 +600,18 @@ export class RightSidebarButtonManager implements Feature {
 	// 表现而不至于崩溃，但不保证严格身份对应。
 	private keyOf(leaf: WorkspaceLeaf): string {
 		return leaf.getViewState().type;
+	}
+
+	// 每个 leaf 实例稳定、唯一的 key（见字段注释）：DOM 身份与拖拽全程用它，避免同 view type
+	// 的多个 leaf 在 data-rsb-key 上撞车。
+	private instanceKeyOf(leaf: WorkspaceLeaf): string {
+		let key = this.leafInstanceKeys.get(leaf);
+		if (!key) {
+			key = `leaf-${this.instanceKeyCounter++}`;
+			this.leafInstanceKeys.set(leaf, key);
+			this.instanceKeyToLeaf.set(key, leaf);
+		}
+		return key;
 	}
 
 	// 把 settings.rightSidebarStackOrder（持久化的 key 序列，含 STOW_KEY 哨兵）解析成当前
@@ -614,10 +671,10 @@ export class RightSidebarButtonManager implements Feature {
 			}
 
 			const leaf = item;
-			const key = this.keyOf(leaf);
+			const instanceKey = this.instanceKeyOf(leaf);
 			const iconEl = this.stackEl!.createDiv({
 				cls: STACK_ICON_CLASS,
-				attr: { 'aria-label': leaf.getDisplayText(), 'data-rsb-key': key },
+				attr: { 'aria-label': leaf.getDisplayText(), 'data-rsb-key': instanceKey },
 			});
 			iconEl.toggleClass(STACK_ICON_ACTIVE_CLASS, leaf === this.activeLeaf);
 			iconEl.toggleClass(STACK_ICON_HIDDEN_CLASS, !this.stowExpanded && idx < stowIndex);
@@ -627,7 +684,34 @@ export class RightSidebarButtonManager implements Feature {
 				e.stopPropagation();
 				this.onIconClick(() => this.selectLeaf(leaf));
 			});
-			iconEl.addEventListener('pointerdown', (e) => this.startIconDrag(e, key));
+			iconEl.addEventListener('pointerdown', (e) => this.startIconDrag(e, instanceKey));
+		});
+	}
+
+	// 只更新既有图标 DOM 节点上的状态 class（选中/隐藏折叠/收纳灰化、哨兵展开态），不走
+	// renderStackIcons() 的 empty() + 重建整套节点。选中项/收纳展开这两个操作只改视觉状态、
+	// 不改变堆叠的项集合或顺序，若像 renderStackIcons() 那样整体销毁重建 DOM，浏览器会把
+	// 新节点当成一开始就是最终态、没有“变化前”可过渡——CSS 的宽度折叠/chevron 旋转动画
+	// 因此完全不播放。原地 toggleClass 保留节点本身，过渡才能生效。
+	private updateStackIconVisualState() {
+		if (!this.stackEl) return;
+		const order = this.computeRenderOrder();
+		const stowIndex = order.indexOf(STOW_KEY);
+		const byKey = (key: string) => this.stackEl!.querySelector<HTMLElement>(`[data-rsb-key="${CSS.escape(key)}"]`);
+
+		const stowEl = byKey(STOW_KEY);
+		if (stowEl) {
+			stowEl.toggleClass(STOW_ICON_EXPANDED_CLASS, this.stowExpanded);
+			stowEl.setAttribute('aria-label', t(this.stowExpanded ? 'rightSidebarStowCollapse' : 'rightSidebarStowExpand'));
+		}
+
+		order.forEach((item, idx) => {
+			if (item === STOW_KEY) return;
+			const el = byKey(this.instanceKeyOf(item));
+			if (!el) return;
+			el.toggleClass(STACK_ICON_ACTIVE_CLASS, item === this.activeLeaf);
+			el.toggleClass(STACK_ICON_HIDDEN_CLASS, !this.stowExpanded && idx < stowIndex);
+			el.toggleClass(STACK_ICON_STOWED_CLASS, idx < stowIndex);
 		});
 	}
 
@@ -643,16 +727,17 @@ export class RightSidebarButtonManager implements Feature {
 
 	private toggleStowExpanded() {
 		this.stowExpanded = !this.stowExpanded;
-		this.renderStackIcons();
+		const s = this.getSettings();
+		s.rightSidebarStowExpanded = this.stowExpanded;
+		void this.save();
+		this.updateStackIconVisualState();
 	}
 
 	private selectLeaf(leaf: WorkspaceLeaf) {
 		this.activeLeaf = leaf;
-		this.clearStackTimers();
-		this.setStackExpanded(false);
 		if (!this.isOpen) this.open();
 		else {
-			this.renderStackIcons();
+			this.updateStackIconVisualState();
 			void this.showLeaf(leaf);
 		}
 	}
@@ -667,7 +752,7 @@ export class RightSidebarButtonManager implements Feature {
 			startX: e.clientX,
 			startY: e.clientY,
 			dragging: false,
-			order: this.computeRenderOrder().map((item) => (item === STOW_KEY ? STOW_KEY : this.keyOf(item))),
+			order: this.computeRenderOrder().map((item) => (item === STOW_KEY ? STOW_KEY : this.instanceKeyOf(item))),
 			grabOffsetX: el ? e.clientX - el.getBoundingClientRect().left : 0,
 			translateX: 0,
 		};
@@ -806,8 +891,15 @@ export class RightSidebarButtonManager implements Feature {
 		this.stackEl?.removeClass(STACK_DRAGGING_CLASS);
 		activeDocument.body.removeClass(ICON_DRAGGING_BODY_CLASS);
 
+		// drag.order 里存的是本次运行时的实例 key，落盘前换回按 view type 持久化的 key
+		// （见 instanceKeyOf 字段注释）——同 type 的多个 leaf 会折叠回重复的 type 字符串，
+		// 与 computeRenderOrder() 的池化消费逻辑一致，不影响“记住顺序”这个持久化目标本身。
 		const s = this.getSettings();
-		s.rightSidebarStackOrder = [...drag.order];
+		s.rightSidebarStackOrder = drag.order.map((key) => {
+			if (key === STOW_KEY) return STOW_KEY;
+			const leaf = this.instanceKeyToLeaf.get(key);
+			return leaf ? this.keyOf(leaf) : key;
+		});
 		void this.save();
 
 		// 拖拽松手点可能落在 launcher/panel 外，避免被 outsideClickHandler 误判为点击外部关闭。
@@ -982,6 +1074,8 @@ export class RightSidebarButtonManager implements Feature {
 		this.clearStackTimers();
 		this.leafOrder = [];
 		this.activeLeaf = null;
+		this.leafInstanceKeys = new WeakMap();
+		this.instanceKeyToLeaf.clear();
 		this.isHovering = false;
 		this.resizeHandleEl?.removeEventListener('pointerdown', this.onResizePointerDown);
 		this.resizeHandleEl = null;

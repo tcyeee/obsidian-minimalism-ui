@@ -59,7 +59,8 @@ var DEFAULT_SETTINGS = {
   rightSidebarPanelWidth: 360,
   rightSidebarPanelHeight: 480,
   rightSidebarPanelPinned: false,
-  rightSidebarStackOrder: []
+  rightSidebarStackOrder: [],
+  rightSidebarStowExpanded: false
 };
 
 // src/generated/theme-assets.ts
@@ -2767,14 +2768,28 @@ var NavigationHistory = class {
   // index+1..末尾的条目按原顺序整体移入 future 头部,前进键仍可逐级返回。
   // 守卫:下标越界、点的就是当前栈顶、或目标已失效(死条目)时不做任何操作。
   jumpToIndex(index) {
-    if (index < 0 || index >= this.history.length - 1) return;
     const target = this.history[index];
-    if (!this.isReopenable(target)) return;
+    if (!this.foldTo(index)) return;
+    this.scheduleActivate(target, "minimalism-ui-slide-from-left");
+  }
+  // 只做"折叠历史到 index"的簿记(裁剪 history / 前置 future / 置 jumpPath),不触发
+  // activateOrOpen——供调用方需要自行决定如何定位/复用目标 leaf 时使用（例如
+  // SinglePageEngine.goHome 要复用 openHomePage 的空 leaf 复用与去重逻辑,不能走
+  // jumpToIndex 通用的"找现有 leaf 否则新开 tab"流程,那会在已存在同路径 leaf 时把当前
+  // 空 leaf 晾成一个多余的空标签页）。调用方随后自行触发的一次 active-leaf-change 里,
+  // record() 会因 jumpPath 命中而把这次识别为"我们自己发起的跳转"直接跳过 push,不再
+  // 重复记录目标路径,从而避免面包屑出现重复词条。
+  // 返回 true 表示已折叠(调用方应据此自行完成定位/打开);false 表示下标越界、目标就是
+  // 当前栈顶、或目标已失效,调用方应退回常规打开逻辑(当作全新导航,交由 record 正常 push)。
+  foldTo(index) {
+    if (index < 0 || index >= this.history.length - 1) return false;
+    const target = this.history[index];
+    if (!this.isReopenable(target)) return false;
     this.cancelTimer();
     const removed = this.history.splice(index + 1);
     this.future = removed.concat(this.future);
     this.jumpPath = target;
-    this.scheduleActivate(target, "minimalism-ui-slide-from-left");
+    return true;
   }
   forward() {
     this.cancelTimer();
@@ -3478,6 +3493,25 @@ var SinglePageEngine = class {
       }
     }
   }
+  // “回到首页”统一入口：供 EmptyViewButtonManager 的按钮点击、以及 HomePageManager 对空白新
+  // 标签页的自动重定向共用。首页若已在导航历史栈中（通常发生在从其它笔记回首页时），先用
+  // nav.foldTo 把它折叠回栈内原位（其后的条目整体移入 future，语义等同面包屑点击首页），
+  // 再复用 openHomePage() 的去重/空 leaf 复用逻辑完成实际定位——不能直接调用面包屑同款的
+  // jumpToIndex，那会走它自己的“找现有 leaf 否则新开 tab”通用流程，若当前恰好停在一个刚创建
+  // 的空白 leaf 上（如触发本方法的正是那个空白 tab 本身），会把它晾成一个没人清理的多余空标签
+  // 页。foldTo 折叠后置的 jumpPath 会被 openHomePage 触发的那次 active-leaf-change 消费掉，
+  // 使 nav.record 把这次识别为“自己发起的跳转”而跳过 push，避免在栈尾重复记一次首页路径
+  // （否则面包屑会同时在首列与末列出现两个首页，且不再折叠回首列）。
+  // 首页尚未入栈、或本就已是当前栈顶（已经就在首页）时，foldTo 直接返回 false 不做任何簿记，
+  // 此时 openHomePage() 的正常 push（或“已是同一 leaf，setActiveLeaf 短路不触发事件”）不会
+  // 造成重复。
+  goHome() {
+    const path = this.getSettings().homePage;
+    if (!path) return;
+    const idx = this.nav.getHistory().indexOf(path);
+    if (idx !== -1) this.nav.foldTo(idx);
+    void this.openHomePage();
+  }
   // 设置里更换首页后调用：把主区收拢为只剩首页一个 tab，并把导航历史 / 面包屑重置为仅首页。
   // 仅在用户真正改动首页路径时触发（见 SettingTab），不在每次 saveSettings 时跑，避免误关标签。
   async resetToHomePage() {
@@ -3681,19 +3715,18 @@ var HomePageManager = class {
   }
   maybeOpenHomePage() {
     if (this.engine.isOpeningHomePage()) return;
-    if (!this.engine.isNavEmpty()) return;
     const active = this.app.workspace.getMostRecentLeaf();
     if (active && this.engine.hasPendingIntercept(active)) {
       window.setTimeout(() => {
         if (!this.engine.hasPendingIntercept(active)) return;
         if (this.engine.isOpeningHomePage()) return;
-        if (!this.engine.isNavEmpty()) return;
         this.engine.releasePendingLeaf(active);
-        void this.engine.openHomePage();
+        this.engine.goHome();
       }, 0);
       return;
     }
-    void this.engine.openHomePage();
+    if (!this.engine.isNavEmpty()) return;
+    this.engine.goHome();
   }
   async openHomePage() {
     return this.engine.openHomePage();
@@ -3733,7 +3766,7 @@ var EmptyViewButtonManager = class {
         cls: `empty-state-action tappable ${HOME_ACTION_CLASS}`,
         text: t("goHome")
       });
-      btn.addEventListener("click", () => void this.engine.openHomePage());
+      btn.addEventListener("click", () => this.engine.goHome());
     });
   }
   remove() {
@@ -4895,8 +4928,17 @@ var RightSidebarButtonManager = class {
     this.leafOrder = [];
     // 当前选中项，独立于 leafOrder 的顺序记录。
     this.activeLeaf = null;
-    // 收纳图标是否处于展开态（显示分界左侧的隐藏图标）。不跨 apply() 重建保留、整排收起时
-    // 一并复位（见 setStackExpanded()），理由同 stackExpanded 的既有处理。
+    // leaf 实例 → 稳定的每实例 key（区别于 keyOf() 返回的 view type 字符串）：DOM 的
+    // data-rsb-key 及拖拽排序全程用它，只有落盘到 settings.rightSidebarStackOrder 时才
+    // 换回 view type。原先直接复用 keyOf() 当 DOM key，导致同一 view type 的多个 leaf
+    // 在 DOM 上共享同一个 data-rsb-key、querySelector 永远只命中第一个——拖动其中一个会
+    // 连带影响另一个。key 只在本次运行时有效，不跨重启持久化（无此需要，settings 里仍是
+    // 按 view type 存储，见 keyOf() 与 computeRenderOrder() 的既有局限）。
+    this.leafInstanceKeys = /* @__PURE__ */ new WeakMap();
+    this.instanceKeyToLeaf = /* @__PURE__ */ new Map();
+    this.instanceKeyCounter = 0;
+    // 收纳图标是否处于展开态（显示分界左侧的隐藏图标）；跨重启持久化于 settings，
+    // 只由用户点击哨兵图标改变——切视图、堆叠自动收起等操作不再连带重置它（见类注释）。
     this.stowExpanded = false;
     // 进行中的图标拖拽重排；null 表示未在拖拽。dragging 为 false 时表示还未越过阈值
     // （此时仍可能是一次普通点击），越过阈值后才真正接管顺序 + 吞掉尾随的 click。
@@ -4979,7 +5021,11 @@ var RightSidebarButtonManager = class {
       (_a = this.stackEl) == null ? void 0 : _a.removeClass(STACK_DRAGGING_CLASS);
       activeDocument.body.removeClass(ICON_DRAGGING_BODY_CLASS);
       const s = this.getSettings();
-      s.rightSidebarStackOrder = [...drag.order];
+      s.rightSidebarStackOrder = drag.order.map((key) => {
+        if (key === STOW_KEY) return STOW_KEY;
+        const leaf = this.instanceKeyToLeaf.get(key);
+        return leaf ? this.keyOf(leaf) : key;
+      });
       void this.save();
       this.suppressNextOutsideClick = true;
       window.setTimeout(() => {
@@ -5047,6 +5093,7 @@ var RightSidebarButtonManager = class {
   inject() {
     this.hasProbedAllViewTypes = false;
     this.isPinned = this.getSettings().rightSidebarPanelPinned;
+    this.stowExpanded = this.getSettings().rightSidebarStowExpanded;
     this.panelEl = activeDocument.body.createDiv({ cls: PANEL_CLASS });
     const s = this.getSettings();
     this.panelEl.setCssStyles({
@@ -5171,7 +5218,6 @@ var RightSidebarButtonManager = class {
     var _a;
     this.stackExpanded = expanded;
     (_a = this.stackEl) == null ? void 0 : _a.toggleClass(STACK_EXPANDED_CLASS, expanded);
-    if (!expanded) this.stowExpanded = false;
   }
   // 堆叠从隐藏变为可见的唯一入口：500ms 自动亮相定时器、悬浮唤出都走这里。
   // 亮相当下鼠标没停在 launcher 上才排“首次亮相”的 2s 自动收起——否则等 mouseleave
@@ -5241,19 +5287,48 @@ var RightSidebarButtonManager = class {
   // getRightLeaf/setViewState 在 Obsidian 工作区内部产生竞态。
   // 某个类型探测失败（第三方 view 在无文件上下文下抛错）不影响其余类型，失败时把刚创建的
   // 空/半初始化 leaf 一并 detach 掉，不留垃圾条目。
+  // 共享同一个 tab 组而非每个 type 各 split 一块分屏：getRightLeaf(true) 的 split 语义是
+  // "把现有分栏再拆一个新的"，若每个 type 都调它，右侧栏会被拆成几十个分屏（虽然整体 CSS
+  // 隐藏，但仍是几十个 WorkspaceTabs/split 节点的 DOM 与内部状态开销）。优先复用右侧栏里
+  // 已存在的某个 leaf 所在的组；侧栏全空时才靠 getRightLeaf(true) 建第一个组，之后一律
+  // createLeafInParent 把新 leaf 挂到同一组下（与 SingleTabGroupGuard 合并主区分屏同一手法）。
   async ensureAllToolViewsExist() {
+    var _a, _b, _c, _d;
+    const ws = this.app.workspace;
+    let sharedParent = this.findExistingRightSidebarParent();
     for (const type of this.allRegisteredToolViewTypes()) {
       if (this.app.workspace.getLeavesOfType(type).length > 0) continue;
       let leaf = null;
       try {
-        leaf = this.app.workspace.getRightLeaf(true);
+        if (sharedParent) {
+          const index = (_b = (_a = sharedParent.children) == null ? void 0 : _a.length) != null ? _b : 0;
+          leaf = ws.createLeafInParent(sharedParent, index);
+        } else {
+          leaf = this.app.workspace.getRightLeaf(true);
+          if (leaf) sharedParent = leaf.parent;
+        }
         if (!leaf) continue;
         await leaf.setViewState({ type, active: false });
       } catch (err) {
         console.error(`[minimalism-ui] probing view type "${type}" failed, skipping`, err);
         leaf == null ? void 0 : leaf.detach();
+        if (sharedParent && ((_d = (_c = sharedParent.children) == null ? void 0 : _c.length) != null ? _d : 0) === 0) {
+          sharedParent = null;
+        }
       }
     }
+  }
+  // 右侧栏里任意一个已存在 leaf 所属的 tab 组（原生已打开的面板，或此前探测遗留的），
+  // 用于把新探测出的 leaf 并入同一组，而不是各自新开一块分屏。
+  findExistingRightSidebarParent() {
+    const { rightSplit } = this.app.workspace;
+    if (!rightSplit) return null;
+    let found = null;
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      if (found) return;
+      if (leaf.getRoot() === rightSplit) found = leaf;
+    });
+    return found ? found.parent : null;
   }
   // 用最新扫描结果更新堆叠顺序：保留既有相对顺序，已关闭的 leaf 剔除，
   // 新出现的 leaf 追加到最前（选中不再触发重排，见类注释）。
@@ -5262,6 +5337,9 @@ var RightSidebarButtonManager = class {
     this.leafOrder = this.leafOrder.filter((l) => present.has(l));
     const known = new Set(this.leafOrder);
     for (const leaf of leaves) if (!known.has(leaf)) this.leafOrder.unshift(leaf);
+    for (const [key, leaf] of this.instanceKeyToLeaf) {
+      if (!present.has(leaf)) this.instanceKeyToLeaf.delete(key);
+    }
   }
   refreshStack() {
     if (!this.stackEl) return;
@@ -5284,6 +5362,17 @@ var RightSidebarButtonManager = class {
   // 表现而不至于崩溃，但不保证严格身份对应。
   keyOf(leaf) {
     return leaf.getViewState().type;
+  }
+  // 每个 leaf 实例稳定、唯一的 key（见字段注释）：DOM 身份与拖拽全程用它，避免同 view type
+  // 的多个 leaf 在 data-rsb-key 上撞车。
+  instanceKeyOf(leaf) {
+    let key = this.leafInstanceKeys.get(leaf);
+    if (!key) {
+      key = `leaf-${this.instanceKeyCounter++}`;
+      this.leafInstanceKeys.set(leaf, key);
+      this.instanceKeyToLeaf.set(key, leaf);
+    }
+    return key;
   }
   // 把 settings.rightSidebarStackOrder（持久化的 key 序列，含 STOW_KEY 哨兵）解析成当前
   // 实际渲染序列：按 leaf 的 view type 从 leafOrder 里“消费”对应 leaf；持久化序列里指向
@@ -5340,10 +5429,10 @@ var RightSidebarButtonManager = class {
         return;
       }
       const leaf = item;
-      const key = this.keyOf(leaf);
+      const instanceKey = this.instanceKeyOf(leaf);
       const iconEl = this.stackEl.createDiv({
         cls: STACK_ICON_CLASS,
-        attr: { "aria-label": leaf.getDisplayText(), "data-rsb-key": key }
+        attr: { "aria-label": leaf.getDisplayText(), "data-rsb-key": instanceKey }
       });
       iconEl.toggleClass(STACK_ICON_ACTIVE_CLASS, leaf === this.activeLeaf);
       iconEl.toggleClass(STACK_ICON_HIDDEN_CLASS, !this.stowExpanded && idx < stowIndex);
@@ -5353,7 +5442,31 @@ var RightSidebarButtonManager = class {
         e.stopPropagation();
         this.onIconClick(() => this.selectLeaf(leaf));
       });
-      iconEl.addEventListener("pointerdown", (e) => this.startIconDrag(e, key));
+      iconEl.addEventListener("pointerdown", (e) => this.startIconDrag(e, instanceKey));
+    });
+  }
+  // 只更新既有图标 DOM 节点上的状态 class（选中/隐藏折叠/收纳灰化、哨兵展开态），不走
+  // renderStackIcons() 的 empty() + 重建整套节点。选中项/收纳展开这两个操作只改视觉状态、
+  // 不改变堆叠的项集合或顺序，若像 renderStackIcons() 那样整体销毁重建 DOM，浏览器会把
+  // 新节点当成一开始就是最终态、没有“变化前”可过渡——CSS 的宽度折叠/chevron 旋转动画
+  // 因此完全不播放。原地 toggleClass 保留节点本身，过渡才能生效。
+  updateStackIconVisualState() {
+    if (!this.stackEl) return;
+    const order = this.computeRenderOrder();
+    const stowIndex = order.indexOf(STOW_KEY);
+    const byKey = (key) => this.stackEl.querySelector(`[data-rsb-key="${CSS.escape(key)}"]`);
+    const stowEl = byKey(STOW_KEY);
+    if (stowEl) {
+      stowEl.toggleClass(STOW_ICON_EXPANDED_CLASS, this.stowExpanded);
+      stowEl.setAttribute("aria-label", t(this.stowExpanded ? "rightSidebarStowCollapse" : "rightSidebarStowExpand"));
+    }
+    order.forEach((item, idx) => {
+      if (item === STOW_KEY) return;
+      const el = byKey(this.instanceKeyOf(item));
+      if (!el) return;
+      el.toggleClass(STACK_ICON_ACTIVE_CLASS, item === this.activeLeaf);
+      el.toggleClass(STACK_ICON_HIDDEN_CLASS, !this.stowExpanded && idx < stowIndex);
+      el.toggleClass(STACK_ICON_STOWED_CLASS, idx < stowIndex);
     });
   }
   // 拖拽越过阈值后会置位 suppressNextIconClick，吞掉紧随拖拽而来的一次 click——
@@ -5367,15 +5480,16 @@ var RightSidebarButtonManager = class {
   }
   toggleStowExpanded() {
     this.stowExpanded = !this.stowExpanded;
-    this.renderStackIcons();
+    const s = this.getSettings();
+    s.rightSidebarStowExpanded = this.stowExpanded;
+    void this.save();
+    this.updateStackIconVisualState();
   }
   selectLeaf(leaf) {
     this.activeLeaf = leaf;
-    this.clearStackTimers();
-    this.setStackExpanded(false);
     if (!this.isOpen) this.open();
     else {
-      this.renderStackIcons();
+      this.updateStackIconVisualState();
       void this.showLeaf(leaf);
     }
   }
@@ -5389,7 +5503,7 @@ var RightSidebarButtonManager = class {
       startX: e.clientX,
       startY: e.clientY,
       dragging: false,
-      order: this.computeRenderOrder().map((item) => item === STOW_KEY ? STOW_KEY : this.keyOf(item)),
+      order: this.computeRenderOrder().map((item) => item === STOW_KEY ? STOW_KEY : this.instanceKeyOf(item)),
       grabOffsetX: el ? e.clientX - el.getBoundingClientRect().left : 0,
       translateX: 0
     };
@@ -5590,6 +5704,8 @@ var RightSidebarButtonManager = class {
     this.clearStackTimers();
     this.leafOrder = [];
     this.activeLeaf = null;
+    this.leafInstanceKeys = /* @__PURE__ */ new WeakMap();
+    this.instanceKeyToLeaf.clear();
     this.isHovering = false;
     (_a = this.resizeHandleEl) == null ? void 0 : _a.removeEventListener("pointerdown", this.onResizePointerDown);
     this.resizeHandleEl = null;

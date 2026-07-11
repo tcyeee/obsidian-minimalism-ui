@@ -33,6 +33,9 @@ export interface MinimalismUISettings {
 	// 已知局限：无法区分同一 view type 的多个 leaf（如两篇笔记被拖进右侧栏）。
 	// 空数组表示“哨兵隐式在最前，所有已发现视图可见”。
 	rightSidebarStackOrder: string[];
+	// 收纳分界左侧（已收纳）图标是否展开可见：跨重启持久化，只由用户点击哨兵图标改变——
+	// 切换视图、堆叠自动收起/面板关闭等操作都不应连带重置它。
+	rightSidebarStowExpanded: boolean;
 }
 
 export const DEFAULT_SETTINGS: MinimalismUISettings = {
@@ -65,4 +68,5 @@ export const DEFAULT_SETTINGS: MinimalismUISettings = {
 	rightSidebarPanelHeight: 480,
 	rightSidebarPanelPinned: false,
 	rightSidebarStackOrder: [],
+	rightSidebarStowExpanded: false,
 };

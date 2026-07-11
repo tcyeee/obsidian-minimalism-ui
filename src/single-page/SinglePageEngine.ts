@@ -643,6 +643,26 @@ export class SinglePageEngine {
 		}
 	}
 
+	// “回到首页”统一入口：供 EmptyViewButtonManager 的按钮点击、以及 HomePageManager 对空白新
+	// 标签页的自动重定向共用。首页若已在导航历史栈中（通常发生在从其它笔记回首页时），先用
+	// nav.foldTo 把它折叠回栈内原位（其后的条目整体移入 future，语义等同面包屑点击首页），
+	// 再复用 openHomePage() 的去重/空 leaf 复用逻辑完成实际定位——不能直接调用面包屑同款的
+	// jumpToIndex，那会走它自己的“找现有 leaf 否则新开 tab”通用流程，若当前恰好停在一个刚创建
+	// 的空白 leaf 上（如触发本方法的正是那个空白 tab 本身），会把它晾成一个没人清理的多余空标签
+	// 页。foldTo 折叠后置的 jumpPath 会被 openHomePage 触发的那次 active-leaf-change 消费掉，
+	// 使 nav.record 把这次识别为“自己发起的跳转”而跳过 push，避免在栈尾重复记一次首页路径
+	// （否则面包屑会同时在首列与末列出现两个首页，且不再折叠回首列）。
+	// 首页尚未入栈、或本就已是当前栈顶（已经就在首页）时，foldTo 直接返回 false 不做任何簿记，
+	// 此时 openHomePage() 的正常 push（或“已是同一 leaf，setActiveLeaf 短路不触发事件”）不会
+	// 造成重复。
+	goHome() {
+		const path = this.getSettings().homePage;
+		if (!path) return;
+		const idx = this.nav.getHistory().indexOf(path);
+		if (idx !== -1) this.nav.foldTo(idx);
+		void this.openHomePage();
+	}
+
 	// 设置里更换首页后调用：把主区收拢为只剩首页一个 tab，并把导航历史 / 面包屑重置为仅首页。
 	// 仅在用户真正改动首页路径时触发（见 SettingTab），不在每次 saveSettings 时跑，避免误关标签。
 	async resetToHomePage() {
