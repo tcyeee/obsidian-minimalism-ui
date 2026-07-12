@@ -2507,10 +2507,12 @@ var translations = {
     renameModalPlaceholder: "\u8F93\u5165\u65B0\u6587\u4EF6\u540D",
     renameModalConfirm: "\u91CD\u547D\u540D",
     renameModalCancel: "\u53D6\u6D88",
+    renameModalFailed: "\u91CD\u547D\u540D\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u65B0\u6587\u4EF6\u540D\u662F\u5426\u5DF2\u88AB\u5360\u7528",
     deleteModalTitle: "\u5220\u9664\u7B14\u8BB0",
     deleteModalMessage: "\u786E\u5B9A\u8981\u5220\u9664\u8FD9\u7BC7\u7B14\u8BB0\u5417\uFF1F",
     deleteModalConfirm: "\u5220\u9664",
-    deleteModalCancel: "\u53D6\u6D88"
+    deleteModalCancel: "\u53D6\u6D88",
+    deleteModalFailed: "\u5220\u9664\u5931\u8D25"
   },
   en: {
     language: "Language",
@@ -2581,10 +2583,12 @@ var translations = {
     renameModalPlaceholder: "Enter new filename",
     renameModalConfirm: "Rename",
     renameModalCancel: "Cancel",
+    renameModalFailed: "Rename failed \u2014 the new filename may already be taken",
     deleteModalTitle: "Delete note",
     deleteModalMessage: "Are you sure you want to delete this note?",
     deleteModalConfirm: "Delete",
-    deleteModalCancel: "Cancel"
+    deleteModalCancel: "Cancel",
+    deleteModalFailed: "Delete failed"
   }
 };
 var langOverride = null;
@@ -4884,6 +4888,30 @@ var EditorStatusManager = class {
 
 // src/layout/StatusBarMenuManager.ts
 var import_obsidian8 = require("obsidian");
+
+// src/core/obsidianCommands.ts
+function patchExecuteCommand(app, onExecuted) {
+  const commands = app.commands;
+  if (!commands || typeof commands.executeCommand !== "function") return () => {
+  };
+  const original = commands.executeCommand;
+  const wrapped = (command, ...rest) => {
+    const result = original.call(commands, command, ...rest);
+    if (result && command) onExecuted(command.id);
+    return result;
+  };
+  commands.executeCommand = wrapped;
+  return () => {
+    if (commands.executeCommand === wrapped) commands.executeCommand = original;
+  };
+}
+function executeCommandById(app, id) {
+  var _a, _b;
+  const commands = app.commands;
+  return (_b = (_a = commands == null ? void 0 : commands.executeCommandById) == null ? void 0 : _a.call(commands, id)) != null ? _b : false;
+}
+
+// src/layout/StatusBarMenuManager.ts
 var TRIGGER_ICON = "ellipsis-vertical";
 var POPOVER_CLASS = "minimalism-ui-status-popover";
 var POPOVER_WIDTH = 265;
@@ -4911,8 +4939,15 @@ var StatusBarMenuManager = class {
     (0, import_obsidian8.setIcon)(this.statusBarItem, TRIGGER_ICON);
     this.statusBarItem.setAttribute("aria-label", t("statusBarMenuLabel"));
     this.statusBarItem.setAttribute("data-tooltip-position", "top");
+    this.statusBarItem.setAttribute("tabindex", "0");
+    this.statusBarItem.setAttribute("role", "button");
     this.statusBarItem.addEventListener("click", (e) => {
       e.stopPropagation();
+      this.toggle();
+    });
+    this.statusBarItem.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
       this.toggle();
     });
     this.resizeEventRef = this.app.workspace.on("resize", () => this.refreshSidebarToggles());
@@ -4948,9 +4983,11 @@ var StatusBarMenuManager = class {
     else this.open();
   }
   open() {
-    this.popoverEl = activeDocument.body.createDiv({ cls: POPOVER_CLASS });
+    var _a;
+    this.popoverEl = activeDocument.body.createDiv({ cls: POPOVER_CLASS, attr: { role: "menu" } });
     this.renderContent();
     this.positionPopover();
+    (_a = this.popoverEl.querySelector('[tabindex="0"]')) == null ? void 0 : _a.focus();
     this.outsideClickHandler = (e) => {
       const path = e.composedPath();
       if (this.popoverEl && path.includes(this.popoverEl)) return;
@@ -4959,9 +4996,11 @@ var StatusBarMenuManager = class {
     };
     activeDocument.addEventListener("click", this.outsideClickHandler);
     this.keydownHandler = (e) => {
+      var _a2;
       if (e.key !== "Escape") return;
       e.stopPropagation();
       this.close();
+      (_a2 = this.statusBarItem) == null ? void 0 : _a2.focus();
     };
     activeDocument.addEventListener("keydown", this.keydownHandler);
   }
@@ -5016,40 +5055,66 @@ var StatusBarMenuManager = class {
     this.renderSidebarRows(this.popoverEl);
   }
   // ─── 笔记三态切换（分段控件） ───────────────────────────────────────────
+  // mode:'source' 时 source 理应是显式 boolean，但留一道兜底：Obsidian 默认即 Live Preview，
+  // 若 source 意外缺失（undefined）按「编辑」态高亮，而不是让三个分段全部落空、无法反映
+  // 笔记的真实状态。
   getNoteMode(leaf) {
     var _a, _b;
     const viewState = leaf == null ? void 0 : leaf.getViewState();
     const mode = (_a = viewState == null ? void 0 : viewState.state) == null ? void 0 : _a.mode;
     const source = (_b = viewState == null ? void 0 : viewState.state) == null ? void 0 : _b.source;
-    let current = null;
-    if (mode === "preview") current = "locked";
-    else if (mode === "source" && source === false) current = "edit";
-    else if (mode === "source" && source === true) current = "source";
-    return { mode: current, state: viewState == null ? void 0 : viewState.state };
+    if (mode === "preview") return "locked";
+    if (mode === "source") return source === true ? "source" : "edit";
+    return null;
   }
   renderModeSegment(container, leaf) {
-    const segment = container.createDiv({ cls: "minimalism-ui-status-popover-segment" });
-    const { mode: current } = this.getNoteMode(leaf);
+    const segment = container.createDiv({ cls: "minimalism-ui-status-popover-segment", attr: { role: "radiogroup" } });
     const disabled = !leaf;
     const options = [
       { mode: "locked", label: t("statusBarMenuModeLocked"), icon: "lock", viewMode: "preview", source: false },
       { mode: "edit", label: t("statusBarMenuModeEdit"), icon: "pencil", viewMode: "source", source: false },
       { mode: "source", label: t("statusBarMenuModeSource"), icon: "code-2", viewMode: "source", source: true }
     ];
-    for (const opt of options) {
+    const buttons = options.map((opt) => {
       const btn = segment.createDiv({
-        cls: `minimalism-ui-status-popover-segment-btn${current === opt.mode ? " is-active" : ""}${disabled ? " is-disabled" : ""}`,
-        attr: { "aria-label": opt.label, "data-tooltip-position": "top" }
+        cls: `minimalism-ui-status-popover-segment-btn${disabled ? " is-disabled" : ""}`,
+        attr: {
+          "aria-label": opt.label,
+          "data-tooltip-position": "top",
+          role: "radio",
+          tabindex: disabled ? "-1" : "0"
+        }
       });
       (0, import_obsidian8.setIcon)(btn, opt.icon);
-      if (disabled) continue;
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
+      return { btn, opt };
+    });
+    const updateActiveState = () => {
+      const current = this.getNoteMode(leaf);
+      for (const { btn, opt } of buttons) {
+        const active = current === opt.mode;
+        btn.toggleClass("is-active", active);
+        btn.setAttribute("aria-checked", String(active));
+      }
+    };
+    updateActiveState();
+    if (disabled) return;
+    for (const { btn, opt } of buttons) {
+      const activate = () => {
         const viewState = leaf.getViewState();
         void leaf.setViewState({
           ...viewState,
           state: { ...viewState.state, mode: opt.viewMode, source: opt.source }
-        }).then(() => this.renderContent());
+        }).then(updateActiveState);
+      };
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        activate();
+      });
+      btn.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        e.stopPropagation();
+        activate();
       });
     }
   }
@@ -5096,7 +5161,10 @@ var StatusBarMenuManager = class {
   }
   createActionRow(container, opts) {
     const cls = ["minimalism-ui-status-popover-row", opts.warning ? "is-warning" : "", opts.disabled ? "is-disabled" : ""].filter(Boolean).join(" ");
-    const row = container.createDiv({ cls });
+    const row = container.createDiv({
+      cls,
+      attr: { role: "menuitem", tabindex: opts.disabled ? "-1" : "0" }
+    });
     const iconEl = row.createDiv({ cls: "minimalism-ui-status-popover-row-icon" });
     (0, import_obsidian8.setIcon)(iconEl, opts.icon);
     row.createSpan({ cls: "minimalism-ui-status-popover-row-label", text: opts.label });
@@ -5105,12 +5173,16 @@ var StatusBarMenuManager = class {
       e.stopPropagation();
       opts.onClick();
     });
+    row.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      e.stopPropagation();
+      opts.onClick();
+    });
   }
-  // Obsidian 内置的"导出为 PDF"命令（不在公开类型声明里，同上用局部类型取用）。
+  // Obsidian 内置的"导出为 PDF"命令（不在公开类型声明里，见 core/obsidianCommands.ts）。
   exportToPdf() {
-    var _a;
-    const commands = this.app.commands;
-    const ok = (_a = commands == null ? void 0 : commands.executeCommandById("workspace:export-pdf")) != null ? _a : false;
+    const ok = executeCommandById(this.app, "workspace:export-pdf");
     if (!ok) new import_obsidian8.Notice(t("statusBarMenuExportPdfFailed"));
   }
   // 桌面端（isDesktopOnly）用 Electron shell 调起系统默认程序打开文件的绝对路径。
@@ -5144,6 +5216,14 @@ var StatusBarMenuManager = class {
     this.rightSidebarToggle = new import_obsidian8.ToggleComponent(rightToggleEl).setValue(this.rightSidebar.isPanelOpen()).onChange(() => this.rightSidebar.togglePanel());
   }
 };
+function createModalButtonRow(contentEl, opts) {
+  const buttonRow = contentEl.createDiv();
+  buttonRow.setCssStyles({ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "12px" });
+  const cancelBtn = buttonRow.createEl("button", { text: opts.cancelLabel });
+  cancelBtn.addEventListener("click", opts.onCancel);
+  const confirmBtn = buttonRow.createEl("button", { text: opts.confirmLabel, cls: opts.confirmCls });
+  confirmBtn.addEventListener("click", opts.onConfirm);
+}
 var RenameModal = class extends import_obsidian8.Modal {
   constructor(app, file) {
     super(app);
@@ -5169,12 +5249,13 @@ var RenameModal = class extends import_obsidian8.Modal {
         void this.submit();
       }
     });
-    const buttonRow = this.contentEl.createDiv();
-    buttonRow.setCssStyles({ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "12px" });
-    const cancelBtn = buttonRow.createEl("button", { text: t("renameModalCancel") });
-    cancelBtn.addEventListener("click", () => this.close());
-    const confirmBtn = buttonRow.createEl("button", { text: t("renameModalConfirm"), cls: "mod-cta" });
-    confirmBtn.addEventListener("click", () => void this.submit());
+    createModalButtonRow(this.contentEl, {
+      cancelLabel: t("renameModalCancel"),
+      confirmLabel: t("renameModalConfirm"),
+      confirmCls: "mod-cta",
+      onCancel: () => this.close(),
+      onConfirm: () => void this.submit()
+    });
   }
   async submit() {
     var _a;
@@ -5185,8 +5266,13 @@ var RenameModal = class extends import_obsidian8.Modal {
     }
     const parentPath = (_a = this.file.parent) == null ? void 0 : _a.path;
     const newPath = (0, import_obsidian8.normalizePath)(parentPath ? `${parentPath}/${trimmed}.${this.file.extension}` : `${trimmed}.${this.file.extension}`);
-    await this.app.fileManager.renameFile(this.file, newPath);
-    this.close();
+    try {
+      await this.app.fileManager.renameFile(this.file, newPath);
+      this.close();
+    } catch (err) {
+      new import_obsidian8.Notice(t("renameModalFailed"));
+      console.error("[minimalism-ui] rename failed", err);
+    }
   }
   onClose() {
     this.contentEl.empty();
@@ -5200,13 +5286,17 @@ var ConfirmDeleteModal = class extends import_obsidian8.Modal {
   onOpen() {
     this.setTitle(t("deleteModalTitle"));
     this.contentEl.createEl("p", { text: `${t("deleteModalMessage")} (${this.file.basename})` });
-    const buttonRow = this.contentEl.createDiv();
-    buttonRow.setCssStyles({ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "12px" });
-    const cancelBtn = buttonRow.createEl("button", { text: t("deleteModalCancel") });
-    cancelBtn.addEventListener("click", () => this.close());
-    const confirmBtn = buttonRow.createEl("button", { text: t("deleteModalConfirm"), cls: "mod-warning" });
-    confirmBtn.addEventListener("click", () => {
-      void this.app.fileManager.trashFile(this.file).then(() => this.close());
+    createModalButtonRow(this.contentEl, {
+      cancelLabel: t("deleteModalCancel"),
+      confirmLabel: t("deleteModalConfirm"),
+      confirmCls: "mod-warning",
+      onCancel: () => this.close(),
+      onConfirm: () => {
+        this.app.fileManager.trashFile(this.file).then(() => this.close()).catch((err) => {
+          new import_obsidian8.Notice(t("deleteModalFailed"));
+          console.error("[minimalism-ui] delete failed", err);
+        });
+      }
     });
   }
   onClose() {
@@ -5353,9 +5443,8 @@ var RightSidebarButtonManager = class {
     this.pointerDownInsidePanel = false;
     this.keydownHandler = null;
     this.layoutChangeHandler = null;
-    // 被拦截的命令执行口及其原始 executeCommand（用于 remove() 还原，见上方类型注释）。
-    this.patchedCommands = null;
-    this.originalExecuteCommand = null;
+    // 见 patchExecuteCommand()：调用它返回的 unpatch()，remove() 时执行即可安全还原。
+    this.unpatchExecuteCommand = null;
     this.isOpen = false;
     this.stackExpanded = false;
     // 面板是否被 pin 住；跨重启持久化于设置，见类注释。
@@ -5611,17 +5700,9 @@ var RightSidebarButtonManager = class {
       if (this.isOpen) this.refreshStack();
     };
     this.app.workspace.on("layout-change", this.layoutChangeHandler);
-    const commands = this.app.commands;
-    if (commands && typeof commands.executeCommand === "function") {
-      this.patchedCommands = commands;
-      const original = commands.executeCommand;
-      this.originalExecuteCommand = original;
-      commands.executeCommand = (command, ...rest) => {
-        const result = original.call(commands, command, ...rest);
-        if (result && (command == null ? void 0 : command.id) === TOGGLE_RIGHT_SIDEBAR_COMMAND_ID) this.toggle();
-        return result;
-      };
-    }
+    this.unpatchExecuteCommand = patchExecuteCommand(this.app, (commandId) => {
+      if (commandId === TOGGLE_RIGHT_SIDEBAR_COMMAND_ID) this.toggle();
+    });
   }
   toggle() {
     if (this.isOpen) this.close();
@@ -6154,7 +6235,7 @@ var RightSidebarButtonManager = class {
     activeDocument.removeEventListener("pointerup", this.onResizePointerUp, true);
   }
   remove() {
-    var _a, _b, _c, _d, _e, _f, _g;
+    var _a, _b, _c, _d, _e, _f, _g, _h;
     if (this.outsideClickHandler) {
       activeDocument.removeEventListener("click", this.outsideClickHandler);
       this.outsideClickHandler = null;
@@ -6172,11 +6253,8 @@ var RightSidebarButtonManager = class {
       this.app.workspace.off("layout-change", this.layoutChangeHandler);
       this.layoutChangeHandler = null;
     }
-    if (this.patchedCommands && this.originalExecuteCommand) {
-      this.patchedCommands.executeCommand = this.originalExecuteCommand;
-    }
-    this.patchedCommands = null;
-    this.originalExecuteCommand = null;
+    (_a = this.unpatchExecuteCommand) == null ? void 0 : _a.call(this);
+    this.unpatchExecuteCommand = null;
     this.endResizeDrag();
     activeDocument.body.removeClass(RESIZING_BODY_CLASS);
     this.endIconDrag();
@@ -6189,16 +6267,16 @@ var RightSidebarButtonManager = class {
     this.leafInstanceKeys = /* @__PURE__ */ new WeakMap();
     this.instanceKeyToLeaf.clear();
     this.isHovering = false;
-    (_a = this.resizeHandleEl) == null ? void 0 : _a.removeEventListener("pointerdown", this.onResizePointerDown);
+    (_b = this.resizeHandleEl) == null ? void 0 : _b.removeEventListener("pointerdown", this.onResizePointerDown);
     this.resizeHandleEl = null;
     this.stackEl = null;
     this.contentEl = null;
-    (_b = this.launcherEl) == null ? void 0 : _b.removeEventListener("mouseenter", this.onLauncherMouseEnter);
-    (_c = this.launcherEl) == null ? void 0 : _c.removeEventListener("mouseleave", this.onLauncherMouseLeave);
-    (_d = this.panelEl) == null ? void 0 : _d.removeEventListener("mousemove", this.onPanelMouseMove);
-    (_e = this.panelEl) == null ? void 0 : _e.removeEventListener("mouseleave", this.onPanelMouseLeave);
-    (_f = this.launcherEl) == null ? void 0 : _f.remove();
-    (_g = this.panelEl) == null ? void 0 : _g.remove();
+    (_c = this.launcherEl) == null ? void 0 : _c.removeEventListener("mouseenter", this.onLauncherMouseEnter);
+    (_d = this.launcherEl) == null ? void 0 : _d.removeEventListener("mouseleave", this.onLauncherMouseLeave);
+    (_e = this.panelEl) == null ? void 0 : _e.removeEventListener("mousemove", this.onPanelMouseMove);
+    (_f = this.panelEl) == null ? void 0 : _f.removeEventListener("mouseleave", this.onPanelMouseLeave);
+    (_g = this.launcherEl) == null ? void 0 : _g.remove();
+    (_h = this.panelEl) == null ? void 0 : _h.remove();
     this.launcherEl = null;
     this.buttonEl = null;
     this.panelEl = null;
@@ -6287,9 +6365,8 @@ var OnboardingManager = class {
     // 被拦截的设置面板及其原始 close（用于 remove() 还原，避免 monkey-patch 泄漏）。
     this.patchedSetting = null;
     this.originalSettingClose = null;
-    // 被拦截的命令执行口及其原始 executeCommand（用于 remove() 还原）。
-    this.patchedCommands = null;
-    this.originalExecuteCommand = null;
+    // 见 patchExecuteCommand()：调用它返回的 unpatch()，remove() 时执行即可安全还原。
+    this.unpatchExecuteCommand = null;
   }
   apply() {
     this.remove();
@@ -6326,17 +6403,7 @@ var OnboardingManager = class {
     this.app.vault.on("delete", this.refreshHandler);
     this.app.metadataCache.on("changed", this.refreshHandler);
     this.app.metadataCache.on("resolved", this.refreshHandler);
-    const commands = this.app.commands;
-    if (commands && typeof commands.executeCommand === "function") {
-      this.patchedCommands = commands;
-      const original = commands.executeCommand;
-      this.originalExecuteCommand = original;
-      commands.executeCommand = (command, ...rest) => {
-        const result = original.call(commands, command, ...rest);
-        if (result && command) this.onCommand(command.id);
-        return result;
-      };
-    }
+    this.unpatchExecuteCommand = patchExecuteCommand(this.app, (commandId) => this.onCommand(commandId));
     const setting = this.app.setting;
     if (setting && typeof setting.close === "function") {
       this.patchedSetting = setting;
@@ -6441,6 +6508,7 @@ var OnboardingManager = class {
     fb.createSpan({ cls: `${PANEL_CLASS2}-feedback-text`, text: t("onboardingAllDone") });
   }
   remove() {
+    var _a;
     for (const id of this.timers) window.clearTimeout(id);
     this.timers = [];
     this.hideScheduled = false;
@@ -6454,11 +6522,8 @@ var OnboardingManager = class {
       this.app.metadataCache.off("resolved", this.refreshHandler);
       this.refreshHandler = null;
     }
-    if (this.patchedCommands && this.originalExecuteCommand) {
-      this.patchedCommands.executeCommand = this.originalExecuteCommand;
-    }
-    this.patchedCommands = null;
-    this.originalExecuteCommand = null;
+    (_a = this.unpatchExecuteCommand) == null ? void 0 : _a.call(this);
+    this.unpatchExecuteCommand = null;
     if (this.patchedSetting && this.originalSettingClose) {
       this.patchedSetting.close = this.originalSettingClose;
     }

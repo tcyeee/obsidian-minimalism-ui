@@ -677,6 +677,13 @@ body.minimalism-ui-has-home .minimalism-ui-drag-bar-count {
 	cursor: default;
 }
 
+.minimalism-ui-status-popover-segment-btn:focus-visible,
+.minimalism-ui-status-popover-row:focus-visible,
+.minimalism-ui-status-menu:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 1px;
+}
+
 .minimalism-ui-status-popover-divider {
 	height: 1px;
 	background: var(--background-modifier-border);

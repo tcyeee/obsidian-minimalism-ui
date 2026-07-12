@@ -2,6 +2,7 @@ import { App, setIcon, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
 import { Feature } from '../core/Feature';
 import { t } from '../core/i18n';
+import { patchExecuteCommand } from '../core/obsidianCommands';
 
 const LAUNCHER_CLASS = 'minimalism-ui-rsb-launcher';
 const BUTTON_CLASS = 'minimalism-ui-rsb-button';
@@ -75,12 +76,9 @@ const ICON_DRAG_THRESHOLD_PX = 4;
 // 渲染序列里的一项：真实的可切换视图，或收纳哨兵。
 type StackItem = WorkspaceLeaf | typeof STOW_KEY;
 
-// Obsidian 内部命令执行口（同 OnboardingManager.ts 的用法）：热键 / 命令面板 / 程序触发
-// 最终都汇聚于 executeCommand，比匹配配置热键本身更可靠。用来监听原生「切换右侧边栏」
-// 命令——右侧栏本体已被 CSS 永久隐藏（见类注释），单靠原生命令用户会觉得快捷键“没反应”，
+// 用 patchExecuteCommand()（见 core/obsidianCommands.ts）监听原生「切换右侧边栏」命令——
+// 右侧栏本体已被 CSS 永久隐藏（见类注释），单靠原生命令用户会觉得快捷键“没反应”，
 // 拦截后原样放行的同时让悬浮按钮的开关状态跟着同步。
-type Command = { id: string };
-type CommandApi = { executeCommand: (command: Command, ...args: unknown[]) => boolean };
 const TOGGLE_RIGHT_SIDEBAR_COMMAND_ID = 'app:toggle-right-sidebar';
 
 /**
@@ -159,9 +157,8 @@ export class RightSidebarButtonManager implements Feature {
 	private pointerDownInsidePanel = false;
 	private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
 	private layoutChangeHandler: (() => void) | null = null;
-	// 被拦截的命令执行口及其原始 executeCommand（用于 remove() 还原，见上方类型注释）。
-	private patchedCommands: CommandApi | null = null;
-	private originalExecuteCommand: CommandApi['executeCommand'] | null = null;
+	// 见 patchExecuteCommand()：调用它返回的 unpatch()，remove() 时执行即可安全还原。
+	private unpatchExecuteCommand: (() => void) | null = null;
 	private isOpen = false;
 	private stackExpanded = false;
 	// 面板是否被 pin 住；跨重启持久化于设置，见类注释。
@@ -358,20 +355,12 @@ export class RightSidebarButtonManager implements Feature {
 		};
 		this.app.workspace.on('layout-change', this.layoutChangeHandler);
 
-		// 拦截原生「切换右侧边栏」命令（热键 / 命令面板均走这里）：原样放行 original 调用
-		// （它仍会 collapse/expand 那个被 CSS 隐藏的 rightSplit，无害），命中且执行成功时
-		// 额外让悬浮按钮跟着开关一次，使快捷键在用户看来确实"生效"了。
-		const commands = (this.app as unknown as { commands?: Partial<CommandApi> }).commands;
-		if (commands && typeof commands.executeCommand === 'function') {
-			this.patchedCommands = commands as CommandApi;
-			const original = commands.executeCommand;
-			this.originalExecuteCommand = original;
-			commands.executeCommand = (command: Command, ...rest: unknown[]) => {
-				const result = original.call(commands, command, ...rest);
-				if (result && command?.id === TOGGLE_RIGHT_SIDEBAR_COMMAND_ID) this.toggle();
-				return result;
-			};
-		}
+		// 拦截原生「切换右侧边栏」命令（热键 / 命令面板均走这里）：patchExecuteCommand 原样
+		// 放行原始调用（它仍会 collapse/expand 那个被 CSS 隐藏的 rightSplit，无害），命中且
+		// 执行成功时额外让悬浮按钮跟着开关一次，使快捷键在用户看来确实"生效"了。
+		this.unpatchExecuteCommand = patchExecuteCommand(this.app, (commandId) => {
+			if (commandId === TOGGLE_RIGHT_SIDEBAR_COMMAND_ID) this.toggle();
+		});
 	}
 
 	private toggle() {
@@ -1120,11 +1109,8 @@ export class RightSidebarButtonManager implements Feature {
 			this.app.workspace.off('layout-change', this.layoutChangeHandler);
 			this.layoutChangeHandler = null;
 		}
-		if (this.patchedCommands && this.originalExecuteCommand) {
-			this.patchedCommands.executeCommand = this.originalExecuteCommand;
-		}
-		this.patchedCommands = null;
-		this.originalExecuteCommand = null;
+		this.unpatchExecuteCommand?.();
+		this.unpatchExecuteCommand = null;
 		this.endResizeDrag();
 		activeDocument.body.removeClass(RESIZING_BODY_CLASS);
 		this.endIconDrag();

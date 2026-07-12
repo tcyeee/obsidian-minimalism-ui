@@ -1,12 +1,10 @@
 import { App, EventRef, FileSystemAdapter, MarkdownView, Modal, Notice, Plugin, TFile, ToggleComponent, WorkspaceLeaf, normalizePath, setIcon } from 'obsidian';
 import { Feature } from '../core/Feature';
 import { t } from '../core/i18n';
+import { executeCommandById } from '../core/obsidianCommands';
 
-// Obsidian 内部命令执行口（未出现在官方类型声明中，同 RightSidebarButtonManager 里
-// app.viewRegistry 的取用方式——仅取本文件需要的这一个方法）。
-type CommandExecutor = { executeCommandById(id: string): boolean };
 // Electron 的 shell 模块：桌面端渲染进程可通过 window.require 拿到（isDesktopOnly 插件），
-// 用于调起系统默认程序打开文件；同样不引入 @types/electron，只声明用到的这一个方法。
+// 用于调起系统默认程序打开文件；不引入 @types/electron，只声明用到的这一个方法。
 type ElectronShell = { openPath(path: string): Promise<string> };
 
 // 菜单图标：状态栏常驻的"更多操作"入口。
@@ -63,9 +61,18 @@ export class StatusBarMenuManager implements Feature {
 		setIcon(this.statusBarItem, TRIGGER_ICON);
 		this.statusBarItem.setAttribute('aria-label', t('statusBarMenuLabel'));
 		this.statusBarItem.setAttribute('data-tooltip-position', 'top');
+		// 可键盘聚焦：native Menu 自带 tab 导航/Enter 选中，替换成自绘 div 后必须手动补上，
+		// 否则键盘/屏幕阅读器用户完全无法触达这个入口（见 open() 里对首个菜单项的对应处理）。
+		this.statusBarItem.setAttribute('tabindex', '0');
+		this.statusBarItem.setAttribute('role', 'button');
 
 		this.statusBarItem.addEventListener('click', (e: MouseEvent) => {
 			e.stopPropagation();
+			this.toggle();
+		});
+		this.statusBarItem.addEventListener('keydown', (e: KeyboardEvent) => {
+			if (e.key !== 'Enter' && e.key !== ' ') return;
+			e.preventDefault();
 			this.toggle();
 		});
 
@@ -111,9 +118,12 @@ export class StatusBarMenuManager implements Feature {
 	}
 
 	private open(): void {
-		this.popoverEl = activeDocument.body.createDiv({ cls: POPOVER_CLASS });
+		this.popoverEl = activeDocument.body.createDiv({ cls: POPOVER_CLASS, attr: { role: 'menu' } });
 		this.renderContent();
 		this.positionPopover();
+		// 键盘用户打开后焦点停在状态栏图标上，主动挪到第一个可交互项，否则 Tab 键从这里
+		// 出发要先走完文档其它节点才能绕回这个刚出现的面板。
+		this.popoverEl.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
 
 		this.outsideClickHandler = (e: MouseEvent) => {
 			const path = e.composedPath();
@@ -127,6 +137,9 @@ export class StatusBarMenuManager implements Feature {
 			if (e.key !== 'Escape') return;
 			e.stopPropagation();
 			this.close();
+			// 点击外部关闭时故意不抢焦点（用户可能正点进编辑器打字）；但 Escape 是键盘用户
+			// 主动发出的关闭动作，理应把焦点还给触发这个面板的图标，而不是让焦点凭空丢失。
+			this.statusBarItem?.focus();
 		};
 		activeDocument.addEventListener('keydown', this.keydownHandler);
 	}
@@ -191,20 +204,20 @@ export class StatusBarMenuManager implements Feature {
 
 	// ─── 笔记三态切换（分段控件） ───────────────────────────────────────────
 
-	private getNoteMode(leaf: WorkspaceLeaf | null): { mode: NoteMode | null; state: Record<string, unknown> | undefined } {
+	// mode:'source' 时 source 理应是显式 boolean，但留一道兜底：Obsidian 默认即 Live Preview，
+	// 若 source 意外缺失（undefined）按「编辑」态高亮，而不是让三个分段全部落空、无法反映
+	// 笔记的真实状态。
+	private getNoteMode(leaf: WorkspaceLeaf | null): NoteMode | null {
 		const viewState = leaf?.getViewState();
 		const mode = viewState?.state?.mode as string | undefined;
 		const source = viewState?.state?.source as boolean | undefined;
-		let current: NoteMode | null = null;
-		if (mode === 'preview') current = 'locked';
-		else if (mode === 'source' && source === false) current = 'edit';
-		else if (mode === 'source' && source === true) current = 'source';
-		return { mode: current, state: viewState?.state };
+		if (mode === 'preview') return 'locked';
+		if (mode === 'source') return source === true ? 'source' : 'edit';
+		return null;
 	}
 
 	private renderModeSegment(container: HTMLElement, leaf: WorkspaceLeaf | null): void {
-		const segment = container.createDiv({ cls: 'minimalism-ui-status-popover-segment' });
-		const { mode: current } = this.getNoteMode(leaf);
+		const segment = container.createDiv({ cls: 'minimalism-ui-status-popover-segment', attr: { role: 'radiogroup' } });
 		const disabled = !leaf;
 
 		const options: { mode: NoteMode; label: string; icon: string; viewMode: string; source: boolean }[] = [
@@ -213,20 +226,50 @@ export class StatusBarMenuManager implements Feature {
 			{ mode: 'source', label: t('statusBarMenuModeSource'), icon: 'code-2', viewMode: 'source', source: true },
 		];
 
-		for (const opt of options) {
+		const buttons = options.map((opt) => {
 			const btn = segment.createDiv({
-				cls: `minimalism-ui-status-popover-segment-btn${current === opt.mode ? ' is-active' : ''}${disabled ? ' is-disabled' : ''}`,
-				attr: { 'aria-label': opt.label, 'data-tooltip-position': 'top' },
+				cls: `minimalism-ui-status-popover-segment-btn${disabled ? ' is-disabled' : ''}`,
+				attr: {
+					'aria-label': opt.label,
+					'data-tooltip-position': 'top',
+					role: 'radio',
+					tabindex: disabled ? '-1' : '0',
+				},
 			});
 			setIcon(btn, opt.icon);
-			if (disabled) continue;
-			btn.addEventListener('click', (e) => {
-				e.stopPropagation();
+			return { btn, opt };
+		});
+
+		// 只切换这 3 个按钮自身的高亮态，不牵动 renderContent() 的整体重建——避免每次切模式
+		// 都连带重造重命名/删除/侧栏行，及销毁重建两个 ToggleComponent（见类注释）。
+		const updateActiveState = () => {
+			const current = this.getNoteMode(leaf);
+			for (const { btn, opt } of buttons) {
+				const active = current === opt.mode;
+				btn.toggleClass('is-active', active);
+				btn.setAttribute('aria-checked', String(active));
+			}
+		};
+		updateActiveState();
+		if (disabled) return;
+
+		for (const { btn, opt } of buttons) {
+			const activate = () => {
 				const viewState = leaf!.getViewState();
 				void leaf!.setViewState({
 					...viewState,
 					state: { ...viewState.state, mode: opt.viewMode, source: opt.source },
-				}).then(() => this.renderContent());
+				}).then(updateActiveState);
+			};
+			btn.addEventListener('click', (e) => {
+				e.stopPropagation();
+				activate();
+			});
+			btn.addEventListener('keydown', (e: KeyboardEvent) => {
+				if (e.key !== 'Enter' && e.key !== ' ') return;
+				e.preventDefault();
+				e.stopPropagation();
+				activate();
 			});
 		}
 	}
@@ -272,7 +315,10 @@ export class StatusBarMenuManager implements Feature {
 	): void {
 		const cls = ['minimalism-ui-status-popover-row', opts.warning ? 'is-warning' : '', opts.disabled ? 'is-disabled' : '']
 			.filter(Boolean).join(' ');
-		const row = container.createDiv({ cls });
+		const row = container.createDiv({
+			cls,
+			attr: { role: 'menuitem', tabindex: opts.disabled ? '-1' : '0' },
+		});
 		const iconEl = row.createDiv({ cls: 'minimalism-ui-status-popover-row-icon' });
 		setIcon(iconEl, opts.icon);
 		row.createSpan({ cls: 'minimalism-ui-status-popover-row-label', text: opts.label });
@@ -281,12 +327,17 @@ export class StatusBarMenuManager implements Feature {
 			e.stopPropagation();
 			opts.onClick();
 		});
+		row.addEventListener('keydown', (e: KeyboardEvent) => {
+			if (e.key !== 'Enter' && e.key !== ' ') return;
+			e.preventDefault();
+			e.stopPropagation();
+			opts.onClick();
+		});
 	}
 
-	// Obsidian 内置的"导出为 PDF"命令（不在公开类型声明里，同上用局部类型取用）。
+	// Obsidian 内置的"导出为 PDF"命令（不在公开类型声明里，见 core/obsidianCommands.ts）。
 	private exportToPdf(): void {
-		const commands = (this.app as unknown as { commands?: CommandExecutor }).commands;
-		const ok = commands?.executeCommandById('workspace:export-pdf') ?? false;
+		const ok = executeCommandById(this.app, 'workspace:export-pdf');
 		if (!ok) new Notice(t('statusBarMenuExportPdfFailed'));
 	}
 
@@ -331,6 +382,22 @@ export class StatusBarMenuManager implements Feature {
 
 // ─── Modals ─────────────────────────────────────────────────────────────────
 
+// RenameModal / ConfirmDeleteModal 共用的底部按钮行（取消 + 主操作），抽出唯一实现，
+// 避免两处手写、日后调整间距/顺序要改两遍。
+function createModalButtonRow(
+	contentEl: HTMLElement,
+	opts: { cancelLabel: string; confirmLabel: string; confirmCls: string; onCancel: () => void; onConfirm: () => void },
+): void {
+	const buttonRow = contentEl.createDiv();
+	buttonRow.setCssStyles({ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' });
+
+	const cancelBtn = buttonRow.createEl('button', { text: opts.cancelLabel });
+	cancelBtn.addEventListener('click', opts.onCancel);
+
+	const confirmBtn = buttonRow.createEl('button', { text: opts.confirmLabel, cls: opts.confirmCls });
+	confirmBtn.addEventListener('click', opts.onConfirm);
+}
+
 class RenameModal extends Modal {
 	private newName: string;
 
@@ -358,14 +425,13 @@ class RenameModal extends Modal {
 			}
 		});
 
-		const buttonRow = this.contentEl.createDiv();
-		buttonRow.setCssStyles({ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' });
-
-		const cancelBtn = buttonRow.createEl('button', { text: t('renameModalCancel') });
-		cancelBtn.addEventListener('click', () => this.close());
-
-		const confirmBtn = buttonRow.createEl('button', { text: t('renameModalConfirm'), cls: 'mod-cta' });
-		confirmBtn.addEventListener('click', () => void this.submit());
+		createModalButtonRow(this.contentEl, {
+			cancelLabel: t('renameModalCancel'),
+			confirmLabel: t('renameModalConfirm'),
+			confirmCls: 'mod-cta',
+			onCancel: () => this.close(),
+			onConfirm: () => void this.submit(),
+		});
 	}
 
 	private async submit(): Promise<void> {
@@ -376,8 +442,15 @@ class RenameModal extends Modal {
 		}
 		const parentPath = this.file.parent?.path;
 		const newPath = normalizePath(parentPath ? `${parentPath}/${trimmed}.${this.file.extension}` : `${trimmed}.${this.file.extension}`);
-		await this.app.fileManager.renameFile(this.file, newPath);
-		this.close();
+		// 失败（同名文件已存在、非法文件名等）时保留弹窗、给出提示，而不是静默失败——
+		// 之前这里没有 catch，rejection 既不关闭弹窗也没有任何用户可见反馈。
+		try {
+			await this.app.fileManager.renameFile(this.file, newPath);
+			this.close();
+		} catch (err) {
+			new Notice(t('renameModalFailed'));
+			console.error('[minimalism-ui] rename failed', err);
+		}
 	}
 
 	onClose(): void {
@@ -394,15 +467,20 @@ class ConfirmDeleteModal extends Modal {
 		this.setTitle(t('deleteModalTitle'));
 		this.contentEl.createEl('p', { text: `${t('deleteModalMessage')} (${this.file.basename})` });
 
-		const buttonRow = this.contentEl.createDiv();
-		buttonRow.setCssStyles({ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' });
-
-		const cancelBtn = buttonRow.createEl('button', { text: t('deleteModalCancel') });
-		cancelBtn.addEventListener('click', () => this.close());
-
-		const confirmBtn = buttonRow.createEl('button', { text: t('deleteModalConfirm'), cls: 'mod-warning' });
-		confirmBtn.addEventListener('click', () => {
-			void this.app.fileManager.trashFile(this.file).then(() => this.close());
+		createModalButtonRow(this.contentEl, {
+			cancelLabel: t('deleteModalCancel'),
+			confirmLabel: t('deleteModalConfirm'),
+			confirmCls: 'mod-warning',
+			onCancel: () => this.close(),
+			onConfirm: () => {
+				// 同上：trashFile 失败（权限、文件被占用等）时保留弹窗并提示，而非静默吞掉。
+				this.app.fileManager.trashFile(this.file)
+					.then(() => this.close())
+					.catch((err) => {
+						new Notice(t('deleteModalFailed'));
+						console.error('[minimalism-ui] delete failed', err);
+					});
+			},
 		});
 	}
 

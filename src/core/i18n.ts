@@ -82,10 +82,12 @@ const translations = {
 		renameModalPlaceholder: '输入新文件名',
 		renameModalConfirm: '重命名',
 		renameModalCancel: '取消',
+		renameModalFailed: '重命名失败，请检查新文件名是否已被占用',
 		deleteModalTitle: '删除笔记',
 		deleteModalMessage: '确定要删除这篇笔记吗？',
 		deleteModalConfirm: '删除',
 		deleteModalCancel: '取消',
+		deleteModalFailed: '删除失败',
 	},
 	en: {
 		language: 'Language',
@@ -170,10 +172,12 @@ const translations = {
 		renameModalPlaceholder: 'Enter new filename',
 		renameModalConfirm: 'Rename',
 		renameModalCancel: 'Cancel',
+		renameModalFailed: 'Rename failed — the new filename may already be taken',
 		deleteModalTitle: 'Delete note',
 		deleteModalMessage: 'Are you sure you want to delete this note?',
 		deleteModalConfirm: 'Delete',
 		deleteModalCancel: 'Cancel',
+		deleteModalFailed: 'Delete failed',
 	},
 } as const;
 

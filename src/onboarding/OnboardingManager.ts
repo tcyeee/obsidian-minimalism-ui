@@ -2,6 +2,7 @@ import { App, Hotkey, Modifier, Platform, TFile, normalizePath } from 'obsidian'
 import { MinimalismUISettings } from '../core/settings';
 import { Feature } from '../core/Feature';
 import { t } from '../core/i18n';
+import { patchExecuteCommand } from '../core/obsidianCommands';
 
 const PANEL_CLASS = 'minimalism-ui-onboarding';
 // 全部完成后停留展示全勾选的时长（毫秒），之后淡出并永久关闭引导。
@@ -56,14 +57,6 @@ const TASKS: TaskDef[] = [
 
 // Obsidian 内部设置面板形状：打开设置并切到指定插件页签；close 用于可逆拦截（见 apply()）。
 type SettingApi = { open: () => void; openTabById: (id: string) => void; close: () => void };
-
-// Obsidian 内部命令对象（仅取完成判定需要的 id）。
-type Command = { id: string };
-// Obsidian 内部命令执行口。热键 / 命令面板 / 程序触发最终都经 executeCommand(cmd) 这一处，
-// 是比「匹配配置热键」可靠的完成信号。注意：必须是 executeCommand 而非 executeCommandById——
-// 后者只是命令面板/程序入口，热键派发（HotkeyManager.onTrigger → findCommand → executeCommand）
-// 根本不经过它（已对照 Obsidian 运行时确认）。包裹底层的 executeCommand 才能同时覆盖三种触发。
-type CommandApi = { executeCommand: (command: Command, ...args: unknown[]) => boolean };
 
 // 打开本插件的设置页（设置 Index 为主页处）。
 function openPluginSettings(app: App) {
@@ -141,9 +134,8 @@ export class OnboardingManager implements Feature {
 	// 被拦截的设置面板及其原始 close（用于 remove() 还原，避免 monkey-patch 泄漏）。
 	private patchedSetting: SettingApi | null = null;
 	private originalSettingClose: (() => void) | null = null;
-	// 被拦截的命令执行口及其原始 executeCommand（用于 remove() 还原）。
-	private patchedCommands: CommandApi | null = null;
-	private originalExecuteCommand: CommandApi['executeCommand'] | null = null;
+	// 见 patchExecuteCommand()：调用它返回的 unpatch()，remove() 时执行即可安全还原。
+	private unpatchExecuteCommand: (() => void) | null = null;
 
 	constructor(
 		private app: App,
@@ -194,22 +186,10 @@ export class OnboardingManager implements Feature {
 		this.app.metadataCache.on('changed', this.refreshHandler);
 		this.app.metadataCache.on('resolved', this.refreshHandler);
 
-		// 热键型任务完成检测：可逆地包裹 app.commands.executeCommand（observe-only，
-		// 原样转调后再判定）。热键 / 命令面板 / 程序触发最终都汇聚到 executeCommand，且不依赖
-		// 「重新读取配置热键并精确匹配 keydown」——后者对默认键为空 / 绑定鼠标的命令（如
-		// app:go-back）永远匹配不上。注意不能包裹 executeCommandById：热键派发不经过它。
-		const commands = (this.app as unknown as { commands?: Partial<CommandApi> }).commands;
-		if (commands && typeof commands.executeCommand === 'function') {
-			this.patchedCommands = commands as CommandApi;
-			const original = commands.executeCommand;
-			this.originalExecuteCommand = original;
-			commands.executeCommand = (command: Command, ...rest: unknown[]) => {
-				const result = original.call(commands, command, ...rest);
-				// 仅命令真正执行成功才算完成。
-				if (result && command) this.onCommand(command.id);
-				return result;
-			};
-		}
+		// 热键型任务完成检测：可逆地包裹 app.commands.executeCommand（observe-only，原样转调
+		// 后再判定），命中激活任务的 commandId 且执行成功即完成——见 patchExecuteCommand() 的
+		// 注释，比「重新读取配置热键并精确匹配 keydown」更可靠。
+		this.unpatchExecuteCommand = patchExecuteCommand(this.app, (commandId) => this.onCommand(commandId));
 
 		// Obsidian 无公开的热键变更事件；改键只发生在设置弹窗内，故可逆地拦截设置面板的
 		// close()，在原逻辑后刷新一次——使引导框键帽同步到用户刚改好的快捷键。
@@ -344,11 +324,8 @@ export class OnboardingManager implements Feature {
 			this.refreshHandler = null;
 		}
 		// 还原对命令执行口的拦截。
-		if (this.patchedCommands && this.originalExecuteCommand) {
-			this.patchedCommands.executeCommand = this.originalExecuteCommand;
-		}
-		this.patchedCommands = null;
-		this.originalExecuteCommand = null;
+		this.unpatchExecuteCommand?.();
+		this.unpatchExecuteCommand = null;
 		// 还原对设置面板 close() 的拦截。
 		if (this.patchedSetting && this.originalSettingClose) {
 			this.patchedSetting.close = this.originalSettingClose;
