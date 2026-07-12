@@ -5,6 +5,20 @@
 
 ---
 
+## Version 1.3.13
+
+- Fixed: renaming or deleting a note from the status bar's actions menu now shows an error notice instead of failing silently if the operation can't complete (e.g. a name collision or a locked file)
+- Fixed: the actions menu's Locked/Edit/Source switcher and its rename/delete/export/open rows are now reachable and operable via keyboard (Tab, Enter/Space), restoring accessibility lost when the native menu was replaced with a custom popover
+- Internal: fixed a rare ordering bug where two features intercepting the same internal Obsidian command hook could leave a stale, broken wrapper installed after the plugin unloads; the shared interception logic is now consolidated in one place
+- Internal: switching note mode no longer rebuilds the entire actions menu on every click; a note with no explicit view-state now defaults to highlighting "Edit" instead of leaving all three modes unhighlighted
+
+- 修复：状态栏操作菜单中重命名或删除笔记失败时（如文件名冲突、文件被占用），现在会弹出错误提示，而不是静默失败
+- 修复：操作菜单的锁定/编辑/源码切换及重命名/删除/导出/默认打开各项，现已支持键盘操作（Tab 切换、回车/空格激活），弥补了原生菜单被自绘悬浮面板替换后缺失的无障碍访问能力
+- 内部修复：修复了一处偶发的顺序错误——两个功能各自拦截同一个 Obsidian 内部命令钩子时，插件卸载后可能残留一个失效的包装函数；相关拦截逻辑已合并到统一模块
+- 内部修复：切换笔记模式不再整体重建操作菜单；笔记视图状态缺失显式标记时，默认高亮显示"编辑"而非不高亮任何选项
+
+---
+
 ## Version 1.3.12
 
 - Added back/forward navigation buttons to the top drag bar, next to the breadcrumb — jump through your cross-tab history without reaching for the keyboard
