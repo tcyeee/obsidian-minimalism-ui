@@ -530,6 +530,46 @@ body.minimalism-ui-disable-note-tabs .workspace-split.mod-root .workspace-tab-he
 	flex-shrink: 0;
 }
 
+/* 前进/后退按钮:挂在面包屑标题区(.minimalism-ui-drag-bar-title)内部最前面,
+   随其一起被 macOS 红绿灯让位逻辑整体右移;标题区本身 pointer-events:none,这里需显式打开 */
+.minimalism-ui-drag-bar-nav-buttons {
+	-webkit-app-region: no-drag;
+	pointer-events: auto;
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	flex-shrink: 0;
+}
+
+.minimalism-ui-drag-bar-nav-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	border-radius: 5px;
+	color: var(--text-muted);
+	cursor: pointer;
+	transition: color 0.12s ease, background-color 0.12s ease;
+}
+
+.minimalism-ui-drag-bar-nav-btn svg {
+	width: 15px;
+	height: 15px;
+}
+
+.minimalism-ui-drag-bar-nav-btn:hover {
+	color: var(--text-normal);
+	background-color: var(--background-modifier-hover);
+}
+
+.minimalism-ui-drag-bar-nav-btn.is-disabled {
+	color: var(--text-faint);
+	opacity: 0.4;
+	cursor: default;
+	pointer-events: none;
+}
+
 .minimalism-ui-drag-bar-title {
 	-webkit-app-region: no-drag;
 	pointer-events: none;
@@ -578,6 +618,117 @@ body.minimalism-ui-has-home .minimalism-ui-drag-bar-count {
 
 .minimalism-ui-editor-lock.is-reading {
 	color: var(--interactive-accent);
+}
+
+/* 状态栏"操作菜单"入口图标 */
+.minimalism-ui-status-menu {
+	display: flex;
+	align-items: center;
+	cursor: pointer;
+	padding: 0 4px;
+	color: var(--text-faint);
+}
+
+.minimalism-ui-status-menu:hover {
+	color: var(--text-normal);
+}
+
+/* 状态栏操作菜单——自绘悬浮卡片。阴影沿用插件里其它悬浮面板（如右侧栏悬浮面板）同款
+   的轻量阴影，而非 Obsidian 模态框级别的 --shadow-l，避免这么小的卡片显得过重。 */
+.minimalism-ui-status-popover {
+	z-index: var(--layer-popover);
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 16px;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+	padding: 8px;
+}
+
+/* 三态分段控件：圆角与外层面板同心嵌套（面板 16px，内缩 8px 的分段底座 8px，
+   再内缩 4px 的按钮 4px），避免胶囊圆角在这么小的面板里显得突兀。 */
+.minimalism-ui-status-popover-segment {
+	display: flex;
+	gap: 2px;
+	background: var(--background-modifier-hover);
+	border-radius: 8px;
+	padding: 4px;
+	margin-bottom: 8px;
+}
+
+.minimalism-ui-status-popover-segment-btn {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 8px 0;
+	border-radius: 4px;
+	cursor: pointer;
+	color: var(--text-normal);
+	transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.minimalism-ui-status-popover-segment-btn.is-active {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.minimalism-ui-status-popover-segment-btn.is-disabled {
+	color: var(--text-faint);
+	cursor: default;
+}
+
+.minimalism-ui-status-popover-divider {
+	height: 1px;
+	background: var(--background-modifier-border);
+	margin: 4px 0;
+}
+
+/* 列表行：重命名/删除（可点击）与左右侧栏（末尾带开关） */
+.minimalism-ui-status-popover-row {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 10px 8px;
+	border-radius: 8px;
+	cursor: pointer;
+	color: var(--text-normal);
+}
+
+.minimalism-ui-status-popover-row:hover {
+	background: var(--background-modifier-hover);
+}
+
+.minimalism-ui-status-popover-row.is-disabled {
+	color: var(--text-faint);
+	cursor: default;
+}
+
+.minimalism-ui-status-popover-row.is-disabled:hover {
+	background: transparent;
+}
+
+.minimalism-ui-status-popover-row.is-warning {
+	color: var(--text-error);
+}
+
+.minimalism-ui-status-popover-row-icon {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+}
+
+.minimalism-ui-status-popover-row-label {
+	flex: 1;
+}
+
+/* 左/右侧栏行：末尾是开关，行本身不是可点击整体（避免 :has() 选择器的性能开销，
+   见 SidebarSuggestFocusTracker 的同类取舍），直接用专用 modifier class */
+.minimalism-ui-status-popover-row.is-static {
+	cursor: default;
+}
+
+.minimalism-ui-status-popover-row.is-static:hover {
+	background: transparent;
 }
 
 /* status-bar 搬入 row1 后重置定位，推到最右侧 */

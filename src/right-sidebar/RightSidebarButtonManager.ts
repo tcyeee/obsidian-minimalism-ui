@@ -75,6 +75,14 @@ const ICON_DRAG_THRESHOLD_PX = 4;
 // 渲染序列里的一项：真实的可切换视图，或收纳哨兵。
 type StackItem = WorkspaceLeaf | typeof STOW_KEY;
 
+// Obsidian 内部命令执行口（同 OnboardingManager.ts 的用法）：热键 / 命令面板 / 程序触发
+// 最终都汇聚于 executeCommand，比匹配配置热键本身更可靠。用来监听原生「切换右侧边栏」
+// 命令——右侧栏本体已被 CSS 永久隐藏（见类注释），单靠原生命令用户会觉得快捷键“没反应”，
+// 拦截后原样放行的同时让悬浮按钮的开关状态跟着同步。
+type Command = { id: string };
+type CommandApi = { executeCommand: (command: Command, ...args: unknown[]) => boolean };
+const TOGGLE_RIGHT_SIDEBAR_COMMAND_ID = 'app:toggle-right-sidebar';
+
 /**
  * RightSidebarButtonManager — 右下角悬浮按钮，展开一个悬浮面板承载右侧边栏（及左侧栏里
  * 未被合并管理的“外来” leaf，如手动加入的 File Explorer/Tags/Search）的视图。
@@ -151,6 +159,9 @@ export class RightSidebarButtonManager implements Feature {
 	private pointerDownInsidePanel = false;
 	private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
 	private layoutChangeHandler: (() => void) | null = null;
+	// 被拦截的命令执行口及其原始 executeCommand（用于 remove() 还原，见上方类型注释）。
+	private patchedCommands: CommandApi | null = null;
+	private originalExecuteCommand: CommandApi['executeCommand'] | null = null;
 	private isOpen = false;
 	private stackExpanded = false;
 	// 面板是否被 pin 住；跨重启持久化于设置，见类注释。
@@ -193,6 +204,12 @@ export class RightSidebarButtonManager implements Feature {
 	// 拖拽越过阈值后置位：吞掉这次拖拽松手后紧随而来的 click，避免误触发选中/收纳切换。
 	// 超时兜底同 suppressNextOutsideClick，防止浏览器这次没派发 click 导致标记卡死。
 	private suppressNextIconClick = false;
+
+	// 面板开关态（isOpen）的订阅者——供 StatusBarMenuManager 之类的外部消费方在自己的
+	// 悬浮面板打开期间，实时感知“用户直接点了右下角悬浮按钮”这类不经过它的触发路径。
+	// 不随 remove()/apply() 的内部重建清空：订阅关系属于调用方，与本管理器的 DOM 重建
+	// 生命周期无关（详见 apply() 里 wasOpen/restoreOpenState 的重建保活注释）。
+	private stateChangeListeners = new Set<() => void>();
 
 	// 鼠标是否停留在 launcher（按钮 + 堆叠）范围内——决定自动收起定时器要不要暂停。
 	private isHovering = false;
@@ -340,6 +357,21 @@ export class RightSidebarButtonManager implements Feature {
 			if (this.isOpen) this.refreshStack();
 		};
 		this.app.workspace.on('layout-change', this.layoutChangeHandler);
+
+		// 拦截原生「切换右侧边栏」命令（热键 / 命令面板均走这里）：原样放行 original 调用
+		// （它仍会 collapse/expand 那个被 CSS 隐藏的 rightSplit，无害），命中且执行成功时
+		// 额外让悬浮按钮跟着开关一次，使快捷键在用户看来确实"生效"了。
+		const commands = (this.app as unknown as { commands?: Partial<CommandApi> }).commands;
+		if (commands && typeof commands.executeCommand === 'function') {
+			this.patchedCommands = commands as CommandApi;
+			const original = commands.executeCommand;
+			this.originalExecuteCommand = original;
+			commands.executeCommand = (command: Command, ...rest: unknown[]) => {
+				const result = original.call(commands, command, ...rest);
+				if (result && command?.id === TOGGLE_RIGHT_SIDEBAR_COMMAND_ID) this.toggle();
+				return result;
+			};
+		}
 	}
 
 	private toggle() {
@@ -347,10 +379,32 @@ export class RightSidebarButtonManager implements Feature {
 		else this.open();
 	}
 
+	// 供外部（StatusBarMenuManager）触发的公开入口，与直接点击右下角悬浮按钮等价。
+	// launcherEl 为 null 说明 showRightSidebarButton 关闭、面板未注入，直接 no-op。
+	togglePanel(): void {
+		if (!this.launcherEl) return;
+		this.toggle();
+	}
+
+	isPanelOpen(): boolean {
+		return this.isOpen;
+	}
+
+	// 订阅 isOpen 变化（见字段注释）。返回取消订阅函数。
+	onStateChange(cb: () => void): () => void {
+		this.stateChangeListeners.add(cb);
+		return () => this.stateChangeListeners.delete(cb);
+	}
+
+	private notifyStateChange() {
+		for (const cb of this.stateChangeListeners) cb();
+	}
+
 	private open() {
 		this.isOpen = true;
 		this.panelEl?.addClass(OPEN_CLASS);
 		this.buttonEl?.addClass(BUTTON_ACTIVE_CLASS);
+		this.notifyStateChange();
 		this.refreshStack();
 
 		// 面板打开 500ms 后堆叠自动滑出亮相；到点时面板可能已经被关掉了，需要重新判断 isOpen。
@@ -398,6 +452,7 @@ export class RightSidebarButtonManager implements Feature {
 		this.setStackExpanded(false);
 		this.panelEl?.removeClass(OPEN_CLASS);
 		this.buttonEl?.removeClass(BUTTON_ACTIVE_CLASS);
+		this.notifyStateChange();
 	}
 
 	private setStackExpanded(expanded: boolean) {
@@ -1065,6 +1120,11 @@ export class RightSidebarButtonManager implements Feature {
 			this.app.workspace.off('layout-change', this.layoutChangeHandler);
 			this.layoutChangeHandler = null;
 		}
+		if (this.patchedCommands && this.originalExecuteCommand) {
+			this.patchedCommands.executeCommand = this.originalExecuteCommand;
+		}
+		this.patchedCommands = null;
+		this.originalExecuteCommand = null;
 		this.endResizeDrag();
 		activeDocument.body.removeClass(RESIZING_BODY_CLASS);
 		this.endIconDrag();

@@ -32,6 +32,9 @@ export class BreadcrumbRenderer {
 		private onNavigate: (index: number) => void = () => {},
 		// 无文件视图合成键 → 人类可读显示名；视图不在当前时仍能正确显示（如 "Day Echo"）。
 		private navDisplayNameGetter: (key: string) => string | null = () => null,
+		// 每次面包屑重绘后触发:供 DragBarManager 借用同一批事件（挂载/active-leaf-change/
+		// notifyActiveLeaf）同步刷新前进/后退按钮的可用状态，无需再单独注册一遍监听。
+		private onAfterUpdate: () => void = () => {},
 	) {}
 
 	mount(parent: HTMLElement) {
@@ -85,10 +88,12 @@ export class BreadcrumbRenderer {
 
 		if (filelessLabel === null && paths.length <= 1) {
 			this.showSingleFile();
+			this.onAfterUpdate();
 			return;
 		}
 
 		this.renderTrail(this.buildTrail(paths, filelessLabel), this.firstIsHome(paths));
+		this.onAfterUpdate();
 	}
 
 	// 导航历史的首项是否正好是设置里的主页(homePage 存的是完整路径,与历史栈一致)。

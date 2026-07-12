@@ -16,6 +16,7 @@ import { ResponsiveSidebarManager } from './src/layout/ResponsiveSidebarManager'
 import { PropertyKeyResizer } from './src/layout/PropertyKeyResizer';
 import { RibbonPanelManager } from './src/layout/RibbonPanelManager';
 import { EditorStatusManager } from './src/layout/EditorStatusManager';
+import { StatusBarMenuManager } from './src/layout/StatusBarMenuManager';
 import { MermaidZoomManager } from './src/mermaid/MermaidZoomManager';
 import { RightSidebarButtonManager } from './src/right-sidebar/RightSidebarButtonManager';
 import { OnboardingManager } from './src/onboarding/OnboardingManager';
@@ -45,6 +46,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	private propertyKeyResizer: PropertyKeyResizer;
 	private ribbonPanel: RibbonPanelManager;
 	private editorStatus: EditorStatusManager;
+	private statusBarMenu: StatusBarMenuManager;
 	private mermaidZoom: MermaidZoomManager;
 	private rightSidebarButton: RightSidebarButtonManager;
 	private onboarding: OnboardingManager;
@@ -73,6 +75,10 @@ export default class MinimalismUIPlugin extends Plugin {
 			() => this.engine.getNavHistory(),
 			(index) => this.engine.navigateHistoryTo(index),
 			(key) => this.engine.getNavDisplayName(key),
+			() => this.engine.goBack(),
+			() => this.engine.goForward(),
+			() => this.engine.canGoBack(),
+			() => this.engine.canGoForward(),
 		);
 		// active-leaf-change 未触发时（如 deferred 视图经 revealLeaf 显示），引擎记录导航后
 		// 直接驱动面包屑刷新，使其与历史栈保持同步。
@@ -85,6 +91,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.editorStatus = new EditorStatusManager(this.app, this);
 		this.mermaidZoom = new MermaidZoomManager(this.app);
 		this.rightSidebarButton = new RightSidebarButtonManager(this.app, settings, () => this.saveData(this.settings));
+		this.statusBarMenu = new StatusBarMenuManager(this.app, this, this.rightSidebarButton);
 		this.onboarding = new OnboardingManager(this.app, settings, () => this.saveData(this.settings));
 		this.firstRunCleanup = new FirstRunCleanup(this.app, async () => {
 			this.settings.firstRunCleanupDone = true;
@@ -110,6 +117,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			this.rightSidebarButton,
 			this.ribbonPanel,
 			this.editorStatus,
+			this.statusBarMenu,
 		];
 
 		// 立即生效的部分
@@ -125,6 +133,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.mermaidZoom.apply();
 		this.onboarding.apply();
 		this.rightSidebarButton.apply();
+		this.statusBarMenu.apply();
 
 		// 依赖 workspace 布局就绪的部分
 		this.app.workspace.onLayoutReady(() => {

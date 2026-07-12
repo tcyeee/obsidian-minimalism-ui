@@ -27,7 +27,7 @@ __export(main_exports, {
   default: () => MinimalismUIPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian11 = require("obsidian");
+var import_obsidian12 = require("obsidian");
 
 // src/core/settings.ts
 var DEFAULT_SETTINGS = {
@@ -2489,7 +2489,28 @@ var translations = {
     filenamePrefixLength: "\u6307\u5B9A\u65F6\u95F4\u6233\u524D\u7F00\u957F\u5EA6",
     filenamePrefixLengthDesc: '\u9690\u85CF\u6587\u4EF6\u540D\u5F00\u5934\u7684\u65F6\u95F4\u6233\u524D\u7F00\uFF0C\u5982\u9690\u85CF "202604111230-test" \u524D 13 \u4E2A\u5B57\u7B26\uFF0C\u5728\u5BFC\u822A\u680F\u4E2D\u663E\u793A\u4E3A test\uFF080 = \u4E0D\u9690\u85CF\uFF0C\u6700\u591A 20\uFF09\u3002',
     graphView: "\u5173\u7CFB\u56FE",
-    localGraph: "\u672C\u5730\u5173\u7CFB\u56FE"
+    localGraph: "\u672C\u5730\u5173\u7CFB\u56FE",
+    navBack: "\u540E\u9000",
+    navForward: "\u524D\u8FDB",
+    statusBarMenuLabel: "\u64CD\u4F5C\u83DC\u5355",
+    statusBarMenuModeLocked: "\u9501\u5B9A\uFF08\u9605\u8BFB\u6A21\u5F0F\uFF09",
+    statusBarMenuModeEdit: "\u7F16\u8F91\uFF08\u5B9E\u65F6\u9884\u89C8\uFF09",
+    statusBarMenuModeSource: "\u6E90\u7801\u6A21\u5F0F",
+    statusBarMenuRename: "\u91CD\u547D\u540D\u7B14\u8BB0",
+    statusBarMenuDelete: "\u5220\u9664\u7B14\u8BB0",
+    statusBarMenuExportPdf: "\u5BFC\u51FA\u4E3A PDF",
+    statusBarMenuExportPdfFailed: "\u5BFC\u51FA\u5931\u8D25\uFF1A\u547D\u4EE4\u4E0D\u53EF\u7528",
+    statusBarMenuOpenDefaultApp: "\u4F7F\u7528\u9ED8\u8BA4\u8F6F\u4EF6\u6253\u5F00",
+    statusBarMenuToggleLeftSidebar: "\u5DE6\u4FA7\u8FB9\u680F",
+    statusBarMenuToggleRightSidebar: "\u53F3\u4FA7\u8FB9\u680F",
+    renameModalTitle: "\u91CD\u547D\u540D\u7B14\u8BB0",
+    renameModalPlaceholder: "\u8F93\u5165\u65B0\u6587\u4EF6\u540D",
+    renameModalConfirm: "\u91CD\u547D\u540D",
+    renameModalCancel: "\u53D6\u6D88",
+    deleteModalTitle: "\u5220\u9664\u7B14\u8BB0",
+    deleteModalMessage: "\u786E\u5B9A\u8981\u5220\u9664\u8FD9\u7BC7\u7B14\u8BB0\u5417\uFF1F",
+    deleteModalConfirm: "\u5220\u9664",
+    deleteModalCancel: "\u53D6\u6D88"
   },
   en: {
     language: "Language",
@@ -2542,7 +2563,28 @@ var translations = {
     filenamePrefixLength: "Timestamp prefix length",
     filenamePrefixLengthDesc: 'Hide the timestamp prefix at the start of a filename. E.g. hide the first 13 characters of "202604111230-test" so it shows as "test" in the navigation (0 = off, max 20).',
     graphView: "Graph view",
-    localGraph: "Local Graph"
+    localGraph: "Local Graph",
+    navBack: "Back",
+    navForward: "Forward",
+    statusBarMenuLabel: "Actions menu",
+    statusBarMenuModeLocked: "Locked (Reading view)",
+    statusBarMenuModeEdit: "Edit (Live Preview)",
+    statusBarMenuModeSource: "Source mode",
+    statusBarMenuRename: "Rename note",
+    statusBarMenuDelete: "Delete note",
+    statusBarMenuExportPdf: "Export to PDF",
+    statusBarMenuExportPdfFailed: "Export failed: command unavailable",
+    statusBarMenuOpenDefaultApp: "Open with default app",
+    statusBarMenuToggleLeftSidebar: "Left sidebar",
+    statusBarMenuToggleRightSidebar: "Right sidebar",
+    renameModalTitle: "Rename note",
+    renameModalPlaceholder: "Enter new filename",
+    renameModalConfirm: "Rename",
+    renameModalCancel: "Cancel",
+    deleteModalTitle: "Delete note",
+    deleteModalMessage: "Are you sure you want to delete this note?",
+    deleteModalConfirm: "Delete",
+    deleteModalCancel: "Cancel"
   }
 };
 var langOverride = null;
@@ -3208,6 +3250,19 @@ var SinglePageEngine = class {
   navigateHistoryTo(index) {
     this.nav.jumpToIndex(index);
   }
+  // 拖拽栏前进/后退按钮:直接复用 nav 的判定与执行逻辑，与快捷键/面包屑保持同一套语义。
+  goBack() {
+    this.nav.back();
+  }
+  goForward() {
+    this.nav.forward();
+  }
+  canGoBack() {
+    return this.nav.canGoBack();
+  }
+  canGoForward() {
+    return this.nav.canGoForward();
+  }
   // 记录跨 tab 导航历史：只对 root leaf 且有 filePath 的激活生效，再交给 nav 处理一次性标志与去重。
   // root leaf 判断必须先于 nav.record，防止侧边栏等无关激活提前消耗 nav 的一次性标志。
   handleNavTrack(leaf) {
@@ -3817,12 +3872,14 @@ var LeafNameUtils = class {
 var COMPACT_THRESHOLD = 15;
 var BreadcrumbRenderer = class {
   constructor(app, getSettings, navHistoryGetter, onNavigate = () => {
-  }, navDisplayNameGetter = () => null) {
+  }, navDisplayNameGetter = () => null, onAfterUpdate = () => {
+  }) {
     this.app = app;
     this.getSettings = getSettings;
     this.navHistoryGetter = navHistoryGetter;
     this.onNavigate = onNavigate;
     this.navDisplayNameGetter = navDisplayNameGetter;
+    this.onAfterUpdate = onAfterUpdate;
     this.el = null;
     this.activeLeafHandler = null;
     this.renameHandler = null;
@@ -3870,9 +3927,11 @@ var BreadcrumbRenderer = class {
     const paths = this.navHistoryGetter();
     if (filelessLabel === null && paths.length <= 1) {
       this.showSingleFile();
+      this.onAfterUpdate();
       return;
     }
     this.renderTrail(this.buildTrail(paths, filelessLabel), this.firstIsHome(paths));
+    this.onAfterUpdate();
   }
   // 导航历史的首项是否正好是设置里的主页(homePage 存的是完整路径,与历史栈一致)。
   firstIsHome(paths) {
@@ -4009,18 +4068,33 @@ var BreadcrumbRenderer = class {
 // src/layout/DragBarManager.ts
 var _DragBarManager = class _DragBarManager {
   constructor(app, getSettings, navHistoryGetter = () => [], onBreadcrumbNavigate = () => {
-  }, navDisplayNameGetter = () => null) {
+  }, navDisplayNameGetter = () => null, onGoBack = () => {
+  }, onGoForward = () => {
+  }, canGoBackGetter = () => false, canGoForwardGetter = () => false) {
     this.app = app;
     this.getSettings = getSettings;
+    this.onGoBack = onGoBack;
+    this.onGoForward = onGoForward;
+    this.canGoBackGetter = canGoBackGetter;
+    this.canGoForwardGetter = canGoForwardGetter;
     this.dragBar = null;
     this.layoutHandler = null;
     this.statusBarOriginalParent = null;
     this.statusBarOriginalNextSibling = null;
+    this.backBtn = null;
+    this.forwardBtn = null;
     // 监测左侧栏展开/收起:ResizeObserver 在侧栏拖拽/折叠时会持续触发(见 SidebarLayoutManager),
     // 比 layout-change 更及时,确保收起瞬间面包屑就右移让位。
     this.leftSplitObserver = null;
     this.isMac = import_obsidian4.Platform.isMacOS;
-    this.breadcrumb = new BreadcrumbRenderer(app, getSettings, navHistoryGetter, onBreadcrumbNavigate, navDisplayNameGetter);
+    this.breadcrumb = new BreadcrumbRenderer(
+      app,
+      getSettings,
+      navHistoryGetter,
+      onBreadcrumbNavigate,
+      navDisplayNameGetter,
+      () => this.updateNavButtons()
+    );
   }
   // 引擎记录一次导航后转发给面包屑刷新：覆盖 active-leaf-change 未触发的 deferred 视图 reveal 场景。
   notifyNavChange(leaf) {
@@ -4040,6 +4114,29 @@ var _DragBarManager = class _DragBarManager {
     const titleEl = createSpan();
     titleEl.className = "minimalism-ui-drag-bar-title";
     row1.appendChild(titleEl);
+    const navButtonsEl = createDiv();
+    navButtonsEl.className = "minimalism-ui-drag-bar-nav-buttons";
+    titleEl.appendChild(navButtonsEl);
+    this.backBtn = createSpan();
+    this.backBtn.className = "minimalism-ui-drag-bar-nav-btn";
+    this.backBtn.setAttribute("aria-label", t("navBack"));
+    (0, import_obsidian4.setIcon)(this.backBtn, "arrow-left");
+    this.backBtn.addEventListener("click", () => {
+      var _a;
+      if ((_a = this.backBtn) == null ? void 0 : _a.hasClass("is-disabled")) return;
+      this.onGoBack();
+    });
+    navButtonsEl.appendChild(this.backBtn);
+    this.forwardBtn = createSpan();
+    this.forwardBtn.className = "minimalism-ui-drag-bar-nav-btn";
+    this.forwardBtn.setAttribute("aria-label", t("navForward"));
+    (0, import_obsidian4.setIcon)(this.forwardBtn, "arrow-right");
+    this.forwardBtn.addEventListener("click", () => {
+      var _a;
+      if ((_a = this.forwardBtn) == null ? void 0 : _a.hasClass("is-disabled")) return;
+      this.onGoForward();
+    });
+    navButtonsEl.appendChild(this.forwardBtn);
     const dotEl = createSpan();
     dotEl.className = "minimalism-ui-drag-bar-count";
     titleEl.appendChild(dotEl);
@@ -4061,6 +4158,13 @@ var _DragBarManager = class _DragBarManager {
       this.statusBarOriginalNextSibling = statusBar.nextElementSibling;
       row1.appendChild(statusBar);
     }
+  }
+  // 面包屑每次重绘都会触发一次(经 BreadcrumbRenderer 的 onAfterUpdate 回调),据此同步刷新
+  // 前进/后退按钮的可用态:历史只剩一项(或更早)时后退变灰,future 为空时前进变灰。
+  updateNavButtons() {
+    var _a, _b;
+    (_a = this.backBtn) == null ? void 0 : _a.toggleClass("is-disabled", !this.canGoBackGetter());
+    (_b = this.forwardBtn) == null ? void 0 : _b.toggleClass("is-disabled", !this.canGoForwardGetter());
   }
   /**
    * macOS 专属:左侧栏收起时顶部红绿灯按钮会盖住面包屑;
@@ -4129,6 +4233,8 @@ var _DragBarManager = class _DragBarManager {
       this.dragBar.remove();
       this.dragBar = null;
     }
+    this.backBtn = null;
+    this.forwardBtn = null;
   }
 };
 // 左侧栏窄于此宽度时,主区左缘逼近 macOS 红绿灯,标题区需右移让位。
@@ -4776,6 +4882,338 @@ var EditorStatusManager = class {
   }
 };
 
+// src/layout/StatusBarMenuManager.ts
+var import_obsidian8 = require("obsidian");
+var TRIGGER_ICON = "ellipsis-vertical";
+var POPOVER_CLASS = "minimalism-ui-status-popover";
+var POPOVER_WIDTH = 265;
+var POPOVER_GAP = 8;
+var VIEWPORT_MARGIN = 8;
+var StatusBarMenuManager = class {
+  constructor(app, plugin, rightSidebar) {
+    this.app = app;
+    this.plugin = plugin;
+    this.rightSidebar = rightSidebar;
+    this.statusBarItem = null;
+    this.popoverEl = null;
+    this.outsideClickHandler = null;
+    this.keydownHandler = null;
+    // 面板开着时才需要保活的左右侧边栏开关引用，用于状态变化回调里原地刷新（见 refreshSidebarToggles）。
+    this.leftSidebarToggle = null;
+    this.rightSidebarToggle = null;
+    this.resizeEventRef = null;
+    this.unsubscribeRightSidebar = null;
+  }
+  apply() {
+    this.remove();
+    this.statusBarItem = this.plugin.addStatusBarItem();
+    this.statusBarItem.addClass("minimalism-ui-status-menu");
+    (0, import_obsidian8.setIcon)(this.statusBarItem, TRIGGER_ICON);
+    this.statusBarItem.setAttribute("aria-label", t("statusBarMenuLabel"));
+    this.statusBarItem.setAttribute("data-tooltip-position", "top");
+    this.statusBarItem.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.toggle();
+    });
+    this.resizeEventRef = this.app.workspace.on("resize", () => this.refreshSidebarToggles());
+    this.unsubscribeRightSidebar = this.rightSidebar.onStateChange(() => this.refreshSidebarToggles());
+  }
+  remove() {
+    this.close();
+    if (this.resizeEventRef) {
+      this.app.workspace.offref(this.resizeEventRef);
+      this.resizeEventRef = null;
+    }
+    if (this.unsubscribeRightSidebar) {
+      this.unsubscribeRightSidebar();
+      this.unsubscribeRightSidebar = null;
+    }
+    if (this.statusBarItem) {
+      this.statusBarItem.remove();
+      this.statusBarItem = null;
+    }
+  }
+  // 面板开着时，把左右两个开关的显示值刷新为当前真实状态。只调 setValue（不触发 onChange，
+  // 不会导致 collapse()/expand() 被重复调用形成回路），也不走 renderContent() 整体重建，
+  // 避免打断用户正在操作的笔记三态分段控件。
+  refreshSidebarToggles() {
+    var _a, _b, _c;
+    if (!this.popoverEl) return;
+    const leftSplit = (_a = this.app.workspace.leftSplit) != null ? _a : null;
+    (_b = this.leftSidebarToggle) == null ? void 0 : _b.setValue(leftSplit ? !leftSplit.collapsed : false);
+    (_c = this.rightSidebarToggle) == null ? void 0 : _c.setValue(this.rightSidebar.isPanelOpen());
+  }
+  toggle() {
+    if (this.popoverEl) this.close();
+    else this.open();
+  }
+  open() {
+    this.popoverEl = activeDocument.body.createDiv({ cls: POPOVER_CLASS });
+    this.renderContent();
+    this.positionPopover();
+    this.outsideClickHandler = (e) => {
+      const path = e.composedPath();
+      if (this.popoverEl && path.includes(this.popoverEl)) return;
+      if (this.statusBarItem && path.includes(this.statusBarItem)) return;
+      this.close();
+    };
+    activeDocument.addEventListener("click", this.outsideClickHandler);
+    this.keydownHandler = (e) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      this.close();
+    };
+    activeDocument.addEventListener("keydown", this.keydownHandler);
+  }
+  close() {
+    var _a;
+    if (this.outsideClickHandler) {
+      activeDocument.removeEventListener("click", this.outsideClickHandler);
+      this.outsideClickHandler = null;
+    }
+    if (this.keydownHandler) {
+      activeDocument.removeEventListener("keydown", this.keydownHandler);
+      this.keydownHandler = null;
+    }
+    (_a = this.popoverEl) == null ? void 0 : _a.remove();
+    this.popoverEl = null;
+    this.leftSidebarToggle = null;
+    this.rightSidebarToggle = null;
+  }
+  // 优先在触发图标正上方展开；但触发图标可能被 DragBarManager 挪到顶部拖拽栏（此时
+  // rect.top 很小，上方空间不够），这种情况下自动改为向下展开——用实测的面板高度
+  // 和触发图标上下两侧的剩余空间做判断，而非假设状态栏一定在视口底部。
+  positionPopover() {
+    if (!this.popoverEl || !this.statusBarItem) return;
+    const rect = this.statusBarItem.getBoundingClientRect();
+    let left = rect.right - POPOVER_WIDTH;
+    left = Math.max(VIEWPORT_MARGIN, Math.min(left, activeWindow.innerWidth - POPOVER_WIDTH - VIEWPORT_MARGIN));
+    this.popoverEl.setCssStyles({
+      position: "fixed",
+      left: `${left}px`,
+      top: "0px",
+      width: `${POPOVER_WIDTH}px`,
+      visibility: "hidden"
+    });
+    const height = this.popoverEl.getBoundingClientRect().height;
+    const spaceAbove = rect.top - POPOVER_GAP;
+    const spaceBelow = activeWindow.innerHeight - rect.bottom - POPOVER_GAP;
+    const openUpward = spaceAbove >= height || spaceAbove >= spaceBelow;
+    let top = openUpward ? rect.top - POPOVER_GAP - height : rect.bottom + POPOVER_GAP;
+    top = Math.max(VIEWPORT_MARGIN, Math.min(top, activeWindow.innerHeight - height - VIEWPORT_MARGIN));
+    this.popoverEl.setCssStyles({ top: `${top}px`, visibility: "visible" });
+  }
+  renderContent() {
+    var _a, _b;
+    if (!this.popoverEl) return;
+    this.popoverEl.empty();
+    const leaf = (_b = (_a = this.app.workspace.getActiveViewOfType(import_obsidian8.MarkdownView)) == null ? void 0 : _a.leaf) != null ? _b : null;
+    const file = this.app.workspace.getActiveFile();
+    this.renderModeSegment(this.popoverEl, leaf);
+    this.popoverEl.createDiv({ cls: "minimalism-ui-status-popover-divider" });
+    this.renderFileRows(this.popoverEl, file);
+    this.popoverEl.createDiv({ cls: "minimalism-ui-status-popover-divider" });
+    this.renderSidebarRows(this.popoverEl);
+  }
+  // ─── 笔记三态切换（分段控件） ───────────────────────────────────────────
+  getNoteMode(leaf) {
+    var _a, _b;
+    const viewState = leaf == null ? void 0 : leaf.getViewState();
+    const mode = (_a = viewState == null ? void 0 : viewState.state) == null ? void 0 : _a.mode;
+    const source = (_b = viewState == null ? void 0 : viewState.state) == null ? void 0 : _b.source;
+    let current = null;
+    if (mode === "preview") current = "locked";
+    else if (mode === "source" && source === false) current = "edit";
+    else if (mode === "source" && source === true) current = "source";
+    return { mode: current, state: viewState == null ? void 0 : viewState.state };
+  }
+  renderModeSegment(container, leaf) {
+    const segment = container.createDiv({ cls: "minimalism-ui-status-popover-segment" });
+    const { mode: current } = this.getNoteMode(leaf);
+    const disabled = !leaf;
+    const options = [
+      { mode: "locked", label: t("statusBarMenuModeLocked"), icon: "lock", viewMode: "preview", source: false },
+      { mode: "edit", label: t("statusBarMenuModeEdit"), icon: "pencil", viewMode: "source", source: false },
+      { mode: "source", label: t("statusBarMenuModeSource"), icon: "code-2", viewMode: "source", source: true }
+    ];
+    for (const opt of options) {
+      const btn = segment.createDiv({
+        cls: `minimalism-ui-status-popover-segment-btn${current === opt.mode ? " is-active" : ""}${disabled ? " is-disabled" : ""}`,
+        attr: { "aria-label": opt.label, "data-tooltip-position": "top" }
+      });
+      (0, import_obsidian8.setIcon)(btn, opt.icon);
+      if (disabled) continue;
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const viewState = leaf.getViewState();
+        void leaf.setViewState({
+          ...viewState,
+          state: { ...viewState.state, mode: opt.viewMode, source: opt.source }
+        }).then(() => this.renderContent());
+      });
+    }
+  }
+  // ─── 重命名 / 删除 / 导出 PDF / 用默认软件打开 ────────────────────────────
+  renderFileRows(container, file) {
+    const disabled = !file;
+    this.createActionRow(container, {
+      icon: "pencil-line",
+      label: t("statusBarMenuRename"),
+      disabled,
+      onClick: () => {
+        new RenameModal(this.app, file).open();
+        this.close();
+      }
+    });
+    this.createActionRow(container, {
+      icon: "trash-2",
+      label: t("statusBarMenuDelete"),
+      disabled,
+      warning: true,
+      onClick: () => {
+        new ConfirmDeleteModal(this.app, file).open();
+        this.close();
+      }
+    });
+    this.createActionRow(container, {
+      icon: "file-output",
+      label: t("statusBarMenuExportPdf"),
+      disabled,
+      onClick: () => {
+        this.exportToPdf();
+        this.close();
+      }
+    });
+    this.createActionRow(container, {
+      icon: "external-link",
+      label: t("statusBarMenuOpenDefaultApp"),
+      disabled,
+      onClick: () => {
+        this.openWithDefaultApp(file);
+        this.close();
+      }
+    });
+  }
+  createActionRow(container, opts) {
+    const cls = ["minimalism-ui-status-popover-row", opts.warning ? "is-warning" : "", opts.disabled ? "is-disabled" : ""].filter(Boolean).join(" ");
+    const row = container.createDiv({ cls });
+    const iconEl = row.createDiv({ cls: "minimalism-ui-status-popover-row-icon" });
+    (0, import_obsidian8.setIcon)(iconEl, opts.icon);
+    row.createSpan({ cls: "minimalism-ui-status-popover-row-label", text: opts.label });
+    if (opts.disabled) return;
+    row.addEventListener("click", (e) => {
+      e.stopPropagation();
+      opts.onClick();
+    });
+  }
+  // Obsidian 内置的"导出为 PDF"命令（不在公开类型声明里，同上用局部类型取用）。
+  exportToPdf() {
+    var _a;
+    const commands = this.app.commands;
+    const ok = (_a = commands == null ? void 0 : commands.executeCommandById("workspace:export-pdf")) != null ? _a : false;
+    if (!ok) new import_obsidian8.Notice(t("statusBarMenuExportPdfFailed"));
+  }
+  // 桌面端（isDesktopOnly）用 Electron shell 调起系统默认程序打开文件的绝对路径。
+  openWithDefaultApp(file) {
+    const adapter = this.app.vault.adapter;
+    if (!(adapter instanceof import_obsidian8.FileSystemAdapter)) return;
+    const fullPath = adapter.getFullPath(file.path);
+    const req = activeWindow.require;
+    if (!req) return;
+    void req("electron").shell.openPath(fullPath);
+  }
+  // ─── 左右侧边栏显示/隐藏（原生风格开关） ─────────────────────────────────
+  renderSidebarRows(container) {
+    var _a;
+    const leftSplit = (_a = this.app.workspace.leftSplit) != null ? _a : null;
+    const leftRow = container.createDiv({ cls: "minimalism-ui-status-popover-row is-static" });
+    const leftIcon = leftRow.createDiv({ cls: "minimalism-ui-status-popover-row-icon" });
+    (0, import_obsidian8.setIcon)(leftIcon, "panel-left");
+    leftRow.createSpan({ cls: "minimalism-ui-status-popover-row-label", text: t("statusBarMenuToggleLeftSidebar") });
+    const leftToggleEl = leftRow.createDiv();
+    this.leftSidebarToggle = new import_obsidian8.ToggleComponent(leftToggleEl).setValue(leftSplit ? !leftSplit.collapsed : false).setDisabled(!leftSplit).onChange((value) => {
+      if (!leftSplit) return;
+      if (value) leftSplit.expand();
+      else leftSplit.collapse();
+    });
+    const rightRow = container.createDiv({ cls: "minimalism-ui-status-popover-row is-static" });
+    const rightIcon = rightRow.createDiv({ cls: "minimalism-ui-status-popover-row-icon" });
+    (0, import_obsidian8.setIcon)(rightIcon, "panel-right");
+    rightRow.createSpan({ cls: "minimalism-ui-status-popover-row-label", text: t("statusBarMenuToggleRightSidebar") });
+    const rightToggleEl = rightRow.createDiv();
+    this.rightSidebarToggle = new import_obsidian8.ToggleComponent(rightToggleEl).setValue(this.rightSidebar.isPanelOpen()).onChange(() => this.rightSidebar.togglePanel());
+  }
+};
+var RenameModal = class extends import_obsidian8.Modal {
+  constructor(app, file) {
+    super(app);
+    this.file = file;
+    this.newName = file.basename;
+  }
+  onOpen() {
+    this.setTitle(t("renameModalTitle"));
+    const inputEl = this.contentEl.createEl("input", {
+      type: "text",
+      value: this.newName,
+      attr: { placeholder: t("renameModalPlaceholder") }
+    });
+    inputEl.setCssStyles({ width: "100%" });
+    inputEl.focus();
+    inputEl.select();
+    inputEl.addEventListener("input", () => {
+      this.newName = inputEl.value;
+    });
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        void this.submit();
+      }
+    });
+    const buttonRow = this.contentEl.createDiv();
+    buttonRow.setCssStyles({ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "12px" });
+    const cancelBtn = buttonRow.createEl("button", { text: t("renameModalCancel") });
+    cancelBtn.addEventListener("click", () => this.close());
+    const confirmBtn = buttonRow.createEl("button", { text: t("renameModalConfirm"), cls: "mod-cta" });
+    confirmBtn.addEventListener("click", () => void this.submit());
+  }
+  async submit() {
+    var _a;
+    const trimmed = this.newName.trim();
+    if (!trimmed || trimmed === this.file.basename) {
+      this.close();
+      return;
+    }
+    const parentPath = (_a = this.file.parent) == null ? void 0 : _a.path;
+    const newPath = (0, import_obsidian8.normalizePath)(parentPath ? `${parentPath}/${trimmed}.${this.file.extension}` : `${trimmed}.${this.file.extension}`);
+    await this.app.fileManager.renameFile(this.file, newPath);
+    this.close();
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+var ConfirmDeleteModal = class extends import_obsidian8.Modal {
+  constructor(app, file) {
+    super(app);
+    this.file = file;
+  }
+  onOpen() {
+    this.setTitle(t("deleteModalTitle"));
+    this.contentEl.createEl("p", { text: `${t("deleteModalMessage")} (${this.file.basename})` });
+    const buttonRow = this.contentEl.createDiv();
+    buttonRow.setCssStyles({ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "12px" });
+    const cancelBtn = buttonRow.createEl("button", { text: t("deleteModalCancel") });
+    cancelBtn.addEventListener("click", () => this.close());
+    const confirmBtn = buttonRow.createEl("button", { text: t("deleteModalConfirm"), cls: "mod-warning" });
+    confirmBtn.addEventListener("click", () => {
+      void this.app.fileManager.trashFile(this.file).then(() => this.close());
+    });
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+
 // src/mermaid/MermaidZoomManager.ts
 var MermaidZoomManager = class {
   constructor(app) {
@@ -4840,7 +5278,7 @@ var MermaidZoomManager = class {
 };
 
 // src/right-sidebar/RightSidebarButtonManager.ts
-var import_obsidian8 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 var LAUNCHER_CLASS = "minimalism-ui-rsb-launcher";
 var BUTTON_CLASS = "minimalism-ui-rsb-button";
 var PANEL_CLASS = "minimalism-ui-rsb-panel";
@@ -4893,6 +5331,7 @@ var STACK_DRAGGING_CLASS = "minimalism-ui-rsb-stack-dragging";
 var ICON_DRAG_ACTIVE_CLASS = "minimalism-ui-rsb-stack-icon-drag-active";
 var ICON_DRAGGING_BODY_CLASS = "minimalism-ui-rsb-icon-dragging";
 var ICON_DRAG_THRESHOLD_PX = 4;
+var TOGGLE_RIGHT_SIDEBAR_COMMAND_ID = "app:toggle-right-sidebar";
 var RightSidebarButtonManager = class {
   constructor(app, getSettings, save) {
     this.app = app;
@@ -4914,6 +5353,9 @@ var RightSidebarButtonManager = class {
     this.pointerDownInsidePanel = false;
     this.keydownHandler = null;
     this.layoutChangeHandler = null;
+    // 被拦截的命令执行口及其原始 executeCommand（用于 remove() 还原，见上方类型注释）。
+    this.patchedCommands = null;
+    this.originalExecuteCommand = null;
     this.isOpen = false;
     this.stackExpanded = false;
     // 面板是否被 pin 住；跨重启持久化于设置，见类注释。
@@ -4946,6 +5388,11 @@ var RightSidebarButtonManager = class {
     // 拖拽越过阈值后置位：吞掉这次拖拽松手后紧随而来的 click，避免误触发选中/收纳切换。
     // 超时兜底同 suppressNextOutsideClick，防止浏览器这次没派发 click 导致标记卡死。
     this.suppressNextIconClick = false;
+    // 面板开关态（isOpen）的订阅者——供 StatusBarMenuManager 之类的外部消费方在自己的
+    // 悬浮面板打开期间，实时感知“用户直接点了右下角悬浮按钮”这类不经过它的触发路径。
+    // 不随 remove()/apply() 的内部重建清空：订阅关系属于调用方，与本管理器的 DOM 重建
+    // 生命周期无关（详见 apply() 里 wasOpen/restoreOpenState 的重建保活注释）。
+    this.stateChangeListeners = /* @__PURE__ */ new Set();
     // 鼠标是否停留在 launcher（按钮 + 堆叠）范围内——决定自动收起定时器要不要暂停。
     this.isHovering = false;
     this.autoExpandTimer = null;
@@ -5108,7 +5555,7 @@ var RightSidebarButtonManager = class {
       cls: PIN_CLASS,
       attr: { "aria-label": t(this.isPinned ? "rightSidebarPanelUnpin" : "rightSidebarPanelPin") }
     });
-    (0, import_obsidian8.setIcon)(this.pinEl, PIN_ICON);
+    (0, import_obsidian9.setIcon)(this.pinEl, PIN_ICON);
     this.pinEl.toggleClass(PIN_ACTIVE_CLASS, this.isPinned);
     this.pinEl.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -5124,7 +5571,7 @@ var RightSidebarButtonManager = class {
       cls: BUTTON_CLASS,
       attr: { "aria-label": t("rightSidebarButtonLabel") }
     });
-    (0, import_obsidian8.setIcon)(this.buttonEl, DEFAULT_ICON);
+    (0, import_obsidian9.setIcon)(this.buttonEl, DEFAULT_ICON);
     this.buttonEl.addEventListener("click", (e) => {
       e.stopPropagation();
       this.setStackExpanded(false);
@@ -5164,16 +5611,45 @@ var RightSidebarButtonManager = class {
       if (this.isOpen) this.refreshStack();
     };
     this.app.workspace.on("layout-change", this.layoutChangeHandler);
+    const commands = this.app.commands;
+    if (commands && typeof commands.executeCommand === "function") {
+      this.patchedCommands = commands;
+      const original = commands.executeCommand;
+      this.originalExecuteCommand = original;
+      commands.executeCommand = (command, ...rest) => {
+        const result = original.call(commands, command, ...rest);
+        if (result && (command == null ? void 0 : command.id) === TOGGLE_RIGHT_SIDEBAR_COMMAND_ID) this.toggle();
+        return result;
+      };
+    }
   }
   toggle() {
     if (this.isOpen) this.close();
     else this.open();
+  }
+  // 供外部（StatusBarMenuManager）触发的公开入口，与直接点击右下角悬浮按钮等价。
+  // launcherEl 为 null 说明 showRightSidebarButton 关闭、面板未注入，直接 no-op。
+  togglePanel() {
+    if (!this.launcherEl) return;
+    this.toggle();
+  }
+  isPanelOpen() {
+    return this.isOpen;
+  }
+  // 订阅 isOpen 变化（见字段注释）。返回取消订阅函数。
+  onStateChange(cb) {
+    this.stateChangeListeners.add(cb);
+    return () => this.stateChangeListeners.delete(cb);
+  }
+  notifyStateChange() {
+    for (const cb of this.stateChangeListeners) cb();
   }
   open() {
     var _a, _b;
     this.isOpen = true;
     (_a = this.panelEl) == null ? void 0 : _a.addClass(OPEN_CLASS);
     (_b = this.buttonEl) == null ? void 0 : _b.addClass(BUTTON_ACTIVE_CLASS);
+    this.notifyStateChange();
     this.refreshStack();
     this.clearStackTimers();
     this.autoExpandTimer = window.setTimeout(() => {
@@ -5213,6 +5689,7 @@ var RightSidebarButtonManager = class {
     this.setStackExpanded(false);
     (_a = this.panelEl) == null ? void 0 : _a.removeClass(OPEN_CLASS);
     (_b = this.buttonEl) == null ? void 0 : _b.removeClass(BUTTON_ACTIVE_CLASS);
+    this.notifyStateChange();
   }
   setStackExpanded(expanded) {
     var _a;
@@ -5420,7 +5897,7 @@ var RightSidebarButtonManager = class {
           }
         });
         stowEl.toggleClass(STOW_ICON_EXPANDED_CLASS, this.stowExpanded);
-        (0, import_obsidian8.setIcon)(stowEl, STOW_ICON_GLYPH);
+        (0, import_obsidian9.setIcon)(stowEl, STOW_ICON_GLYPH);
         stowEl.addEventListener("click", (e) => {
           e.stopPropagation();
           this.onIconClick(() => this.toggleStowExpanded());
@@ -5437,7 +5914,7 @@ var RightSidebarButtonManager = class {
       iconEl.toggleClass(STACK_ICON_ACTIVE_CLASS, leaf === this.activeLeaf);
       iconEl.toggleClass(STACK_ICON_HIDDEN_CLASS, !this.stowExpanded && idx < stowIndex);
       iconEl.toggleClass(STACK_ICON_STOWED_CLASS, idx < stowIndex);
-      (0, import_obsidian8.setIcon)(iconEl, leaf.getIcon());
+      (0, import_obsidian9.setIcon)(iconEl, leaf.getIcon());
       iconEl.addEventListener("click", (e) => {
         e.stopPropagation();
         this.onIconClick(() => this.selectLeaf(leaf));
@@ -5619,7 +6096,7 @@ var RightSidebarButtonManager = class {
     (_a = this.contentEl) == null ? void 0 : _a.empty();
     (_b = this.contentEl) == null ? void 0 : _b.appendChild(viewEl);
     this.mountedLeaf = leaf;
-    if (this.buttonEl) (0, import_obsidian8.setIcon)(this.buttonEl, leaf.getIcon());
+    if (this.buttonEl) (0, import_obsidian9.setIcon)(this.buttonEl, leaf.getIcon());
     this.notifyResize(leaf);
   }
   showEmpty() {
@@ -5627,7 +6104,7 @@ var RightSidebarButtonManager = class {
     this.restoreMounted();
     (_a = this.contentEl) == null ? void 0 : _a.empty();
     (_b = this.contentEl) == null ? void 0 : _b.createDiv({ cls: EMPTY_CLASS, text: t("rightSidebarPanelEmpty") });
-    if (this.buttonEl) (0, import_obsidian8.setIcon)(this.buttonEl, DEFAULT_ICON);
+    if (this.buttonEl) (0, import_obsidian9.setIcon)(this.buttonEl, DEFAULT_ICON);
   }
   // onResize() 跑的是任意第三方/核心视图的代码，出错也不该拖垮我们自己的挂载逻辑。
   //
@@ -5695,6 +6172,11 @@ var RightSidebarButtonManager = class {
       this.app.workspace.off("layout-change", this.layoutChangeHandler);
       this.layoutChangeHandler = null;
     }
+    if (this.patchedCommands && this.originalExecuteCommand) {
+      this.patchedCommands.executeCommand = this.originalExecuteCommand;
+    }
+    this.patchedCommands = null;
+    this.originalExecuteCommand = null;
     this.endResizeDrag();
     activeDocument.body.removeClass(RESIZING_BODY_CLASS);
     this.endIconDrag();
@@ -5729,7 +6211,7 @@ var RightSidebarButtonManager = class {
 };
 
 // src/onboarding/OnboardingManager.ts
-var import_obsidian9 = require("obsidian");
+var import_obsidian10 = require("obsidian");
 var PANEL_CLASS2 = "minimalism-ui-onboarding";
 var ALL_DONE_HIDE_DELAY = 2500;
 var EXIT_DURATION = 320;
@@ -5740,8 +6222,8 @@ function hasIndexNote(app) {
 function homeNoteHasLink(app, settings) {
   const path = settings.homePage.trim();
   if (!path) return false;
-  const file = app.vault.getAbstractFileByPath((0, import_obsidian9.normalizePath)(path));
-  if (!(file instanceof import_obsidian9.TFile)) return false;
+  const file = app.vault.getAbstractFileByPath((0, import_obsidian10.normalizePath)(path));
+  if (!(file instanceof import_obsidian10.TFile)) return false;
   const links = app.metadataCache.resolvedLinks[file.path];
   return links != null && Object.keys(links).length > 0;
 }
@@ -5757,7 +6239,7 @@ function openPluginSettings(app) {
   setting == null ? void 0 : setting.open();
   setting == null ? void 0 : setting.openTabById(PLUGIN_ID);
 }
-var MOD_SYMBOLS = import_obsidian9.Platform.isMacOS ? { Mod: "\u2318", Ctrl: "\u2303", Meta: "\u2318", Alt: "\u2325", Shift: "\u21E7" } : { Mod: "Ctrl", Ctrl: "Ctrl", Meta: "Win", Alt: "Alt", Shift: "Shift" };
+var MOD_SYMBOLS = import_obsidian10.Platform.isMacOS ? { Mod: "\u2318", Ctrl: "\u2303", Meta: "\u2318", Alt: "\u2325", Shift: "\u21E7" } : { Mod: "Ctrl", Ctrl: "Ctrl", Meta: "Win", Alt: "Alt", Shift: "Shift" };
 var MOD_ORDER = ["Ctrl", "Alt", "Shift", "Meta", "Mod"];
 var KEY_LABELS = {
   ArrowLeft: "\u2190",
@@ -6006,8 +6488,8 @@ var FirstRunCleanup = class {
 };
 
 // src/SettingTab.ts
-var import_obsidian10 = require("obsidian");
-var FileSuggest = class extends import_obsidian10.AbstractInputSuggest {
+var import_obsidian11 = require("obsidian");
+var FileSuggest = class extends import_obsidian11.AbstractInputSuggest {
   constructor() {
     super(...arguments);
     this.onPickCb = null;
@@ -6029,7 +6511,7 @@ var FileSuggest = class extends import_obsidian10.AbstractInputSuggest {
     this.close();
   }
 };
-var MinimalismUISettingTab = class extends import_obsidian10.PluginSettingTab {
+var MinimalismUISettingTab = class extends import_obsidian11.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -6062,13 +6544,13 @@ var MinimalismUISettingTab = class extends import_obsidian10.PluginSettingTab {
     intro.createEl("p", { text: t("introDesc1") });
     intro.createEl("p", { text: t("introDesc2") });
     const generalEl = this.addCollapsibleSection("general", t("headingGeneral"));
-    new import_obsidian10.Setting(generalEl).setName(t("language")).addDropdown((drop) => drop.addOption("auto", t("languageAuto")).addOption("zh", t("languageZh")).addOption("en", t("languageEn")).setValue(this.plugin.settings.language).onChange(async (v) => {
+    new import_obsidian11.Setting(generalEl).setName(t("language")).addDropdown((drop) => drop.addOption("auto", t("languageAuto")).addOption("zh", t("languageZh")).addOption("en", t("languageEn")).setValue(this.plugin.settings.language).onChange(async (v) => {
       this.plugin.settings.language = v;
       setLang(v);
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian10.Setting(generalEl).setName(t("theme")).addDropdown((drop) => {
+    new import_obsidian11.Setting(generalEl).setName(t("theme")).addDropdown((drop) => {
       const names = this.plugin.listThemes();
       for (const name of names) drop.addOption(name, name);
       if (!names.includes(this.plugin.settings.theme)) {
@@ -6082,7 +6564,7 @@ var MinimalismUISettingTab = class extends import_obsidian10.PluginSettingTab {
       });
     });
     const interactionEl = this.addCollapsibleSection("interaction", t("headingInteraction"));
-    const singlePageSetting = new import_obsidian10.Setting(interactionEl).setName(t("singlePage"));
+    const singlePageSetting = new import_obsidian11.Setting(interactionEl).setName(t("singlePage"));
     singlePageSetting.settingEl.addClass("minimalism-ui-single-page-setting");
     singlePageSetting.addToggle((toggle) => toggle.setValue(this.plugin.settings.disableNoteTabs).onChange(async (v) => {
       this.plugin.settings.disableNoteTabs = v;
@@ -6096,7 +6578,7 @@ var MinimalismUISettingTab = class extends import_obsidian10.PluginSettingTab {
     singlePageSetting.descEl.createEl("br");
     singlePageSetting.descEl.createSpan({ text: t("singlePageDesc4") });
     singlePageSetting.descEl.createEl("br");
-    new import_obsidian10.Setting(interactionEl).setName(t("homePage")).setDesc(t("homePageDesc")).addText((text) => {
+    new import_obsidian11.Setting(interactionEl).setName(t("homePage")).setDesc(t("homePageDesc")).addText((text) => {
       text.setPlaceholder(t("homePagePlaceholder")).setValue(this.plugin.settings.homePage);
       const applyHomePage = (value) => {
         const changed = this.plugin.settings.homePage !== value;
@@ -6109,41 +6591,41 @@ var MinimalismUISettingTab = class extends import_obsidian10.PluginSettingTab {
       text.inputEl.addEventListener("change", () => applyHomePage(text.inputEl.value.trim()));
     });
     const appearanceEl = this.addCollapsibleSection("appearance", t("headingAppearance"));
-    new import_obsidian10.Setting(appearanceEl).setName(t("hideTabBar")).addToggle((toggle) => toggle.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
+    new import_obsidian11.Setting(appearanceEl).setName(t("hideTabBar")).addToggle((toggle) => toggle.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
       this.plugin.settings.hideTabBar = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian10.Setting(appearanceEl).setName(t("showProperties")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showProperties).onChange(async (v) => {
+    new import_obsidian11.Setting(appearanceEl).setName(t("showProperties")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showProperties).onChange(async (v) => {
       this.plugin.settings.showProperties = v;
       await this.plugin.saveSettings();
       await this.plugin.applyMacSidebarLayout();
     }));
-    new import_obsidian10.Setting(appearanceEl).setName(t("showLocalGraph")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showLocalGraph).onChange(async (v) => {
+    new import_obsidian11.Setting(appearanceEl).setName(t("showLocalGraph")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showLocalGraph).onChange(async (v) => {
       this.plugin.settings.showLocalGraph = v;
       await this.plugin.saveSettings();
       await this.plugin.applyMacSidebarLayout();
     }));
-    new import_obsidian10.Setting(appearanceEl).setName(t("showVaultProfile")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showVaultProfile).onChange(async (v) => {
+    new import_obsidian11.Setting(appearanceEl).setName(t("showVaultProfile")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showVaultProfile).onChange(async (v) => {
       this.plugin.settings.showVaultProfile = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian10.Setting(appearanceEl).setName(t("showRightSidebarButton")).setDesc(t("showRightSidebarButtonDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showRightSidebarButton).onChange(async (v) => {
+    new import_obsidian11.Setting(appearanceEl).setName(t("showRightSidebarButton")).setDesc(t("showRightSidebarButtonDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showRightSidebarButton).onChange(async (v) => {
       this.plugin.settings.showRightSidebarButton = v;
       await this.plugin.saveSettings();
     }));
     const animationEl = this.addCollapsibleSection("animation", t("headingAnimation"));
-    new import_obsidian10.Setting(animationEl).setName(t("navAnimation")).setDesc(t("navAnimationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
+    new import_obsidian11.Setting(animationEl).setName(t("navAnimation")).setDesc(t("navAnimationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
       this.plugin.settings.enableNavAnimation = v;
       await this.plugin.saveSettings();
     }));
     const advancedEl = this.addCollapsibleSection("advanced", t("headingAdvanced"));
-    new import_obsidian10.Setting(advancedEl).setName(t("filenamePrefixManual")).setDesc(t("filenamePrefixManualDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.filenamePrefixManual).onChange((value) => {
+    new import_obsidian11.Setting(advancedEl).setName(t("filenamePrefixManual")).setDesc(t("filenamePrefixManualDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.filenamePrefixManual).onChange((value) => {
       this.plugin.settings.filenamePrefixManual = value;
       void this.plugin.saveSettings();
       this.display();
     }));
     if (this.plugin.settings.filenamePrefixManual) {
-      new import_obsidian10.Setting(advancedEl).setName(t("filenamePrefixLength")).setDesc(t("filenamePrefixLengthDesc")).addText((text) => {
+      new import_obsidian11.Setting(advancedEl).setName(t("filenamePrefixLength")).setDesc(t("filenamePrefixLengthDesc")).addText((text) => {
         text.inputEl.type = "number";
         text.inputEl.min = "0";
         text.inputEl.max = "20";
@@ -6162,7 +6644,7 @@ var MinimalismUISettingTab = class extends import_obsidian10.PluginSettingTab {
 };
 
 // main.ts
-var MinimalismUIPlugin = class extends import_obsidian11.Plugin {
+var MinimalismUIPlugin = class extends import_obsidian12.Plugin {
   constructor() {
     super(...arguments);
     // 所有功能单元，统一用于卸载，避免逐个手写 remove() 时遗漏。
@@ -6185,7 +6667,11 @@ var MinimalismUIPlugin = class extends import_obsidian11.Plugin {
       settings,
       () => this.engine.getNavHistory(),
       (index) => this.engine.navigateHistoryTo(index),
-      (key) => this.engine.getNavDisplayName(key)
+      (key) => this.engine.getNavDisplayName(key),
+      () => this.engine.goBack(),
+      () => this.engine.goForward(),
+      () => this.engine.canGoBack(),
+      () => this.engine.canGoForward()
     );
     this.engine.setNavChangeListener((leaf) => this.dragBar.notifyNavChange(leaf));
     this.sidebarLayout = new SidebarLayoutManager(this.app, settings, this.pinManager);
@@ -6196,6 +6682,7 @@ var MinimalismUIPlugin = class extends import_obsidian11.Plugin {
     this.editorStatus = new EditorStatusManager(this.app, this);
     this.mermaidZoom = new MermaidZoomManager(this.app);
     this.rightSidebarButton = new RightSidebarButtonManager(this.app, settings, () => this.saveData(this.settings));
+    this.statusBarMenu = new StatusBarMenuManager(this.app, this, this.rightSidebarButton);
     this.onboarding = new OnboardingManager(this.app, settings, () => this.saveData(this.settings));
     this.firstRunCleanup = new FirstRunCleanup(this.app, async () => {
       this.settings.firstRunCleanupDone = true;
@@ -6219,7 +6706,8 @@ var MinimalismUIPlugin = class extends import_obsidian11.Plugin {
       this.onboarding,
       this.rightSidebarButton,
       this.ribbonPanel,
-      this.editorStatus
+      this.editorStatus,
+      this.statusBarMenu
     ];
     await this.fontLoader.apply();
     void this.themeLoader.apply();
@@ -6233,6 +6721,7 @@ var MinimalismUIPlugin = class extends import_obsidian11.Plugin {
     this.mermaidZoom.apply();
     this.onboarding.apply();
     this.rightSidebarButton.apply();
+    this.statusBarMenu.apply();
     this.app.workspace.onLayoutReady(() => {
       this.dragBar.apply();
       this.homePage.apply();

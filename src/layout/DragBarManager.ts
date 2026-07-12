@@ -1,6 +1,7 @@
-import { App, Platform, WorkspaceLeaf } from 'obsidian';
+import { App, Platform, setIcon, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
 import { BreadcrumbRenderer } from './BreadcrumbRenderer';
+import { t } from '../core/i18n';
 
 type WorkspaceSplitInternal = { containerEl: HTMLElement };
 
@@ -16,6 +17,8 @@ export class DragBarManager {
 	private statusBarOriginalParent: HTMLElement | null = null;
 	private statusBarOriginalNextSibling: Element | null = null;
 	private breadcrumb: BreadcrumbRenderer;
+	private backBtn: HTMLElement | null = null;
+	private forwardBtn: HTMLElement | null = null;
 	// 监测左侧栏展开/收起:ResizeObserver 在侧栏拖拽/折叠时会持续触发(见 SidebarLayoutManager),
 	// 比 layout-change 更及时,确保收起瞬间面包屑就右移让位。
 	private leftSplitObserver: ResizeObserver | null = null;
@@ -30,8 +33,19 @@ export class DragBarManager {
 		navHistoryGetter: () => string[] = () => [],
 		onBreadcrumbNavigate: (index: number) => void = () => {},
 		navDisplayNameGetter: (key: string) => string | null = () => null,
+		private onGoBack: () => void = () => {},
+		private onGoForward: () => void = () => {},
+		private canGoBackGetter: () => boolean = () => false,
+		private canGoForwardGetter: () => boolean = () => false,
 	) {
-		this.breadcrumb = new BreadcrumbRenderer(app, getSettings, navHistoryGetter, onBreadcrumbNavigate, navDisplayNameGetter);
+		this.breadcrumb = new BreadcrumbRenderer(
+			app,
+			getSettings,
+			navHistoryGetter,
+			onBreadcrumbNavigate,
+			navDisplayNameGetter,
+			() => this.updateNavButtons(),
+		);
 	}
 
 	// 引擎记录一次导航后转发给面包屑刷新：覆盖 active-leaf-change 未触发的 deferred 视图 reveal 场景。
@@ -59,6 +73,32 @@ export class DragBarManager {
 		const titleEl = createSpan();
 		titleEl.className = 'minimalism-ui-drag-bar-title';
 		row1.appendChild(titleEl);
+
+		// 前进/后退按钮,挂在面包屑标题区最前面（titleEl 内部而非 row1 兄弟节点,
+		// 使其随 is-left-collapsed 一起被 macOS 红绿灯让位逻辑整体右移,不会被盖住）。
+		const navButtonsEl = createDiv();
+		navButtonsEl.className = 'minimalism-ui-drag-bar-nav-buttons';
+		titleEl.appendChild(navButtonsEl);
+
+		this.backBtn = createSpan();
+		this.backBtn.className = 'minimalism-ui-drag-bar-nav-btn';
+		this.backBtn.setAttribute('aria-label', t('navBack'));
+		setIcon(this.backBtn, 'arrow-left');
+		this.backBtn.addEventListener('click', () => {
+			if (this.backBtn?.hasClass('is-disabled')) return;
+			this.onGoBack();
+		});
+		navButtonsEl.appendChild(this.backBtn);
+
+		this.forwardBtn = createSpan();
+		this.forwardBtn.className = 'minimalism-ui-drag-bar-nav-btn';
+		this.forwardBtn.setAttribute('aria-label', t('navForward'));
+		setIcon(this.forwardBtn, 'arrow-right');
+		this.forwardBtn.addEventListener('click', () => {
+			if (this.forwardBtn?.hasClass('is-disabled')) return;
+			this.onGoForward();
+		});
+		navButtonsEl.appendChild(this.forwardBtn);
 
 		// 面包屑前的装饰小圆点（不再显示 tab 数量）
 		const dotEl = createSpan();
@@ -91,6 +131,13 @@ export class DragBarManager {
 			this.statusBarOriginalNextSibling = statusBar.nextElementSibling;
 			row1.appendChild(statusBar);
 		}
+	}
+
+	// 面包屑每次重绘都会触发一次(经 BreadcrumbRenderer 的 onAfterUpdate 回调),据此同步刷新
+	// 前进/后退按钮的可用态:历史只剩一项(或更早)时后退变灰,future 为空时前进变灰。
+	private updateNavButtons() {
+		this.backBtn?.toggleClass('is-disabled', !this.canGoBackGetter());
+		this.forwardBtn?.toggleClass('is-disabled', !this.canGoForwardGetter());
 	}
 
 	/**
@@ -164,5 +211,7 @@ export class DragBarManager {
 			this.dragBar.remove();
 			this.dragBar = null;
 		}
+		this.backBtn = null;
+		this.forwardBtn = null;
 	}
 }

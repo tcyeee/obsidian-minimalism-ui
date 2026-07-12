@@ -280,6 +280,23 @@ export class SinglePageEngine {
 		this.nav.jumpToIndex(index);
 	}
 
+	// 拖拽栏前进/后退按钮:直接复用 nav 的判定与执行逻辑，与快捷键/面包屑保持同一套语义。
+	goBack() {
+		this.nav.back();
+	}
+
+	goForward() {
+		this.nav.forward();
+	}
+
+	canGoBack(): boolean {
+		return this.nav.canGoBack();
+	}
+
+	canGoForward(): boolean {
+		return this.nav.canGoForward();
+	}
+
 	// 记录跨 tab 导航历史：只对 root leaf 且有 filePath 的激活生效，再交给 nav 处理一次性标志与去重。
 	// root leaf 判断必须先于 nav.record，防止侧边栏等无关激活提前消耗 nav 的一次性标志。
 	private handleNavTrack(leaf: WorkspaceLeaf | null) {
