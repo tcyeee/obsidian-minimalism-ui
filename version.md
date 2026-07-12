@@ -5,6 +5,18 @@
 
 ---
 
+## Version 1.3.12
+
+- Added back/forward navigation buttons to the top drag bar, next to the breadcrumb — jump through your cross-tab history without reaching for the keyboard
+- Added a new "actions menu" icon in the status bar: switch the active note between locked (reading), edit (live preview), and source mode; rename or delete the note; export to PDF; open the file with your system's default app; and toggle the left/right sidebars — all from one popover
+- Internal: fixed a moderate dependency vulnerability in a build tool (js-yaml) and removed an unnecessary type cast in the new status bar code — no user-visible behavior change
+
+- 拖拽栏面包屑旁新增前进/后退导航按钮，无需键盘即可在跨标签页历史记录中跳转
+- 状态栏新增"操作菜单"图标：可在锁定（阅读）/编辑（实时预览）/源码三种模式间切换当前笔记，重命名或删除笔记，导出为 PDF，用系统默认程序打开文件，以及开关左右侧边栏——均整合在同一个悬浮面板中
+- 内部修复：修复了一处构建工具（js-yaml）的中等风险依赖漏洞，并移除了新增状态栏代码中一处多余的类型转换——无用户可见行为变化
+
+---
+
 ## Version 1.3.11
 
 - The right sidebar's floating icon stack now supports drag-to-reorder, and a new collapse ("stow") toggle lets you hide icons you rarely use behind a chevron — both the order and the collapse boundary persist across restarts
