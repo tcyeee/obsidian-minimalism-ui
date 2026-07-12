@@ -5,6 +5,20 @@
 
 ---
 
+## Version 1.3.14
+
+- **Requires Obsidian 1.13.0 or later** (up from 1.7.2) — the settings tab now uses Obsidian's new declarative settings API
+- Fixed: the home note could occasionally drop out of your back-navigation history, or appear duplicated in it, after closing tabs or navigating back and forth; it now stays reliably pinned as the anchor at the start of your history
+- Fixed: reopening a history entry that had been closed or evicted from the tab cache now reuses an existing blank tab instead of always opening a new one
+- Internal: minor type-safety cleanups (removed unnecessary non-null assertions and a redundant type union) — no user-visible behavior change
+
+- **需要 Obsidian 1.13.0 或以上版本**（原为 1.7.2）——设置页面已迁移至 Obsidian 新的声明式设置 API
+- 修复：关闭标签页或反复前进/后退后，首页笔记偶尔会从后退历史中丢失，或在其中重复出现；现在首页会稳定固定在历史记录起点
+- 修复：重新打开一个已被关闭或从标签缓存中淘汰的历史记录条目时，现在会复用已有的空白标签页，而非总是新开一个
+- 内部修复：若干类型安全清理（移除多余的非空断言与冗余类型联合）——无用户可见行为变化
+
+---
+
 ## Version 1.3.13
 
 - Fixed: renaming or deleting a note from the status bar's actions menu now shows an error notice instead of failing silently if the operation can't complete (e.g. a name collision or a locked file)

@@ -359,6 +359,18 @@ export class SinglePageEngine {
 		return found;
 	}
 
+	// 复用一个已存在的空白 leaf（无文件、未处于 pending 拦截中）而非总是新开 tab，与
+	// openHomePage() 的 canReuse 判断同一套逻辑。onTabClosing 关闭最后一篇笔记后落到 home
+	// （首页此前从未真正打开过、只是被 ensureHomeInvariant 钉在历史栈里的锚点）这类场景下，
+	// 若不复用，会把一个 Cmd+N 之类留下的空白标签晾在一边、又额外新开一个标签。
+	private acquireReopenLeaf(): WorkspaceLeaf {
+		const active = this.app.workspace.getMostRecentLeaf();
+		const canReuse = !!active
+			&& !this.filePathForLeaf(active)
+			&& !this.pendingInterceptLeaves.has(active);
+		return canReuse && active ? active : this.originalGetLeaf!('tab');
+	}
+
 	// 激活已显示目标路径的 root leaf；若无（已被 LRU 淘汰或手动关闭）则重新打开该文件。
 	// 供 NavigationHistory 的 back/forward/onTabClosing 回调调用，收敛此前散落 4 处的重复逻辑。
 	// animCls：前进/后退要播放的入场动画方向（onTabClosing 传 null 不播放）。在 setActiveLeaf
@@ -375,10 +387,10 @@ export class SinglePageEngine {
 		}
 		if (!this.originalGetLeaf) return;
 		// 无文件视图条目（关系图 / 其余插件视图）：缓存中已无对应 leaf（被 LRU 淘汰或手动关闭），
-		// 从合成键反解出 viewType，新开一个 tab 按 viewType 重建该视图以重现历史条目。
+		// 从合成键反解出 viewType，复用一个空白 leaf（或新开 tab）按 viewType 重建该视图以重现历史条目。
 		const reopenViewType = viewTypeFromKey(path);
 		if (reopenViewType) {
-			const newLeaf = this.originalGetLeaf('tab');
+			const newLeaf = this.acquireReopenLeaf();
 			this.patchLeafHistory(newLeaf);
 			this.patchRootLeafDetach(newLeaf);
 			void (newLeaf as LeafInternal).setViewState({ type: reopenViewType }).then(() => {
@@ -389,7 +401,7 @@ export class SinglePageEngine {
 		}
 		const file = this.app.vault.getAbstractFileByPath(path);
 		if (!(file instanceof TFile)) return;
-		const newLeaf = this.originalGetLeaf('tab');
+		const newLeaf = this.acquireReopenLeaf();
 		this.patchLeafHistory(newLeaf);
 		this.patchRootLeafDetach(newLeaf);
 		void (newLeaf as LeafInternal).openFile(file).then(() => {

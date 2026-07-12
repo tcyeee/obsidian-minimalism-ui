@@ -2710,6 +2710,7 @@ var NavigationHistory = class {
   // apply() 中途启用时用当前文件兜底初始化，避免首次后退因历史为空而静默失败
   seed(filePath) {
     if (this.history.length === 0) this.history.push(filePath);
+    this.ensureHomeInvariant();
   }
   // 设置新首页后把整条导航栈收拢为「仅首页」：清空 history / future 与一次性标志，
   // 使面包屑也只剩首页一项。path 为空则整条清空。由 SinglePageEngine.resetToHomePage 调用。
@@ -2721,6 +2722,7 @@ var NavigationHistory = class {
     this.currentRootPath = path || null;
     this.jumpPath = null;
     this.isClosingTab = false;
+    this.ensureHomeInvariant();
   }
   // 引擎在每次 root leaf 激活时调用，记录主区域当前显示的文件路径（无文件视图传 null）。
   // 必须对所有 root leaf 激活生效（含关系图等无文件视图），back/canGoBack 依赖它判断
@@ -2751,6 +2753,7 @@ var NavigationHistory = class {
     const prevToTop = this.history[this.history.length - 2];
     if (top !== void 0 && isFilelessViewKey(top) && prevToTop === filePath) {
       this.future.unshift(this.history.pop());
+      this.ensureHomeInvariant();
       return;
     }
     this.push(filePath);
@@ -2758,9 +2761,11 @@ var NavigationHistory = class {
   // 将文件路径写入 history（幂等：已是末尾则跳过，同时清除 forward 历史）
   push(filePath) {
     const last = this.history[this.history.length - 1];
-    if (last === filePath) return;
-    this.history.push(filePath);
-    this.future = [];
+    if (last !== filePath) {
+      this.history.push(filePath);
+      this.future = [];
+    }
+    this.ensureHomeInvariant();
   }
   // 笔记重命名时同步更新 history / future 中的路径，防止旧路径导致后退/前进跳过该条目
   handleRename(oldPath, newPath) {
@@ -2780,12 +2785,36 @@ var NavigationHistory = class {
     this.history = this.history.filter((p) => p !== path);
     this.future = this.future.filter((p) => p !== path);
     if (this.jumpPath === path) this.jumpPath = null;
+    this.ensureHomeInvariant();
   }
   // 历史条目是否仍可定位/重开：无文件视图的合成键恒为真（随时可按 viewType 重建视图）；
   // 其余为文件路径，仅当 vault 中仍存在该文件时为真。死条目（已删除文件）返回 false。
   isReopenable(key) {
     if (isFilelessViewKey(key)) return true;
     return this.app.vault.getAbstractFileByPath(key) instanceof import_obsidian.TFile;
+  }
+  // 维护首页在导航栈里的不变式：home 若存在必须在 history 里唯一；且仅当它不是"当前显示项"
+  // （即不是 history 末项）时才固定在 index 0，充当随时可点回去的锚点——如果它正是当前显示项，
+  // 就按正常时序留在末尾（此时它本身就是"当前页"，不需要再给自己一个锚点）。
+  // 不动 future：它是标准的"前进"重做栈，home 完全可能因为 back()/foldTo() 离开首页而合法地
+  // 落入其中（语义等同离开任意一篇笔记），此时应保留以支持前进撤销；这一层只保证 history 内
+  // 唯一——多出的重复项会在它随 forward() 重新 push 回 history 的同一次调用里被这里去重。
+  // history 真正清空（用户关完了整条后退链）时直接跳过：那是 HomePageManager 据 isEmpty()
+  // 走正规首页打开流程的信号，此处强行钉回一个没有真实 leaf 撑着的假条目会把信号吞掉。
+  // 由所有会修改 history/future 的方法在完成各自的簿记后调用，取代任何轮询/渲染时扫描——
+  // history/future 是本类完全私有封装的两个数组，这几个方法是它们仅有的写入口，因此在
+  // 写入口收尾处强制收敛是穷举式的，不会有遗漏场景。
+  ensureHomeInvariant() {
+    if (this.history.length === 0) return;
+    const home = this.getSettings().homePage;
+    if (!home || !this.isReopenable(home)) return;
+    const wasCurrent = this.history[this.history.length - 1] === home;
+    this.history = this.history.filter((p) => p !== home);
+    if (wasCurrent) {
+      this.history.push(home);
+    } else {
+      this.history.unshift(home);
+    }
   }
   back() {
     this.cancelTimer();
@@ -2805,6 +2834,7 @@ var NavigationHistory = class {
       }
       const current = this.history.pop();
       this.future.unshift(current);
+      this.ensureHomeInvariant();
       this.jumpPath = prevPath;
       this.scheduleActivate(prevPath, "minimalism-ui-slide-from-left");
       return;
@@ -2834,6 +2864,7 @@ var NavigationHistory = class {
     this.cancelTimer();
     const removed = this.history.splice(index + 1);
     this.future = removed.concat(this.future);
+    this.ensureHomeInvariant();
     this.jumpPath = target;
     return true;
   }
@@ -2843,6 +2874,7 @@ var NavigationHistory = class {
       const nextPath = this.future.shift();
       if (!this.isReopenable(nextPath)) continue;
       this.history.push(nextPath);
+      this.ensureHomeInvariant();
       this.jumpPath = nextPath;
       this.scheduleActivate(nextPath, "minimalism-ui-slide-from-right");
       return;
@@ -2865,6 +2897,7 @@ var NavigationHistory = class {
       const idx = this.history.lastIndexOf(closingPath);
       if (idx !== -1) this.history.splice(idx, 1);
     }
+    this.ensureHomeInvariant();
     const prevPath = this.history[this.history.length - 1];
     if (prevPath !== void 0) {
       this.isClosingTab = true;
@@ -3322,6 +3355,15 @@ var SinglePageEngine = class {
     });
     return found;
   }
+  // 复用一个已存在的空白 leaf（无文件、未处于 pending 拦截中）而非总是新开 tab，与
+  // openHomePage() 的 canReuse 判断同一套逻辑。onTabClosing 关闭最后一篇笔记后落到 home
+  // （首页此前从未真正打开过、只是被 ensureHomeInvariant 钉在历史栈里的锚点）这类场景下，
+  // 若不复用，会把一个 Cmd+N 之类留下的空白标签晾在一边、又额外新开一个标签。
+  acquireReopenLeaf() {
+    const active = this.app.workspace.getMostRecentLeaf();
+    const canReuse = !!active && !this.filePathForLeaf(active) && !this.pendingInterceptLeaves.has(active);
+    return canReuse && active ? active : this.originalGetLeaf("tab");
+  }
   // 激活已显示目标路径的 root leaf；若无（已被 LRU 淘汰或手动关闭）则重新打开该文件。
   // 供 NavigationHistory 的 back/forward/onTabClosing 回调调用，收敛此前散落 4 处的重复逻辑。
   // animCls：前进/后退要播放的入场动画方向（onTabClosing 传 null 不播放）。在 setActiveLeaf
@@ -3339,7 +3381,7 @@ var SinglePageEngine = class {
     if (!this.originalGetLeaf) return;
     const reopenViewType = viewTypeFromKey(path);
     if (reopenViewType) {
-      const newLeaf2 = this.originalGetLeaf("tab");
+      const newLeaf2 = this.acquireReopenLeaf();
       this.patchLeafHistory(newLeaf2);
       this.patchRootLeafDetach(newLeaf2);
       void newLeaf2.setViewState({ type: reopenViewType }).then(() => {
@@ -3350,7 +3392,7 @@ var SinglePageEngine = class {
     }
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!(file instanceof import_obsidian2.TFile)) return;
-    const newLeaf = this.originalGetLeaf("tab");
+    const newLeaf = this.acquireReopenLeaf();
     this.patchLeafHistory(newLeaf);
     this.patchRootLeafDetach(newLeaf);
     void newLeaf.openFile(file).then(() => {
@@ -3938,6 +3980,8 @@ var BreadcrumbRenderer = class {
     this.onAfterUpdate();
   }
   // 导航历史的首项是否正好是设置里的主页(homePage 存的是完整路径,与历史栈一致)。
+  // NavigationHistory.ensureHomeInvariant 保证了：只要设置了首页且当前不在首页本身，
+  // 首页必然唯一地出现在 history[0]，故这里直接比较即可，无需在渲染层再做额外兜底。
   firstIsHome(paths) {
     const home = this.getSettings().homePage;
     return !!home && paths[0] === home;
@@ -3984,11 +4028,16 @@ var BreadcrumbRenderer = class {
         if (i === paths.length - 1 && filelessLabel) return filelessLabel;
         return (_b = (_a = this.navDisplayNameGetter(p)) != null ? _a : viewTypeFromKey(p)) != null ? _b : p;
       }
-      const f = this.app.vault.getAbstractFileByPath(p);
-      if (f instanceof import_obsidian3.TFile) return this.stripName(f.basename);
-      const base = p.split("/").pop().replace(/\.md$/, "");
-      return this.stripName(base);
+      return this.nameForFilePath(p);
     });
+  }
+  // 文件路径 → 展示名。文件已不在 vault(被删)时从路径推导 basename(去目录、去扩展名)
+  // 再剥前缀,避免直接对完整路径 slice 导致连文件夹名 / 扩展名一起被截。
+  nameForFilePath(p) {
+    const f = this.app.vault.getAbstractFileByPath(p);
+    if (f instanceof import_obsidian3.TFile) return this.stripName(f.basename);
+    const base = p.split("/").pop().replace(/\.md$/, "");
+    return this.stripName(base);
   }
   // 渲染完整路径:单项→当前项;超阈值或溢出→折叠中间项;否则完整列出。
   renderTrail(names, firstIsHome) {
@@ -6581,130 +6630,216 @@ var MinimalismUISettingTab = class extends import_obsidian11.PluginSettingTab {
     super(app, plugin);
     this.plugin = plugin;
   }
-  addCollapsibleSection(key, title) {
+  isCollapsed(key) {
     var _a;
-    const { containerEl } = this;
-    const isCollapsed = (_a = this.plugin.settings.collapsedSections[key]) != null ? _a : false;
-    const headingEl = containerEl.createDiv({
-      cls: "setting-item setting-item-heading minimalism-ui-collapsible-heading" + (isCollapsed ? " minimalism-ui-collapsible-heading-collapsed" : "")
-    });
-    const nameEl = headingEl.createDiv({ cls: "setting-item-info" }).createDiv({ cls: "setting-item-name" });
-    nameEl.createSpan({ cls: "minimalism-ui-section-arrow" });
-    nameEl.createSpan({ text: title });
-    const contentEl = containerEl.createDiv({ cls: "minimalism-ui-collapsible-content" });
-    headingEl.addEventListener("click", () => {
-      var _a2;
-      const nowCollapsed = !((_a2 = this.plugin.settings.collapsedSections[key]) != null ? _a2 : false);
-      this.plugin.settings.collapsedSections[key] = nowCollapsed;
-      headingEl.toggleClass("minimalism-ui-collapsible-heading-collapsed", nowCollapsed);
-      void this.plugin.saveSettings();
-    });
-    return contentEl;
+    return (_a = this.plugin.settings.collapsedSections[key]) != null ? _a : false;
   }
-  display() {
-    const { containerEl } = this;
-    containerEl.empty();
-    const intro = containerEl.createDiv({ cls: "minimalism-ui-intro" });
-    intro.createDiv({ cls: "minimalism-ui-intro-title", text: t("introTitle") });
-    intro.createEl("p", { text: t("introDesc1") });
-    intro.createEl("p", { text: t("introDesc2") });
-    const generalEl = this.addCollapsibleSection("general", t("headingGeneral"));
-    new import_obsidian11.Setting(generalEl).setName(t("language")).addDropdown((drop) => drop.addOption("auto", t("languageAuto")).addOption("zh", t("languageZh")).addOption("en", t("languageEn")).setValue(this.plugin.settings.language).onChange(async (v) => {
-      this.plugin.settings.language = v;
-      setLang(v);
-      await this.plugin.saveSettings();
-      this.display();
-    }));
-    new import_obsidian11.Setting(generalEl).setName(t("theme")).addDropdown((drop) => {
-      const names = this.plugin.listThemes();
-      for (const name of names) drop.addOption(name, name);
-      if (!names.includes(this.plugin.settings.theme)) {
-        drop.addOption(this.plugin.settings.theme, this.plugin.settings.theme);
-      }
-      drop.setValue(this.plugin.settings.theme);
-      drop.onChange(async (v) => {
-        this.plugin.settings.theme = v;
-        await this.plugin.saveSettings();
-        await this.plugin.applyTheme();
+  // 可折叠分组标题：点击只切换 collapsedSections[key] + refreshDomState()，
+  // 不做整体重渲染——分组内容的显隐交给下面 group 定义的 visible 谓词。
+  renderSectionHeading(key, title) {
+    return (setting) => {
+      const headingEl = setting.settingEl;
+      headingEl.empty();
+      headingEl.className = "setting-item setting-item-heading minimalism-ui-collapsible-heading" + (this.isCollapsed(key) ? " minimalism-ui-collapsible-heading-collapsed" : "");
+      const nameEl = headingEl.createDiv({ cls: "setting-item-info" }).createDiv({ cls: "setting-item-name" });
+      nameEl.createSpan({ cls: "minimalism-ui-section-arrow" });
+      nameEl.createSpan({ text: title });
+      headingEl.addEventListener("click", () => {
+        const nowCollapsed = !this.isCollapsed(key);
+        this.plugin.settings.collapsedSections[key] = nowCollapsed;
+        headingEl.toggleClass("minimalism-ui-collapsible-heading-collapsed", nowCollapsed);
+        void this.plugin.saveSettings();
+        this.refreshDomState();
       });
-    });
-    const interactionEl = this.addCollapsibleSection("interaction", t("headingInteraction"));
-    const singlePageSetting = new import_obsidian11.Setting(interactionEl).setName(t("singlePage"));
-    singlePageSetting.settingEl.addClass("minimalism-ui-single-page-setting");
-    singlePageSetting.addToggle((toggle) => toggle.setValue(this.plugin.settings.disableNoteTabs).onChange(async (v) => {
-      this.plugin.settings.disableNoteTabs = v;
-      await this.plugin.saveSettings();
-    }));
-    singlePageSetting.descEl.createSpan({ text: t("singlePageDesc1") });
-    singlePageSetting.descEl.createEl("br");
-    singlePageSetting.descEl.createSpan({ text: t("singlePageDesc2") });
-    singlePageSetting.descEl.createEl("br");
-    singlePageSetting.descEl.createSpan({ text: t("singlePageDesc3") });
-    singlePageSetting.descEl.createEl("br");
-    singlePageSetting.descEl.createSpan({ text: t("singlePageDesc4") });
-    singlePageSetting.descEl.createEl("br");
-    new import_obsidian11.Setting(interactionEl).setName(t("homePage")).setDesc(t("homePageDesc")).addText((text) => {
-      text.setPlaceholder(t("homePagePlaceholder")).setValue(this.plugin.settings.homePage);
-      const applyHomePage = (value) => {
-        const changed = this.plugin.settings.homePage !== value;
-        this.plugin.settings.homePage = value;
-        void this.plugin.saveSettings().then(() => {
-          if (changed && value) void this.plugin.resetToHomePage();
-        });
-      };
-      new FileSuggest(this.app, text.inputEl).onPick((path) => applyHomePage(path));
-      text.inputEl.addEventListener("change", () => applyHomePage(text.inputEl.value.trim()));
-    });
-    const appearanceEl = this.addCollapsibleSection("appearance", t("headingAppearance"));
-    new import_obsidian11.Setting(appearanceEl).setName(t("hideTabBar")).addToggle((toggle) => toggle.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
-      this.plugin.settings.hideTabBar = v;
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian11.Setting(appearanceEl).setName(t("showProperties")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showProperties).onChange(async (v) => {
-      this.plugin.settings.showProperties = v;
-      await this.plugin.saveSettings();
-      await this.plugin.applyMacSidebarLayout();
-    }));
-    new import_obsidian11.Setting(appearanceEl).setName(t("showLocalGraph")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showLocalGraph).onChange(async (v) => {
-      this.plugin.settings.showLocalGraph = v;
-      await this.plugin.saveSettings();
-      await this.plugin.applyMacSidebarLayout();
-    }));
-    new import_obsidian11.Setting(appearanceEl).setName(t("showVaultProfile")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showVaultProfile).onChange(async (v) => {
-      this.plugin.settings.showVaultProfile = v;
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian11.Setting(appearanceEl).setName(t("showRightSidebarButton")).setDesc(t("showRightSidebarButtonDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showRightSidebarButton).onChange(async (v) => {
-      this.plugin.settings.showRightSidebarButton = v;
-      await this.plugin.saveSettings();
-    }));
-    const animationEl = this.addCollapsibleSection("animation", t("headingAnimation"));
-    new import_obsidian11.Setting(animationEl).setName(t("navAnimation")).setDesc(t("navAnimationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
-      this.plugin.settings.enableNavAnimation = v;
-      await this.plugin.saveSettings();
-    }));
-    const advancedEl = this.addCollapsibleSection("advanced", t("headingAdvanced"));
-    new import_obsidian11.Setting(advancedEl).setName(t("filenamePrefixManual")).setDesc(t("filenamePrefixManualDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.filenamePrefixManual).onChange((value) => {
-      this.plugin.settings.filenamePrefixManual = value;
-      void this.plugin.saveSettings();
-      this.display();
-    }));
-    if (this.plugin.settings.filenamePrefixManual) {
-      new import_obsidian11.Setting(advancedEl).setName(t("filenamePrefixLength")).setDesc(t("filenamePrefixLengthDesc")).addText((text) => {
-        text.inputEl.type = "number";
-        text.inputEl.min = "0";
-        text.inputEl.max = "20";
-        text.inputEl.addClass("minimalism-ui-prefix-input");
-        text.setValue(String(this.plugin.settings.filenamePrefixLength));
-        text.inputEl.addEventListener("change", () => {
-          const raw = parseInt(text.inputEl.value, 10);
-          const clamped = isNaN(raw) ? 0 : Math.min(20, Math.max(0, raw));
-          text.setValue(String(clamped));
-          this.plugin.settings.filenamePrefixLength = clamped;
-          void this.plugin.saveSettings();
-        });
-      });
-    }
+    };
+  }
+  section(key, title, items) {
+    return [
+      { name: title, searchable: false, render: this.renderSectionHeading(key, title) },
+      { type: "group", visible: () => !this.isCollapsed(key), items }
+    ];
+  }
+  getSettingDefinitions() {
+    return [
+      {
+        name: t("introTitle"),
+        searchable: false,
+        render: (setting) => {
+          const el = setting.settingEl;
+          el.empty();
+          el.className = "minimalism-ui-intro";
+          el.createDiv({ cls: "minimalism-ui-intro-title", text: t("introTitle") });
+          el.createEl("p", { text: t("introDesc1") });
+          el.createEl("p", { text: t("introDesc2") });
+        }
+      },
+      ...this.section("general", t("headingGeneral"), [
+        {
+          name: t("language"),
+          render: (setting) => {
+            setting.addDropdown((drop) => drop.addOption("auto", t("languageAuto")).addOption("zh", t("languageZh")).addOption("en", t("languageEn")).setValue(this.plugin.settings.language).onChange(async (v) => {
+              this.plugin.settings.language = v;
+              setLang(v);
+              await this.plugin.saveSettings();
+              this.update();
+            }));
+          }
+        },
+        {
+          name: t("theme"),
+          render: (setting) => {
+            setting.addDropdown((drop) => {
+              const names = this.plugin.listThemes();
+              for (const name of names) drop.addOption(name, name);
+              if (!names.includes(this.plugin.settings.theme)) {
+                drop.addOption(this.plugin.settings.theme, this.plugin.settings.theme);
+              }
+              drop.setValue(this.plugin.settings.theme);
+              drop.onChange(async (v) => {
+                this.plugin.settings.theme = v;
+                await this.plugin.saveSettings();
+                await this.plugin.applyTheme();
+              });
+            });
+          }
+        }
+      ]),
+      ...this.section("interaction", t("headingInteraction"), [
+        {
+          name: t("singlePage"),
+          render: (setting) => {
+            setting.settingEl.addClass("minimalism-ui-single-page-setting");
+            setting.addToggle((toggle) => toggle.setValue(this.plugin.settings.disableNoteTabs).onChange(async (v) => {
+              this.plugin.settings.disableNoteTabs = v;
+              await this.plugin.saveSettings();
+            }));
+            setting.descEl.createSpan({ text: t("singlePageDesc1") });
+            setting.descEl.createEl("br");
+            setting.descEl.createSpan({ text: t("singlePageDesc2") });
+            setting.descEl.createEl("br");
+            setting.descEl.createSpan({ text: t("singlePageDesc3") });
+            setting.descEl.createEl("br");
+            setting.descEl.createSpan({ text: t("singlePageDesc4") });
+            setting.descEl.createEl("br");
+          }
+        },
+        {
+          name: t("homePage"),
+          desc: t("homePageDesc"),
+          render: (setting) => {
+            setting.addText((text) => {
+              text.setPlaceholder(t("homePagePlaceholder")).setValue(this.plugin.settings.homePage);
+              const applyHomePage = (value) => {
+                const changed = this.plugin.settings.homePage !== value;
+                this.plugin.settings.homePage = value;
+                void this.plugin.saveSettings().then(() => {
+                  if (changed && value) void this.plugin.resetToHomePage();
+                });
+              };
+              new FileSuggest(this.app, text.inputEl).onPick((path) => applyHomePage(path));
+              text.inputEl.addEventListener("change", () => applyHomePage(text.inputEl.value.trim()));
+            });
+          }
+        }
+      ]),
+      ...this.section("appearance", t("headingAppearance"), [
+        {
+          name: t("hideTabBar"),
+          render: (setting) => {
+            setting.addToggle((toggle) => toggle.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
+              this.plugin.settings.hideTabBar = v;
+              await this.plugin.saveSettings();
+            }));
+          }
+        },
+        {
+          name: t("showProperties"),
+          render: (setting) => {
+            setting.addToggle((toggle) => toggle.setValue(this.plugin.settings.showProperties).onChange(async (v) => {
+              this.plugin.settings.showProperties = v;
+              await this.plugin.saveSettings();
+              await this.plugin.applyMacSidebarLayout();
+            }));
+          }
+        },
+        {
+          name: t("showLocalGraph"),
+          render: (setting) => {
+            setting.addToggle((toggle) => toggle.setValue(this.plugin.settings.showLocalGraph).onChange(async (v) => {
+              this.plugin.settings.showLocalGraph = v;
+              await this.plugin.saveSettings();
+              await this.plugin.applyMacSidebarLayout();
+            }));
+          }
+        },
+        {
+          name: t("showVaultProfile"),
+          render: (setting) => {
+            setting.addToggle((toggle) => toggle.setValue(this.plugin.settings.showVaultProfile).onChange(async (v) => {
+              this.plugin.settings.showVaultProfile = v;
+              await this.plugin.saveSettings();
+            }));
+          }
+        },
+        {
+          name: t("showRightSidebarButton"),
+          desc: t("showRightSidebarButtonDesc"),
+          render: (setting) => {
+            setting.addToggle((toggle) => toggle.setValue(this.plugin.settings.showRightSidebarButton).onChange(async (v) => {
+              this.plugin.settings.showRightSidebarButton = v;
+              await this.plugin.saveSettings();
+            }));
+          }
+        }
+      ]),
+      ...this.section("animation", t("headingAnimation"), [
+        {
+          name: t("navAnimation"),
+          desc: t("navAnimationDesc"),
+          render: (setting) => {
+            setting.addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
+              this.plugin.settings.enableNavAnimation = v;
+              await this.plugin.saveSettings();
+            }));
+          }
+        }
+      ]),
+      ...this.section("advanced", t("headingAdvanced"), [
+        {
+          name: t("filenamePrefixManual"),
+          desc: t("filenamePrefixManualDesc"),
+          render: (setting) => {
+            setting.addToggle((toggle) => toggle.setValue(this.plugin.settings.filenamePrefixManual).onChange((value) => {
+              this.plugin.settings.filenamePrefixManual = value;
+              void this.plugin.saveSettings();
+              this.refreshDomState();
+            }));
+          }
+        },
+        // 仅当手动隐藏开启时才显示长度设置。
+        {
+          name: t("filenamePrefixLength"),
+          desc: t("filenamePrefixLengthDesc"),
+          visible: () => this.plugin.settings.filenamePrefixManual,
+          render: (setting) => {
+            setting.addText((text) => {
+              text.inputEl.type = "number";
+              text.inputEl.min = "0";
+              text.inputEl.max = "20";
+              text.inputEl.addClass("minimalism-ui-prefix-input");
+              text.setValue(String(this.plugin.settings.filenamePrefixLength));
+              text.inputEl.addEventListener("change", () => {
+                const raw = parseInt(text.inputEl.value, 10);
+                const clamped = isNaN(raw) ? 0 : Math.min(20, Math.max(0, raw));
+                text.setValue(String(clamped));
+                this.plugin.settings.filenamePrefixLength = clamped;
+                void this.plugin.saveSettings();
+              });
+            });
+          }
+        }
+      ])
+    ];
   }
 };
 

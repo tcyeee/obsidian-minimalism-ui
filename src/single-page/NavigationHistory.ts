@@ -119,6 +119,7 @@ export class NavigationHistory {
 	// apply() 中途启用时用当前文件兜底初始化，避免首次后退因历史为空而静默失败
 	seed(filePath: string) {
 		if (this.history.length === 0) this.history.push(filePath);
+		this.ensureHomeInvariant();
 	}
 
 	// 设置新首页后把整条导航栈收拢为「仅首页」：清空 history / future 与一次性标志，
@@ -131,6 +132,7 @@ export class NavigationHistory {
 		this.currentRootPath = path || null;
 		this.jumpPath = null;
 		this.isClosingTab = false;
+		this.ensureHomeInvariant();
 	}
 
 	// 引擎在每次 root leaf 激活时调用，记录主区域当前显示的文件路径（无文件视图传 null）。
@@ -163,6 +165,7 @@ export class NavigationHistory {
 		const prevToTop = this.history[this.history.length - 2];
 		if (top !== undefined && isFilelessViewKey(top) && prevToTop === filePath) {
 			this.future.unshift(this.history.pop()!);
+			this.ensureHomeInvariant();
 			return;
 		}
 		this.push(filePath);
@@ -171,9 +174,11 @@ export class NavigationHistory {
 	// 将文件路径写入 history（幂等：已是末尾则跳过，同时清除 forward 历史）
 	push(filePath: string) {
 		const last = this.history[this.history.length - 1];
-		if (last === filePath) return;
-		this.history.push(filePath);
-		this.future = [];
+		if (last !== filePath) {
+			this.history.push(filePath);
+			this.future = [];
+		}
+		this.ensureHomeInvariant();
 	}
 
 	// 笔记重命名时同步更新 history / future 中的路径，防止旧路径导致后退/前进跳过该条目
@@ -200,6 +205,9 @@ export class NavigationHistory {
 		// 指向已删文件的一次性跳转标志必须清掉，否则它永不匹配、永不复位，
 		// 若日后重建同名文件，首次打开会被误吞（record 被 jumpPath 消费而不入栈）。
 		if (this.jumpPath === path) this.jumpPath = null;
+		// 删空后不强行钉回首页，避免制造无 leaf 支撑的假条目：ensureHomeInvariant 自身已在
+		// history 为空时跳过。若删的正是首页文件本身，isReopenable 检查也会让它自然跳过钉住。
+		this.ensureHomeInvariant();
 	}
 
 	// 历史条目是否仍可定位/重开：无文件视图的合成键恒为真（随时可按 viewType 重建视图）；
@@ -207,6 +215,31 @@ export class NavigationHistory {
 	private isReopenable(key: string): boolean {
 		if (isFilelessViewKey(key)) return true;
 		return this.app.vault.getAbstractFileByPath(key) instanceof TFile;
+	}
+
+	// 维护首页在导航栈里的不变式：home 若存在必须在 history 里唯一；且仅当它不是"当前显示项"
+	// （即不是 history 末项）时才固定在 index 0，充当随时可点回去的锚点——如果它正是当前显示项，
+	// 就按正常时序留在末尾（此时它本身就是"当前页"，不需要再给自己一个锚点）。
+	// 不动 future：它是标准的"前进"重做栈，home 完全可能因为 back()/foldTo() 离开首页而合法地
+	// 落入其中（语义等同离开任意一篇笔记），此时应保留以支持前进撤销；这一层只保证 history 内
+	// 唯一——多出的重复项会在它随 forward() 重新 push 回 history 的同一次调用里被这里去重。
+	// history 真正清空（用户关完了整条后退链）时直接跳过：那是 HomePageManager 据 isEmpty()
+	// 走正规首页打开流程的信号，此处强行钉回一个没有真实 leaf 撑着的假条目会把信号吞掉。
+	// 由所有会修改 history/future 的方法在完成各自的簿记后调用，取代任何轮询/渲染时扫描——
+	// history/future 是本类完全私有封装的两个数组，这几个方法是它们仅有的写入口，因此在
+	// 写入口收尾处强制收敛是穷举式的，不会有遗漏场景。
+	private ensureHomeInvariant() {
+		if (this.history.length === 0) return;
+		const home = this.getSettings().homePage;
+		if (!home || !this.isReopenable(home)) return; // 未设置首页，或首页文件已不存在：不钉住
+
+		const wasCurrent = this.history[this.history.length - 1] === home;
+		this.history = this.history.filter(p => p !== home);
+		if (wasCurrent) {
+			this.history.push(home);
+		} else {
+			this.history.unshift(home);
+		}
 	}
 
 	back() {
@@ -234,6 +267,7 @@ export class NavigationHistory {
 
 			const current = this.history.pop()!;
 			this.future.unshift(current);
+			this.ensureHomeInvariant();
 
 			this.jumpPath = prevPath;
 			this.scheduleActivate(prevPath, 'minimalism-ui-slide-from-left');
@@ -268,6 +302,7 @@ export class NavigationHistory {
 		this.cancelTimer();
 		const removed = this.history.splice(index + 1);
 		this.future = removed.concat(this.future);
+		this.ensureHomeInvariant();
 
 		this.jumpPath = target;
 		return true;
@@ -282,6 +317,7 @@ export class NavigationHistory {
 			if (!this.isReopenable(nextPath)) continue; // 文件已从 vault 删除，丢弃并继续
 
 			this.history.push(nextPath);
+			this.ensureHomeInvariant();
 
 			this.jumpPath = nextPath;
 			this.scheduleActivate(nextPath, 'minimalism-ui-slide-from-right');
@@ -307,6 +343,10 @@ export class NavigationHistory {
 			const idx = this.history.lastIndexOf(closingPath);
 			if (idx !== -1) this.history.splice(idx, 1);
 		}
+		// history 真正清空是"用户关完了整条后退链"的信号，交由 HomePageManager 据 isEmpty()
+		// 走正规的首页打开流程；ensureHomeInvariant 自身在 history 为空时会跳过，不会把这个
+		// 信号吞掉。
+		this.ensureHomeInvariant();
 
 		const prevPath = this.history[this.history.length - 1];
 		if (prevPath !== undefined) {

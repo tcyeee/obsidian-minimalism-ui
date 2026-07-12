@@ -255,8 +255,8 @@ export class StatusBarMenuManager implements Feature {
 
 		for (const { btn, opt } of buttons) {
 			const activate = () => {
-				const viewState = leaf!.getViewState();
-				void leaf!.setViewState({
+				const viewState = leaf.getViewState();
+				void leaf.setViewState({
 					...viewState,
 					state: { ...viewState.state, mode: opt.viewMode, source: opt.source },
 				}).then(updateActiveState);

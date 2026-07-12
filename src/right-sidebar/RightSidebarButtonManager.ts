@@ -594,7 +594,7 @@ export class RightSidebarButtonManager implements Feature {
 
 	// 右侧栏里任意一个已存在 leaf 所属的 tab 组（原生已打开的面板，或此前探测遗留的），
 	// 用于把新探测出的 leaf 并入同一组，而不是各自新开一块分屏。
-	private findExistingRightSidebarParent(): unknown | null {
+	private findExistingRightSidebarParent(): unknown {
 		const { rightSplit } = this.app.workspace;
 		if (!rightSplit) return null;
 		let found: WorkspaceLeaf | null = null;

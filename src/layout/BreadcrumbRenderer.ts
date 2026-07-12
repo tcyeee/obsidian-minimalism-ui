@@ -97,6 +97,8 @@ export class BreadcrumbRenderer {
 	}
 
 	// 导航历史的首项是否正好是设置里的主页(homePage 存的是完整路径,与历史栈一致)。
+	// NavigationHistory.ensureHomeInvariant 保证了：只要设置了首页且当前不在首页本身，
+	// 首页必然唯一地出现在 history[0]，故这里直接比较即可，无需在渲染层再做额外兜底。
 	private firstIsHome(paths: string[]): boolean {
 		const home = this.getSettings().homePage;
 		return !!home && paths[0] === home;
@@ -146,13 +148,17 @@ export class BreadcrumbRenderer {
 				if (i === paths.length - 1 && filelessLabel) return filelessLabel;
 				return this.navDisplayNameGetter(p) ?? viewTypeFromKey(p) ?? p;
 			}
-			const f = this.app.vault.getAbstractFileByPath(p);
-			if (f instanceof TFile) return this.stripName(f.basename);
-			// 文件已不在 vault(被删):从路径推导 basename(去目录、去扩展名)再剥前缀,
-			// 避免直接对完整路径 slice 导致连文件夹名 / 扩展名一起被截。
-			const base = p.split('/').pop()!.replace(/\.md$/, '');
-			return this.stripName(base);
+			return this.nameForFilePath(p);
 		});
+	}
+
+	// 文件路径 → 展示名。文件已不在 vault(被删)时从路径推导 basename(去目录、去扩展名)
+	// 再剥前缀,避免直接对完整路径 slice 导致连文件夹名 / 扩展名一起被截。
+	private nameForFilePath(p: string): string {
+		const f = this.app.vault.getAbstractFileByPath(p);
+		if (f instanceof TFile) return this.stripName(f.basename);
+		const base = p.split('/').pop()!.replace(/\.md$/, '');
+		return this.stripName(base);
 	}
 
 	// 渲染完整路径:单项→当前项;超阈值或溢出→折叠中间项;否则完整列出。
