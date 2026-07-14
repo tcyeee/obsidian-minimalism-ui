@@ -447,7 +447,7 @@ class RenameModal extends Modal {
 		try {
 			await this.app.fileManager.renameFile(this.file, newPath);
 			this.close();
-		} catch (err) {
+		} catch (err: unknown) {
 			new Notice(t('renameModalFailed'));
 			console.error('[minimalism-ui] rename failed', err);
 		}

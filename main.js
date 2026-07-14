@@ -6685,216 +6685,130 @@ var MinimalismUISettingTab = class extends import_obsidian11.PluginSettingTab {
     super(app, plugin);
     this.plugin = plugin;
   }
-  isCollapsed(key) {
+  addCollapsibleSection(key, title) {
     var _a;
-    return (_a = this.plugin.settings.collapsedSections[key]) != null ? _a : false;
+    const { containerEl } = this;
+    const isCollapsed = (_a = this.plugin.settings.collapsedSections[key]) != null ? _a : false;
+    const headingEl = containerEl.createDiv({
+      cls: "setting-item setting-item-heading minimalism-ui-collapsible-heading" + (isCollapsed ? " minimalism-ui-collapsible-heading-collapsed" : "")
+    });
+    const nameEl = headingEl.createDiv({ cls: "setting-item-info" }).createDiv({ cls: "setting-item-name" });
+    nameEl.createSpan({ cls: "minimalism-ui-section-arrow" });
+    nameEl.createSpan({ text: title });
+    const contentEl = containerEl.createDiv({ cls: "minimalism-ui-collapsible-content" });
+    headingEl.addEventListener("click", () => {
+      var _a2;
+      const nowCollapsed = !((_a2 = this.plugin.settings.collapsedSections[key]) != null ? _a2 : false);
+      this.plugin.settings.collapsedSections[key] = nowCollapsed;
+      headingEl.toggleClass("minimalism-ui-collapsible-heading-collapsed", nowCollapsed);
+      void this.plugin.saveSettings();
+    });
+    return contentEl;
   }
-  // 可折叠分组标题：点击只切换 collapsedSections[key] + refreshDomState()，
-  // 不做整体重渲染——分组内容的显隐交给下面 group 定义的 visible 谓词。
-  renderSectionHeading(key, title) {
-    return (setting) => {
-      const headingEl = setting.settingEl;
-      headingEl.empty();
-      headingEl.className = "setting-item setting-item-heading minimalism-ui-collapsible-heading" + (this.isCollapsed(key) ? " minimalism-ui-collapsible-heading-collapsed" : "");
-      const nameEl = headingEl.createDiv({ cls: "setting-item-info" }).createDiv({ cls: "setting-item-name" });
-      nameEl.createSpan({ cls: "minimalism-ui-section-arrow" });
-      nameEl.createSpan({ text: title });
-      headingEl.addEventListener("click", () => {
-        const nowCollapsed = !this.isCollapsed(key);
-        this.plugin.settings.collapsedSections[key] = nowCollapsed;
-        headingEl.toggleClass("minimalism-ui-collapsible-heading-collapsed", nowCollapsed);
-        void this.plugin.saveSettings();
-        this.refreshDomState();
+  display() {
+    const { containerEl } = this;
+    containerEl.empty();
+    const intro = containerEl.createDiv({ cls: "minimalism-ui-intro" });
+    intro.createDiv({ cls: "minimalism-ui-intro-title", text: t("introTitle") });
+    intro.createEl("p", { text: t("introDesc1") });
+    intro.createEl("p", { text: t("introDesc2") });
+    const generalEl = this.addCollapsibleSection("general", t("headingGeneral"));
+    new import_obsidian11.Setting(generalEl).setName(t("language")).addDropdown((drop) => drop.addOption("auto", t("languageAuto")).addOption("zh", t("languageZh")).addOption("en", t("languageEn")).setValue(this.plugin.settings.language).onChange(async (v) => {
+      this.plugin.settings.language = v;
+      setLang(v);
+      await this.plugin.saveSettings();
+      this.display();
+    }));
+    new import_obsidian11.Setting(generalEl).setName(t("theme")).addDropdown((drop) => {
+      const names = this.plugin.listThemes();
+      for (const name of names) drop.addOption(name, name);
+      if (!names.includes(this.plugin.settings.theme)) {
+        drop.addOption(this.plugin.settings.theme, this.plugin.settings.theme);
+      }
+      drop.setValue(this.plugin.settings.theme);
+      drop.onChange(async (v) => {
+        this.plugin.settings.theme = v;
+        await this.plugin.saveSettings();
+        await this.plugin.applyTheme();
       });
-    };
-  }
-  section(key, title, items) {
-    return [
-      { name: title, searchable: false, render: this.renderSectionHeading(key, title) },
-      { type: "group", visible: () => !this.isCollapsed(key), items }
-    ];
-  }
-  getSettingDefinitions() {
-    return [
-      {
-        name: t("introTitle"),
-        searchable: false,
-        render: (setting) => {
-          const el = setting.settingEl;
-          el.empty();
-          el.className = "minimalism-ui-intro";
-          el.createDiv({ cls: "minimalism-ui-intro-title", text: t("introTitle") });
-          el.createEl("p", { text: t("introDesc1") });
-          el.createEl("p", { text: t("introDesc2") });
-        }
-      },
-      ...this.section("general", t("headingGeneral"), [
-        {
-          name: t("language"),
-          render: (setting) => {
-            setting.addDropdown((drop) => drop.addOption("auto", t("languageAuto")).addOption("zh", t("languageZh")).addOption("en", t("languageEn")).setValue(this.plugin.settings.language).onChange(async (v) => {
-              this.plugin.settings.language = v;
-              setLang(v);
-              await this.plugin.saveSettings();
-              this.update();
-            }));
-          }
-        },
-        {
-          name: t("theme"),
-          render: (setting) => {
-            setting.addDropdown((drop) => {
-              const names = this.plugin.listThemes();
-              for (const name of names) drop.addOption(name, name);
-              if (!names.includes(this.plugin.settings.theme)) {
-                drop.addOption(this.plugin.settings.theme, this.plugin.settings.theme);
-              }
-              drop.setValue(this.plugin.settings.theme);
-              drop.onChange(async (v) => {
-                this.plugin.settings.theme = v;
-                await this.plugin.saveSettings();
-                await this.plugin.applyTheme();
-              });
-            });
-          }
-        }
-      ]),
-      ...this.section("interaction", t("headingInteraction"), [
-        {
-          name: t("singlePage"),
-          render: (setting) => {
-            setting.settingEl.addClass("minimalism-ui-single-page-setting");
-            setting.addToggle((toggle) => toggle.setValue(this.plugin.settings.disableNoteTabs).onChange(async (v) => {
-              this.plugin.settings.disableNoteTabs = v;
-              await this.plugin.saveSettings();
-            }));
-            setting.descEl.createSpan({ text: t("singlePageDesc1") });
-            setting.descEl.createEl("br");
-            setting.descEl.createSpan({ text: t("singlePageDesc2") });
-            setting.descEl.createEl("br");
-            setting.descEl.createSpan({ text: t("singlePageDesc3") });
-            setting.descEl.createEl("br");
-            setting.descEl.createSpan({ text: t("singlePageDesc4") });
-            setting.descEl.createEl("br");
-          }
-        },
-        {
-          name: t("homePage"),
-          desc: t("homePageDesc"),
-          render: (setting) => {
-            setting.addText((text) => {
-              text.setPlaceholder(t("homePagePlaceholder")).setValue(this.plugin.settings.homePage);
-              const applyHomePage = (value) => {
-                const changed = this.plugin.settings.homePage !== value;
-                this.plugin.settings.homePage = value;
-                void this.plugin.saveSettings().then(() => {
-                  if (changed && value) void this.plugin.resetToHomePage();
-                });
-              };
-              new FileSuggest(this.app, text.inputEl).onPick((path) => applyHomePage(path));
-              text.inputEl.addEventListener("change", () => applyHomePage(text.inputEl.value.trim()));
-            });
-          }
-        }
-      ]),
-      ...this.section("appearance", t("headingAppearance"), [
-        {
-          name: t("hideTabBar"),
-          render: (setting) => {
-            setting.addToggle((toggle) => toggle.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
-              this.plugin.settings.hideTabBar = v;
-              await this.plugin.saveSettings();
-            }));
-          }
-        },
-        {
-          name: t("showProperties"),
-          render: (setting) => {
-            setting.addToggle((toggle) => toggle.setValue(this.plugin.settings.showProperties).onChange(async (v) => {
-              this.plugin.settings.showProperties = v;
-              await this.plugin.saveSettings();
-              await this.plugin.applyMacSidebarLayout();
-            }));
-          }
-        },
-        {
-          name: t("showLocalGraph"),
-          render: (setting) => {
-            setting.addToggle((toggle) => toggle.setValue(this.plugin.settings.showLocalGraph).onChange(async (v) => {
-              this.plugin.settings.showLocalGraph = v;
-              await this.plugin.saveSettings();
-              await this.plugin.applyMacSidebarLayout();
-            }));
-          }
-        },
-        {
-          name: t("showVaultProfile"),
-          render: (setting) => {
-            setting.addToggle((toggle) => toggle.setValue(this.plugin.settings.showVaultProfile).onChange(async (v) => {
-              this.plugin.settings.showVaultProfile = v;
-              await this.plugin.saveSettings();
-            }));
-          }
-        },
-        {
-          name: t("showRightSidebarButton"),
-          desc: t("showRightSidebarButtonDesc"),
-          render: (setting) => {
-            setting.addToggle((toggle) => toggle.setValue(this.plugin.settings.showRightSidebarButton).onChange(async (v) => {
-              this.plugin.settings.showRightSidebarButton = v;
-              await this.plugin.saveSettings();
-            }));
-          }
-        }
-      ]),
-      ...this.section("animation", t("headingAnimation"), [
-        {
-          name: t("navAnimation"),
-          desc: t("navAnimationDesc"),
-          render: (setting) => {
-            setting.addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
-              this.plugin.settings.enableNavAnimation = v;
-              await this.plugin.saveSettings();
-            }));
-          }
-        }
-      ]),
-      ...this.section("advanced", t("headingAdvanced"), [
-        {
-          name: t("filenamePrefixManual"),
-          desc: t("filenamePrefixManualDesc"),
-          render: (setting) => {
-            setting.addToggle((toggle) => toggle.setValue(this.plugin.settings.filenamePrefixManual).onChange((value) => {
-              this.plugin.settings.filenamePrefixManual = value;
-              void this.plugin.saveSettings();
-              this.refreshDomState();
-            }));
-          }
-        },
-        // 仅当手动隐藏开启时才显示长度设置。
-        {
-          name: t("filenamePrefixLength"),
-          desc: t("filenamePrefixLengthDesc"),
-          visible: () => this.plugin.settings.filenamePrefixManual,
-          render: (setting) => {
-            setting.addText((text) => {
-              text.inputEl.type = "number";
-              text.inputEl.min = "0";
-              text.inputEl.max = "20";
-              text.inputEl.addClass("minimalism-ui-prefix-input");
-              text.setValue(String(this.plugin.settings.filenamePrefixLength));
-              text.inputEl.addEventListener("change", () => {
-                const raw = parseInt(text.inputEl.value, 10);
-                const clamped = isNaN(raw) ? 0 : Math.min(20, Math.max(0, raw));
-                text.setValue(String(clamped));
-                this.plugin.settings.filenamePrefixLength = clamped;
-                void this.plugin.saveSettings();
-              });
-            });
-          }
-        }
-      ])
-    ];
+    });
+    const interactionEl = this.addCollapsibleSection("interaction", t("headingInteraction"));
+    const singlePageSetting = new import_obsidian11.Setting(interactionEl).setName(t("singlePage"));
+    singlePageSetting.settingEl.addClass("minimalism-ui-single-page-setting");
+    singlePageSetting.addToggle((toggle) => toggle.setValue(this.plugin.settings.disableNoteTabs).onChange(async (v) => {
+      this.plugin.settings.disableNoteTabs = v;
+      await this.plugin.saveSettings();
+    }));
+    singlePageSetting.descEl.createSpan({ text: t("singlePageDesc1") });
+    singlePageSetting.descEl.createEl("br");
+    singlePageSetting.descEl.createSpan({ text: t("singlePageDesc2") });
+    singlePageSetting.descEl.createEl("br");
+    singlePageSetting.descEl.createSpan({ text: t("singlePageDesc3") });
+    singlePageSetting.descEl.createEl("br");
+    singlePageSetting.descEl.createSpan({ text: t("singlePageDesc4") });
+    singlePageSetting.descEl.createEl("br");
+    new import_obsidian11.Setting(interactionEl).setName(t("homePage")).setDesc(t("homePageDesc")).addText((text) => {
+      text.setPlaceholder(t("homePagePlaceholder")).setValue(this.plugin.settings.homePage);
+      const applyHomePage = (value) => {
+        const changed = this.plugin.settings.homePage !== value;
+        this.plugin.settings.homePage = value;
+        void this.plugin.saveSettings().then(() => {
+          if (changed && value) void this.plugin.resetToHomePage();
+        });
+      };
+      new FileSuggest(this.app, text.inputEl).onPick((path) => applyHomePage(path));
+      text.inputEl.addEventListener("change", () => applyHomePage(text.inputEl.value.trim()));
+    });
+    const appearanceEl = this.addCollapsibleSection("appearance", t("headingAppearance"));
+    new import_obsidian11.Setting(appearanceEl).setName(t("hideTabBar")).addToggle((toggle) => toggle.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
+      this.plugin.settings.hideTabBar = v;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian11.Setting(appearanceEl).setName(t("showProperties")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showProperties).onChange(async (v) => {
+      this.plugin.settings.showProperties = v;
+      await this.plugin.saveSettings();
+      await this.plugin.applyMacSidebarLayout();
+    }));
+    new import_obsidian11.Setting(appearanceEl).setName(t("showLocalGraph")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showLocalGraph).onChange(async (v) => {
+      this.plugin.settings.showLocalGraph = v;
+      await this.plugin.saveSettings();
+      await this.plugin.applyMacSidebarLayout();
+    }));
+    new import_obsidian11.Setting(appearanceEl).setName(t("showVaultProfile")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showVaultProfile).onChange(async (v) => {
+      this.plugin.settings.showVaultProfile = v;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian11.Setting(appearanceEl).setName(t("showRightSidebarButton")).setDesc(t("showRightSidebarButtonDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showRightSidebarButton).onChange(async (v) => {
+      this.plugin.settings.showRightSidebarButton = v;
+      await this.plugin.saveSettings();
+    }));
+    const animationEl = this.addCollapsibleSection("animation", t("headingAnimation"));
+    new import_obsidian11.Setting(animationEl).setName(t("navAnimation")).setDesc(t("navAnimationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNavAnimation).onChange(async (v) => {
+      this.plugin.settings.enableNavAnimation = v;
+      await this.plugin.saveSettings();
+    }));
+    const advancedEl = this.addCollapsibleSection("advanced", t("headingAdvanced"));
+    new import_obsidian11.Setting(advancedEl).setName(t("filenamePrefixManual")).setDesc(t("filenamePrefixManualDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.filenamePrefixManual).onChange((value) => {
+      this.plugin.settings.filenamePrefixManual = value;
+      void this.plugin.saveSettings();
+      this.display();
+    }));
+    if (this.plugin.settings.filenamePrefixManual) {
+      new import_obsidian11.Setting(advancedEl).setName(t("filenamePrefixLength")).setDesc(t("filenamePrefixLengthDesc")).addText((text) => {
+        text.inputEl.type = "number";
+        text.inputEl.min = "0";
+        text.inputEl.max = "20";
+        text.inputEl.addClass("minimalism-ui-prefix-input");
+        text.setValue(String(this.plugin.settings.filenamePrefixLength));
+        text.inputEl.addEventListener("change", () => {
+          const raw = parseInt(text.inputEl.value, 10);
+          const clamped = isNaN(raw) ? 0 : Math.min(20, Math.max(0, raw));
+          text.setValue(String(clamped));
+          this.plugin.settings.filenamePrefixLength = clamped;
+          void this.plugin.saveSettings();
+        });
+      });
+    }
   }
 };
 
