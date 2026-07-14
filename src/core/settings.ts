@@ -36,6 +36,10 @@ export interface MinimalismUISettings {
 	// 收纳分界左侧（已收纳）图标是否展开可见：跨重启持久化，只由用户点击哨兵图标改变——
 	// 切换视图、堆叠自动收起/面板关闭等操作都不应连带重置它。
 	rightSidebarStowExpanded: boolean;
+	// 用户最后一次在悬浮面板里选中的视图（按 leaf 的 view type 字符串存储，见 keyOf()）。
+	// 跨重启持久化，使下次打开面板时默认展示这一项，而不是 activeLeaf 缺失时随意回退到
+	// leafOrder 里最早发现的那个。空字符串表示尚无记录（沿用原有回退逻辑）。
+	rightSidebarLastActiveView: string;
 }
 
 export const DEFAULT_SETTINGS: MinimalismUISettings = {
@@ -69,4 +73,5 @@ export const DEFAULT_SETTINGS: MinimalismUISettings = {
 	rightSidebarPanelPinned: false,
 	rightSidebarStackOrder: [],
 	rightSidebarStowExpanded: false,
+	rightSidebarLastActiveView: '',
 };

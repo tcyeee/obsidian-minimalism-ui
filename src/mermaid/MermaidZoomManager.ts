@@ -1,4 +1,4 @@
-import { App } from 'obsidian';
+import { App, EventRef } from 'obsidian';
 
 /**
  * MermaidZoomManager
@@ -14,11 +14,16 @@ import { App } from 'obsidian';
  *
  * 超宽判断使用 SVG width 属性（Mermaid 渲染时写入自然像素宽度），
  * 而非 scrollWidth，避免在 fit-view 状态下 SVG 已被 CSS 压缩导致误判。
+ *
+ * 弹出窗口（popout）有自己独立的 document，需要逐一挂载监听；apply() 时先挂到主窗口和
+ * 已存在的弹出窗口，再监听 window-open/window-close 跟进新开/关闭的窗口。
  */
 export class MermaidZoomManager {
     private readonly app: App;
     private readonly clickHandler: (e: MouseEvent) => void;
-    private mutationObs: MutationObserver | null = null;
+    private readonly observers = new Map<Document, MutationObserver>();
+    private windowOpenRef: EventRef | null = null;
+    private windowCloseRef: EventRef | null = null;
 
     constructor(app: App) {
         this.app = app;
@@ -26,10 +31,44 @@ export class MermaidZoomManager {
     }
 
     apply() {
-        activeDocument.addEventListener('click', this.clickHandler, true);
+        this.remove();
+
+        this.attachToDocument(activeDocument);
+
+        const seen = new Set<Document>([activeDocument]);
+        this.app.workspace.iterateAllLeaves((leaf) => {
+            const doc = leaf.view.containerEl.ownerDocument;
+            if (!seen.has(doc)) {
+                seen.add(doc);
+                this.attachToDocument(doc);
+            }
+        });
+
+        this.windowOpenRef = this.app.workspace.on('window-open', (_win, win) => {
+            this.attachToDocument(win.document);
+        });
+        this.windowCloseRef = this.app.workspace.on('window-close', (_win, win) => {
+            this.detachFromDocument(win.document);
+        });
+    }
+
+    remove() {
+        if (this.windowOpenRef) this.app.workspace.offref(this.windowOpenRef);
+        if (this.windowCloseRef) this.app.workspace.offref(this.windowCloseRef);
+        this.windowOpenRef = null;
+        this.windowCloseRef = null;
+        for (const doc of Array.from(this.observers.keys())) this.detachFromDocument(doc);
+    }
+
+    // ─── Private ──────────────────────────────────────────────────────────────
+
+    private attachToDocument(doc: Document) {
+        if (this.observers.has(doc)) return;
+
+        doc.addEventListener('click', this.clickHandler, true);
 
         // 监听 DOM 变化：Mermaid 图表是异步渲染的，SVG 在笔记打开后才插入
-        this.mutationObs = new MutationObserver((mutations) => {
+        const mutationObs = new MutationObserver((mutations) => {
             for (const m of mutations) {
                 for (const node of Array.from(m.addedNodes)) {
                     if (!node.instanceOf(Element)) continue;
@@ -41,22 +80,23 @@ export class MermaidZoomManager {
                 }
             }
         });
-        this.mutationObs.observe(activeDocument.body, { childList: true, subtree: true });
+        mutationObs.observe(doc.body, { childList: true, subtree: true });
+        this.observers.set(doc, mutationObs);
 
         // 处理已存在的图表
-        activeDocument.querySelectorAll<HTMLElement>('.mermaid').forEach(el => this.scheduleMarkOverflow(el));
+        doc.querySelectorAll<HTMLElement>('.mermaid').forEach(el => this.scheduleMarkOverflow(el));
     }
 
-    remove() {
-        activeDocument.removeEventListener('click', this.clickHandler, true);
-        this.mutationObs?.disconnect();
-        this.mutationObs = null;
-        activeDocument.querySelectorAll<HTMLElement>('.mermaid').forEach(el => {
+    private detachFromDocument(doc: Document) {
+        const obs = this.observers.get(doc);
+        if (!obs) return;
+        obs.disconnect();
+        this.observers.delete(doc);
+        doc.removeEventListener('click', this.clickHandler, true);
+        doc.querySelectorAll<HTMLElement>('.mermaid').forEach(el => {
             el.classList.remove('mermaid-fit-view', 'mermaid-overflows');
         });
     }
-
-    // ─── Private ──────────────────────────────────────────────────────────────
 
     private onClick(e: MouseEvent) {
         const mermaidEl = (e.target as Element).closest<HTMLElement>('.mermaid');
@@ -73,7 +113,8 @@ export class MermaidZoomManager {
 
     /** 等一帧再检查，确保 SVG 已完成渲染并写入 width 属性 */
     private scheduleMarkOverflow(el: HTMLElement) {
-        window.requestAnimationFrame(() => this.markOverflow(el));
+        const win = el.ownerDocument.defaultView ?? window;
+        win.requestAnimationFrame(() => this.markOverflow(el));
     }
 
     private markOverflow(el: HTMLElement) {

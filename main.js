@@ -60,7 +60,8 @@ var DEFAULT_SETTINGS = {
   rightSidebarPanelHeight: 480,
   rightSidebarPanelPinned: false,
   rightSidebarStackOrder: [],
-  rightSidebarStowExpanded: false
+  rightSidebarStowExpanded: false,
+  rightSidebarLastActiveView: ""
 };
 
 // src/generated/theme-assets.ts
@@ -2492,6 +2493,8 @@ var translations = {
     localGraph: "\u672C\u5730\u5173\u7CFB\u56FE",
     navBack: "\u540E\u9000",
     navForward: "\u524D\u8FDB",
+    editorLockAriaReading: "\u9605\u8BFB\u6A21\u5F0F \u2014 \u70B9\u51FB\u5207\u6362\u7F16\u8F91",
+    editorLockAriaEditing: "\u7F16\u8F91\u6A21\u5F0F \u2014 \u70B9\u51FB\u5207\u6362\u9605\u8BFB",
     statusBarMenuLabel: "\u64CD\u4F5C\u83DC\u5355",
     statusBarMenuModeLocked: "\u9501\u5B9A\uFF08\u9605\u8BFB\u6A21\u5F0F\uFF09",
     statusBarMenuModeEdit: "\u7F16\u8F91\uFF08\u5B9E\u65F6\u9884\u89C8\uFF09",
@@ -2568,6 +2571,8 @@ var translations = {
     localGraph: "Local Graph",
     navBack: "Back",
     navForward: "Forward",
+    editorLockAriaReading: "Reading view \u2014 click to switch to editing",
+    editorLockAriaEditing: "Editing \u2014 click to switch to reading view",
     statusBarMenuLabel: "Actions menu",
     statusBarMenuModeLocked: "Locked (Reading view)",
     statusBarMenuModeEdit: "Edit (Live Preview)",
@@ -3405,6 +3410,7 @@ var SinglePageEngine = class {
   interceptLeafOpenFile(leaf) {
     if (!leaf.parent) return;
     this.pendingInterceptLeaves.add(leaf);
+    this.patchRootLeafDetach(leaf);
     const origOpenFile = leaf.openFile.bind(leaf);
     const origSetViewState = leaf.setViewState.bind(leaf);
     leaf.openFile = async (file, state) => {
@@ -3543,6 +3549,7 @@ var SinglePageEngine = class {
       original();
       this.rootDetachPatches.delete(leaf);
       this.historyPatches.delete(leaf);
+      this.pendingInterceptLeaves.delete(leaf);
     };
     this.rootDetachPatches.set(leaf, original);
   }
@@ -4302,16 +4309,20 @@ var SidebarLayoutManager = class {
     this.app = app;
     this.getSettings = getSettings;
     this.pinManager = pinManager;
-    // Guard against concurrent calls: each `apply()` awaits async ops, so a
-    // second call arriving mid-flight would create duplicate leaves.
-    this.isApplying = false;
+    // Guard against concurrent calls: each `apply()` awaits async ops, so a second
+    // call arriving mid-flight must not run concurrently (would create duplicate
+    // leaves) and must not be silently dropped (would leave stale state if settings
+    // changed between the two calls). `applyRun` is the in-flight run; a call that
+    // arrives while it's set just requests a rerun (`rerunRequested`) and awaits the
+    // same promise — `runApplyLoop()` re-reads settings and re-runs until no rerun
+    // was requested during the last pass, then resolves every waiting caller together.
+    this.applyRun = null;
+    this.rerunRequested = false;
     // Saved state for reversible injection — one record per injected element.
     this.injectedItems = [];
     this.hiddenShells = [];
     // Elements created (not moved) by apply() — removed entirely on cleanup.
     this.createdEls = [];
-    // Workspace resize event ref — notifies the graph iframe renderer when sidebar width changes.
-    this.graphResizeRef = null;
     this.injectedGraphLeaf = null;
     this.graphResizeObserver = null;
     // Monkey-patched testCSS ref — restored on remove().
@@ -4333,10 +4344,6 @@ var SidebarLayoutManager = class {
     for (const el of this.createdEls) {
       el.remove();
     }
-    if (this.graphResizeRef) {
-      this.app.workspace.offref(this.graphResizeRef);
-      this.graphResizeRef = null;
-    }
     (_a = this.graphResizeObserver) == null ? void 0 : _a.disconnect();
     this.graphResizeObserver = null;
     this.injectedGraphLeaf = null;
@@ -4350,48 +4357,60 @@ var SidebarLayoutManager = class {
     this.createdEls = [];
   }
   async apply() {
-    this.remove();
-    if (this.isApplying) return;
-    this.isApplying = true;
+    if (this.applyRun) {
+      this.rerunRequested = true;
+      return this.applyRun;
+    }
+    this.applyRun = this.runApplyLoop();
     try {
-      const { workspace } = this.app;
-      const leftSplit = workspace.leftSplit;
-      const { showProperties, showLocalGraph } = this.getSettings();
-      this.clearLeftSidebar();
-      if (leftSplit == null ? void 0 : leftSplit.collapsed) leftSplit.expand();
-      const outlineLeaf = workspace.getLeftLeaf(false);
-      if (outlineLeaf) {
-        await outlineLeaf.setViewState({ type: "outline", active: false });
-      }
-      let graphLeaf = null;
-      if (showLocalGraph) {
-        graphLeaf = workspace.getLeftLeaf(true);
-        if (graphLeaf) {
-          await graphLeaf.setViewState({ type: "localgraph", active: false });
-        }
-      }
-      let propsLeaf = null;
-      if (showProperties) {
-        propsLeaf = workspace.getLeftLeaf(true);
-        if (propsLeaf) {
-          await propsLeaf.setViewState({ type: "file-properties", active: false });
-        }
-      }
-      if (!showProperties && !showLocalGraph) return;
-      await new Promise((resolve) => window.setTimeout(resolve, 100));
-      const activeFile = workspace.getActiveFile();
-      if (activeFile) {
-        workspace.trigger("file-open", activeFile);
-        await new Promise((resolve) => window.setTimeout(resolve, 50));
-      }
-      if (outlineLeaf && propsLeaf) {
-        this.injectMetadataIntoOutline(outlineLeaf, propsLeaf);
-      }
-      if (outlineLeaf && graphLeaf) {
-        this.injectLocalGraphIntoOutline(outlineLeaf, graphLeaf);
-      }
+      await this.applyRun;
     } finally {
-      this.isApplying = false;
+      this.applyRun = null;
+    }
+  }
+  async runApplyLoop() {
+    do {
+      this.rerunRequested = false;
+      await this.doApply();
+    } while (this.rerunRequested);
+  }
+  async doApply() {
+    this.remove();
+    const { workspace } = this.app;
+    const leftSplit = workspace.leftSplit;
+    const { showProperties, showLocalGraph } = this.getSettings();
+    this.clearLeftSidebar();
+    if (leftSplit == null ? void 0 : leftSplit.collapsed) leftSplit.expand();
+    const outlineLeaf = workspace.getLeftLeaf(false);
+    if (outlineLeaf) {
+      await outlineLeaf.setViewState({ type: "outline", active: false });
+    }
+    let graphLeaf = null;
+    if (showLocalGraph) {
+      graphLeaf = workspace.getLeftLeaf(true);
+      if (graphLeaf) {
+        await graphLeaf.setViewState({ type: "localgraph", active: false });
+      }
+    }
+    let propsLeaf = null;
+    if (showProperties) {
+      propsLeaf = workspace.getLeftLeaf(true);
+      if (propsLeaf) {
+        await propsLeaf.setViewState({ type: "file-properties", active: false });
+      }
+    }
+    if (!showProperties && !showLocalGraph) return;
+    await new Promise((resolve) => window.setTimeout(resolve, 100));
+    const activeFile = workspace.getActiveFile();
+    if (activeFile) {
+      workspace.trigger("file-open", activeFile);
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+    }
+    if (outlineLeaf && propsLeaf) {
+      this.injectMetadataIntoOutline(outlineLeaf, propsLeaf);
+    }
+    if (outlineLeaf && graphLeaf) {
+      this.injectLocalGraphIntoOutline(outlineLeaf, graphLeaf);
     }
   }
   // ── Private ───────────────────────────────────────────────────────────────
@@ -4473,10 +4492,6 @@ var SidebarLayoutManager = class {
       this.hiddenShells.push(graphWorkspaceTabs);
     }
     this.injectedGraphLeaf = graphLeaf;
-    if (this.graphResizeRef) {
-      this.app.workspace.offref(this.graphResizeRef);
-      this.graphResizeRef = null;
-    }
     (_b = this.graphResizeObserver) == null ? void 0 : _b.disconnect();
     const leftSplitEl = this.app.workspace.leftSplit;
     const observeTarget = (_c = leftSplitEl == null ? void 0 : leftSplitEl.containerEl) != null ? _c : activeDocument.querySelector(".workspace-split.mod-left-split");
@@ -4917,7 +4932,7 @@ var EditorStatusManager = class {
     const view = this.app.workspace.getActiveViewOfType(import_obsidian7.MarkdownView);
     const isReading = (view == null ? void 0 : view.getState().mode) === "preview";
     this.statusBarItem.toggleClass("is-reading", isReading);
-    this.statusBarItem.setAttribute("aria-label", isReading ? "\u9605\u8BFB\u6A21\u5F0F \u2014 \u70B9\u51FB\u5207\u6362\u7F16\u8F91" : "\u7F16\u8F91\u6A21\u5F0F \u2014 \u70B9\u51FB\u5207\u6362\u9605\u8BFB");
+    this.statusBarItem.setAttribute("aria-label", isReading ? t("editorLockAriaReading") : t("editorLockAriaEditing"));
   }
   remove() {
     if (this.leafChangeHandler) {
@@ -5356,13 +5371,42 @@ var ConfirmDeleteModal = class extends import_obsidian8.Modal {
 // src/mermaid/MermaidZoomManager.ts
 var MermaidZoomManager = class {
   constructor(app) {
-    this.mutationObs = null;
+    this.observers = /* @__PURE__ */ new Map();
+    this.windowOpenRef = null;
+    this.windowCloseRef = null;
     this.app = app;
     this.clickHandler = this.onClick.bind(this);
   }
   apply() {
-    activeDocument.addEventListener("click", this.clickHandler, true);
-    this.mutationObs = new MutationObserver((mutations) => {
+    this.remove();
+    this.attachToDocument(activeDocument);
+    const seen = /* @__PURE__ */ new Set([activeDocument]);
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      const doc = leaf.view.containerEl.ownerDocument;
+      if (!seen.has(doc)) {
+        seen.add(doc);
+        this.attachToDocument(doc);
+      }
+    });
+    this.windowOpenRef = this.app.workspace.on("window-open", (_win, win) => {
+      this.attachToDocument(win.document);
+    });
+    this.windowCloseRef = this.app.workspace.on("window-close", (_win, win) => {
+      this.detachFromDocument(win.document);
+    });
+  }
+  remove() {
+    if (this.windowOpenRef) this.app.workspace.offref(this.windowOpenRef);
+    if (this.windowCloseRef) this.app.workspace.offref(this.windowCloseRef);
+    this.windowOpenRef = null;
+    this.windowCloseRef = null;
+    for (const doc of Array.from(this.observers.keys())) this.detachFromDocument(doc);
+  }
+  // ─── Private ──────────────────────────────────────────────────────────────
+  attachToDocument(doc) {
+    if (this.observers.has(doc)) return;
+    doc.addEventListener("click", this.clickHandler, true);
+    const mutationObs = new MutationObserver((mutations) => {
       for (const m of mutations) {
         for (const node of Array.from(m.addedNodes)) {
           if (!node.instanceOf(Element)) continue;
@@ -5374,19 +5418,20 @@ var MermaidZoomManager = class {
         }
       }
     });
-    this.mutationObs.observe(activeDocument.body, { childList: true, subtree: true });
-    activeDocument.querySelectorAll(".mermaid").forEach((el) => this.scheduleMarkOverflow(el));
+    mutationObs.observe(doc.body, { childList: true, subtree: true });
+    this.observers.set(doc, mutationObs);
+    doc.querySelectorAll(".mermaid").forEach((el) => this.scheduleMarkOverflow(el));
   }
-  remove() {
-    var _a;
-    activeDocument.removeEventListener("click", this.clickHandler, true);
-    (_a = this.mutationObs) == null ? void 0 : _a.disconnect();
-    this.mutationObs = null;
-    activeDocument.querySelectorAll(".mermaid").forEach((el) => {
+  detachFromDocument(doc) {
+    const obs = this.observers.get(doc);
+    if (!obs) return;
+    obs.disconnect();
+    this.observers.delete(doc);
+    doc.removeEventListener("click", this.clickHandler, true);
+    doc.querySelectorAll(".mermaid").forEach((el) => {
       el.classList.remove("mermaid-fit-view", "mermaid-overflows");
     });
   }
-  // ─── Private ──────────────────────────────────────────────────────────────
   onClick(e) {
     const mermaidEl = e.target.closest(".mermaid");
     if (!mermaidEl || !mermaidEl.classList.contains("mermaid-overflows")) return;
@@ -5398,7 +5443,9 @@ var MermaidZoomManager = class {
   }
   /** 等一帧再检查，确保 SVG 已完成渲染并写入 width 属性 */
   scheduleMarkOverflow(el) {
-    window.requestAnimationFrame(() => this.markOverflow(el));
+    var _a;
+    const win = (_a = el.ownerDocument.defaultView) != null ? _a : window;
+    win.requestAnimationFrame(() => this.markOverflow(el));
   }
   markOverflow(el) {
     var _a;
@@ -5959,7 +6006,9 @@ var RightSidebarButtonManager = class {
       return;
     }
     if (!this.activeLeaf || !this.leafOrder.includes(this.activeLeaf)) {
-      this.activeLeaf = this.leafOrder[this.leafOrder.length - 1];
+      const lastKey = this.getSettings().rightSidebarLastActiveView;
+      const remembered = lastKey ? this.leafOrder.find((l) => this.keyOf(l) === lastKey) : void 0;
+      this.activeLeaf = remembered != null ? remembered : this.leafOrder[this.leafOrder.length - 1];
     }
     this.renderStackIcons();
     void this.showLeaf(this.activeLeaf);
@@ -6094,6 +6143,12 @@ var RightSidebarButtonManager = class {
   }
   selectLeaf(leaf) {
     this.activeLeaf = leaf;
+    const s = this.getSettings();
+    const key = this.keyOf(leaf);
+    if (s.rightSidebarLastActiveView !== key) {
+      s.rightSidebarLastActiveView = key;
+      void this.save();
+    }
     if (!this.isOpen) this.open();
     else {
       this.updateStackIconVisualState();
@@ -6849,6 +6904,10 @@ var MinimalismUIPlugin = class extends import_obsidian12.Plugin {
     super(...arguments);
     // 所有功能单元，统一用于卸载，避免逐个手写 remove() 时遗漏。
     this.features = [];
+    // workspace.onLayoutReady() 的回调挂在 Workspace 自身的队列上，不随插件卸载而取消；
+    // 若插件在布局就绪前被禁用，onunload() 跑完之后该回调仍会触发，对已卸载的实例重新
+    // apply() 一遍。用这个标志在回调入口短路，避免卸载后的幽灵重新应用。
+    this.unloaded = false;
   }
   async onload() {
     await this.loadSettings();
@@ -6923,6 +6982,7 @@ var MinimalismUIPlugin = class extends import_obsidian12.Plugin {
     this.rightSidebarButton.apply();
     this.statusBarMenu.apply();
     this.app.workspace.onLayoutReady(() => {
+      if (this.unloaded) return;
       this.dragBar.apply();
       this.homePage.apply();
       this.emptyViewButton.apply();
@@ -6936,6 +6996,7 @@ var MinimalismUIPlugin = class extends import_obsidian12.Plugin {
     this.addSettingTab(new MinimalismUISettingTab(this.app, this));
   }
   onunload() {
+    this.unloaded = true;
     setLang("auto");
     for (const feature of this.features) feature.remove();
   }

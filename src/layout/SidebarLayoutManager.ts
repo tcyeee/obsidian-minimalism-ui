@@ -1,4 +1,4 @@
-import { App, EventRef, WorkspaceLeaf } from 'obsidian';
+import { App, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
 import { t } from '../core/i18n';
 import { PinManager } from '../tabs/PinManager';
@@ -22,9 +22,15 @@ type WorkspaceSidedock = { collapsed: boolean; expand(): void; children?: unknow
  *   - No workspace-split manipulation → no empty-shell artifacts.
  */
 export class SidebarLayoutManager {
-	// Guard against concurrent calls: each `apply()` awaits async ops, so a
-	// second call arriving mid-flight would create duplicate leaves.
-	private isApplying = false;
+	// Guard against concurrent calls: each `apply()` awaits async ops, so a second
+	// call arriving mid-flight must not run concurrently (would create duplicate
+	// leaves) and must not be silently dropped (would leave stale state if settings
+	// changed between the two calls). `applyRun` is the in-flight run; a call that
+	// arrives while it's set just requests a rerun (`rerunRequested`) and awaits the
+	// same promise — `runApplyLoop()` re-reads settings and re-runs until no rerun
+	// was requested during the last pass, then resolves every waiting caller together.
+	private applyRun: Promise<void> | null = null;
+	private rerunRequested = false;
 
 	// Saved state for reversible injection — one record per injected element.
 	private injectedItems: Array<{
@@ -36,8 +42,6 @@ export class SidebarLayoutManager {
 	private hiddenShells: HTMLElement[] = [];
 	// Elements created (not moved) by apply() — removed entirely on cleanup.
 	private createdEls: HTMLElement[] = [];
-	// Workspace resize event ref — notifies the graph iframe renderer when sidebar width changes.
-	private graphResizeRef: EventRef | null = null;
 	private injectedGraphLeaf: WorkspaceLeaf | null = null;
 	private graphResizeObserver: ResizeObserver | null = null;
 	// Monkey-patched testCSS ref — restored on remove().
@@ -65,10 +69,6 @@ export class SidebarLayoutManager {
 		for (const el of this.createdEls) {
 			el.remove();
 		}
-		if (this.graphResizeRef) {
-			this.app.workspace.offref(this.graphResizeRef);
-			this.graphResizeRef = null;
-		}
 		this.graphResizeObserver?.disconnect();
 		this.graphResizeObserver = null;
 		this.injectedGraphLeaf = null;
@@ -82,71 +82,85 @@ export class SidebarLayoutManager {
 		this.createdEls = [];
 	}
 
-	async apply() {
-		this.remove();
-		if (this.isApplying) return;
-		this.isApplying = true;
-
+	async apply(): Promise<void> {
+		if (this.applyRun) {
+			this.rerunRequested = true;
+			return this.applyRun;
+		}
+		this.applyRun = this.runApplyLoop();
 		try {
-			const { workspace } = this.app;
-			const leftSplit = workspace.leftSplit as unknown as WorkspaceSidedock;
-			const { showProperties, showLocalGraph } = this.getSettings();
-
-			// 1. Clear the entire left sidebar
-			this.clearLeftSidebar();
-
-			// 2. Expand left sidebar (may have auto-collapsed after clearing)
-			if (leftSplit?.collapsed) leftSplit.expand();
-
-			// 3. Outline leaf (always present)
-			const outlineLeaf = workspace.getLeftLeaf(false);
-			if (outlineLeaf) {
-				await outlineLeaf.setViewState({ type: 'outline', active: false });
-			}
-
-			// 4. Local Graph leaf (if enabled) — created before Properties so it
-			//    ends up above Properties in the injected flex column.
-			let graphLeaf: WorkspaceLeaf | null = null;
-			if (showLocalGraph) {
-				graphLeaf = workspace.getLeftLeaf(true);
-				if (graphLeaf) {
-					await graphLeaf.setViewState({ type: 'localgraph', active: false });
-				}
-			}
-
-			// 5. Properties leaf (if enabled) — use active: false to avoid
-			//    triggering active-leaf-change (which would close open modals).
-			let propsLeaf: WorkspaceLeaf | null = null;
-			if (showProperties) {
-				propsLeaf = workspace.getLeftLeaf(true);
-				if (propsLeaf) {
-					await propsLeaf.setViewState({ type: 'file-properties', active: false });
-				}
-			}
-
-			if (!showProperties && !showLocalGraph) return;
-
-			// 6. Wait for Obsidian to finish rendering all views.
-			await new Promise(resolve => window.setTimeout(resolve, 100));
-
-			// 7. Nudge views to load the current file (active: false skips auto-bind).
-			const activeFile = workspace.getActiveFile();
-			if (activeFile) {
-				workspace.trigger('file-open', activeFile);
-				await new Promise(resolve => window.setTimeout(resolve, 50));
-			}
-
-			// 8. Inject Properties above Local Graph (appended first in flex column).
-			if (outlineLeaf && propsLeaf) {
-				this.injectMetadataIntoOutline(outlineLeaf, propsLeaf);
-			}
-
-			// 9. Inject Local Graph at the bottom (appended after properties).
-			if (outlineLeaf && graphLeaf) {
-				this.injectLocalGraphIntoOutline(outlineLeaf, graphLeaf);
-			}
+			await this.applyRun;
 		} finally {
-			this.isApplying = false;
+			this.applyRun = null;
+		}
+	}
+
+	private async runApplyLoop(): Promise<void> {
+		do {
+			this.rerunRequested = false;
+			await this.doApply();
+		} while (this.rerunRequested);
+	}
+
+	private async doApply(): Promise<void> {
+		this.remove();
+
+		const { workspace } = this.app;
+		const leftSplit = workspace.leftSplit as unknown as WorkspaceSidedock;
+		const { showProperties, showLocalGraph } = this.getSettings();
+
+		// 1. Clear the entire left sidebar
+		this.clearLeftSidebar();
+
+		// 2. Expand left sidebar (may have auto-collapsed after clearing)
+		if (leftSplit?.collapsed) leftSplit.expand();
+
+		// 3. Outline leaf (always present)
+		const outlineLeaf = workspace.getLeftLeaf(false);
+		if (outlineLeaf) {
+			await outlineLeaf.setViewState({ type: 'outline', active: false });
+		}
+
+		// 4. Local Graph leaf (if enabled) — created before Properties so it
+		//    ends up above Properties in the injected flex column.
+		let graphLeaf: WorkspaceLeaf | null = null;
+		if (showLocalGraph) {
+			graphLeaf = workspace.getLeftLeaf(true);
+			if (graphLeaf) {
+				await graphLeaf.setViewState({ type: 'localgraph', active: false });
+			}
+		}
+
+		// 5. Properties leaf (if enabled) — use active: false to avoid
+		//    triggering active-leaf-change (which would close open modals).
+		let propsLeaf: WorkspaceLeaf | null = null;
+		if (showProperties) {
+			propsLeaf = workspace.getLeftLeaf(true);
+			if (propsLeaf) {
+				await propsLeaf.setViewState({ type: 'file-properties', active: false });
+			}
+		}
+
+		if (!showProperties && !showLocalGraph) return;
+
+		// 6. Wait for Obsidian to finish rendering all views.
+		await new Promise(resolve => window.setTimeout(resolve, 100));
+
+		// 7. Nudge views to load the current file (active: false skips auto-bind).
+		const activeFile = workspace.getActiveFile();
+		if (activeFile) {
+			workspace.trigger('file-open', activeFile);
+			await new Promise(resolve => window.setTimeout(resolve, 50));
+		}
+
+		// 8. Inject Properties above Local Graph (appended first in flex column).
+		if (outlineLeaf && propsLeaf) {
+			this.injectMetadataIntoOutline(outlineLeaf, propsLeaf);
+		}
+
+		// 9. Inject Local Graph at the bottom (appended after properties).
+		if (outlineLeaf && graphLeaf) {
+			this.injectLocalGraphIntoOutline(outlineLeaf, graphLeaf);
 		}
 	}
 
@@ -266,10 +280,6 @@ export class SidebarLayoutManager {
 		// during sidebar drag. Read the sidebar width from the entry (pre-reflow)
 		// to compute the 4:3 panel height, then call view.onResize() to redraw.
 		this.injectedGraphLeaf = graphLeaf;
-		if (this.graphResizeRef) {
-			this.app.workspace.offref(this.graphResizeRef);
-			this.graphResizeRef = null;
-		}
 		this.graphResizeObserver?.disconnect();
 		const leftSplitEl = this.app.workspace.leftSplit as unknown as { containerEl?: HTMLElement };
 		const observeTarget = leftSplitEl?.containerEl ?? activeDocument.querySelector<HTMLElement>('.workspace-split.mod-left-split');

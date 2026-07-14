@@ -55,6 +55,10 @@ export default class MinimalismUIPlugin extends Plugin {
 
 	// 所有功能单元，统一用于卸载，避免逐个手写 remove() 时遗漏。
 	private features: Feature[] = [];
+	// workspace.onLayoutReady() 的回调挂在 Workspace 自身的队列上，不随插件卸载而取消；
+	// 若插件在布局就绪前被禁用，onunload() 跑完之后该回调仍会触发，对已卸载的实例重新
+	// apply() 一遍。用这个标志在回调入口短路，避免卸载后的幽灵重新应用。
+	private unloaded = false;
 
 	async onload() {
 		await this.loadSettings();
@@ -137,6 +141,7 @@ export default class MinimalismUIPlugin extends Plugin {
 
 		// 依赖 workspace 布局就绪的部分
 		this.app.workspace.onLayoutReady(() => {
+			if (this.unloaded) return;
 			this.dragBar.apply();
 			this.homePage.apply();
 			this.emptyViewButton.apply();
@@ -156,6 +161,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	}
 
 	onunload() {
+		this.unloaded = true;
 		setLang('auto');
 		for (const feature of this.features) feature.remove();
 	}

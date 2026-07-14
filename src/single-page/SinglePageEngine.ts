@@ -418,6 +418,10 @@ export class SinglePageEngine {
 		// synchronously inside originalGetLeaf and discarded it), skip installation.
 		if (!(leaf as LeafInternal).parent) return;
 		this.pendingInterceptLeaves.add(leaf);
+		// 立即补 detach patch：openFile/setViewState 触发前该 leaf 就可能被直接 detach（如新建
+		// 空白 tab 后立刻关闭），若等到拦截器触发才补 patch，这段窗口期内走的是原生 detach，
+		// pendingInterceptLeaves 里的记录永远不会被清理（其内部统一在 detach patch 里清理）。
+		this.patchRootLeafDetach(leaf);
 		const origOpenFile: (file: TFile, state?: unknown) => Promise<void> = (leaf as LeafInternal).openFile.bind(leaf);
 		const origSetViewState: (state: { type: string;[k: string]: unknown }, eState?: unknown) => Promise<void> = (leaf as LeafInternal).setViewState.bind(leaf);
 		(leaf as LeafInternal).openFile = async (file: TFile, state?: unknown) => {
@@ -597,9 +601,10 @@ export class SinglePageEngine {
 				}
 			}
 			original();
-			// leaf 已销毁，清理两个 patch 注册表，防止 Map 随累计打开的 tab 数无限增长
+			// leaf 已销毁，清理各注册表，防止随累计打开的 tab 数无限增长
 			this.rootDetachPatches.delete(leaf);
 			this.historyPatches.delete(leaf);
+			this.pendingInterceptLeaves.delete(leaf);
 		};
 		this.rootDetachPatches.set(leaf, original);
 	}

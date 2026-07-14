@@ -630,9 +630,13 @@ export class RightSidebarButtonManager implements Feature {
 			return;
 		}
 
-		// activeLeaf 缺失（首次扫描）或其 leaf 已被关闭时，回退到最新发现的一项。
+		// activeLeaf 缺失（首次扫描，含插件重启后的第一次打开）或其 leaf 已被关闭时，优先回退
+		// 到用户上次选中、跨重启持久化的视图（见 rightSidebarLastActiveView）；找不到（从未
+		// 记录过，或该视图这次没有对应 leaf）才退回最早发现的一项。
 		if (!this.activeLeaf || !this.leafOrder.includes(this.activeLeaf)) {
-			this.activeLeaf = this.leafOrder[this.leafOrder.length - 1];
+			const lastKey = this.getSettings().rightSidebarLastActiveView;
+			const remembered = lastKey ? this.leafOrder.find((l) => this.keyOf(l) === lastKey) : undefined;
+			this.activeLeaf = remembered ?? this.leafOrder[this.leafOrder.length - 1];
 		}
 
 		this.renderStackIcons();
@@ -779,6 +783,13 @@ export class RightSidebarButtonManager implements Feature {
 
 	private selectLeaf(leaf: WorkspaceLeaf) {
 		this.activeLeaf = leaf;
+		// 记住这次选中，供下次打开面板（含插件/Obsidian 重启后）默认展示，见 refreshStack()。
+		const s = this.getSettings();
+		const key = this.keyOf(leaf);
+		if (s.rightSidebarLastActiveView !== key) {
+			s.rightSidebarLastActiveView = key;
+			void this.save();
+		}
 		if (!this.isOpen) this.open();
 		else {
 			this.updateStackIconVisualState();

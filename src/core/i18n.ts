@@ -67,6 +67,9 @@ const translations = {
 		navBack: '后退',
 		navForward: '前进',
 
+		editorLockAriaReading: '阅读模式 — 点击切换编辑',
+		editorLockAriaEditing: '编辑模式 — 点击切换阅读',
+
 		statusBarMenuLabel: '操作菜单',
 		statusBarMenuModeLocked: '锁定（阅读模式）',
 		statusBarMenuModeEdit: '编辑（实时预览）',
@@ -156,6 +159,9 @@ const translations = {
 
 		navBack: 'Back',
 		navForward: 'Forward',
+
+		editorLockAriaReading: 'Reading view — click to switch to editing',
+		editorLockAriaEditing: 'Editing — click to switch to reading view',
 
 		statusBarMenuLabel: 'Actions menu',
 		statusBarMenuModeLocked: 'Locked (Reading view)',
