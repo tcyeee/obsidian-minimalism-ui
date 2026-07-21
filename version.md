@@ -5,6 +5,22 @@
 
 ---
 
+## Version 1.3.15
+
+- **Reverted the 1.3.14 minimum-version bump — Obsidian 1.7.2 is supported again** (settings tab is back on the imperative `display()` API instead of the new declarative one, which required 1.13.0)
+- Fixed: the status bar's lock indicator is now a plain state icon shown only in reading mode, instead of a clickable mode-toggle with a misleading aria-label
+- Fixed: the Local Graph panel could render broken/blank right after the sidebar first mounts or a pane is resized to a near-zero width, before ever being shown at a real size
+- Internal: closed several lifecycle/leak edge cases — a disabled plugin could get ghost-reapplied if a layout callback fired after unload, a mid-flight settings change to the sidebar layout could get silently dropped, Mermaid zoom now follows popout windows opening/closing, and a leaf detached immediately after creation could be missed by cleanup; the right sidebar's last-selected panel is now restored after a restart
+- Internal: patched a high-severity dependency vulnerability (ReDoS in `brace-expansion`, pulled in via the eslint toolchain) — dev-only, no effect on the shipped plugin
+
+- **回退了 1.3.14 引入的最低版本要求，重新支持 Obsidian 1.7.2**（设置页面改回使用命令式的 `display()` API，不再依赖需要 1.13.0 的新声明式 API）
+- 修复：状态栏的锁定图标现在只是一个纯状态展示，仅在阅读模式下显示，不再是带有误导性 aria-label 的可点击模式切换按钮
+- 修复：本地关系图面板在侧边栏刚挂载或窗格被缩放到接近零宽度后、尚未获得真实尺寸前，可能渲染异常或空白
+- 内部修复：修复了若干生命周期/内存泄漏边界情况——布局回调在插件卸载后才触发时，禁用的插件可能被"幽灵式"重新应用；侧边栏布局中途收到设置变更时可能被静默丢弃；Mermaid 缩放功能现在会跟随弹出窗口的打开/关闭；紧接创建后就被分离的标签页此前可能未被正确清理；右侧栏现在会在重启后恢复上次选中的面板
+- 内部修复：修复了一处高危依赖漏洞（`brace-expansion` 的 ReDoS，通过 eslint 工具链引入）——仅影响开发依赖，不影响已发布插件
+
+---
+
 ## Version 1.3.14
 
 - **Requires Obsidian 1.13.0 or later** (up from 1.7.2) — the settings tab now uses Obsidian's new declarative settings API
