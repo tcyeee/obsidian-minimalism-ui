@@ -10,8 +10,8 @@ const LOCK_SVG_EL = new DOMParser().parseFromString(LOCK_SVG, 'image/svg+xml').d
 /**
  * EditorStatusManager — 阅读模式锁图标。
  *
- * 隐藏 Obsidian 原生 plugin-editor-status 状态栏条目，常驻显示一把锁图标：
- * 阅读模式下图标变为主题强调色，编辑模式下为浅灰色（未激活态）；点击在两种模式间切换。
+ * 隐藏 Obsidian 原生 plugin-editor-status 状态栏条目，仅在阅读模式（锁定态）下显示一把锁图标；
+ * 纯状态展示，不可点击，不提供模式切换。
  */
 export class EditorStatusManager implements Feature {
 	private statusBarItem: HTMLElement | null = null;
@@ -28,14 +28,6 @@ export class EditorStatusManager implements Feature {
 		this.statusBarItem.appendChild(LOCK_SVG_EL.cloneNode(true));
 		this.statusBarItem.setAttribute('data-tooltip-position', 'top');
 
-		this.statusBarItem.addEventListener('click', () => {
-			const leaf = this.app.workspace.getActiveViewOfType(MarkdownView)?.leaf;
-			if (!leaf) return;
-			const state = leaf.getViewState();
-			const nextMode = state.state?.mode === 'preview' ? 'source' : 'preview';
-			void leaf.setViewState({ ...state, state: { ...state.state, mode: nextMode } });
-		});
-
 		const update = () => this.updateState();
 		this.leafChangeHandler = update;
 		this.layoutChangeHandler = update;
@@ -51,7 +43,11 @@ export class EditorStatusManager implements Feature {
 		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 		const isReading = view?.getState().mode === 'preview';
 		this.statusBarItem.toggleClass('is-reading', isReading);
-		this.statusBarItem.setAttribute('aria-label', isReading ? t('editorLockAriaReading') : t('editorLockAriaEditing'));
+		if (isReading) {
+			this.statusBarItem.setAttribute('aria-label', t('editorLockAriaReading'));
+		} else {
+			this.statusBarItem.removeAttribute('aria-label');
+		}
 	}
 
 	remove(): void {

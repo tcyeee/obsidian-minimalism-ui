@@ -607,17 +607,17 @@ body.minimalism-ui-has-home .minimalism-ui-drag-bar-count {
 	display: none;
 }
 
-/* 阅读模式锁图标：常驻显示，非阅读模式为浅灰色（未激活态），阅读模式变为主题强调色 */
+/* 阅读模式锁图标：仅锁定（阅读模式）时出现，纯状态展示，不可点击 */
 .minimalism-ui-editor-lock {
-	display: flex;
+	display: none;
 	align-items: center;
-	cursor: pointer;
 	padding: 0 4px;
-	color: var(--text-faint);
+	color: var(--interactive-accent);
+	cursor: default;
 }
 
 .minimalism-ui-editor-lock.is-reading {
-	color: var(--interactive-accent);
+	display: flex;
 }
 
 /* 状态栏"操作菜单"入口图标 */

@@ -2493,8 +2493,7 @@ var translations = {
     localGraph: "\u672C\u5730\u5173\u7CFB\u56FE",
     navBack: "\u540E\u9000",
     navForward: "\u524D\u8FDB",
-    editorLockAriaReading: "\u9605\u8BFB\u6A21\u5F0F \u2014 \u70B9\u51FB\u5207\u6362\u7F16\u8F91",
-    editorLockAriaEditing: "\u7F16\u8F91\u6A21\u5F0F \u2014 \u70B9\u51FB\u5207\u6362\u9605\u8BFB",
+    editorLockAriaReading: "\u9605\u8BFB\u6A21\u5F0F\uFF08\u5DF2\u9501\u5B9A\uFF09",
     statusBarMenuLabel: "\u64CD\u4F5C\u83DC\u5355",
     statusBarMenuModeLocked: "\u9501\u5B9A\uFF08\u9605\u8BFB\u6A21\u5F0F\uFF09",
     statusBarMenuModeEdit: "\u7F16\u8F91\uFF08\u5B9E\u65F6\u9884\u89C8\uFF09",
@@ -2571,8 +2570,7 @@ var translations = {
     localGraph: "Local Graph",
     navBack: "Back",
     navForward: "Forward",
-    editorLockAriaReading: "Reading view \u2014 click to switch to editing",
-    editorLockAriaEditing: "Editing \u2014 click to switch to reading view",
+    editorLockAriaReading: "Reading view (locked)",
     statusBarMenuLabel: "Actions menu",
     statusBarMenuModeLocked: "Locked (Reading view)",
     statusBarMenuModeEdit: "Edit (Live Preview)",
@@ -4912,14 +4910,6 @@ var EditorStatusManager = class {
     this.statusBarItem.addClass("minimalism-ui-editor-lock");
     this.statusBarItem.appendChild(LOCK_SVG_EL.cloneNode(true));
     this.statusBarItem.setAttribute("data-tooltip-position", "top");
-    this.statusBarItem.addEventListener("click", () => {
-      var _a, _b;
-      const leaf = (_a = this.app.workspace.getActiveViewOfType(import_obsidian7.MarkdownView)) == null ? void 0 : _a.leaf;
-      if (!leaf) return;
-      const state = leaf.getViewState();
-      const nextMode = ((_b = state.state) == null ? void 0 : _b.mode) === "preview" ? "source" : "preview";
-      void leaf.setViewState({ ...state, state: { ...state.state, mode: nextMode } });
-    });
     const update = () => this.updateState();
     this.leafChangeHandler = update;
     this.layoutChangeHandler = update;
@@ -4932,7 +4922,11 @@ var EditorStatusManager = class {
     const view = this.app.workspace.getActiveViewOfType(import_obsidian7.MarkdownView);
     const isReading = (view == null ? void 0 : view.getState().mode) === "preview";
     this.statusBarItem.toggleClass("is-reading", isReading);
-    this.statusBarItem.setAttribute("aria-label", isReading ? t("editorLockAriaReading") : t("editorLockAriaEditing"));
+    if (isReading) {
+      this.statusBarItem.setAttribute("aria-label", t("editorLockAriaReading"));
+    } else {
+      this.statusBarItem.removeAttribute("aria-label");
+    }
   }
   remove() {
     if (this.leafChangeHandler) {
