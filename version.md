@@ -5,6 +5,16 @@
 
 ---
 
+## Version 1.3.16
+
+- Fixed: the settings tab now also implements Obsidian's new declarative `getSettingDefinitions()` API, so it's indexed by Obsidian's built-in settings search on 1.13+ — unlike the reverted 1.3.14 attempt, this does **not** raise the minimum Obsidian version; the old `display()` API is kept fully working side by side for users on 1.7.2–1.12.x
+- Internal: the injected theme `<style>` element now uses Obsidian's own DOM helper instead of raw `document.createElement`, per plugin-review feedback
+
+- 修复：设置页面现在同时实现了 Obsidian 新的声明式 `getSettingDefinitions()` API，因此可以被 Obsidian 内置的设置搜索索引（1.13 及以上版本）——与被回退的 1.3.14 不同，这次**不会**提升最低 Obsidian 版本要求，旧的 `display()` API 会与新 API 并存，继续为 1.7.2–1.12.x 版本的用户提供完整支持
+- 内部修复：根据插件审核反馈，注入的主题 `<style>` 元素改用 Obsidian 自带的 DOM 辅助方法创建，不再使用原生 `document.createElement`
+
+---
+
 ## Version 1.3.15
 
 - **Reverted the 1.3.14 minimum-version bump — Obsidian 1.7.2 is supported again** (settings tab is back on the imperative `display()` API instead of the new declarative one, which required 1.13.0)
