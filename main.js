@@ -4326,6 +4326,9 @@ var SidebarLayoutManager = class {
     // Monkey-patched testCSS ref — restored on remove().
     this.patchedRenderer = null;
     this.origTestCSS = null;
+    // Monkey-patched graph view.onResize ref — restored on remove(). See injectLocalGraphIntoOutline.
+    this.patchedGraphView = null;
+    this.origGraphOnResize = null;
   }
   // ── Public ────────────────────────────────────────────────────────────────
   /** Undo all DOM injections and restore leaves to their original state. */
@@ -4349,6 +4352,11 @@ var SidebarLayoutManager = class {
       this.patchedRenderer.testCSS = this.origTestCSS;
       this.patchedRenderer = null;
       this.origTestCSS = null;
+    }
+    if (this.patchedGraphView && this.origGraphOnResize) {
+      this.patchedGraphView.onResize = this.origGraphOnResize;
+      this.patchedGraphView = null;
+      this.origGraphOnResize = null;
     }
     this.injectedItems = [];
     this.hiddenShells = [];
@@ -4488,6 +4496,16 @@ var SidebarLayoutManager = class {
     if (graphWorkspaceTabs) {
       graphWorkspaceTabs.classList.add("minimalism-ui-is-hidden");
       this.hiddenShells.push(graphWorkspaceTabs);
+    }
+    const graphView = graphLeaf.view;
+    if (graphView && typeof graphView.onResize === "function") {
+      const origOnResize = graphView.onResize.bind(graphView);
+      this.patchedGraphView = graphView;
+      this.origGraphOnResize = origOnResize;
+      graphView.onResize = () => {
+        if (graphLeafContent.clientWidth < 20 || graphLeafContent.clientHeight < 20) return;
+        origOnResize();
+      };
     }
     this.injectedGraphLeaf = graphLeaf;
     (_b = this.graphResizeObserver) == null ? void 0 : _b.disconnect();

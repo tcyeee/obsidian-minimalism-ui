@@ -47,6 +47,9 @@ export class SidebarLayoutManager {
 	// Monkey-patched testCSS ref — restored on remove().
 	private patchedRenderer: { testCSS?(): void } | null = null;
 	private origTestCSS: (() => void) | null = null;
+	// Monkey-patched graph view.onResize ref — restored on remove(). See injectLocalGraphIntoOutline.
+	private patchedGraphView: { onResize?(): void } | null = null;
+	private origGraphOnResize: (() => void) | null = null;
 
 	constructor(
 		private app: App,
@@ -76,6 +79,11 @@ export class SidebarLayoutManager {
 			this.patchedRenderer.testCSS = this.origTestCSS;
 			this.patchedRenderer = null;
 			this.origTestCSS = null;
+		}
+		if (this.patchedGraphView && this.origGraphOnResize) {
+			this.patchedGraphView.onResize = this.origGraphOnResize;
+			this.patchedGraphView = null;
+			this.origGraphOnResize = null;
 		}
 		this.injectedItems = [];
 		this.hiddenShells = [];
@@ -274,6 +282,27 @@ export class SidebarLayoutManager {
 		if (graphWorkspaceTabs) {
 			graphWorkspaceTabs.classList.add('minimalism-ui-is-hidden');
 			this.hiddenShells.push(graphWorkspaceTabs);
+		}
+
+		// Guard the graph view's own onResize against near-zero dimensions.
+		// Obsidian's WorkspaceLeaf sets up its OWN ResizeObserver on this exact
+		// containerEl (independent of the one below) and calls view.onResize()
+		// whenever its offsetWidth/offsetHeight change — including down to 0 when
+		// GraphSidebarManager collapses the whole left sidebar on entering a
+		// canvas file or the global graph. The graph's PIXI/WebGL renderer, once
+		// resized to (near) 0×0, can stay permanently blank even after the sidebar
+		// re-expands (unlike DOM panels, a broken WebGL context doesn't self-heal
+		// on the next valid resize). Patching view.onResize itself is the only way
+		// to intercept both that native observer and our own below.
+		const graphView = graphLeaf.view as { onResize?(): void } | undefined;
+		if (graphView && typeof graphView.onResize === 'function') {
+			const origOnResize = graphView.onResize.bind(graphView);
+			this.patchedGraphView = graphView;
+			this.origGraphOnResize = origOnResize;
+			graphView.onResize = () => {
+				if (graphLeafContent.clientWidth < 20 || graphLeafContent.clientHeight < 20) return;
+				origOnResize();
+			};
 		}
 
 		// Use ResizeObserver on the left split — confirmed to fire continuously
