@@ -1663,8 +1663,2278 @@ body.is-mac.minimalism-ui-mac-sidebar .titlebar-button-container.mod-left {
 }
 
 /* ── 笔记内容美学（各主题） ───────────────────────────────────────────── */
-/* 主题内容样式已迁移到 theme/<name>/<name>.css，由 ThemeLoader 在运行时按 data.json 的
-   theme 字段注入，并收敛在 body.minimalism-ui-theme-<name> 作用域下。
-   styles.css 只保留功能性/界面框架样式（与主题无关，全程生效）；
+/* 主题内容样式的源码在 theme/<name>/<name>.css，各主题下的规则都收敛在
+   body.minimalism-ui-theme-<name> 作用域下，互不冲突。Obsidian 插件审核禁止运行时创建/
+   插入 <style> 元素（"styles.css" 是唯一被自动加载的样式表），因此所有主题内容改为随
+   styles.css 一起静态分发：下面这段由 scripts/generate-theme-assets.mjs 在每次
+   pnpm dev / pnpm build 时自动生成——只编辑 theme/<name>/<name>.css 源文件，不要手改
+   标记之间的内容，重新构建会整段覆盖。ThemeLoader 在运行时只切换
+   body.minimalism-ui-theme-<name> 类名来选择哪一段生效，不再注入任何样式表。
    body.minimalism-ui-note-style 作为"主题无关的笔记排版基线"保留为共享扩展点。 */
+/* GENERATED-THEME-CSS:BEGIN */
+
+/* =============================================================================
+   Forest — Minimalism UI 笔记主题
+   绿色调内容美学：引用块 / 代码 / 表格 / 滚动条 / Callout / Mermaid
+   主色 #00997B · 由 ThemeLoader 在运行时注入，受 body.minimalism-ui-theme-forest 控制
+   ============================================================================= */
+
+.minimalism-ui-theme-forest {
+	--line-height-normal: 1.6;
+}
+
+
+/* 阅读视图 */
+body.minimalism-ui-theme-forest .markdown-reading-view .markdown-preview-section,
+body.minimalism-ui-theme-forest .markdown-reading-view .markdown-preview-section p,
+body.minimalism-ui-theme-forest .markdown-reading-view .markdown-preview-section li,
+body.minimalism-ui-theme-forest .markdown-reading-view .markdown-preview-section h1,
+body.minimalism-ui-theme-forest .markdown-reading-view .markdown-preview-section h2,
+body.minimalism-ui-theme-forest .markdown-reading-view .markdown-preview-section h3,
+body.minimalism-ui-theme-forest .markdown-reading-view .markdown-preview-section h4,
+body.minimalism-ui-theme-forest .markdown-reading-view .markdown-preview-section h5,
+body.minimalism-ui-theme-forest .markdown-reading-view .markdown-preview-section h6 {
+	/* JetBrains Mono 只覆盖 ASCII（英文+数字），中文字符自动 fallback 到语雀同款字体栈 */
+	font-family: 'JetBrains Mono NL', 'JetBrains Mono', 'Chinese Quote', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+	line-height: 1.74;
+	word-break: break-word;
+	word-wrap: break-word;
+	font-variant-ligatures: none;
+}
+
+/* 正文缩小 1px（不影响标题，标题由 --hX-size 变量控制） */
+body.minimalism-ui-theme-forest .markdown-reading-view .markdown-preview-section p,
+body.minimalism-ui-theme-forest .markdown-reading-view .markdown-preview-section li {
+	font-size: 15px;
+}
+
+/* 编辑视图（CodeMirror 6） */
+body.minimalism-ui-theme-forest .cm-editor,
+body.minimalism-ui-theme-forest .cm-editor .cm-content,
+body.minimalism-ui-theme-forest .cm-editor .cm-line,
+body.minimalism-ui-theme-forest .cm-editor .cm-scroller {
+	font-family: 'JetBrains Mono NL', 'JetBrains Mono', 'Chinese Quote', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+	font-size: 15px;
+	line-height: 1.74;
+	word-break: break-word;
+	font-variant-ligatures: none;
+}
+
+/* 编辑视图标题：还原为与预览模式一致的 --hX-size 字号 */
+body.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-header-1 { font-size: var(--h1-size); }
+body.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-header-2 { font-size: var(--h2-size); }
+body.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-header-3 { font-size: var(--h3-size); }
+body.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-header-4 { font-size: var(--h4-size); }
+body.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-header-5 { font-size: var(--h5-size); }
+body.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-header-6 { font-size: var(--h6-size); }
+
+/* ── 引用块 Forest 风格 ──────────────────────────────────────────────── */
+
+.minimalism-ui-theme-forest {
+	--blockquote-background-color: rgba(0, 153, 123, 0.05);
+	--blockquote-border-color: transparent;
+	--blockquote-border-thickness: 0px;
+	--blockquote-color: #81888D;
+	--blockquote-font-style: normal ;
+}
+
+/* 阅读视图 blockquote */
+body.minimalism-ui-theme-forest .markdown-reading-view blockquote {
+	position: relative;
+	padding: 1rem 1rem 1rem 1.3rem;
+	background-color: rgba(0, 153, 123, 0.05);
+	border-radius: 6px;
+	border: none;
+	line-height: 1.6;
+}
+
+.minimalism-ui-theme-forest .markdown-reading-view blockquote p {
+	color: #81888D;
+	font-size: 14px;
+	margin: 0;
+}
+
+.minimalism-ui-theme-forest .markdown-reading-view blockquote::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	height: 100%;
+	width: 0.3rem;
+	background: #00997B;
+	border-top-left-radius: 6px;
+	border-bottom-left-radius: 6px;
+}
+
+/* 编辑视图（Live Preview）blockquote */
+body.minimalism-ui-theme-forest .cm-blockquote-border {
+	border-left: 0.3rem solid #00997B;
+}
+
+body.minimalism-ui-theme-forest .cm-editor .cm-scroller .cm-content .cm-line.HyperMD-quote {
+	background-color: rgba(0, 153, 123, 0.05);
+	color: #81888D;
+	font-size: 14px;
+	padding-top: 4px;
+	padding-bottom: 4px;
+	padding-left: 16px;
+	padding-right: 16px;
+}
+
+/* ── 内部链接去掉下划线 ──────────────────────────────────────────────── */
+
+/* 覆盖 Obsidian 链接下划线 CSS 变量 */
+.minimalism-ui-theme-forest {
+	--link-decoration: none;
+	--link-decoration-hover: none;
+	--link-unresolved-decoration: none;
+}
+
+/* 阅读视图（兜底） */
+body.minimalism-ui-theme-forest .markdown-reading-view a.internal-link {
+	text-decoration: none;
+}
+
+/* 编辑视图（Live Preview）兜底 */
+body.minimalism-ui-theme-forest .cm-editor .cm-hmd-internal-link {
+	text-decoration: none;
+}
+
+/* ── 代码块字体大小 ──────────────────────────────────────────────────── */
+
+/* 阅读视图：围栏代码块 & 行内代码 */
+body.minimalism-ui-theme-forest .markdown-reading-view pre,
+body.minimalism-ui-theme-forest .markdown-reading-view pre code {
+	font-size: 13px;
+}
+
+body.minimalism-ui-theme-forest .markdown-reading-view code {
+	font-size: 13px;
+}
+
+/* 阅读视图：行内代码背景色（排除代码块内的 code） */
+body.minimalism-ui-theme-forest .markdown-reading-view :not(pre) > code {
+	font-size: 0.8rem;
+	color: #347698;
+	background-color: #F3F3F3;
+}
+
+/* 编辑视图（Live Preview）：围栏代码块 & 行内代码 */
+body.minimalism-ui-theme-forest .markdown-source-view:not(.is-source-mode) .HyperMD-codeblock,
+body.minimalism-ui-theme-forest .markdown-source-view:not(.is-source-mode) .cm-inline-code {
+	font-size: 0.8rem;
+}
+
+/* 编辑视图：代码块开启自动换行，超长行折行显示而非横向滚动。
+   特异性 (0,4,1) 压过上面通用的 .cm-editor .cm-line；white-space:pre-wrap 保留缩进与空格
+   的同时允许折行，word-break/overflow-wrap 让超长 token 也能断行。
+   背景色不在此设：浅模式沿用 Obsidian 默认浅底，深底的 #333333 仅在下方 body.theme-dark 段覆盖。 */
+body.minimalism-ui-theme-forest .markdown-source-view:not(.is-source-mode) .cm-editor .cm-line.HyperMD-codeblock {
+	white-space: pre-wrap;
+	word-break: break-word;
+	overflow-wrap: anywhere;
+}
+
+/* 编辑视图（Live Preview）：行内代码背景色；源码模式下不渲染 */
+body.minimalism-ui-theme-forest .markdown-source-view:not(.is-source-mode) .cm-inline-code {
+	font-size: 0.8rem;
+	color: #347698;
+	background-color: #F3F3F3;
+}
+
+/* 阅读视图：代码块圆角。背景色不在此设：浅模式沿用默认浅底，
+   深底的 #333333 仅在下方 body.theme-dark 段覆盖。 */
+body.minimalism-ui-theme-forest .markdown-reading-view pre {
+	border-radius: 5px;
+}
+
+/* 阅读视图：关闭自动换行，超长行横向滚动（编辑视图仍折行，见上 .HyperMD-codeblock）。
+   滚动容器放在内层 <code> 而非 pre：pre 不滚动，绝对定位的复制按钮锚定在 pre 上不会
+   随内容滑走；code 设 display:block 才能出横向滚动条。只命中围栏代码块的 code，
+   不波及行内 :not(pre)>code。 */
+body.minimalism-ui-theme-forest .markdown-reading-view pre code {
+	display: block;
+	overflow-x: auto;
+	white-space: pre;
+	word-break: normal;
+	overflow-wrap: normal;
+}
+
+/* 阅读视图：分割线 */
+body.minimalism-ui-theme-forest .markdown-reading-view hr {
+	border: none;
+	border-top: 1px dashed var(--hr-color, #DADCDE);
+}
+
+/* 实时预览（Live Preview）：分割线（只描绘内层 .cm-hr，与阅读视图的 hr 一致；
+   不要给整行 .cm-line.HyperMD-hr 加边框，否则会在行顶多出一条线 → 双线；
+   源码模式下不渲染，保留原始 --- 文本样式）
+   注意：区分编辑模式的正确 CSS 类是 .is-live-preview，.is-source-mode 不存在 */
+body.minimalism-ui-theme-forest .markdown-source-view.is-live-preview .cm-line.HyperMD-hr {
+	border: none;
+}
+
+body.minimalism-ui-theme-forest .markdown-source-view.is-live-preview .cm-line.HyperMD-hr .cm-hr {
+	border: none;
+	border-top: 1px dashed var(--hr-color, #DADCDE);
+	color: transparent;
+}
+
+/* 源码模式（:not(.is-live-preview)）：--- 保持纯文本外观 */
+body.minimalism-ui-theme-forest .markdown-source-view:not(.is-live-preview) .cm-line.HyperMD-hr {
+	background: none;
+	border: none;
+	height: auto;
+	line-height: inherit;
+}
+
+body.minimalism-ui-theme-forest .markdown-source-view:not(.is-live-preview) .cm-line.HyperMD-hr .cm-hr {
+	color: inherit;
+	border: none;
+}
+
+/* ── 滚动条 ──────────────────────────────────────────────────────────── */
+
+.minimalism-ui-theme-forest .markdown-reading-view ::-webkit-scrollbar,
+.minimalism-ui-theme-forest .cm-scroller::-webkit-scrollbar {
+	/* width 只管纵向；横向滚动条由 height 控制——不设 height 时
+	   Chromium 会回退到 ~16px 的默认自绘滚动条，且常驻占位 */
+	width: 3px;
+	height: 3px;
+}
+
+.minimalism-ui-theme-forest .markdown-reading-view ::-webkit-scrollbar-thumb,
+.minimalism-ui-theme-forest .cm-scroller::-webkit-scrollbar-thumb {
+	background: transparent;
+	border-radius: 999px;
+	transition: background 0.3s ease;
+}
+
+.minimalism-ui-theme-forest .markdown-reading-view:hover ::-webkit-scrollbar-thumb,
+.minimalism-ui-theme-forest .cm-scroller:hover::-webkit-scrollbar-thumb {
+	background: rgba(128, 128, 128, 0.4);
+}
+
+.minimalism-ui-theme-forest .markdown-reading-view ::-webkit-scrollbar-track,
+.minimalism-ui-theme-forest .cm-scroller::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+/* 代码块横向滚动条：关闭换行后超宽才出现，滚动条落在内层 code 上（见上 pre code 规则）。
+   上面的 .markdown-reading-view:hover 规则会让它随正文 hover 常驻显形（看起来"始终显示"）。
+   这里把代码块的滚动条收回到只在悬停代码块本身时才显色——更高特异性压过上面的通用 :hover 规则。 */
+.minimalism-ui-theme-forest .markdown-reading-view:hover pre code::-webkit-scrollbar-thumb {
+	background: transparent;
+}
+
+.minimalism-ui-theme-forest .markdown-reading-view pre:hover code::-webkit-scrollbar-thumb {
+	background: rgba(128, 128, 128, 0.4);
+}
+
+body.minimalism-ui-theme-forest .bases-view {
+	scrollbar-width: thin;
+	scrollbar-color: transparent transparent;
+}
+
+body.minimalism-ui-theme-forest .bases-view:hover {
+	scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
+}
+
+body.minimalism-ui-theme-forest .bases-view ::-webkit-scrollbar {
+	width: 4px;
+	height: 4px;
+}
+
+body.minimalism-ui-theme-forest .bases-view ::-webkit-scrollbar-thumb {
+	background: transparent;
+	border-radius: 999px;
+	transition: background 0.3s ease;
+}
+
+body.minimalism-ui-theme-forest .bases-view:hover ::-webkit-scrollbar-thumb {
+	background: rgba(128, 128, 128, 0.4);
+}
+
+body.minimalism-ui-theme-forest .bases-view ::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+/* ── 表格 Forest 风格 ────────────────────────────────────────────────── */
+
+.minimalism-ui-theme-forest {
+	--table-border-color: #DADCDE;
+	--table-header-background: rgba(0, 153, 123, 0.03);
+	--table-row-alt-background: rgba(0, 153, 123, 0.03);
+	/* 表格借线 / 外框统一走此变量：浅模式纸灰，暗色模式由下方 body.theme-dark 覆盖成低透明白线 */
+	--minimalism-table-line: #DADCDE;
+}
+
+/* 阅读视图 */
+body.minimalism-ui-theme-forest .el-table {
+	border-radius: 5px;
+	overflow: hidden;
+	border: 1px solid var(--minimalism-table-line);
+}
+
+/* 编辑视图：table-editor 外边框
+   overflow:visible 让拖拽把手可以延伸到表格外侧 */
+body.minimalism-ui-theme-forest .cm-editor .table-editor {
+	border-radius: 5px;
+	overflow: visible;
+	outline: 1px solid var(--minimalism-table-line);
+	outline-offset: 0px;
+}
+
+body.minimalism-ui-theme-forest .table-wrapper {
+	overflow: visible;
+	/* 为外侧把手留出视觉空间 */
+	margin-top: 20px;
+	margin-left: 20px;
+}
+
+/* 解除 live preview 表格容器（.cm-table-widget，即 .table-wrapper 的直接父级）的裁切，
+   让把手可以延伸到表格外侧。
+   不用 :has(> .table-wrapper)：:has 会触发大范围选择器失效，有明显性能开销。 */
+body.minimalism-ui-theme-forest .cm-editor .cm-table-widget {
+	overflow: visible;
+}
+
+body.minimalism-ui-theme-forest .el-table table {
+	margin: 0;
+	width: 100%;
+}
+
+.minimalism-ui-theme-forest .markdown-reading-view table thead,
+.minimalism-ui-theme-forest .table-wrapper table.table-editor thead {
+	font-weight: 900;
+	background-color: rgba(0, 153, 123, 0.03);
+}
+
+.minimalism-ui-theme-forest .markdown-reading-view table tr:nth-child(even),
+.minimalism-ui-theme-forest .table-wrapper table.table-editor tr:nth-child(even) {
+	background-color: rgba(0, 153, 123, 0.03);
+}
+
+.minimalism-ui-theme-forest .markdown-reading-view table tbody tr,
+.minimalism-ui-theme-forest .table-wrapper table.table-editor tbody tr {
+	border-bottom: 1px solid var(--minimalism-table-line);
+}
+
+/* 所有单元格：字体、大小、颜色（阅读视图 + 编辑视图） */
+body.minimalism-ui-theme-forest .markdown-reading-view table th,
+body.minimalism-ui-theme-forest .markdown-reading-view table td,
+body.minimalism-ui-theme-forest .markdown-reading-view .el-table .ltr,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td {
+	font-family: 'JetBrains Mono', -apple-system, sans-serif;
+	font-size: calc(var(--font-text-size, 16px) - 3px);
+	color: rgb(107, 107, 107);
+}
+
+/* 所有单元格：内边距 + 列分隔线（左边框，首列除外） */
+body.minimalism-ui-theme-forest .markdown-reading-view table th,
+body.minimalism-ui-theme-forest .markdown-reading-view table td,
+body.minimalism-ui-theme-forest .markdown-reading-view .el-table .ltr {
+	padding: 10px 13px;
+	border-left: 1px solid var(--minimalism-table-line);
+}
+
+/* 编辑模式：.table-editor 是 table 元素本身的 class，需用 table.table-editor 匹配 */
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td {
+	padding: 10px 13px;
+	border-left: 1px solid var(--minimalism-table-line);
+}
+
+
+/* 聚焦单元格内的 CM 编辑器字体大小与未聚焦单元格保持一致 */
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td .cm-editor,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td .cm-editor .cm-content,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td .cm-editor .cm-line,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td .cm-editor .cm-scroller {
+	font-size: calc(var(--font-text-size, 16px) - 3px);
+}
+
+/* 首列去掉左边框（由 el-table 外边框提供） */
+body.minimalism-ui-theme-forest .markdown-reading-view table th:first-of-type,
+body.minimalism-ui-theme-forest .markdown-reading-view table td:first-of-type,
+body.minimalism-ui-theme-forest .markdown-reading-view .el-table .ltr:first-of-type,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th:first-of-type,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td:first-of-type {
+	border-left: none;
+}
+
+/* 末列去掉右边框（由 el-table 外边框提供） */
+body.minimalism-ui-theme-forest .markdown-reading-view table th:last-of-type,
+body.minimalism-ui-theme-forest .markdown-reading-view table td:last-of-type,
+body.minimalism-ui-theme-forest .markdown-reading-view .el-table .ltr:last-of-type,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th:last-of-type,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td:last-of-type {
+	border-right: none;
+}
+
+/* 首行单元格去掉顶边框（由 el-table 外边框提供） */
+body.minimalism-ui-theme-forest .markdown-reading-view table thead tr:first-of-type th,
+body.minimalism-ui-theme-forest .markdown-reading-view table tr:first-of-type td,
+body.minimalism-ui-theme-forest .markdown-reading-view table tr:first-of-type th,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor thead tr:first-of-type th,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor tr:first-of-type td,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor tr:first-of-type th {
+	border-top: none;
+}
+
+/* 末行单元格去掉底边框（由 el-table 外边框提供） */
+body.minimalism-ui-theme-forest .markdown-reading-view table tbody tr:last-of-type td,
+body.minimalism-ui-theme-forest .markdown-reading-view table tbody tr:last-of-type th,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor tbody tr:last-of-type td,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor tbody tr:last-of-type th {
+	border-bottom: none;
+}
+
+/* tr 级别的末行底边框也去掉 */
+body.minimalism-ui-theme-forest .markdown-reading-view table tbody tr:last-of-type,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor tbody tr:last-of-type {
+	border-bottom: none;
+}
+
+/* ── 编辑模式：表格拖拽区域 ───────────────────────────────────────────── */
+
+/* th/td 必须是 relative 定位，absolute 把手才能相对它们定位 */
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td {
+	position: relative;
+}
+
+/* 列拖拽把手：悬浮在列头正上方（表格外侧），默认完全隐藏 */
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th .table-col-drag-handle {
+	position: absolute;
+	top: -18px;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 40px;
+	height: 18px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: grab;
+	opacity: 0;
+	transition: opacity 0.15s;
+	border-radius: 6px 6px 0 0;
+	background: rgba(0, 0, 0, 0.08);
+	z-index: 10;
+}
+
+/* 鼠标悬停列头或把手时显示列拖拽把手 */
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th:hover .table-col-drag-handle,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th .table-col-drag-handle:hover {
+	opacity: 1;
+	background: rgba(0, 153, 123, 0.2);
+}
+
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th .table-col-drag-handle .svg-icon {
+	width: 14px;
+	height: 10px;
+}
+
+/* 非首列的行拖拽把手直接隐藏，避免重复 */
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th:not(:first-child) .table-row-drag-handle,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td:not(:first-child) .table-row-drag-handle {
+	display: none;
+}
+
+/* 行拖拽把手：悬浮在首列左侧（表格外侧），默认完全隐藏 */
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th:first-child .table-row-drag-handle,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td:first-child .table-row-drag-handle {
+	position: absolute;
+	left: -18px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 18px;
+	height: 40px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: grab;
+	opacity: 0;
+	transition: opacity 0.15s;
+	border-radius: 6px 0 0 6px;
+	background: rgba(0, 0, 0, 0.08);
+	z-index: 10;
+}
+
+/* 鼠标悬停任意单元格时整行把手显示（通过 tr:hover 选择器实现） */
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor tr:hover th:first-child .table-row-drag-handle,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor tr:hover td:first-child .table-row-drag-handle,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th:first-child .table-row-drag-handle:hover,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td:first-child .table-row-drag-handle:hover {
+	opacity: 1;
+	background: rgba(0, 153, 123, 0.2);
+}
+
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor th:first-child .table-row-drag-handle .svg-icon,
+body.minimalism-ui-theme-forest .table-wrapper table.table-editor td:first-child .table-row-drag-handle .svg-icon {
+	width: 10px;
+	height: 14px;
+}
+
+/* ── Obsidian Bases（class=bases-view）：对齐上方 forest 内置表格版式 ─────────
+   Bases 表格不是原生 <table>，而是 div 网格：.bases-table 内分 .bases-thead /
+   .bases-tbody，行 .bases-tr、单元格 .bases-td（表头单元格也用 .bases-td，不是 th）。
+   这里把外框圆角、表头绿底加粗、内格线全部对齐上方 .el-table 的 forest 版式，
+   使两类表观感一致。 */
+
+/* 外框 + 圆角：框要画在 .bases-view 上（比 .bases-table-container 高一层）。
+   .bases-view 这个 class 三种 Bases 视图（table / cards / list）共用，必须用
+   data-view-type="table" 限定，只给表格视图描框，否则会误伤卡片 / 列表视图。
+   不动 overflow：.bases-view 自带的 overflow:auto 既负责横向滚动、又会把内容裁到
+   圆角内，强行改 clip 反而会废掉横向滚动。
+   .bases-view.bases-view 双写 class 提权：嵌入式 Bases 有一条内置规则
+   .workspace-leaf-content[data-type="markdown"] .block-language-base .bases-view（4 个 class，
+   特异性 0,4,0）会用 --bases-embed-border-color（透明）/ --bases-embed-radius 覆盖掉这里的
+   border-color 与 border-radius longhand。双写把本规则提到 0,4,1 压过它，不必动用 !important。
+   padding:0 抹掉嵌入式的 --bases-embed-padding：该内边距夹在本 border 与表格之间，成为空隙。 */
+body.minimalism-ui-theme-forest .bases-view.bases-view[data-view-type="table"] {
+	border: 1px solid var(--minimalism-table-line);
+	border-radius: 5px;
+	padding: 0;
+}
+
+/* 表头：绿底、加粗、左对齐 + 下边线（对齐 .el-table 的 thead font-weight:900 + 绿底） */
+body.minimalism-ui-theme-forest .bases-view .bases-thead .bases-td {
+	background-color: rgba(0, 153, 123, 0.03);
+	color: rgb(107, 107, 107);
+	font-weight: 900;
+	text-align: left;
+	border-bottom: 1px solid var(--minimalism-table-line);
+}
+
+/* 单元格：内边距 + 字号 + 字色 + 字体 + 内格线（右 + 下）；
+   字号 / 字色 / 衬体均与上方内置 table 对齐，使两类表观感一致。
+   纵向内边距压成 0.25em：Bases 行高被 Obsidian 固定为 --bases-table-row-height:30px，
+   沿用内置表的 10px 上下内边距会撑过 30px 被行裁掉。横向沿用内置表的 13px。 */
+body.minimalism-ui-theme-forest .bases-view .bases-td {
+	padding: 0.25em 13px;
+	font-size: calc(var(--font-text-size, 16px) - 3px);
+	font-family: 'JetBrains Mono', -apple-system, sans-serif;
+	color: rgb(107, 107, 107);
+	vertical-align: top;
+	border-right: 1px solid var(--minimalism-table-line);
+	border-bottom: 1px solid var(--minimalism-table-line);
+}
+
+/* 表格行高被 Obsidian 固定为 --bases-table-row-height:30px（行用 absolute + top 偏移虚拟化），
+   内容超 30px 即被行裁掉。把单元格内容行高压成 normal（链接走 markdown-rendered 会继承正文
+   行高），给固定行高留足空间。 */
+body.minimalism-ui-theme-forest .bases-view[data-view-type="table"] .bases-table-cell {
+	line-height: normal;
+}
+
+/* 隐藏外链末尾的编辑铅笔 flair：这个 ~18px 图标既把 .metadata-link 撑高过 30px 行
+   （→ 底部裁字、链接下沉），又紧贴 URL 末字符显脏。隐藏后链接收回文字行高。 */
+body.minimalism-ui-theme-forest .bases-view[data-view-type="table"] .metadata-link-flair {
+	display: none;
+}
+
+/* .metadata-link 是 Properties 面板的链接控件，自带内边距 / min-height（做成可编辑字段的样子），
+   整体高于固定 30px 行 → 底部被裁。压平成贴文字行高：去内边距、min-height:0、flex 居中。 */
+body.minimalism-ui-theme-forest .bases-view[data-view-type="table"] .bases-td .metadata-link {
+	display: flex;
+	align-items: center;
+	min-height: 0;
+	padding: 0;
+	margin: 0;
+	line-height: normal;
+}
+
+/* 只压上下内边距：external-link 自带 padding-inline-end:0.9em 给末尾的外链箭头
+   背景图留位（箭头是 .external-link 的 background-image，不是 DOM 节点）。padding:0
+   会连这段右内边距一起清掉，箭头落到 URL 末字符上造成重叠，故只清 block 方向。 */
+body.minimalism-ui-theme-forest .bases-view[data-view-type="table"] .bases-td .metadata-link-inner {
+	padding-block: 0;
+	line-height: normal;
+}
+
+/* 边缘单元格去掉内格线：右缘 / 下缘留给 .bases-view 单层外框，避免双线 */
+body.minimalism-ui-theme-forest .bases-view .bases-tr .bases-td:last-child {
+	border-right: none;
+}
+
+body.minimalism-ui-theme-forest .bases-view .bases-tbody .bases-tr:last-child .bases-td {
+	border-bottom: none;
+}
+
+/* 右侧空隙：Obsidian 把表格宽度算成「可用宽 − 预留滚动条宽」，表格永远到不了视图右缘，
+   那段差额就是边框与表格之间的缝。各级宽度由 JS 写成内联 width，无法用 CSS width 覆盖；
+   但 min-width 是另一个属性、不被内联 width 拦，min-width:100% 把它们撑到视图满宽。
+   超宽表（表宽 > 视图）时 100% 小于内联宽，不生效，横向滚动照常。 */
+body.minimalism-ui-theme-forest .bases-view[data-view-type="table"] .bases-thead,
+body.minimalism-ui-theme-forest .bases-view[data-view-type="table"] .bases-table-container,
+body.minimalism-ui-theme-forest .bases-view[data-view-type="table"] .bases-table,
+body.minimalism-ui-theme-forest .bases-view[data-view-type="table"] .bases-tbody,
+body.minimalism-ui-theme-forest .bases-view[data-view-type="table"] .bases-tbody .bases-tr {
+	min-width: 100%;
+}
+
+/* 表头给上绿底：撑满后末列右侧多出的几 px 落在 thead 自身（不在任何 .bases-td 上），
+   补上同色让这截与表头格子同色，不露出纸色缺口 */
+body.minimalism-ui-theme-forest .bases-view[data-view-type="table"] .bases-thead {
+	background-color: rgba(0, 153, 123, 0.03);
+}
+
+/* ── Bases 网格卡片标题 ──────────────────────────────────────────────── */
+
+body.minimalism-ui-theme-forest .bases-cards-property.mod-title {
+	font-weight: 400;
+}
+
+/* ── 脚注内容 ────────────────────────────────────────────────────────── */
+
+/* 阅读视图 */
+body.minimalism-ui-theme-forest .markdown-reading-view section.footnotes,
+body.minimalism-ui-theme-forest .markdown-reading-view section.footnotes li,
+body.minimalism-ui-theme-forest .markdown-reading-view section.footnotes p {
+	font-size: 0.8rem;
+	opacity: 0.8;
+}
+
+/* 编辑视图 */
+body.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-footnote {
+	font-size: 0.8rem;
+	opacity: 0.8;
+}
+
+/* ── 无语言代码块透明度 ──────────────────────────────────────────────── */
+
+/* 阅读视图：无语言标注的代码块内容 */
+body.minimalism-ui-theme-forest .markdown-reading-view pre > code:not([class*="language-"]) {
+	opacity: 0.9;
+}
+
+/* 编辑视图（Live Preview）：无语言标注的代码块行 */
+body.minimalism-ui-theme-forest .cm-editor .HyperMD-codeblock:not([class*="language-"]) {
+	opacity: 0.9;
+}
+
+/* 编辑视图：代码块起始行（语言名称）和结束行文字变浅灰 */
+body.minimalism-ui-theme-forest .cm-editor .HyperMD-codeblock-begin,
+body.minimalism-ui-theme-forest .cm-editor .HyperMD-codeblock-end {
+	color: var(--text-faint);
+}
+
+/* ── Callout ─────────────────────────────────────────────────────────── */
+
+/* 阅读视图：callout 正文字色 */
+body.minimalism-ui-theme-forest .markdown-reading-view .callout-content,
+body.minimalism-ui-theme-forest .markdown-reading-view .callout-content p,
+body.minimalism-ui-theme-forest .markdown-reading-view .callout-content li,
+body.minimalism-ui-theme-forest .markdown-reading-view .callout-content ul,
+body.minimalism-ui-theme-forest .markdown-reading-view .callout-content ol {
+	font-size: 0.9rem;
+	color: var(--text-muted);
+	opacity: 0.9;
+}
+
+/* 编辑视图（Live Preview）：callout 正文字色 */
+body.minimalism-ui-theme-forest .cm-editor .cm-callout .cm-line:not(.cm-callout-title) {
+	font-size: 0.9rem;
+	color: var(--text-muted);
+	opacity: 0.9;
+}
+
+/* ── Mermaid ─────────────────────────────────────────────────────────── */
+
+/* Mermaid 图表：超出笔记宽度时横向滚动，不缩放 */
+/* overflow-x: overlay 让滚动条浮在内容上，不占布局空间，不引起闪烁 */
+/* 背景框：浅绿底 + 描边 + 圆角 + 内边距，把图表框起来与正文区分；
+   边框走 --minimalism-table-line（浅模式纸灰 / 暗模式低透明白线），自动适配深浅模式。
+   padding 加在外层 .mermaid 容器上，不碰 SVG 内部 foreignObject 的 JS 预算尺寸。 */
+body.minimalism-ui-theme-forest .markdown-reading-view .mermaid,
+body.minimalism-ui-theme-forest .cm-editor .mermaid {
+	overflow-x: overlay;
+	overflow-y: visible;
+	max-width: 100%;
+	background-color: rgba(0, 153, 123, 0.04);
+	border: 1px solid var(--minimalism-table-line);
+	border-radius: 6px;
+	padding: 16px;
+}
+
+body.minimalism-ui-theme-forest .markdown-reading-view .mermaid svg,
+body.minimalism-ui-theme-forest .cm-editor .mermaid svg {
+	max-width: none;
+	height: auto;
+}
+
+/* Mermaid 滚动条：细条，悬停时才显色 */
+.minimalism-ui-theme-forest .mermaid::-webkit-scrollbar {
+	height: 3px;
+}
+
+.minimalism-ui-theme-forest .mermaid::-webkit-scrollbar-thumb {
+	background: transparent;
+	border-radius: 3px;
+}
+
+.minimalism-ui-theme-forest .mermaid:hover::-webkit-scrollbar-thumb {
+	background: rgba(128, 128, 128, 0.35);
+}
+
+.minimalism-ui-theme-forest .mermaid::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+/* Mermaid fit-view 状态（默认）：SVG 缩放至填满容器宽度，显示全图 */
+body.minimalism-ui-theme-forest .mermaid.mermaid-fit-view {
+	overflow-x: hidden;
+}
+
+body.minimalism-ui-theme-forest .mermaid.mermaid-fit-view svg {
+	width: 100%;
+	height: auto;
+	max-width: 100%;
+	cursor: zoom-in;
+}
+
+/* Mermaid 展开状态：超宽且未 fit，显示 zoom-out 光标提示可收回 */
+.minimalism-ui-theme-forest .mermaid.mermaid-overflows:not(.mermaid-fit-view) svg {
+	cursor: zoom-out;
+}
+
+/* Mermaid 节点：禁止换行，消除 p 标签 margin，字号与正文一致 */
+/* 注意：不改 padding，避免撑高 JS 预算好的 foreignObject */
+body.minimalism-ui-theme-forest .mermaid .nodeLabel,
+body.minimalism-ui-theme-forest .mermaid .nodeLabel p {
+	white-space: nowrap;
+	margin: 0;
+	font-size: var(--font-text-size);
+}
+
+/* foreignObject 宽度由 JS 固定，nowrap 文字可能超出被裁；改为 visible 防截断 */
+body.minimalism-ui-theme-forest .mermaid foreignObject {
+	overflow: visible;
+}
+
+/* 兼容 SVG text 节点（部分图类型不用 foreignObject） */
+body.minimalism-ui-theme-forest .mermaid svg text {
+	font-size: var(--font-text-size);
+}
+
+/* =============================================================================
+   暗色模式适配：正文区写死的浅色值覆盖
+   Forest 正文跟随 Obsidian 暗色变量，但行内代码底色、表格借线 / 单元格字色是写死的
+   浅模式灰，深底下会成亮块 / 偏暗。这里只在 body.theme-dark 下覆盖，浅色模式不受影响。
+   ============================================================================= */
+
+/* 表格借线：浅模式纸灰在深底下偏亮，换成低透明白线。
+   --table-border-color 同步覆盖：Bases 原生表格内部格线走此变量（非 --minimalism-table-line），
+   浅模式 #DADCDE 不覆盖会在深底下保持亮白，与外框（走 --minimalism-table-line）不一致。 */
+body.theme-dark.minimalism-ui-theme-forest {
+	--minimalism-table-line: rgba(255, 255, 255, 0.12);
+	--table-border-color: rgba(255, 255, 255, 0.12);
+	--hr-color: rgba(180, 180, 180, 0.3);
+}
+
+/* 内容区背景：暗色模式正文区改为 #373B40，与 #2E3033 侧边栏区分层次 */
+body.theme-dark.minimalism-ui-theme-forest {
+	--background-primary: #373B40;
+	--background-primary-alt: #373B40;
+}
+
+/* 暗色模式：Obsidian 用 background-color 渲染 hr，dashed 不生效；
+   阅读视图和实时预览统一清掉 background 并重申虚线，压过默认规则。 */
+body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view hr {
+	background: none;
+	border: none;
+	border-top: 1px dashed var(--hr-color);
+}
+
+body.theme-dark.minimalism-ui-theme-forest .markdown-source-view.is-live-preview .cm-line.HyperMD-hr .cm-hr {
+	background: none;
+}
+
+/* 行内代码：浅灰底 #F3F3F3 在深底下是亮块，换成低透明绿底 + 提亮蓝字 */
+body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view :not(pre) > code,
+body.theme-dark.minimalism-ui-theme-forest .markdown-source-view:not(.is-source-mode) .cm-inline-code {
+	color: #6fb3d6;
+	background-color: rgba(0, 153, 123, 0.16);
+}
+
+/* 代码块底色：深底专用 #333333（阅读视图 pre + 编辑视图 HyperMD-codeblock 行）。
+   浅色模式不设此色，沿用 Obsidian 默认浅底，避免在浅页面上出现深色代码块。 */
+body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view pre,
+body.theme-dark.minimalism-ui-theme-forest .cm-editor .cm-line.HyperMD-codeblock {
+	background-color: #333333;
+}
+
+/* 表格单元格字色：写死的 rgb(107,107,107) 在深底下偏暗，跟随 --text-muted 提亮 */
+body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view table th,
+body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view table td,
+body.theme-dark.minimalism-ui-theme-forest .markdown-reading-view .el-table .ltr,
+body.theme-dark.minimalism-ui-theme-forest .table-wrapper table.table-editor th,
+body.theme-dark.minimalism-ui-theme-forest .table-wrapper table.table-editor td,
+body.theme-dark.minimalism-ui-theme-forest .bases-view .bases-td,
+body.theme-dark.minimalism-ui-theme-forest .bases-view .bases-thead .bases-td {
+	color: var(--text-muted);
+}
+
+/* =============================================================================
+   侧边栏 / Chrome 配色（从 styles.css 迁入）
+   这些原先写在 styles.css（被当作主题无关 chrome），实为 Forest 专属的深色侧边栏外观：
+   深蓝底 #123342 / 暗色 #2E3033 + 浅灰字 + 蓝色 accent + 深底建议弹层。
+   现收归本主题，全部叠加 body.minimalism-ui-theme-forest 作用域，仅 Forest 激活时生效；
+   其他主题（如 newspaper）各写各的。
+   ============================================================================= */
+
+/* 侧边栏本体背景：浅色模式深蓝，暗色模式深灰；去掉默认右侧投影 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split {
+	background-color: #123342;
+	box-shadow: none;
+}
+
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split {
+	background-color: #2E3033;
+}
+
+/* 侧边栏文字浅色适配深色背景 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split * {
+	color: rgba(196, 196, 196, 0.88);
+}
+
+/* 左侧 ribbon（活动栏）背景与侧边栏一致，融为同一块面板 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left::before {
+	background-color: #123342;
+}
+
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left,
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left::before {
+	background-color: #2E3033;
+}
+
+/* ribbon 图标浅色适配深底 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon {
+	color: rgba(196, 196, 196, 0.7);
+}
+
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action:hover,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon:hover {
+	color: rgba(255, 255, 255, 0.95);
+	background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* 注入式分区标题（OUTLINE / PROPERTIES / LOCAL GRAPH）浅白 */
+body.minimalism-ui-theme-forest.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"]::before,
+body.minimalism-ui-theme-forest.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="file-properties"]::before,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-graph-header > span {
+	color: rgba(255, 255, 255, 0.88);
+}
+
+/* sticky 属性标题：文字浅白 + 背景须与侧边栏底色一致，
+   否则 styles.css 里的 var(--background-secondary) 会在滚动时露出浅色块（颜色异常）。 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content::before {
+	color: rgba(255, 255, 255, 0.88);
+	background-color: #123342;
+}
+
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content::before {
+	background-color: #2E3033;
+}
+
+/* 左下角 vault profile：深色底 + 虚线顶边 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-sidedock-vault-profile {
+	background-color: #123342;
+	border-top: 1px dashed rgba(180, 180, 180, 0.3);
+}
+
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-sidedock-vault-profile {
+	background-color: #2E3033;
+}
+
+/* 导航项 hover / active（蓝色 accent） */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title:hover,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-folder-title:hover {
+	background: rgba(0, 122, 255, 0.1);
+	border-radius: 6px;
+}
+
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active:hover {
+	background: rgba(0, 122, 255, 0.18);
+	color: #007AFF;
+	border-radius: 6px;
+}
+
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title:hover,
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-folder-title:hover {
+	background: rgba(255, 255, 255, 0.08);
+}
+
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active {
+	background: rgba(0, 122, 255, 0.25);
+}
+
+/* 属性栏输入光标：浅色适配深底 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value input,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value [contenteditable] {
+	caret-color: rgba(196, 196, 196, 0.88);
+}
+
+/* 日期/时间属性的原生日历选择器图标：默认是深色字形，在深底侧边栏几乎不可见，
+   用 invert 反相为浅色，使其在 Forest 深底上清晰可辨。 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value input[type="date"]::-webkit-calendar-picker-indicator,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+	filter: invert(0.85);
+	opacity: 0.7;
+}
+
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value input[type="date"]::-webkit-calendar-picker-indicator:hover,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+	opacity: 1;
+}
+
+/* 属性栏建议下拉：深底浅字（对齐 localgraph 设置面板 #0f1e2b） */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar.minimalism-ui-sidebar-prop-focus .suggestion-container {
+	background-color: #0f1e2b;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+}
+
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar.minimalism-ui-sidebar-prop-focus .suggestion-container .suggestion-item {
+	color: rgba(196, 196, 196, 0.88);
+}
+
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar.minimalism-ui-sidebar-prop-focus .suggestion-container .suggestion-item.is-selected {
+	background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* 侧边栏局部关系图设置面板展开态：深色背景 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="localgraph"].minimalism-ui-injected-graph .graph-controls:not(.is-close) {
+	background: #0f1e2b;
+}
+
+/* 侧边栏局部关系图节点配色（适配深底 #1B3241） */
+body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-text          { color: rgba(205, 225, 245, 0.9); }
+body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-fill          { color: rgba(91, 165, 220, 0.9); }
+body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-fill-focused  { color: #5ba4f0; }
+body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-fill-unresolved { color: rgba(160, 175, 190, 0.5); }
+body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-fill-attachment { color: rgba(120, 195, 140, 0.85); }
+body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-fill-tag      { color: rgba(210, 165, 100, 0.85); }
+body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-circle        { color: rgba(91, 165, 220, 0.4); }
+body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-arrow         { color: rgba(180, 210, 240, 0.6); }
+body.minimalism-ui-theme-forest.minimalism-ui-sidebar-graph-reading .graph-view.color-line          { color: rgba(180, 210, 240, 0.35); }
+
+/* ── 内嵌 Ribbon 面板（forest 主题）──────────────────────────────────── */
+/* 面板背景与 vault profile 同色，融为一体 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel {
+	background-color: #123342;
+}
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel {
+	background-color: #2E3033;
+}
+
+/* Ribbon 图标：浅色适配深底。背景色一并覆盖 styles.css 里默认的 core
+   var(--background-secondary)（浅色）——否则深底面板上会露出一个个白色方块。 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-ribbon-action,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .clickable-icon {
+	color: rgba(196, 196, 196, 0.7);
+	background-color: rgba(255, 255, 255, 0.06);
+}
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-ribbon-action:hover,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .clickable-icon:hover {
+	color: rgba(255, 255, 255, 0.95);
+	background-color: rgba(255, 255, 255, 0.08);
+	border-radius: 4px;
+}
+
+/* 展开/收起按钮：与 vault-actions 其他图标视觉一致 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-toggle {
+	color: rgba(196, 196, 196, 0.7);
+}
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-toggle:hover {
+	color: rgba(255, 255, 255, 0.95);
+	background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* =============================================================================
+   Newspaper — Minimalism UI 笔记主题
+   移植自 Typora "Newsprint" 主题：奶白纸张 + 近黑衬线 + 报刊排版
+   纸张 #f3f2ee · 正文 #1f0909 · 链接 #065588 · 由 ThemeLoader 在运行时注入，
+   受 body.minimalism-ui-theme-newspaper 控制
+   正文 bundle PT Serif（衬线，latin-only，CJK 回退宋体）、代码 bundle JetBrains Mono
+   （均由 FontLoader 注入），缺失则回退系统字体栈
+   ============================================================================= */
+
+.minimalism-ui-theme-newspaper {
+	/* 报刊正文行距：对齐设计稿的疏朗排版（原 1.6 偏紧，正文与中英文段落都放宽到 1.8） */
+	--line-height-normal: 1.8;
+	/* 链接：报刊蓝，默认无下划线，悬停才出现 */
+	--link-color: #065588;
+	--link-external-color: #065588;
+	--link-decoration: none;
+	--link-decoration-hover: underline;
+	--link-unresolved-decoration: none;
+	/* 引用块：斜体灰字 + 左侧实线边框，无背景 */
+	--blockquote-border-color: #bababa;
+	--blockquote-border-thickness: 5px;
+	--blockquote-color: #656565;
+	--blockquote-font-style: italic;
+	--blockquote-background-color: transparent;
+	/* 表格：单元格内格线由下方 th/td 规则显式描淡灰（cell-border），故原生网格关掉（width 0）；
+	   表头灰底 + 隔行浅灰区分，整张表外圈另加一圈细框 + 圆角收拢成版块。
+	   表头与隔行底色已整体提亮 30% */
+	--table-border-width: 0px;
+	--table-border-color: #c5c5c5;
+	--table-header-background: #e5e5e5;
+	--table-row-alt-background: #efeeee;
+}
+
+/* ── 纸张背景：奶白底强制套用到正文内容区（明/暗底色下都为亮） ──────────── */
+
+/* 阅读视图 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view {
+	background-color: #f3f2ee;
+}
+
+/* 编辑视图（CodeMirror 6 / Live Preview） */
+body.minimalism-ui-theme-newspaper .markdown-source-view.mod-cm6,
+body.minimalism-ui-theme-newspaper .markdown-source-view.mod-cm6 .cm-editor,
+body.minimalism-ui-theme-newspaper .markdown-source-view.mod-cm6 .cm-scroller,
+body.minimalism-ui-theme-newspaper .markdown-source-view.mod-cm6 .cm-gutters {
+	background-color: #f3f2ee;
+}
+
+/* ── 整片纸感：把奶白底延伸到 chrome（侧边栏 / 拖拽栏） ──────────────────
+   侧边栏的 chrome 配色（背景 / 文字 / 分区标题 / 导航项 / vault profile）原本写在
+   styles.css 里、是 Forest 专属的深色方案，现已迁回各主题。本段是 newspaper 的版本：
+   奶白纸张 + 报刊深墨字。全部 scoped 在 body.minimalism-ui-theme-newspaper 下。 */
+
+/* 所有 leaf 内容区（含合并侧边栏：大纲 / 属性 / 局部关系图） */
+body.minimalism-ui-theme-newspaper .workspace-leaf-content {
+	background-color: #f3f2ee;
+}
+
+/* 左右侧边栏容器本体：奶白底 */
+body.minimalism-ui-theme-newspaper .workspace-split.mod-left-split,
+body.minimalism-ui-theme-newspaper .workspace-split.mod-right-split {
+	background-color: #f3f2ee;
+}
+
+/* 侧边栏与正文之间的分割线：报刊式虚线（两侧同为奶白底，靠这条线区分版块） */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split {
+	border-right: 1px dashed #898989;
+}
+
+/* 抹掉 resize handle 自带的原生分隔实线（border-color: var(--divider-color)），
+   只保留上面那条虚线，避免双线；:not(:hover) 保留拖拽调宽时的高亮反馈 */
+body.minimalism-ui-theme-newspaper .workspace-split.mod-left-split > .workspace-leaf-resize-handle:not(:hover) {
+	border-color: transparent;
+}
+
+/* 侧边栏文字：用 `* { color }` 把整片侧边栏文字铺成报刊深墨（与 Forest 原方案同构，
+   只是换成深字适配奶白底）。叠加 .minimalism-ui-mac-sidebar 与该 chrome 选择器对齐。 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split * {
+	color: #4a3838;
+}
+
+/* 左侧 ribbon（活动栏）：奶白纸底，与侧边栏连成同一片版块。
+   ::before 是顶部交通灯角落（Obsidian 默认填 titlebar 色），一并刷成纸色 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left::before {
+	background-color: #f3f2ee;
+}
+
+/* ribbon 图标：报刊深墨，hover 加深 + 暖灰底 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon {
+	color: #4a3838;
+}
+
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action:hover,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon:hover {
+	color: #1f0909;
+	background-color: #e8e7e7;
+}
+
+/* ── 内嵌 Ribbon 面板（newspaper 主题）─────────────────────────────────
+   图标从上面的 side-dock-ribbon 迁入 vault-profile 内嵌面板后，原位规则不再命中，
+   须对新位置补一份同色规则（对齐 forest 主题的写法）。 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel {
+	background-color: #f3f2ee;
+}
+
+/* 背景色一并覆盖 styles.css 里默认的 core var(--background-secondary)——
+   否则奶白面板上会露出与纸色不一致的方块。 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-ribbon-action,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .clickable-icon {
+	color: #4a3838;
+	background-color: rgba(0, 0, 0, 0.045);
+}
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-ribbon-action:hover,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .clickable-icon:hover {
+	color: #1f0909;
+	background-color: #e8e7e7;
+	border-radius: 4px;
+}
+
+/* 展开/收起按钮：与 vault-actions 其他图标视觉一致 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-toggle {
+	color: #4a3838;
+}
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-toggle:hover {
+	color: #1f0909;
+	background-color: #e8e7e7;
+}
+
+/* 注入式分区标题（OUTLINE / PROPERTIES / LOCAL GRAPH）：报刊近黑，比正文略重作 kicker。
+   这些 ::before / span 不走变量，需对位覆盖各自的颜色规则。 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"]::before,
+body.minimalism-ui-theme-newspaper.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="file-properties"]::before,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-graph-header > span {
+	color: #1f0909;
+}
+
+/* sticky 属性标题：深墨字 + 背景须与侧边栏奶白底一致，
+   否则 styles.css 里的 var(--background-secondary) 会在滚动时露出色差块（颜色异常）。 */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content::before {
+	color: #1f0909;
+	background-color: #f3f2ee;
+}
+
+/* 侧边栏局部关系图设置面板展开态：背景与侧边栏奶白底一致（styles.css 里设为 transparent，主题专属背景在此补齐） */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="localgraph"].minimalism-ui-injected-graph .graph-controls:not(.is-close) {
+	background: #f3f2ee;
+}
+
+/* 导航项 hover / active：暖灰底，替代 Forest 的蓝色 accent */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title:hover,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-folder-title:hover {
+	background: #e8e7e7;
+	border-radius: 6px;
+}
+
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active:hover {
+	background: #dadada;
+	color: #1f0909;
+	border-radius: 6px;
+}
+
+/* 左下角仓库信息栏：奶白底 + 报刊深墨字（文字由上面的 * 规则一并变深） */
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-sidedock-vault-profile {
+	background-color: #f3f2ee;
+	border-top: 1px solid #c5c5c5;
+}
+
+/* 顶部自定义拖拽栏：奶白底，与正文连成一片 */
+body.minimalism-ui-theme-newspaper .minimalism-ui-drag-bar {
+	background-color: #f3f2ee;
+}
+
+/* 主编辑区容器 + 根标签栏：奶白纸底。
+   newspaper 是「强制亮色」主题，但只刷了 .workspace-leaf-content / 视图本体；暗色模式下
+   mod-root 容器本体与顶部标签栏（未隐藏标签栏时）仍是 Obsidian 深色 chrome，会在纸面四周 /
+   标签栏处露出深色拼接。这里把它们一并刷成纸色，保证整片纸感在明 / 暗模式下都成立。 */
+body.minimalism-ui-theme-newspaper .workspace-split.mod-root,
+body.minimalism-ui-theme-newspaper .workspace-split.mod-root .workspace-tab-header-container,
+body.minimalism-ui-theme-newspaper .workspace-split.mod-root .workspace-tab-header {
+	background-color: #f3f2ee;
+}
+
+/* 标签页文字：报刊深墨，未激活页压浅，与奶白底拉开层次 */
+body.minimalism-ui-theme-newspaper .workspace-split.mod-root .workspace-tab-header {
+	color: #4a3838;
+}
+
+body.minimalism-ui-theme-newspaper .workspace-split.mod-root .workspace-tab-header.is-active {
+	color: #1f0909;
+}
+
+/* Canvas 白板：底色与纸张一致。canvas 背景由 body 级变量 --canvas-background
+   （默认 var(--background-primary)）驱动，.canvas-wrapper 读它；网点由
+   .canvas-background circle 的 fill: var(--canvas-dot-pattern) 控制。
+   这里只覆盖这两个变量、scoped 到 canvas leaf，让白板也是奶白纸感、网点换贴近纸色的暖灰。 */
+body.minimalism-ui-theme-newspaper .workspace-leaf-content[data-type="canvas"] {
+	--canvas-background: #f3f2ee;
+	--canvas-dot-pattern: #d8d6d0;
+}
+
+/* ── 正文字体 + 字色（两个视图都要覆盖） ─────────────────────────────── */
+
+/* 正文主字族：PT Serif（FontLoader bundle，latin-only），中文回退宋体 / Noto Serif CJK 衬线栈 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section p,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section li,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h1,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h2,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h3,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h4,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h5,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h6,
+body.minimalism-ui-theme-newspaper .cm-editor .cm-content,
+body.minimalism-ui-theme-newspaper .cm-editor .cm-line,
+body.minimalism-ui-theme-newspaper .markdown-source-view .inline-title {
+	font-family: 'PT Serif', Georgia, 'Times New Roman', 'Songti SC', 'Noto Serif CJK SC', 'SimSun', serif;
+	color: #1f0909;
+	line-height: 1.8;
+	word-break: break-word;
+	word-wrap: break-word;
+}
+
+/* 编辑视图标题：还原为与预览模式一致的 --hX-size 字号（h1 字号合并进下方带分隔线的规则） */
+body.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-header-2 { font-size: var(--h2-size); }
+body.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-header-3 { font-size: var(--h3-size); }
+body.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-header-4 { font-size: var(--h4-size); }
+body.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-header-5 { font-size: var(--h5-size); }
+body.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-header-6 { font-size: var(--h6-size); }
+
+/* ── 标题：h1 报刊式底栏分隔线（两个视图 + 笔记标题 inline-title） ─────── */
+
+body.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h1,
+body.minimalism-ui-theme-newspaper .markdown-source-view .inline-title {
+	font-weight: 600;
+	border-bottom: 1px solid #c5c5c5;
+	padding-bottom: 0.3em;
+}
+
+body.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-header-1 {
+	font-size: var(--h1-size);
+	font-weight: 600;
+	border-bottom: 1px solid #c5c5c5;
+	padding-bottom: 0.3em;
+}
+
+/* ── 链接：报刊蓝（兜底，变量未覆盖处） ──────────────────────────────── */
+
+body.minimalism-ui-theme-newspaper .markdown-reading-view a.internal-link,
+body.minimalism-ui-theme-newspaper .markdown-reading-view a.external-link,
+body.minimalism-ui-theme-newspaper .cm-editor .cm-hmd-internal-link,
+body.minimalism-ui-theme-newspaper .cm-editor .cm-link {
+	color: #065588;
+	text-decoration: none;
+}
+
+body.minimalism-ui-theme-newspaper .markdown-reading-view a.internal-link:hover,
+body.minimalism-ui-theme-newspaper .markdown-reading-view a.external-link:hover,
+body.minimalism-ui-theme-newspaper .cm-editor .cm-hmd-internal-link:hover,
+body.minimalism-ui-theme-newspaper .cm-editor .cm-link:hover {
+	text-decoration: underline;
+}
+
+/* ── 引用块：斜体灰字 + 左侧实线边框，无背景 ─────────────────────────── */
+
+/* 阅读视图 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view blockquote {
+	border-left: 5px solid #bababa;
+	border-radius: 0;
+	color: #656565;
+	font-style: italic;
+	background-color: transparent;
+	padding: 0 0 0 1em;
+	margin-left: 1em;
+}
+
+/* 编辑视图（Live Preview）：左边框 + 斜体灰字 */
+body.minimalism-ui-theme-newspaper .cm-blockquote-border {
+	border-left: 5px solid #bababa;
+}
+
+body.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-quote {
+	color: #656565;
+	font-style: italic;
+	background-color: transparent;
+}
+
+/* ── 代码：浅灰底等宽体（Newsprint 用 #dadada 灰块） ──────────────────── */
+
+/* 阅读视图：围栏代码块 + 行内代码字体/字号 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view pre,
+body.minimalism-ui-theme-newspaper .markdown-reading-view code {
+	font-family: 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+	font-size: 0.875em;
+}
+
+/* 阅读视图：围栏代码块灰底 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view pre {
+	background-color: #dadada;
+	color: #1f0909;
+	border-radius: 3px;
+}
+
+/* 阅读视图：关闭自动换行，超长行横向滚动（编辑视图仍折行，见下 .HyperMD-codeblock）。
+   滚动容器放在内层 <code> 而非 pre：pre 不滚动，绝对定位的复制按钮锚定在 pre 上不会
+   随内容滑走；code 设 display:block 才能出横向滚动条。只命中围栏代码块的 code，
+   不波及行内 :not(pre)>code。 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view pre code {
+	display: block;
+	overflow-x: auto;
+	white-space: pre;
+	word-break: normal;
+	overflow-wrap: normal;
+}
+
+/* 阅读视图：行内代码灰底（排除代码块内的 code），小字号 + 内边距收紧 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view :not(pre) > code {
+	background-color: #dadada;
+	color: #454545;
+	font-size: 13px;
+	padding: 3px 5px;
+}
+
+/* 编辑视图（Live Preview）：围栏 + 行内代码 */
+body.minimalism-ui-theme-newspaper .cm-editor .HyperMD-codeblock,
+body.minimalism-ui-theme-newspaper .cm-editor .cm-inline-code {
+	font-family: 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+	font-size: 0.875em;
+	background-color: #dadada;
+	color: #1f0909;
+}
+
+/* 编辑视图：代码块开启自动换行，超长行折行显示而非横向滚动。
+   特异性 (0,4,1) 压过上面通用的 .cm-editor .cm-line；white-space:pre-wrap 保留缩进与空格
+   的同时允许折行，word-break/overflow-wrap 让超长 token 也能断行。 */
+body.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-codeblock {
+	white-space: pre-wrap;
+	word-break: break-word;
+	overflow-wrap: anywhere;
+}
+
+/* ── 快捷键 kbd：拟物按键样式（两个视图） ─────────────────────────────
+   底部投影 + 顶部内高光做出微凸的实体键帽感；边框与字色沿用报刊灰调，
+   键面比纸张略亮。 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view kbd,
+body.minimalism-ui-theme-newspaper .cm-editor kbd {
+	font-family: 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+	font-size: 12px;
+	line-height: 1;
+	padding: 3px 6px;
+	color: #454545;
+	background-color: #f8f7f4;
+	border: 1px solid #c5c5c5;
+	border-radius: 4px;
+	box-shadow: 0 1px 0 #b5b5b5, inset 0 1px 0 #ffffff;
+	vertical-align: middle;
+}
+
+/* ── 分割线：报刊式细实线 ─────────────────────────────────────────────── */
+
+/* 阅读视图 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view hr {
+	border: none;
+	border-top: 1px solid #c5c5c5;
+}
+
+/* 实时预览（Live Preview）：分割线（只描绘内层 .cm-hr，与阅读视图一致；
+   不要给整行 .cm-line.HyperMD-hr 加边框，否则会在行顶多出一条线 → 双线；
+   源码模式下不渲染，保留原始 --- 文本样式） */
+body.minimalism-ui-theme-newspaper .markdown-source-view.is-live-preview .cm-line.HyperMD-hr {
+	border: none;
+}
+
+body.minimalism-ui-theme-newspaper .markdown-source-view.is-live-preview .cm-line.HyperMD-hr .cm-hr {
+	border: none;
+	border-top: 1px solid #c5c5c5;
+	color: transparent;
+}
+
+/* 源码模式：--- 保持纯文本外观 */
+body.minimalism-ui-theme-newspaper .markdown-source-view:not(.is-live-preview) .cm-line.HyperMD-hr {
+	background: none;
+	border: none;
+	height: auto;
+	line-height: inherit;
+}
+
+body.minimalism-ui-theme-newspaper .markdown-source-view:not(.is-live-preview) .cm-line.HyperMD-hr .cm-hr {
+	color: inherit;
+	border: none;
+}
+
+/* ── 表格：报刊式表头灰底 + 大写 + 隔行浅灰 ───────────────────────────── */
+
+/* 阅读视图：Obsidian 用 .el-table 包裹渲染后的 <table>。
+   内部不描网格线，但加一圈外框 + 圆角把表格收拢成一个版块；
+   超宽时横向滚动（overflow-x 非 visible 会令 overflow-y 计算为 auto，圆角正常裁切），表格撑满宽度。 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view .el-table {
+	border: 1px solid #c5c5c5;
+	border-radius: 4px;
+	overflow-x: auto;
+}
+
+body.minimalism-ui-theme-newspaper .markdown-reading-view .el-table table {
+	margin: 0;
+	width: 100%;
+}
+
+/* .el-table 内单元格（部分 Obsidian 版本用 .ltr 容器渲染单元格内容） */
+body.minimalism-ui-theme-newspaper .markdown-reading-view .el-table .ltr {
+	/* 行高增加约 20%：纵向内边距 0.5em→0.75em（疏朗化）；vertical-align 改 middle 使内容垂直居中 */
+	padding: 0.75em 0.75em;
+	color: #4c3a3a;
+	vertical-align: middle;
+}
+
+/* 表头：灰底、大写、加粗、左对齐（两个视图） */
+body.minimalism-ui-theme-newspaper .markdown-reading-view table thead,
+body.minimalism-ui-theme-newspaper .markdown-reading-view table thead th,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor thead,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor thead th {
+	background-color: #e5e5e5;
+	color: #4c3a3a;
+	font-weight: bold;
+	text-align: left;
+	text-transform: uppercase;
+	/* 表头下边线与单元格内格线同色，避免比内部格线更深显得突兀 */
+	border-bottom: 1px solid #e0e0e0;
+}
+
+/* 隔行浅灰（两个视图） */
+body.minimalism-ui-theme-newspaper .markdown-reading-view table tbody tr:nth-child(even),
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor tbody tr:nth-child(even) {
+	background-color: #efeeee;
+}
+
+/* 单元格内边距 + 字色（两个视图） */
+body.minimalism-ui-theme-newspaper .markdown-reading-view table th,
+body.minimalism-ui-theme-newspaper .markdown-reading-view table td,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td {
+	/* 行高增加约 20%：纵向内边距 0.5em→0.75em（疏朗化）；vertical-align 改 middle 使内容垂直居中 */
+	padding: 0.75em 0.75em;
+	font-size: 0.9em;
+	color: #4c3a3a;
+	vertical-align: middle;
+	/* 仅画右 + 下内格线，外框交给 .el-table / table-editor 单层外框，避免双线 */
+	border-right: 1px solid #e0e0e0;
+	border-bottom: 1px solid #e0e0e0;
+}
+
+/* 边缘单元格去掉内格线：右缘 / 下缘留给外框单层渲染，避免与 .el-table / outline 叠成双线 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view table th:last-child,
+body.minimalism-ui-theme-newspaper .markdown-reading-view table td:last-child,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th:last-child,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td:last-child {
+	border-right: none;
+}
+
+body.minimalism-ui-theme-newspaper .markdown-reading-view table tbody tr:last-child td,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor tbody tr:last-child td {
+	border-bottom: none;
+}
+
+/* 正文单元格文字：比表头略淡的报刊墨灰（表头由上方 thead th 高优先级规则保持） */
+body.minimalism-ui-theme-newspaper .markdown-reading-view table tbody td,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .el-table tbody .ltr,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor tbody td {
+	color: #6e6060;
+}
+
+/* ── 表格外框 + 圆角（编辑视图，移植自 forest 并换报刊灰）─────────────────
+   table-editor 用 outline 而非 border，overflow:visible 让拖拽把手能延伸到表格外侧 */
+body.minimalism-ui-theme-newspaper .cm-editor .table-editor {
+	border-radius: 4px;
+	overflow: visible;
+	outline: 1px solid #c5c5c5;
+	outline-offset: 0px;
+}
+
+body.minimalism-ui-theme-newspaper .table-wrapper {
+	overflow: visible;
+	/* 为外侧把手留出视觉空间 */
+	margin-top: 20px;
+	margin-left: 20px;
+}
+
+/* 解除 live preview 表格容器（.cm-table-widget）的裁切，让把手延伸到表格外侧。
+   不用 :has(> .table-wrapper)：:has 会触发大范围选择器失效，有明显性能开销。 */
+body.minimalism-ui-theme-newspaper .cm-editor .cm-table-widget {
+	overflow: visible;
+}
+
+/* 聚焦单元格内的 CM 编辑器字号 / 字色与未聚焦单元格保持一致（继承 td 的 0.9em + #4a3838），
+   避免聚焦时文字跳动或变深 */
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-editor,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-editor .cm-content,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-editor .cm-line,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-editor .cm-scroller {
+	font-size: inherit;
+	color: #6e6060;
+}
+
+/* ── 编辑模式：表格拖拽把手（移植自 forest，换报刊灰调）─────────────────── */
+
+/* th/td 必须 relative 定位，absolute 把手才能相对它们定位 */
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td {
+	position: relative;
+}
+
+/* 列拖拽把手：悬浮在列头正上方（表格外侧），默认完全隐藏 */
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th .table-col-drag-handle {
+	position: absolute;
+	top: -18px;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 40px;
+	height: 18px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: grab;
+	opacity: 0;
+	transition: opacity 0.15s;
+	border-radius: 6px 6px 0 0;
+	background: rgba(0, 0, 0, 0.08);
+	z-index: 10;
+}
+
+/* 鼠标悬停列头或把手时显示列拖拽把手 */
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th:hover .table-col-drag-handle,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th .table-col-drag-handle:hover {
+	opacity: 1;
+	background: rgba(31, 9, 9, 0.18);
+}
+
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th .table-col-drag-handle .svg-icon {
+	width: 14px;
+	height: 10px;
+}
+
+/* 非首列的行拖拽把手直接隐藏，避免重复 */
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th:not(:first-child) .table-row-drag-handle,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td:not(:first-child) .table-row-drag-handle {
+	display: none;
+}
+
+/* 行拖拽把手：悬浮在首列左侧（表格外侧），默认完全隐藏 */
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th:first-child .table-row-drag-handle,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td:first-child .table-row-drag-handle {
+	position: absolute;
+	left: -18px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 18px;
+	height: 40px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: grab;
+	opacity: 0;
+	transition: opacity 0.15s;
+	border-radius: 6px 0 0 6px;
+	background: rgba(0, 0, 0, 0.08);
+	z-index: 10;
+}
+
+/* 鼠标悬停任意单元格时整行把手显示（通过 tr:hover 选择器实现） */
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor tr:hover th:first-child .table-row-drag-handle,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor tr:hover td:first-child .table-row-drag-handle,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th:first-child .table-row-drag-handle:hover,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td:first-child .table-row-drag-handle:hover {
+	opacity: 1;
+	background: rgba(31, 9, 9, 0.18);
+}
+
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th:first-child .table-row-drag-handle .svg-icon,
+body.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td:first-child .table-row-drag-handle .svg-icon {
+	width: 10px;
+	height: 14px;
+}
+
+/* ── Obsidian Bases（class=bases-view）：对齐上方报刊表格版式 ─────────────
+   Bases 表格不是原生 <table>，而是 div 网格：.bases-table 内分 .bases-thead /
+   .bases-tbody，行 .bases-tr、单元格 .bases-td（表头单元格也用 .bases-td，不是 th）。
+   这里把表头灰底大写、隔行浅灰、内格线、外框圆角全部对齐 .el-table 的报刊版式。 */
+
+/* 外框 + 圆角：框要画在 .bases-view 上（比 .bases-table-container 高一层）。
+   但 .bases-view 这个 class 三种 Bases 视图（table / cards / list）共用，必须用
+   data-view-type="table" 限定，只给表格视图描框，否则会误伤卡片 / 列表视图。
+   不动 overflow：.bases-view 自带的 overflow:auto 既负责横向滚动、又会把内容裁到
+   圆角内，强行改 clip 反而会废掉横向滚动。
+   .bases-view.bases-view 双写 class 提权：嵌入式 Bases 有一条内置规则
+   .workspace-leaf-content[data-type="markdown"] .block-language-base .bases-view（4 个 class，
+   特异性 0,4,0）会用 --bases-embed-border-color（透明）/ --bases-embed-radius 覆盖掉这里的
+   border-color 与 border-radius longhand，导致框看不见。双写把本规则提到 0,4,1 压过它，
+   既照顾嵌入式、也照顾独立 .base 视图，且不必动用 !important。
+   padding:0 抹掉嵌入式的 --bases-embed-padding：该内边距夹在本 border 与表格之间，
+   表格列宽合计正好等于内容宽（如 165+529=694），右侧那段内边距就是边框与表格间的空隙。 */
+body.minimalism-ui-theme-newspaper .bases-view.bases-view[data-view-type="table"] {
+	border: 1px solid #c5c5c5;
+	border-radius: 4px;
+	padding: 0;
+}
+
+/* 表头：灰底、大写、加粗、左对齐、报刊近黑字 + 下边线 */
+body.minimalism-ui-theme-newspaper .bases-view .bases-thead .bases-td {
+	background-color: #e5e5e5;
+	color: #4c3a3a;
+	font-weight: bold;
+	text-align: left;
+	text-transform: uppercase;
+	border-bottom: 1px solid #e0e0e0;
+}
+
+/* 内容区所有行统一用同一浅灰底（取消奇偶交替，全部用原偶数行色） */
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-tbody .bases-tr {
+	background-color: #efeeee;
+}
+
+/* 单元格：内边距 + 字号 + 报刊墨灰字 + 内格线（右 + 下）；
+   字号 / 内边距 / 字色 / 衬线字体均与上方内置 table 对齐，使两类表观感一致 */
+body.minimalism-ui-theme-newspaper .bases-view .bases-td {
+	padding: 0.5em 0.75em;
+	font-size: 0.9em;
+	font-family: 'PT Serif', Georgia, 'Times New Roman', 'Songti SC', 'Noto Serif CJK SC', 'SimSun', serif;
+	color: #6e6060;
+	vertical-align: top;
+	/* 内格线压淡：markdown 表靠隔行底色分行、格线是次要的；Bases 现在全行同底色，格线成了
+	   唯一分隔会显重，故从 #e0e0e0 调到更淡的暖灰 #e8e7e7（贴近 #efeeee 行底色） */
+	border-right: 1px solid #e8e7e7;
+	border-bottom: 1px solid #e8e7e7;
+}
+
+/* 表格行高被 Obsidian 固定为 --bases-table-row-height:30px（行用 absolute + top 偏移虚拟化），
+   内容超 30px 即被行裁掉。两处来源都要压：
+   (1) 单元格内容行高压成 normal（链接走 markdown-rendered 会继承正文 1.6 行高）；
+   (2) external-link 末尾的编辑铅笔 .metadata-link-flair 是个 ~18px+ 的 SVG，把行盒撑高过
+       30px → 底部被裁，所以缩到 14px；
+   (3) 纵向内边距收到 0.25em，给固定行高内的内容留足空间。 */
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-table-cell {
+	line-height: normal;
+}
+
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-td {
+	padding-top: 0.25em;
+	padding-bottom: 0.25em;
+}
+
+/* 隐藏外链末尾的编辑铅笔 flair：它是行内编辑入口，Bases 表（尤其 Locked 态）用不上，
+   且这个 ~18px 图标既把 .metadata-link 撑高过 30px 行（→ 底部裁字、链接下沉），又紧贴
+   URL 末字符显脏（看着像 index.html 后多了一笔）。隐藏后 .metadata-link 收回文字行高。 */
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .metadata-link-flair {
+	display: none;
+}
+
+/* (4) 真正撑高的是 .metadata-link 自身：它是 Properties 面板的链接控件，自带内边距 / min-height
+   （为做成可编辑字段的样子），整体高于固定 30px 行 → 底部被裁。压平成贴文字行高：去内边距、
+   min-height:0、flex 居中，使容器高度 = 文字行高而非控件高度。 */
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-td .metadata-link {
+	display: flex;
+	align-items: center;
+	min-height: 0;
+	padding: 0;
+	margin: 0;
+	line-height: normal;
+}
+
+/* 只压上下内边距：external-link 自带 padding-inline-end:0.9em 给末尾的外链箭头
+   背景图留位（箭头是 .external-link 的 background-image，不是 DOM 节点）。padding:0
+   会连这段右内边距一起清掉，箭头落到 URL 末字符上造成重叠，故只清 block 方向。 */
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-td .metadata-link-inner {
+	padding-block: 0;
+	line-height: normal;
+}
+
+/* 边缘单元格去掉内格线：右缘 / 下缘留给 .bases-table 单层外框，避免双线 */
+body.minimalism-ui-theme-newspaper .bases-view .bases-tr .bases-td:last-child {
+	border-right: none;
+}
+
+body.minimalism-ui-theme-newspaper .bases-view .bases-tbody .bases-tr:last-child .bases-td {
+	border-bottom: none;
+}
+
+/* 右侧空隙：Obsidian 把表格宽度算成「可用宽 − 预留滚动条宽」（如 700 − 6 = 694），
+   表格永远到不了视图右缘，那段差额就是边框与表格之间的缝。表头 / 表体 / 行的宽度都由 JS
+   写成内联 width，无法用 CSS 的 width 覆盖；但 min-width 是另一个属性、不被内联 width 拦，
+   min-width:100% 会把它们撑到视图满宽（max(694, 100%)），多出的几 px 并入行底色、贴齐边框。
+   超宽表（表宽 > 视图）时 100% 小于内联宽，不生效，横向滚动照常。 */
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-thead,
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-table-container,
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-table,
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-tbody,
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-tbody .bases-tr {
+	min-width: 100%;
+}
+
+/* 表头给上灰底：撑满后末列右侧多出的几 px 落在 thead 自身（不在任何 .bases-td 上），
+   补上 #e5e5e5 让这截与表头格子同色，不露出纸色缺口 */
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-thead {
+	background-color: #e5e5e5;
+}
+
+/* ── Bases 卡片视图：卡片的描边其实是 box-shadow 环（--bases-cards-shadow，默认
+   0 0 0 1px 边框色），不是 CSS border。想让边更细 / 更淡就改这个环的颜色，别再叠一道
+   border（会和环叠成双线）。这里通过覆盖 Bases 自己的变量来做：卡面压成略亮于纸张的米白、
+   描边环换报刊浅灰、圆角对齐 4px。变量挂在 .bases-view 上（卡片 item 的祖先），靠继承生效。 */
+body.minimalism-ui-theme-newspaper .bases-view[data-view-type="cards"] {
+	--bases-cards-background: #f8f7f4;
+	--bases-cards-shadow: 0 0 0 1px #eae7e2;
+	--bases-cards-radius: 4px;
+}
+
+/* 卡片项文字：在版式基础上整体压浅 30%（opacity 0.7）+ 缩小 20%（0.8em），
+   让卡片网格的信息密度更低、观感更轻 */
+body.minimalism-ui-theme-newspaper .bases-cards-item {
+	font-size: 0.75em;
+}
+
+/* 滚动条：细条，悬停才显色（与 .markdown-reading-view / .cm-scroller 一致） */
+.minimalism-ui-theme-newspaper .bases-view ::-webkit-scrollbar {
+	width: 3px;
+	height: 3px;
+}
+
+.minimalism-ui-theme-newspaper .bases-view ::-webkit-scrollbar-thumb {
+	background: transparent;
+	border-radius: 999px;
+	transition: background 0.3s ease;
+}
+
+.minimalism-ui-theme-newspaper .bases-view:hover ::-webkit-scrollbar-thumb {
+	background: rgba(31, 9, 9, 0.35);
+}
+
+.minimalism-ui-theme-newspaper .bases-view ::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+/* ── 选区高亮：深墨底 + 白字（Newsprint 配色） ───────────────────────── */
+
+body.minimalism-ui-theme-newspaper .markdown-reading-view ::selection,
+body.minimalism-ui-theme-newspaper .cm-editor .cm-content ::selection {
+	background-color: rgba(32, 43, 51, 0.63);
+	color: #ffffff;
+}
+
+/* Live Preview（编辑模式）下 CM6 用 .cm-selectionBackground 图层绘制选区，
+   不走原生 ::selection，需单独覆盖 --text-selection 对应的图层颜色 */
+body.minimalism-ui-theme-newspaper .cm-editor .cm-selectionBackground {
+	background-color: rgba(32, 43, 51, 0.63);
+}
+
+/* ── 滚动条：细条，悬停时才显色 ─────────────────────────────────────── */
+
+.minimalism-ui-theme-newspaper .markdown-reading-view ::-webkit-scrollbar,
+.minimalism-ui-theme-newspaper .cm-scroller::-webkit-scrollbar {
+	/* width 只管纵向；横向滚动条由 height 控制——不设 height 时
+	   Chromium 会回退到 ~16px 的默认自绘滚动条，且常驻占位 */
+	width: 3px;
+	height: 3px;
+}
+
+.minimalism-ui-theme-newspaper .markdown-reading-view ::-webkit-scrollbar-thumb,
+.minimalism-ui-theme-newspaper .cm-scroller::-webkit-scrollbar-thumb {
+	background: transparent;
+	border-radius: 999px;
+	transition: background 0.3s ease;
+}
+
+.minimalism-ui-theme-newspaper .markdown-reading-view:hover ::-webkit-scrollbar-thumb,
+.minimalism-ui-theme-newspaper .cm-scroller:hover::-webkit-scrollbar-thumb {
+	background: rgba(31, 9, 9, 0.35);
+}
+
+.minimalism-ui-theme-newspaper .markdown-reading-view ::-webkit-scrollbar-track,
+.minimalism-ui-theme-newspaper .cm-scroller::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+/* 表格横向滚动条：上方通配规则随整页悬停显色，对表格太敏感——
+   改为只在悬停表格本身时显色（三层类名压过上面的 :hover 通配规则） */
+.minimalism-ui-theme-newspaper .markdown-reading-view:hover .el-table::-webkit-scrollbar-thumb {
+	background: transparent;
+}
+
+.minimalism-ui-theme-newspaper .markdown-reading-view .el-table:hover::-webkit-scrollbar-thumb {
+	background: rgba(31, 9, 9, 0.35);
+}
+
+/* 代码块横向滚动条：滚动条落在内层 code 上（见上 pre code 规则），同理收回到只在
+   悬停代码块本身时才显色（更高特异性压过 :hover 通配规则） */
+.minimalism-ui-theme-newspaper .markdown-reading-view:hover pre code::-webkit-scrollbar-thumb {
+	background: transparent;
+}
+
+.minimalism-ui-theme-newspaper .markdown-reading-view pre:hover code::-webkit-scrollbar-thumb {
+	background: rgba(31, 9, 9, 0.35);
+}
+
+/* ── Callout：正文字色压浅，与报刊灰调统一 ──────────────────────────── */
+
+body.minimalism-ui-theme-newspaper .markdown-reading-view .callout-content,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .callout-content p,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .callout-content li {
+	font-size: 0.9rem;
+	color: #4a3838;
+}
+
+body.minimalism-ui-theme-newspaper .cm-editor .cm-callout .cm-line:not(.cm-callout-title) {
+	font-size: 0.9rem;
+	color: #4a3838;
+}
+
+/* 编辑视图标题行：以预览为准。上方通用 .cm-line 规则（衬线 + 深墨 #1f0909）会把
+   callout 标题也染成衬线深墨，而阅读视图的 .callout-title 保留 Obsidian 默认的无衬线
+   界面字体 + callout 类型色。这里把标题行单独还原，与预览对齐（特异性更高，压过通用规则）。 */
+body.minimalism-ui-theme-newspaper .cm-editor .cm-callout .cm-line.cm-callout-title {
+	font-family: var(--font-text);
+	color: rgb(var(--callout-color));
+	font-weight: var(--callout-title-weight);
+}
+
+/* 编辑视图 callout 盒子内边距：对齐阅读视图 .callout 的 var(--callout-padding)，
+   让标题与正文的间距、左缩进与预览一致 */
+body.minimalism-ui-theme-newspaper .cm-editor .cm-callout {
+	padding: var(--callout-padding);
+}
+
+/* ── 脚注：灰字小号 ───────────────────────────────────────────────────
+   脚注正文渲染在 <li> 里的 <p> 标签内，颜色只写在 .footnotes 容器上不会下传到
+   p（p 自带继承自正文的 #1f0909），故 p / li 都要显式上色。 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view .footnotes,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .footnotes li,
+body.minimalism-ui-theme-newspaper .markdown-reading-view .footnotes p {
+	font-size: 13px;
+	color: #808080;
+}
+
+/* ── 任务列表：复选框左缩进减半，两个视图保持一致 ──────────────────────
+   Obsidian 默认的行首缩进机制两个视图不同：
+   · 阅读视图：ul 的 padding 为 0，缩进来自 li 的 margin-inline-start: 3ch；
+   · 实时预览：靠 .task-list-label 内 checkbox 的 margin-inline-start: 0.85em 撑开。
+   下面分别把这段左缩进减半／归零，使观感一致。 */
+
+/* 阅读视图：li 缩进 3ch → 1.5ch（减半）；checkbox 自身贴 li 左缘 */
+body.minimalism-ui-theme-newspaper .markdown-reading-view .contains-task-list > li.task-list-item {
+	margin-inline-start: 1.5ch;
+}
+body.minimalism-ui-theme-newspaper .markdown-reading-view .task-list-item-checkbox {
+	margin-inline-start: 0;
+}
+
+/* 实时预览：checkbox 自带 0.85em 左外边距 → 0。Obsidian 用
+   .task-list-label .task-list-item-checkbox 选中，权重较高，必须沿同一条链路
+   叠加类名才能覆盖（而非 !important）。 */
+body.minimalism-ui-theme-newspaper .markdown-source-view.mod-cm6 .task-list-label .task-list-item-checkbox {
+	margin-inline-start: 0;
+}
+
+/* ── Mermaid：超宽横向滚动，不缩放 ───────────────────────────────────── */
+
+body.minimalism-ui-theme-newspaper .markdown-reading-view .mermaid,
+body.minimalism-ui-theme-newspaper .cm-editor .mermaid {
+	overflow-x: overlay;
+	overflow-y: visible;
+	max-width: 100%;
+}
+
+body.minimalism-ui-theme-newspaper .markdown-reading-view .mermaid svg,
+body.minimalism-ui-theme-newspaper .cm-editor .mermaid svg {
+	max-width: none;
+	height: auto;
+}
+
+/* =============================================================================
+   Newspaper — 暗色模式（Dark Mode）
+   调色板：深墨纸 #1c1b18 · 正文暖白 #ddd8cc · 链接暗蓝 #6fa8d4
+   body.theme-dark 由 Obsidian 在暗色模式下自动添加到 <body>
+   ============================================================================= */
+
+/* ── CSS 变量覆盖（链接 / 引用块 / 表格） ────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper {
+	--link-color: #6fa8d4;
+	--link-external-color: #6fa8d4;
+	--blockquote-border-color: #4a4844;
+	--blockquote-color: #888880;
+	--blockquote-background-color: transparent;
+	--table-border-color: #3a3835;
+	--table-header-background: #252320;
+	--table-row-alt-background: #201f1c;
+}
+
+/* ── 纸张背景：深墨暖褐 ─────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view {
+	background-color: #1c1b18;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-source-view.mod-cm6,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-source-view.mod-cm6 .cm-editor,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-source-view.mod-cm6 .cm-scroller,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-source-view.mod-cm6 .cm-gutters {
+	background-color: #1c1b18;
+}
+
+/* ── Workspace chrome：侧边栏 / 主区域 / 拖拽栏 ──────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .workspace-leaf-content {
+	background-color: #1c1b18;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .workspace-split.mod-left-split,
+body.theme-dark.minimalism-ui-theme-newspaper .workspace-split.mod-right-split {
+	background-color: #1c1b18;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split {
+	border-right: 1px dashed #3a3835;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .workspace-split.mod-left-split > .workspace-leaf-resize-handle:not(:hover) {
+	border-color: transparent;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split * {
+	color: #a09890;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left,
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left::before {
+	background-color: #1c1b18;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action,
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon {
+	color: #a09890;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action:hover,
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon:hover {
+	color: #ddd8cc;
+	background-color: #2a2925;
+}
+
+/* ── 内嵌 Ribbon 面板（newspaper 主题·深色）────────────────────────── */
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel {
+	background-color: #1c1b18;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-ribbon-action,
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .clickable-icon {
+	color: #a09890;
+	background-color: rgba(255, 255, 255, 0.05);
+}
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .side-dock-ribbon-action:hover,
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-panel-inner .clickable-icon:hover {
+	color: #ddd8cc;
+	background-color: #2a2925;
+	border-radius: 4px;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-toggle {
+	color: #a09890;
+}
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-toggle:hover {
+	color: #ddd8cc;
+	background-color: #2a2925;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"]::before,
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="file-properties"]::before,
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-graph-header > span {
+	color: #ddd8cc;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="outline"] .metadata-content::before {
+	color: #ddd8cc;
+	background-color: #1c1b18;
+}
+
+/* 侧边栏局部关系图设置面板展开态：背景与侧边栏深色底一致 */
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="localgraph"].minimalism-ui-injected-graph .graph-controls:not(.is-close) {
+	background: #1c1b18;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title:hover,
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-folder-title:hover {
+	background: #2a2925;
+	border-radius: 6px;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active,
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .nav-file-title.is-active:hover {
+	background: #333128;
+	color: #ddd8cc;
+	border-radius: 6px;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-sidedock-vault-profile {
+	background-color: #1c1b18;
+	border-top: 1px solid #3a3835;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .minimalism-ui-drag-bar {
+	background-color: #1c1b18;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .workspace-split.mod-root,
+body.theme-dark.minimalism-ui-theme-newspaper .workspace-split.mod-root .workspace-tab-header-container,
+body.theme-dark.minimalism-ui-theme-newspaper .workspace-split.mod-root .workspace-tab-header {
+	background-color: #1c1b18;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .workspace-split.mod-root .workspace-tab-header {
+	color: #7a756e;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .workspace-split.mod-root .workspace-tab-header.is-active {
+	color: #ddd8cc;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .workspace-leaf-content[data-type="canvas"] {
+	--canvas-background: #1c1b18;
+	--canvas-dot-pattern: #2a2925;
+}
+
+/* ── 正文字体 + 字色 ─────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section p,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section li,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h1,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h2,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h3,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h4,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h5,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h6,
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-content,
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-line,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-source-view .inline-title {
+	color: #ddd8cc;
+}
+
+/* ── 标题分隔线 ──────────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .markdown-preview-section h1,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-source-view .inline-title {
+	border-bottom-color: #3a3835;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-header-1 {
+	border-bottom-color: #3a3835;
+}
+
+/* ── 链接 ────────────────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view a.internal-link,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view a.external-link,
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-hmd-internal-link,
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-link {
+	color: #6fa8d4;
+}
+
+/* ── 引用块 ──────────────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view blockquote {
+	border-left-color: #4a4844;
+	color: #888880;
+	background-color: transparent;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .cm-blockquote-border {
+	border-left-color: #4a4844;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-line.HyperMD-quote {
+	color: #888880;
+	background-color: transparent;
+}
+
+/* ── 代码块 ──────────────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view pre {
+	background-color: #252320;
+	color: #ddd8cc;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view :not(pre) > code {
+	background-color: #252320;
+	color: #b0a898;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .HyperMD-codeblock,
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-inline-code {
+	background-color: #252320;
+	color: #ddd8cc;
+}
+
+/* ── kbd ─────────────────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view kbd,
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor kbd {
+	color: #a09890;
+	background-color: #252320;
+	border-color: #3a3835;
+	box-shadow: 0 1px 0 #141310, inset 0 1px 0 #2e2d29;
+}
+
+/* ── 分割线 ──────────────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view hr {
+	border-top-color: #3a3835;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-source-view.is-live-preview .cm-line.HyperMD-hr .cm-hr {
+	border-top-color: #3a3835;
+}
+
+/* ── 表格 ────────────────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .el-table {
+	border-color: #3a3835;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .el-table .ltr {
+	color: #a09890;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view table thead,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view table thead th,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor thead,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor thead th {
+	background-color: #252320;
+	color: #a09890;
+	border-bottom-color: #3a3835;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view table tbody tr:nth-child(even),
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor tbody tr:nth-child(even) {
+	background-color: #201f1c;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view table th,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view table td,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td {
+	color: #a09890;
+	border-right-color: #2e2d29;
+	border-bottom-color: #2e2d29;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view table tbody td,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .el-table tbody .ltr,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor tbody td {
+	color: #7a756e;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .table-editor {
+	outline-color: #3a3835;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-editor,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-editor .cm-content,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-editor .cm-line,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td .cm-editor .cm-scroller {
+	color: #7a756e;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th .table-col-drag-handle {
+	background: rgba(255, 255, 255, 0.06);
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th:hover .table-col-drag-handle,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th .table-col-drag-handle:hover {
+	background: rgba(221, 216, 204, 0.16);
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th:first-child .table-row-drag-handle,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td:first-child .table-row-drag-handle {
+	background: rgba(255, 255, 255, 0.06);
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor tr:hover th:first-child .table-row-drag-handle,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor tr:hover td:first-child .table-row-drag-handle,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor th:first-child .table-row-drag-handle:hover,
+body.theme-dark.minimalism-ui-theme-newspaper .table-wrapper table.table-editor td:first-child .table-row-drag-handle:hover {
+	background: rgba(221, 216, 204, 0.16);
+}
+
+/* ── Bases 表格视图 ──────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .bases-view.bases-view[data-view-type="table"] {
+	border-color: #3a3835;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .bases-view .bases-thead .bases-td {
+	background-color: #252320;
+	color: #a09890;
+	border-bottom-color: #3a3835;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-tbody .bases-tr {
+	background-color: #201f1c;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .bases-view .bases-td {
+	color: #7a756e;
+	border-right-color: #2a2925;
+	border-bottom-color: #2a2925;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .bases-view[data-view-type="table"] .bases-thead {
+	background-color: #252320;
+}
+
+/* Bases 卡片视图 */
+body.theme-dark.minimalism-ui-theme-newspaper .bases-view[data-view-type="cards"] {
+	--bases-cards-background: #222120;
+	--bases-cards-shadow: 0 0 0 1px #2e2d29;
+}
+
+/* ── 选区高亮 ────────────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view ::selection,
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-content ::selection {
+	background-color: rgba(111, 168, 212, 0.30);
+	color: #ddd8cc;
+}
+
+/* Live Preview（编辑模式）同样需要覆盖 .cm-selectionBackground 图层 */
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-selectionBackground {
+	background-color: rgba(111, 168, 212, 0.30);
+}
+
+/* ── 滚动条 ──────────────────────────────────────────────────────────────── */
+
+.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view:hover ::-webkit-scrollbar-thumb,
+.theme-dark.minimalism-ui-theme-newspaper .cm-scroller:hover::-webkit-scrollbar-thumb {
+	background: rgba(221, 216, 204, 0.25);
+}
+
+.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .el-table:hover::-webkit-scrollbar-thumb {
+	background: rgba(221, 216, 204, 0.25);
+}
+
+.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view pre:hover code::-webkit-scrollbar-thumb {
+	background: rgba(221, 216, 204, 0.25);
+}
+
+.theme-dark.minimalism-ui-theme-newspaper .bases-view:hover ::-webkit-scrollbar-thumb {
+	background: rgba(221, 216, 204, 0.25);
+}
+
+/* ── Callout ─────────────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .callout-content,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .callout-content p,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .callout-content li {
+	color: #a09890;
+}
+
+body.theme-dark.minimalism-ui-theme-newspaper .cm-editor .cm-callout .cm-line:not(.cm-callout-title) {
+	color: #a09890;
+}
+
+/* ── 脚注 ────────────────────────────────────────────────────────────────── */
+
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .footnotes,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .footnotes li,
+body.theme-dark.minimalism-ui-theme-newspaper .markdown-reading-view .footnotes p {
+	color: #606060;
+}
+
+/* GENERATED-THEME-CSS:END */
 

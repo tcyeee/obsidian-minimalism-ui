@@ -1,4 +1,4 @@
-import { AbstractInputSuggest, App, PluginSettingTab, Setting, SettingDefinitionItem, SettingGroupItem, TFile } from 'obsidian';
+import { AbstractInputSuggest, App, PluginSettingTab, Setting, TFile } from 'obsidian';
 import type MinimalismUIPlugin from '../main';
 import { t, setLang } from './core/i18n';
 
@@ -31,20 +31,16 @@ export class FileSuggest extends AbstractInputSuggest<TFile> {
 
 // ─── Settings Tab ─────────────────────────────────────────────────────────────
 //
-// Two rendering paths share the same per-setting `configureX(setting)` methods
-// below:
-//   - display() — imperative fallback for Obsidian < 1.13. Deprecated, but it's
-//     the only path older clients call, so it's kept fully working rather than
-//     bumping minAppVersion — a prior attempt to migrate to
-//     getSettingDefinitions() as the *only* path was reverted for exactly this
-//     reason (cuts off pre-1.13 users for no functional gain).
-//   - getSettingDefinitions() — declarative path for Obsidian >= 1.13, needed
-//     for the plugin's settings to appear in Obsidian's settings search.
-//
-// Both paths keep the same custom collapsible-section widget: display() drives
-// it with plain DOM (addCollapsibleSection), getSettingDefinitions() drives it
-// with a `render`-type heading row + a sibling group's `visible` predicate
-// (section()) — there's no native collapsible group in the declarative API.
+// Stays on the imperative display() API only. A getSettingDefinitions() +
+// display() dual-path version (guarding this.update()/refreshDomState() calls
+// behind a `typeof this.update === 'function'` runtime check) was tried and
+// submitted for review: Obsidian's submission checker flags any reference to
+// update()/refreshDomState() as `obsidianmd/no-unsupported-api` — a blocking
+// Error — purely from the static call site, regardless of a runtime guard
+// around it. There is no way to call those APIs anywhere in the file without
+// bumping minAppVersion to 1.13.0, which this plugin has already reverted once
+// (commit f56f8f0) specifically to keep supporting 1.7.2. So the "does not
+// implement getSettingDefinitions()" Warning is accepted as permanently open.
 
 export class MinimalismUISettingTab extends PluginSettingTab {
 	plugin: MinimalismUIPlugin;
@@ -82,53 +78,6 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		return contentEl;
 	}
 
-	/** getSettingDefinitions()-only counterpart of addCollapsibleSection(): a
-	 *  standalone heading row that toggles collapsedSections[key], followed by
-	 *  a group whose `visible` predicate hides/shows its items. Only reachable
-	 *  from the declarative path, so refreshDomState() (>= 1.13-only) is safe
-	 *  to call unconditionally here. */
-	private renderSectionHeading(key: string, title: string) {
-		return (setting: Setting): void => {
-			const headingEl = setting.settingEl;
-			headingEl.empty();
-			headingEl.className = 'setting-item setting-item-heading minimalism-ui-collapsible-heading'
-				+ (this.isCollapsed(key) ? ' minimalism-ui-collapsible-heading-collapsed' : '');
-			const nameEl = headingEl.createDiv({ cls: 'setting-item-info' })
-				.createDiv({ cls: 'setting-item-name' });
-			nameEl.createSpan({ cls: 'minimalism-ui-section-arrow' });
-			nameEl.createSpan({ text: title });
-
-			headingEl.addEventListener('click', () => {
-				const nowCollapsed = !this.isCollapsed(key);
-				this.plugin.settings.collapsedSections[key] = nowCollapsed;
-				headingEl.toggleClass('minimalism-ui-collapsible-heading-collapsed', nowCollapsed);
-				void this.plugin.saveSettings();
-				this.refreshDomState();
-			});
-		};
-	}
-
-	private section(key: string, title: string, items: SettingGroupItem[]): SettingDefinitionItem[] {
-		return [
-			{ name: title, searchable: false, render: this.renderSectionHeading(key, title) },
-			{ type: 'group', visible: () => !this.isCollapsed(key), items },
-		];
-	}
-
-	/** Re-renders the tab after a change whose effect other rendered rows depend
-	 *  on (a new language, since `name`/`desc` strings are evaluated once and
-	 *  won't otherwise pick up the new language; or the prefix-length row's
-	 *  visibility). `update()` only exists on Obsidian >= 1.13 (it re-invokes
-	 *  getSettingDefinitions()); older runtimes fall back to re-running
-	 *  display() directly, since this is reachable from both paths. */
-	private refreshTab(): void {
-		if (typeof this.update === 'function') {
-			this.update();
-		} else {
-			this.display();
-		}
-	}
-
 	// ── Shared per-setting configuration ──
 
 	private configureLanguage(setting: Setting): void {
@@ -142,7 +91,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 					this.plugin.settings.language = v;
 					setLang(v);
 					await this.plugin.saveSettings();
-					this.refreshTab();
+					this.display();
 				}));
 	}
 
@@ -277,7 +226,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				.onChange(value => {
 					this.plugin.settings.filenamePrefixManual = value;
 					void this.plugin.saveSettings();
-					this.refreshTab(); // 重渲染以同步长度数字框的显隐
+					this.display(); // 重渲染以同步长度数字框的显隐
 				}));
 	}
 
@@ -299,8 +248,6 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				});
 			});
 	}
-
-	// ── Imperative fallback (Obsidian < 1.13) ──
 
 	display(): void {
 		const { containerEl } = this;
@@ -336,66 +283,5 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		if (this.plugin.settings.filenamePrefixManual) {
 			this.configureFilenamePrefixLength(new Setting(advancedEl));
 		}
-	}
-
-	// ── Declarative path (Obsidian >= 1.13) ──
-
-	getSettingDefinitions(): SettingDefinitionItem[] {
-		return [
-			{
-				name: t('introTitle'),
-				searchable: false,
-				render: setting => {
-					setting.settingEl.addClass('minimalism-ui-intro-wrapper');
-					const intro = setting.settingEl.createDiv({ cls: 'minimalism-ui-intro' });
-					intro.createDiv({ cls: 'minimalism-ui-intro-title', text: t('introTitle') });
-					intro.createEl('p', { text: t('introDesc1') });
-					intro.createEl('p', { text: t('introDesc2') });
-				},
-			},
-			...this.section('general', t('headingGeneral'), [
-				{ name: t('language'), render: setting => this.configureLanguage(setting) },
-				{ name: t('theme'), render: setting => this.configureTheme(setting) },
-			]),
-			...this.section('interaction', t('headingInteraction'), [
-				{
-					name: t('singlePage'),
-					desc: [t('singlePageDesc1'), t('singlePageDesc2'), t('singlePageDesc3'), t('singlePageDesc4')].join(' '),
-					render: setting => this.configureSinglePage(setting),
-				},
-				{ name: t('homePage'), desc: t('homePageDesc'), render: setting => this.configureHomePage(setting) },
-			]),
-			...this.section('appearance', t('headingAppearance'), [
-				{ name: t('hideTabBar'), render: setting => this.configureHideTabBar(setting) },
-				{ name: t('showProperties'), render: setting => this.configureShowProperties(setting) },
-				{ name: t('showLocalGraph'), render: setting => this.configureShowLocalGraph(setting) },
-				{ name: t('showVaultProfile'), render: setting => this.configureShowVaultProfile(setting) },
-				{
-					name: t('showRightSidebarButton'),
-					desc: t('showRightSidebarButtonDesc'),
-					render: setting => this.configureShowRightSidebarButton(setting),
-				},
-			]),
-			...this.section('animation', t('headingAnimation'), [
-				{
-					name: t('navAnimation'),
-					desc: t('navAnimationDesc'),
-					render: setting => this.configureNavAnimation(setting),
-				},
-			]),
-			...this.section('advanced', t('headingAdvanced'), [
-				{
-					name: t('filenamePrefixManual'),
-					desc: t('filenamePrefixManualDesc'),
-					render: setting => this.configureFilenamePrefixManual(setting),
-				},
-				{
-					name: t('filenamePrefixLength'),
-					desc: t('filenamePrefixLengthDesc'),
-					visible: () => this.plugin.settings.filenamePrefixManual,
-					render: setting => this.configureFilenamePrefixLength(setting),
-				},
-			]),
-		];
 	}
 }
