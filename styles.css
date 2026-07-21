@@ -1370,6 +1370,14 @@ body.minimalism-ui-rsb-icon-dragging {
 	margin-bottom: 0;
 }
 
+/* 声明式设置页（Obsidian 1.13+）里，intro 作为一个 setting-item 行渲染，
+   需要去掉框架自带的行内边距/边框，避免和 .minimalism-ui-intro 自身的框重叠 */
+.minimalism-ui-intro-wrapper {
+	display: block;
+	border: none;
+	padding: 0;
+}
+
 .minimalism-ui-single-page-setting {
 	align-items: flex-start;
 	padding-top: 12px;

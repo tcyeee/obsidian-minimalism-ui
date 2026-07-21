@@ -40,10 +40,10 @@ export class ThemeLoader implements Feature {
 		const css = THEME_CSS[name];
 		if (!css) return;
 
-		const style = activeDocument.createElement('style');
-		style.setAttribute(STYLE_ATTR, name);
-		style.textContent = css;
-		activeDocument.head.appendChild(style);
+		activeDocument.head.createEl('style', {
+			attr: { [STYLE_ATTR]: name },
+			text: css,
+		});
 	}
 
 	remove() {
