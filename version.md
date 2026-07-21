@@ -5,6 +5,18 @@
 
 ---
 
+## Version 1.3.17
+
+- **1.3.16 was rejected by Obsidian's plugin review** and never went out through official channels — this release supersedes it with compliant fixes for the same two review items
+- Fixed: reverted the 1.3.16 declarative settings API experiment — Obsidian's review flags any reference to the new `getSettingDefinitions()`/`update()`/`refreshDomState()` APIs as a blocking error when `minAppVersion` is below `1.13.0`, even when the call is behind a runtime version check; the settings tab is back to the `display()` API only (same as 1.3.15), and this plugin will keep accepting the "settings search indexing" recommendation as a permanent, non-blocking known item rather than raising the minimum Obsidian version again
+- Fixed: theme CSS is no longer injected at runtime as a `<style>` element (creating/attaching `<style>` elements is banned outright by Obsidian's review, regardless of which DOM API creates them) — each theme's CSS is now compiled directly into `styles.css` at build time, and switching themes only toggles a body class to select which theme's (already-scoped) rules apply
+
+- **1.3.16 未通过 Obsidian 插件审核**，从未通过官方渠道正式发布——本次版本针对同样两项审核意见提供了合规修复
+- 修复：回退了 1.3.16 中试验性的声明式设置 API——当 `minAppVersion` 低于 `1.13.0` 时，Obsidian 审核会把任何引用新版 `getSettingDefinitions()`/`update()`/`refreshDomState()` API 的代码都判定为阻断性错误，即使调用被运行时版本判断包裹也一样；设置页面已改回只使用 `display()` API（与 1.3.15 相同），本插件后续会将"设置项可被搜索索引"这条审核建议作为长期保留、不再修复的已知事项，而不是再次提高最低 Obsidian 版本要求
+- 修复：主题 CSS 不再在运行时以 `<style>` 元素的形式注入（Obsidian 审核明确禁止在运行时创建/挂载任何 `<style>` 元素，无论用哪个 DOM API 创建）——各主题的 CSS 现在会在构建期直接编译进 `styles.css`，切换主题时只切换一个 body 类名来选中对应主题（已作用域隔离）的规则生效
+
+---
+
 ## Version 1.3.16
 
 - Fixed: the settings tab now also implements Obsidian's new declarative `getSettingDefinitions()` API, so it's indexed by Obsidian's built-in settings search on 1.13+ — unlike the reverted 1.3.14 attempt, this does **not** raise the minimum Obsidian version; the old `display()` API is kept fully working side by side for users on 1.7.2–1.12.x
