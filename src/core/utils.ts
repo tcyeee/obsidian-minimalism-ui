@@ -9,6 +9,28 @@ type InternalPluginsApp = App & {
 	internalPlugins?: { getPluginById(id: string): ZkPrefixerPlugin | null };
 };
 
+// 裸 pointerdown→move→up 拖拽的公共骨架：PropertyKeyResizer（1D 列宽）与
+// RightSidebarButtonManager（2D 面板尺寸）各自的 resize 拖拽都是这套捕获阶段监听器
+// 生命周期，只是计算的值形状不同——具体的 clamp/尺寸计算、持久化仍留给调用方的
+// onMove/onEnd 闭包，这里只负责监听器的挂载与摘除。
+// 返回 detach()：调用方自己的 onEnd（随自然的 pointerup 触发）内部会再调一次，
+// 是幂等的 removeEventListener，无副作用；也供 Feature.remove() 在拖拽进行中
+// 被强制卸载时直接摘除监听器而不触发 onEnd（不持久化未完成的拖拽）。
+export function trackPointerDrag(handlers: { onMove(e: PointerEvent): void; onEnd(): void }): () => void {
+	const onMove = (e: PointerEvent) => handlers.onMove(e);
+	const detach = () => {
+		activeDocument.removeEventListener('pointermove', onMove, true);
+		activeDocument.removeEventListener('pointerup', onUp, true);
+	};
+	const onUp = () => {
+		detach();
+		handlers.onEnd();
+	};
+	activeDocument.addEventListener('pointermove', onMove, true);
+	activeDocument.addEventListener('pointerup', onUp, true);
+	return detach;
+}
+
 export class LeafNameUtils {
 	static stripPrefix(name: string, prefixLength: number): string {
 		if (prefixLength <= 0) return name;

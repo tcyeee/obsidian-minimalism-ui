@@ -27,7 +27,7 @@ __export(main_exports, {
   default: () => MinimalismUIPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian12 = require("obsidian");
+var import_obsidian13 = require("obsidian");
 
 // src/core/settings.ts
 var DEFAULT_SETTINGS = {
@@ -1623,6 +1623,20 @@ var import_obsidian4 = require("obsidian");
 var import_obsidian3 = require("obsidian");
 
 // src/core/utils.ts
+function trackPointerDrag(handlers) {
+  const onMove = (e) => handlers.onMove(e);
+  const detach = () => {
+    activeDocument.removeEventListener("pointermove", onMove, true);
+    activeDocument.removeEventListener("pointerup", onUp, true);
+  };
+  const onUp = () => {
+    detach();
+    handlers.onEnd();
+  };
+  activeDocument.addEventListener("pointermove", onMove, true);
+  activeDocument.addEventListener("pointerup", onUp, true);
+  return detach;
+}
 var LeafNameUtils = class {
   static stripPrefix(name, prefixLength) {
     if (prefixLength <= 0) return name;
@@ -2501,6 +2515,7 @@ var PropertyKeyResizer = class {
     // 进行中的拖拽：key 的左边界（用于 width = clientX - keyLeft）。null 表示未在拖拽。
     this.keyLeft = null;
     this.currentWidth = 0;
+    this.stopDrag = null;
     this.onPointerDown = (e) => {
       const target = e.target;
       const key = target == null ? void 0 : target.closest(KEY_SELECTOR);
@@ -2510,8 +2525,7 @@ var PropertyKeyResizer = class {
       e.preventDefault();
       e.stopPropagation();
       this.keyLeft = rect.left;
-      activeDocument.addEventListener("pointermove", this.onPointerMove, true);
-      activeDocument.addEventListener("pointerup", this.onPointerUp, true);
+      this.stopDrag = trackPointerDrag({ onMove: this.onPointerMove, onEnd: this.onPointerUp });
     };
     this.onPointerMove = (e) => {
       if (this.keyLeft === null) return;
@@ -2547,10 +2561,11 @@ var PropertyKeyResizer = class {
     activeDocument.body.setCssProps({ [WIDTH_VAR]: `${width}px` });
   }
   endDrag() {
+    var _a;
     if (this.keyLeft === null) return;
     this.keyLeft = null;
-    activeDocument.removeEventListener("pointermove", this.onPointerMove, true);
-    activeDocument.removeEventListener("pointerup", this.onPointerUp, true);
+    (_a = this.stopDrag) == null ? void 0 : _a.call(this);
+    this.stopDrag = null;
   }
 };
 
@@ -3207,25 +3222,10 @@ var MermaidZoomManager = class {
 };
 
 // src/right-sidebar/RightSidebarButtonManager.ts
+var import_obsidian10 = require("obsidian");
+
+// src/right-sidebar/RightSidebarViewStack.ts
 var import_obsidian9 = require("obsidian");
-var LAUNCHER_CLASS = "minimalism-ui-rsb-launcher";
-var BUTTON_CLASS = "minimalism-ui-rsb-button";
-var PANEL_CLASS = "minimalism-ui-rsb-panel";
-var OPEN_CLASS = "minimalism-ui-rsb-panel-open";
-var BUTTON_ACTIVE_CLASS = "minimalism-ui-rsb-button-active";
-var SURFACE_CLASS = "minimalism-ui-rsb-surface";
-var PIN_CLASS = "minimalism-ui-rsb-pin";
-var PIN_HINT_CLASS = "minimalism-ui-rsb-pin-hint";
-var PIN_ACTIVE_CLASS = "minimalism-ui-rsb-pin-active";
-var RESIZE_HANDLE_CLASS = "minimalism-ui-rsb-resize-handle";
-var RESIZING_BODY_CLASS = "minimalism-ui-rsb-resizing";
-var STACK_CLASS = "minimalism-ui-rsb-stack";
-var STACK_EXPANDED_CLASS = "minimalism-ui-rsb-stack-expanded";
-var STACK_ICON_CLASS = "minimalism-ui-rsb-stack-icon";
-var STACK_ICON_ACTIVE_CLASS = "minimalism-ui-rsb-stack-icon-active";
-var CONTENT_CLASS = "minimalism-ui-rsb-content";
-var EMPTY_CLASS = "minimalism-ui-rsb-empty";
-var DEFAULT_ICON = "panel-right";
 var MANAGED_LEFT_VIEW_TYPES = /* @__PURE__ */ new Set(["outline", "localgraph", "file-properties"]);
 var DOCUMENT_VIEW_TYPES = /* @__PURE__ */ new Set([
   "markdown",
@@ -3239,61 +3239,31 @@ var DOCUMENT_VIEW_TYPES = /* @__PURE__ */ new Set([
   "webviewer",
   "bases"
 ]);
-var MIN_WIDTH2 = 280;
-var MAX_WIDTH2 = 720;
-var MIN_HEIGHT = 220;
-var MAX_HEIGHT = 800;
-var VIEWPORT_MARGIN_X = 40;
-var VIEWPORT_MARGIN_Y = 92;
-var PIN_HOVER_ZONE_PX = 40;
-var PIN_ICON = "pin";
-var STACK_AUTO_EXPAND_DELAY = 500;
-var STACK_AUTO_COLLAPSE_DELAY = 2e3;
-var STACK_HOVER_LEAVE_DELAY = 300;
-var STOW_KEY = "minimalism-ui-rsb-stow";
+var DEFAULT_ICON = "panel-right";
+var STACK_ICON_CLASS = "minimalism-ui-rsb-stack-icon";
+var STACK_ICON_ACTIVE_CLASS = "minimalism-ui-rsb-stack-icon-active";
+var EMPTY_CLASS = "minimalism-ui-rsb-empty";
 var STOW_ICON_CLASS = "minimalism-ui-rsb-stow-icon";
 var STOW_ICON_EXPANDED_CLASS = "minimalism-ui-rsb-stow-icon-expanded";
 var STOW_ICON_GLYPH = "chevrons-left";
 var STACK_ICON_HIDDEN_CLASS = "minimalism-ui-rsb-stack-icon-hidden";
 var STACK_ICON_STOWED_CLASS = "minimalism-ui-rsb-stack-icon-stowed";
-var STACK_DRAGGING_CLASS = "minimalism-ui-rsb-stack-dragging";
-var ICON_DRAG_ACTIVE_CLASS = "minimalism-ui-rsb-stack-icon-drag-active";
-var ICON_DRAGGING_BODY_CLASS = "minimalism-ui-rsb-icon-dragging";
-var ICON_DRAG_THRESHOLD_PX = 4;
-var TOGGLE_RIGHT_SIDEBAR_COMMAND_ID = "app:toggle-right-sidebar";
-var RightSidebarButtonManager = class {
+var STOW_KEY = "minimalism-ui-rsb-stow";
+var RightSidebarViewStack = class {
   constructor(app, getSettings, save) {
     this.app = app;
     this.getSettings = getSettings;
     this.save = save;
-    this.launcherEl = null;
-    this.buttonEl = null;
     this.stackEl = null;
-    this.panelEl = null;
-    this.surfaceEl = null;
     this.contentEl = null;
-    this.resizeHandleEl = null;
-    this.pinEl = null;
-    this.outsideClickHandler = null;
-    this.pointerDownHandler = null;
-    // pointerdown（capture 阶段，先于 click）时记录的“按下点是否在面板/launcher 内”——
-    // 见 outsideClickHandler 顶部注释，click 事件的 composedPath() 在某些场景不可靠，
-    // 这个提前一步、DOM 还未被任何 mousedown 触发的副作用改动过的快照更可信。
-    this.pointerDownInsidePanel = false;
-    this.keydownHandler = null;
-    this.layoutChangeHandler = null;
-    // 见 patchExecuteCommand()：调用它返回的 unpatch()，remove() 时执行即可安全还原。
-    this.unpatchExecuteCommand = null;
-    this.isOpen = false;
-    this.stackExpanded = false;
-    // 面板是否被 pin 住；跨重启持久化于设置，见类注释。
-    this.isPinned = false;
+    this.buttonEl = null;
+    this.iconDrag = null;
     // 每次 apply() 只做一次全量探测（见 ensureAllToolViewsExist），避免每次开面板都重复扫描/创建。
     this.hasProbedAllViewTypes = false;
     // 当前挂进 contentEl 的 leaf，及其原本所在的位置（用于切走/卸载时移回）。
     this.mountedLeaf = null;
     this.mountedOriginal = null;
-    // 图标堆叠的发现顺序：只负责“视图是否存在” + activeLeaf 兜底，不再是视觉顺序（见类注释）。
+    // 图标堆叠的发现顺序：只负责"视图是否存在" + activeLeaf 兜底，不再是视觉顺序（见类注释）。
     // 视觉顺序 + 收纳分界由 computeRenderOrder() 结合 settings.rightSidebarStackOrder 派生。
     this.leafOrder = [];
     // 当前选中项，独立于 leafOrder 的顺序记录。
@@ -3310,352 +3280,43 @@ var RightSidebarButtonManager = class {
     // 收纳图标是否处于展开态（显示分界左侧的隐藏图标）；跨重启持久化于 settings，
     // 只由用户点击哨兵图标改变——切视图、堆叠自动收起等操作不再连带重置它（见类注释）。
     this.stowExpanded = false;
-    // 进行中的图标拖拽重排；null 表示未在拖拽。dragging 为 false 时表示还未越过阈值
-    // （此时仍可能是一次普通点击），越过阈值后才真正接管顺序 + 吞掉尾随的 click。
-    this.iconDrag = null;
-    // 拖拽越过阈值后置位：吞掉这次拖拽松手后紧随而来的 click，避免误触发选中/收纳切换。
-    // 超时兜底同 suppressNextOutsideClick，防止浏览器这次没派发 click 导致标记卡死。
-    this.suppressNextIconClick = false;
-    // 面板开关态（isOpen）的订阅者——供 StatusBarMenuManager 之类的外部消费方在自己的
-    // 悬浮面板打开期间，实时感知“用户直接点了右下角悬浮按钮”这类不经过它的触发路径。
-    // 不随 remove()/apply() 的内部重建清空：订阅关系属于调用方，与本管理器的 DOM 重建
-    // 生命周期无关（详见 apply() 里 wasOpen/restoreOpenState 的重建保活注释）。
-    this.stateChangeListeners = /* @__PURE__ */ new Set();
-    // 鼠标是否停留在 launcher（按钮 + 堆叠）范围内——决定自动收起定时器要不要暂停。
-    this.isHovering = false;
-    this.autoExpandTimer = null;
-    this.autoCollapseTimer = null;
-    // 进行中的拖拽起点；null 表示未在拖拽。
-    this.resizeStart = null;
-    this.currentSize = null;
-    // 拖拽超出可调节范围时，松手瞬间指针已远离面板：随之而来的 click 会落在面板外，
-    // 被“点击外部关闭”误判。此标记在拖拽结束后短暂生效，让该次 click 被忽略。
-    this.suppressNextOutsideClick = false;
-    // 堆叠隐藏态下唤出跳过 500ms 延迟（那个延迟只属于“面板刚打开”那一次）；
-    // 已经展开时悬浮只是暂停当前倒计时（清掉定时器），不重新触发亮相动画。
-    this.onLauncherMouseEnter = () => {
-      this.isHovering = true;
-      if (!this.isOpen) return;
-      if (!this.stackExpanded) {
-        this.showStack();
-        return;
-      }
-      if (this.autoCollapseTimer !== null) {
-        window.clearTimeout(this.autoCollapseTimer);
-        this.autoCollapseTimer = null;
-      }
-    };
-    // 鼠标移出 launcher：用户已经主动看过、决定移开了，收起前只留 300ms 短缓冲
-    // （区别于“面板刚打开、无人理会”那次的 2s——见 showStack）。
-    this.onLauncherMouseLeave = () => {
-      this.isHovering = false;
-      if (!this.isOpen) return;
-      if (this.stackExpanded) this.scheduleAutoCollapse(STACK_HOVER_LEAVE_DELAY);
-    };
-    // 鼠标距面板顶边 PIN_HOVER_ZONE_PX 以内时探出 pin 按钮；已 pin 住的话本就常驻显示
-    // （由 PIN_ACTIVE_CLASS 控制），这里只管未 pin 时的悬浮提示态。
-    this.onPanelMouseMove = (e) => {
-      var _a;
-      if (!this.panelEl || this.isPinned) return;
-      const rect = this.panelEl.getBoundingClientRect();
-      const nearTop = e.clientY - rect.top <= PIN_HOVER_ZONE_PX;
-      (_a = this.pinEl) == null ? void 0 : _a.toggleClass(PIN_HINT_CLASS, nearTop);
-    };
-    this.onPanelMouseLeave = () => {
-      var _a;
-      (_a = this.pinEl) == null ? void 0 : _a.removeClass(PIN_HINT_CLASS);
-    };
-    this.onIconPointerMove = (e) => {
-      var _a, _b, _c;
-      const drag = this.iconDrag;
-      if (!drag) return;
-      if (!drag.dragging) {
-        const dx = e.clientX - drag.startX;
-        const dy = e.clientY - drag.startY;
-        if (Math.hypot(dx, dy) < ICON_DRAG_THRESHOLD_PX) return;
-        drag.dragging = true;
-        this.suppressNextIconClick = true;
-        window.setTimeout(() => {
-          this.suppressNextIconClick = false;
-        }, 300);
-        (_a = this.stackEl) == null ? void 0 : _a.addClass(STACK_DRAGGING_CLASS);
-        activeDocument.body.addClass(ICON_DRAGGING_BODY_CLASS);
-        (_c = (_b = this.stackEl) == null ? void 0 : _b.querySelector(`[data-rsb-key="${CSS.escape(drag.key)}"]`)) == null ? void 0 : _c.addClass(ICON_DRAG_ACTIVE_CLASS);
-      }
-      e.preventDefault();
-      this.updateIconDragTarget(e.clientX);
-      this.followIconPointer(e.clientX);
-    };
-    this.onIconPointerUp = () => {
-      var _a;
-      const drag = this.iconDrag;
-      this.iconDrag = null;
-      activeDocument.removeEventListener("pointermove", this.onIconPointerMove, true);
-      activeDocument.removeEventListener("pointerup", this.onIconPointerUp, true);
-      if (!drag || !drag.dragging) return;
-      (_a = this.stackEl) == null ? void 0 : _a.removeClass(STACK_DRAGGING_CLASS);
-      activeDocument.body.removeClass(ICON_DRAGGING_BODY_CLASS);
-      const s = this.getSettings();
-      s.rightSidebarStackOrder = drag.order.map((key) => {
-        if (key === STOW_KEY) return STOW_KEY;
-        const leaf = this.instanceKeyToLeaf.get(key);
-        return leaf ? this.keyOf(leaf) : key;
-      });
-      void this.save();
-      this.suppressNextOutsideClick = true;
-      window.setTimeout(() => {
-        this.suppressNextOutsideClick = false;
-      }, 300);
-      this.renderStackIcons();
-    };
-    // ─── 拖拽调整面板尺寸 ───────────────────────────────────────────────────
-    this.onResizePointerDown = (e) => {
-      if (!this.panelEl) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const rect = this.panelEl.getBoundingClientRect();
-      this.resizeStart = { x: e.clientX, y: e.clientY, width: rect.width, height: rect.height };
-      activeDocument.body.addClass(RESIZING_BODY_CLASS);
-      activeDocument.addEventListener("pointermove", this.onResizePointerMove, true);
-      activeDocument.addEventListener("pointerup", this.onResizePointerUp, true);
-    };
-    this.onResizePointerMove = (e) => {
-      if (!this.resizeStart || !this.panelEl) return;
-      const dx = this.resizeStart.x - e.clientX;
-      const dy = this.resizeStart.y - e.clientY;
-      const maxWidth = Math.min(MAX_WIDTH2, activeWindow.innerWidth - VIEWPORT_MARGIN_X);
-      const maxHeight = Math.min(MAX_HEIGHT, activeWindow.innerHeight - VIEWPORT_MARGIN_Y);
-      const width = Math.max(MIN_WIDTH2, Math.min(maxWidth, Math.round(this.resizeStart.width + dx)));
-      const height = Math.max(MIN_HEIGHT, Math.min(maxHeight, Math.round(this.resizeStart.height + dy)));
-      this.currentSize = { width, height };
-      this.panelEl.setCssStyles({ width: `${width}px`, height: `${height}px` });
-      if (this.mountedLeaf) this.notifyResize(this.mountedLeaf);
-    };
-    this.onResizePointerUp = () => {
-      const size = this.currentSize;
-      const had = this.resizeStart !== null;
-      if (had) {
-        this.suppressNextOutsideClick = true;
-        window.setTimeout(() => {
-          this.suppressNextOutsideClick = false;
-        }, 300);
-      }
-      this.endResizeDrag();
-      if (had && size) {
-        const s = this.getSettings();
-        s.rightSidebarPanelWidth = size.width;
-        s.rightSidebarPanelHeight = size.height;
-        void this.save();
-      }
-    };
   }
-  apply() {
-    const wasOpen = this.isOpen;
-    this.remove();
-    if (!this.getSettings().showRightSidebarButton) return;
-    this.inject();
-    if (wasOpen) this.restoreOpenState();
+  // 双向引用只能在两者都构造完之后接上（见 RightSidebarButtonManager 的构造顺序）。
+  bindIconDrag(iconDrag) {
+    this.iconDrag = iconDrag;
   }
-  // 重建后原样恢复“已打开”态：只還原面板可见性与当前挂载的视图内容，不触碰堆叠展开/收起
-  // 动画计时器（那套只属于用户主动点击 launcher 的那一次，见类注释）。
-  restoreOpenState() {
-    var _a, _b;
-    this.isOpen = true;
-    (_a = this.panelEl) == null ? void 0 : _a.addClass(OPEN_CLASS);
-    (_b = this.buttonEl) == null ? void 0 : _b.addClass(BUTTON_ACTIVE_CLASS);
-    this.refreshStack();
-  }
-  inject() {
+  mount(elements) {
+    this.stackEl = elements.stackEl;
+    this.contentEl = elements.contentEl;
+    this.buttonEl = elements.buttonEl;
     this.hasProbedAllViewTypes = false;
-    this.isPinned = this.getSettings().rightSidebarPanelPinned;
     this.stowExpanded = this.getSettings().rightSidebarStowExpanded;
-    this.panelEl = activeDocument.body.createDiv({ cls: PANEL_CLASS });
-    const s = this.getSettings();
-    this.panelEl.setCssStyles({
-      width: `${s.rightSidebarPanelWidth}px`,
-      height: `${s.rightSidebarPanelHeight}px`
-    });
-    this.surfaceEl = this.panelEl.createDiv({ cls: SURFACE_CLASS });
-    this.contentEl = this.surfaceEl.createDiv({ cls: CONTENT_CLASS });
-    this.resizeHandleEl = this.surfaceEl.createDiv({ cls: RESIZE_HANDLE_CLASS });
-    this.resizeHandleEl.addEventListener("pointerdown", this.onResizePointerDown);
-    this.pinEl = this.panelEl.createDiv({
-      cls: PIN_CLASS,
-      attr: { "aria-label": t(this.isPinned ? "rightSidebarPanelUnpin" : "rightSidebarPanelPin") }
-    });
-    (0, import_obsidian9.setIcon)(this.pinEl, PIN_ICON);
-    this.pinEl.toggleClass(PIN_ACTIVE_CLASS, this.isPinned);
-    this.pinEl.addEventListener("click", (e) => {
-      e.stopPropagation();
-      this.togglePinned();
-    });
-    this.panelEl.addEventListener("mousemove", this.onPanelMouseMove);
-    this.panelEl.addEventListener("mouseleave", this.onPanelMouseLeave);
-    this.launcherEl = activeDocument.body.createDiv({ cls: LAUNCHER_CLASS });
-    this.stackEl = this.launcherEl.createDiv({ cls: STACK_CLASS });
-    this.launcherEl.addEventListener("mouseenter", this.onLauncherMouseEnter);
-    this.launcherEl.addEventListener("mouseleave", this.onLauncherMouseLeave);
-    this.buttonEl = this.launcherEl.createDiv({
-      cls: BUTTON_CLASS,
-      attr: { "aria-label": t("rightSidebarButtonLabel") }
-    });
-    (0, import_obsidian9.setIcon)(this.buttonEl, DEFAULT_ICON);
-    this.buttonEl.addEventListener("click", (e) => {
-      e.stopPropagation();
-      this.setStackExpanded(false);
-      this.toggle();
-    });
-    this.pointerDownHandler = (e) => {
-      const path = e.composedPath();
-      this.pointerDownInsidePanel = this.launcherEl != null && path.includes(this.launcherEl) || this.panelEl != null && path.includes(this.panelEl);
-    };
-    activeDocument.addEventListener("pointerdown", this.pointerDownHandler, true);
-    this.outsideClickHandler = (e) => {
-      if (this.suppressNextOutsideClick) {
-        this.suppressNextOutsideClick = false;
-        return;
-      }
-      const path = e.composedPath();
-      const inStack = this.stackEl != null && path.includes(this.stackEl);
-      if (this.stackExpanded && !inStack) {
-        this.clearStackTimers();
-        this.setStackExpanded(false);
-      }
-      if (!this.isOpen) return;
-      const insidePanel = this.pointerDownInsidePanel || this.launcherEl != null && path.includes(this.launcherEl) || this.panelEl != null && path.includes(this.panelEl);
-      if (insidePanel) return;
-      if (this.isPinned) return;
-      this.close();
-    };
-    activeDocument.addEventListener("click", this.outsideClickHandler);
-    this.keydownHandler = (e) => {
-      if (e.key !== "Escape" || !this.isOpen) return;
-      if (this.isPinned) return;
-      e.stopPropagation();
-      this.close();
-    };
-    activeDocument.addEventListener("keydown", this.keydownHandler);
-    this.layoutChangeHandler = () => {
-      if (this.isOpen) this.refreshStack();
-    };
-    this.app.workspace.on("layout-change", this.layoutChangeHandler);
-    this.unpatchExecuteCommand = patchExecuteCommand(this.app, (commandId) => {
-      if (commandId === TOGGLE_RIGHT_SIDEBAR_COMMAND_ID) this.toggle();
-    });
   }
-  toggle() {
-    if (this.isOpen) this.close();
-    else this.open();
+  unmount() {
+    this.restoreMounted();
+    this.leafOrder = [];
+    this.activeLeaf = null;
+    this.leafInstanceKeys = /* @__PURE__ */ new WeakMap();
+    this.instanceKeyToLeaf.clear();
+    this.stowExpanded = false;
+    this.stackEl = null;
+    this.contentEl = null;
+    this.buttonEl = null;
   }
-  // 供外部（StatusBarMenuManager）触发的公开入口，与直接点击右下角悬浮按钮等价。
-  // launcherEl 为 null 说明 showRightSidebarButton 关闭、面板未注入，直接 no-op。
-  togglePanel() {
-    if (!this.launcherEl) return;
-    this.toggle();
+  getStackEl() {
+    return this.stackEl;
   }
-  isPanelOpen() {
-    return this.isOpen;
+  getMountedLeaf() {
+    return this.mountedLeaf;
   }
-  // 订阅 isOpen 变化（见字段注释）。返回取消订阅函数。
-  onStateChange(cb) {
-    this.stateChangeListeners.add(cb);
-    return () => this.stateChangeListeners.delete(cb);
+  hasProbed() {
+    return this.hasProbedAllViewTypes;
   }
-  notifyStateChange() {
-    for (const cb of this.stateChangeListeners) cb();
-  }
-  open() {
-    var _a, _b;
-    this.isOpen = true;
-    (_a = this.panelEl) == null ? void 0 : _a.addClass(OPEN_CLASS);
-    (_b = this.buttonEl) == null ? void 0 : _b.addClass(BUTTON_ACTIVE_CLASS);
-    this.notifyStateChange();
-    this.refreshStack();
-    this.clearStackTimers();
-    this.autoExpandTimer = window.setTimeout(() => {
-      this.autoExpandTimer = null;
-      if (this.isOpen) this.showStack();
-    }, STACK_AUTO_EXPAND_DELAY);
-    if (!this.hasProbedAllViewTypes) {
-      this.hasProbedAllViewTypes = true;
-      void this.ensureAllToolViewsExist().then(() => this.materializeDeferredLeaves()).then(() => {
-        if (this.isOpen) this.refreshStack();
-      });
-    } else {
-      void this.materializeDeferredLeaves();
-    }
-  }
-  // Obsidian 的 deferred leaf 只有在“第一次真正被用到”时才物化真正的 View 实例，物化过程
-  // 会触发一次它所在 tab group 的内部重渲染——这个重渲染不知道我们把某个 sibling leaf 的
-  // containerEl 偷偷搬进了悬浮面板，会把它当垃圾一并摘掉（表现为那个 leaf 的 containerEl
-  // parentElement 变 null，内容清空，且不会再恢复）。日志实测证实：切到一个还没被物化过
-  // 的视图时，触发的重渲染会把"当前挂在面板里的另一个视图"顺带摘掉。
-  // 把物化这一步提前到用户开始点选之前（面板里还什么都没挂的时候）做，就没有东西可误伤。
-  // 逐个 await 而非 Promise.all，理由同 ensureAllToolViewsExist：避免物化过程互相踩踏。
-  async materializeDeferredLeaves() {
-    for (const leaf of this.collectSwitchableLeaves()) {
-      if (!leaf.isDeferred) continue;
-      try {
-        await leaf.loadIfDeferred();
-      } catch (err) {
-        console.error("[minimalism-ui] failed to materialize deferred leaf", leaf.view.getViewType(), err);
-      }
-    }
-  }
-  close() {
-    var _a, _b;
-    this.isOpen = false;
-    this.clearStackTimers();
-    this.setStackExpanded(false);
-    (_a = this.panelEl) == null ? void 0 : _a.removeClass(OPEN_CLASS);
-    (_b = this.buttonEl) == null ? void 0 : _b.removeClass(BUTTON_ACTIVE_CLASS);
-    this.notifyStateChange();
-  }
-  setStackExpanded(expanded) {
-    var _a;
-    this.stackExpanded = expanded;
-    (_a = this.stackEl) == null ? void 0 : _a.toggleClass(STACK_EXPANDED_CLASS, expanded);
-  }
-  // 堆叠从隐藏变为可见的唯一入口：500ms 自动亮相定时器、悬浮唤出都走这里。
-  // 亮相当下鼠标没停在 launcher 上才排“首次亮相”的 2s 自动收起——否则等 mouseleave
-  // 再排（见 onLauncherMouseLeave，用的是更短的 300ms），避免鼠标正停在上面时
-  // 列表突然从指针底下收走。
-  showStack() {
-    this.setStackExpanded(true);
-    if (this.autoCollapseTimer !== null) {
-      window.clearTimeout(this.autoCollapseTimer);
-      this.autoCollapseTimer = null;
-    }
-    if (!this.isHovering) this.scheduleAutoCollapse(STACK_AUTO_COLLAPSE_DELAY);
-  }
-  scheduleAutoCollapse(delayMs) {
-    if (this.autoCollapseTimer !== null) window.clearTimeout(this.autoCollapseTimer);
-    this.autoCollapseTimer = window.setTimeout(() => {
-      this.autoCollapseTimer = null;
-      if (!this.isHovering) this.setStackExpanded(false);
-    }, delayMs);
-  }
-  clearStackTimers() {
-    if (this.autoExpandTimer !== null) {
-      window.clearTimeout(this.autoExpandTimer);
-      this.autoExpandTimer = null;
-    }
-    if (this.autoCollapseTimer !== null) {
-      window.clearTimeout(this.autoCollapseTimer);
-      this.autoCollapseTimer = null;
-    }
-  }
-  togglePinned() {
-    var _a, _b;
-    this.isPinned = !this.isPinned;
-    (_a = this.pinEl) == null ? void 0 : _a.toggleClass(PIN_ACTIVE_CLASS, this.isPinned);
-    (_b = this.pinEl) == null ? void 0 : _b.setAttribute("aria-label", t(this.isPinned ? "rightSidebarPanelUnpin" : "rightSidebarPanelPin"));
-    const s = this.getSettings();
-    s.rightSidebarPanelPinned = this.isPinned;
-    void this.save();
+  markProbed() {
+    this.hasProbedAllViewTypes = true;
   }
   // ─── 视图枚举 / 渲染图标堆叠 / 挂载切换 ─────────────────────────────────
-  // 右侧栏的全部 leaf，加上左侧栏里不属于 Outline/Graph/Properties 合并三件套的“外来” leaf。
+  // 右侧栏的全部 leaf，加上左侧栏里不属于 Outline/Graph/Properties 合并三件套的"外来" leaf。
   collectSwitchableLeaves() {
     const { leftSplit, rightSplit } = this.app.workspace;
     const leaves = [];
@@ -3669,10 +3330,10 @@ var RightSidebarButtonManager = class {
     });
     return leaves;
   }
-  // 全部已注册的“工具类” view type：viewByType 里排除文档类（DOCUMENT_VIEW_TYPES）和
+  // 全部已注册的"工具类" view type：viewByType 里排除文档类（DOCUMENT_VIEW_TYPES）和
   // 已被 SidebarLayoutManager 合并管理的三种（MANAGED_LEFT_VIEW_TYPES）。
   // viewByType 是内部 API（未出现在官方类型声明中），随 Obsidian 插件注册 registerView 时写入，
-  // 与是否有 leaf 打开无关 —— 这正是探测“已关闭但曾注册过”的 view 所需要的入口。
+  // 与是否有 leaf 打开无关 —— 这正是探测"已关闭但曾注册过"的 view 所需要的入口。
   allRegisteredToolViewTypes() {
     var _a;
     const registry = this.app.viewRegistry;
@@ -3712,6 +3373,23 @@ var RightSidebarButtonManager = class {
         if (sharedParent && ((_d = (_c = sharedParent.children) == null ? void 0 : _c.length) != null ? _d : 0) === 0) {
           sharedParent = null;
         }
+      }
+    }
+  }
+  // Obsidian 的 deferred leaf 只有在"第一次真正被用到"时才物化真正的 View 实例，物化过程
+  // 会触发一次它所在 tab group 的内部重渲染——这个重渲染不知道我们把某个 sibling leaf 的
+  // containerEl 偷偷搬进了悬浮面板，会把它当垃圾一并摘掉（表现为那个 leaf 的 containerEl
+  // parentElement 变 null，内容清空，且不会再恢复）。日志实测证实：切到一个还没被物化过
+  // 的视图时，触发的重渲染会把"当前挂在面板里的另一个视图"顺带摘掉。
+  // 把物化这一步提前到用户开始点选之前（面板里还什么都没挂的时候）做，就没有东西可误伤。
+  // 逐个 await 而非 Promise.all，理由同 ensureAllToolViewsExist：避免物化过程互相踩踏。
+  async materializeDeferredLeaves() {
+    for (const leaf of this.collectSwitchableLeaves()) {
+      if (!leaf.isDeferred) continue;
+      try {
+        await leaf.loadIfDeferred();
+      } catch (err) {
+        console.error("[minimalism-ui] failed to materialize deferred leaf", leaf.view.getViewType(), err);
       }
     }
   }
@@ -3773,8 +3451,11 @@ var RightSidebarButtonManager = class {
     }
     return key;
   }
+  leafForInstanceKey(key) {
+    return this.instanceKeyToLeaf.get(key);
+  }
   // 把 settings.rightSidebarStackOrder（持久化的 key 序列，含 STOW_KEY 哨兵）解析成当前
-  // 实际渲染序列：按 leaf 的 view type 从 leafOrder 里“消费”对应 leaf；持久化序列里指向
+  // 实际渲染序列：按 leaf 的 view type 从 leafOrder 里"消费"对应 leaf；持久化序列里指向
   // 已关闭 leaf 的 key 静默丢弃；不在持久化序列里出现过的 leaf（新视图，或同 type 的额外
   // leaf）追加到末尾——末尾即哨兵之后，天然是可见区。全程缺失哨兵时补在最前（对应默认值
   // 空数组的语义：哨兵隐式在最前，所有已发现视图可见）。
@@ -3822,9 +3503,12 @@ var RightSidebarButtonManager = class {
         (0, import_obsidian9.setIcon)(stowEl, STOW_ICON_GLYPH);
         stowEl.addEventListener("click", (e) => {
           e.stopPropagation();
-          this.onIconClick(() => this.toggleStowExpanded());
+          this.dispatchIconClick(() => this.toggleStowExpanded());
         });
-        stowEl.addEventListener("pointerdown", (e) => this.startIconDrag(e, STOW_KEY));
+        stowEl.addEventListener("pointerdown", (e) => {
+          var _a;
+          return (_a = this.iconDrag) == null ? void 0 : _a.startIconDrag(e, STOW_KEY);
+        });
         return;
       }
       const leaf = item;
@@ -3839,15 +3523,18 @@ var RightSidebarButtonManager = class {
       (0, import_obsidian9.setIcon)(iconEl, leaf.getIcon());
       iconEl.addEventListener("click", (e) => {
         e.stopPropagation();
-        this.onIconClick(() => this.selectLeaf(leaf));
+        this.dispatchIconClick(() => this.selectLeaf(leaf));
       });
-      iconEl.addEventListener("pointerdown", (e) => this.startIconDrag(e, instanceKey));
+      iconEl.addEventListener("pointerdown", (e) => {
+        var _a;
+        return (_a = this.iconDrag) == null ? void 0 : _a.startIconDrag(e, instanceKey);
+      });
     });
   }
   // 只更新既有图标 DOM 节点上的状态 class（选中/隐藏折叠/收纳灰化、哨兵展开态），不走
   // renderStackIcons() 的 empty() + 重建整套节点。选中项/收纳展开这两个操作只改视觉状态、
   // 不改变堆叠的项集合或顺序，若像 renderStackIcons() 那样整体销毁重建 DOM，浏览器会把
-  // 新节点当成一开始就是最终态、没有“变化前”可过渡——CSS 的宽度折叠/chevron 旋转动画
+  // 新节点当成一开始就是最终态、没有"变化前"可过渡——CSS 的宽度折叠/chevron 旋转动画
   // 因此完全不播放。原地 toggleClass 保留节点本身，过渡才能生效。
   updateStackIconVisualState() {
     if (!this.stackEl) return;
@@ -3868,13 +3555,11 @@ var RightSidebarButtonManager = class {
       el.toggleClass(STACK_ICON_STOWED_CLASS, idx < stowIndex);
     });
   }
-  // 拖拽越过阈值后会置位 suppressNextIconClick，吞掉紧随拖拽而来的一次 click——
-  // 供收纳切换/选中共用的统一入口。
-  onIconClick(action) {
-    if (this.suppressNextIconClick) {
-      this.suppressNextIconClick = false;
-      return;
-    }
+  // 拖拽越过阈值后会置位 RightSidebarIconDrag 的 suppressNextIconClick，吞掉紧随拖拽而来的
+  // 一次 click——供收纳切换/选中共用的统一入口。
+  dispatchIconClick(action) {
+    var _a;
+    if ((_a = this.iconDrag) == null ? void 0 : _a.consumeSuppressedClick()) return;
     action();
   }
   toggleStowExpanded() {
@@ -3892,126 +3577,8 @@ var RightSidebarButtonManager = class {
       s.rightSidebarLastActiveView = key;
       void this.save();
     }
-    if (!this.isOpen) this.open();
-    else {
-      this.updateStackIconVisualState();
-      void this.showLeaf(leaf);
-    }
-  }
-  // ─── 图标拖拽重排 ───────────────────────────────────────────────────────
-  startIconDrag(e, key) {
-    var _a;
-    if (e.button !== 0) return;
-    const el = (_a = this.stackEl) == null ? void 0 : _a.querySelector(`[data-rsb-key="${CSS.escape(key)}"]`);
-    this.iconDrag = {
-      key,
-      startX: e.clientX,
-      startY: e.clientY,
-      dragging: false,
-      order: this.computeRenderOrder().map((item) => item === STOW_KEY ? STOW_KEY : this.instanceKeyOf(item)),
-      grabOffsetX: el ? e.clientX - el.getBoundingClientRect().left : 0,
-      translateX: 0
-    };
-    activeDocument.addEventListener("pointermove", this.onIconPointerMove, true);
-    activeDocument.addEventListener("pointerup", this.onIconPointerUp, true);
-  }
-  // 被拖拽图标的“跟手”位移：越过阈值后每帧都让它的视觉位置贴着指针（保留抓取时指针相对
-  // 图标左边缘的偏移，而不是让图标左边缘直接对齐指针）。它在 DOM 流里的“自然位置”只由
-  // updateIconDragTarget 的重排决定，这里在自然位置之上叠加一段 translateX 补足到指针实际
-  // 位置——与 flipIconPositions 处理其余图标各自独立，互不干扰。
-  // ICON_DRAG_ACTIVE_CLASS 的 scale(1.12) 由 CSS 类声明，但内联 transform 会整体覆盖它，
-  // 故这里把两者写进同一个 transform 字符串里。
-  followIconPointer(clientX) {
-    const drag = this.iconDrag;
-    if (!drag || !drag.dragging || !this.stackEl) return;
-    const el = this.stackEl.querySelector(`[data-rsb-key="${CSS.escape(drag.key)}"]`);
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const naturalLeft = rect.left - drag.translateX;
-    const desiredLeft = clientX - drag.grabOffsetX;
-    drag.translateX = desiredLeft - naturalLeft;
-    el.setCssStyles({ transform: `translateX(${drag.translateX}px) scale(1.12)` });
-  }
-  // 用“虚拟位置排序”而非逐格判断相邻位来求新顺序：把被拖项当成一个中心点在当前指针 clientX
-  // 的虚拟条目，和其余各项按各自实时测得的 bounding rect 中点一起排序——天然避免相邻位判断的
-  // 边界抖动，也不需要区分拖拽方向。容器 right 固定、内容变宽会让兄弟节点左移，故每次都
-  // 现场测量，不用拖拽起点缓存的 rect。
-  updateIconDragTarget(clientX) {
-    const drag = this.iconDrag;
-    if (!drag || !drag.dragging || !this.stackEl) return;
-    const children = Array.from(this.stackEl.children);
-    const byKey = (key) => {
-      var _a;
-      return (_a = children.find((c) => c.dataset.rsbKey === key)) != null ? _a : null;
-    };
-    const entries = [];
-    for (const key of drag.order) {
-      if (key === drag.key) continue;
-      const el = byKey(key);
-      if (!el) continue;
-      const rect = el.getBoundingClientRect();
-      entries.push({ key, center: rect.left + rect.width / 2 });
-    }
-    entries.push({ key: drag.key, center: clientX });
-    entries.sort((a, b) => a.center - b.center);
-    const newOrder = entries.map((entry) => entry.key);
-    if (newOrder.join(" ") === drag.order.join(" ")) return;
-    drag.order = newOrder;
-    const others = children.filter((el) => el.dataset.rsbKey !== drag.key);
-    this.flipIconPositions(others, () => {
-      let cursor = this.stackEl.firstChild;
-      for (const key of newOrder) {
-        const el = byKey(key);
-        if (!el) continue;
-        if (cursor !== el) this.stackEl.insertBefore(el, cursor);
-        cursor = el.nextSibling;
-      }
-    });
-    this.applyStowedClasses(newOrder, byKey);
-  }
-  // 按当前顺序把哨兵左侧的图标标记为“已收纳”（灰化提示，见 STACK_ICON_STOWED_CLASS）；
-  // 拖拽重排的每一步、以及 renderStackIcons() 的静态渲染共用同一套判定逻辑。
-  applyStowedClasses(order, byKey) {
-    const stowIndex = order.indexOf(STOW_KEY);
-    order.forEach((key, idx) => {
-      var _a;
-      if (key === STOW_KEY) return;
-      (_a = byKey(key)) == null ? void 0 : _a.toggleClass(STACK_ICON_STOWED_CLASS, idx < stowIndex);
-    });
-  }
-  // FLIP（First-Last-Invert-Play）：mutate 前先清掉每个元素可能残留的上一轮位移（无过渡、
-  // 瞬间归位——先清后测才准，也让连续快速重排时动画能被自然打断重启，不会越叠越乱），
-  // 记录 First 位置；跑 mutate；量出 Last 位置，用位移差瞬时“倒回” First（同样无过渡）；
-  // 强制回流后清空 transform——图标自身的 CSS 已带 transform 0.15s ease 过渡，这一步会被
-  // 浏览器动画成滑向 Last，不需要额外声明过渡时长。
-  flipIconPositions(els, mutate) {
-    var _a, _b;
-    for (const el of els) {
-      el.setCssStyles({ transition: "none", transform: "" });
-    }
-    void ((_a = this.stackEl) == null ? void 0 : _a.offsetWidth);
-    const firstLeft = /* @__PURE__ */ new Map();
-    for (const el of els) firstLeft.set(el, el.getBoundingClientRect().left);
-    mutate();
-    for (const el of els) {
-      const first = firstLeft.get(el);
-      if (first === void 0) continue;
-      const delta = first - el.getBoundingClientRect().left;
-      if (delta !== 0) el.setCssStyles({ transform: `translateX(${delta}px)` });
-    }
-    void ((_b = this.stackEl) == null ? void 0 : _b.offsetWidth);
-    for (const el of els) {
-      el.setCssStyles({ transition: "", transform: "" });
-    }
-  }
-  endIconDrag() {
-    var _a;
-    if (!this.iconDrag) return;
-    this.iconDrag = null;
-    activeDocument.removeEventListener("pointermove", this.onIconPointerMove, true);
-    activeDocument.removeEventListener("pointerup", this.onIconPointerUp, true);
-    (_a = this.stackEl) == null ? void 0 : _a.removeClass(STACK_DRAGGING_CLASS);
-    activeDocument.body.removeClass(ICON_DRAGGING_BODY_CLASS);
+    this.updateStackIconVisualState();
+    void this.showLeaf(leaf);
   }
   async showLeaf(leaf) {
     var _a, _b;
@@ -4037,12 +3604,12 @@ var RightSidebarButtonManager = class {
   // onResize() 跑的是任意第三方/核心视图的代码，出错也不该拖垮我们自己的挂载逻辑。
   //
   // 核心的 All Properties / Tags / Backlinks 等面板内部用虚拟滚动实现列表，其 onResize()
-  // 只有在“测得的宽度与上次可见时缓存的宽度不同”时才会真正重新排布；宽度相同则只重放上次
+  // 只有在"测得的宽度与上次可见时缓存的宽度不同"时才会真正重新排布；宽度相同则只重放上次
   // 的缓存布局。缓存宽度的初值是 0，所以第一次挂进面板（宽度从 0 变为真实值）一定会触发
   // 真正的重排,看起来正常;但只要面板尺寸不变,之后每次切走再切回来,宽度都和缓存一致,
   // 于是只重放旧布局——如果内容在切走期间失效（如属性列表变化）就会一直空着，不会再重新
   // 计算。这是 Obsidian 内部实现的私有细节，各视图的虚拟滚动字段名不通用，没法针对性调用；
-  // 索性手动把宽度先改一格再改回真实值，逼它认为“宽度变了”从而完整重排一次。
+  // 索性手动把宽度先改一格再改回真实值，逼它认为"宽度变了"从而完整重排一次。
   notifyResize(leaf) {
     const el = leaf.view.containerEl;
     const originalWidth = el.style.width;
@@ -4073,13 +3640,541 @@ var RightSidebarButtonManager = class {
     this.mountedLeaf = null;
     this.mountedOriginal = null;
   }
+};
+
+// src/right-sidebar/RightSidebarIconDrag.ts
+var STACK_DRAGGING_CLASS = "minimalism-ui-rsb-stack-dragging";
+var ICON_DRAG_ACTIVE_CLASS = "minimalism-ui-rsb-stack-icon-drag-active";
+var ICON_DRAGGING_BODY_CLASS = "minimalism-ui-rsb-icon-dragging";
+var STACK_ICON_STOWED_CLASS2 = "minimalism-ui-rsb-stack-icon-stowed";
+var ICON_DRAG_THRESHOLD_PX = 4;
+var RightSidebarIconDrag = class {
+  constructor(stack, getSettings, save, notifyDragEnd) {
+    this.stack = stack;
+    this.getSettings = getSettings;
+    this.save = save;
+    this.notifyDragEnd = notifyDragEnd;
+    // 进行中的图标拖拽重排；null 表示未在拖拽。dragging 为 false 时表示还未越过阈值
+    // （此时仍可能是一次普通点击），越过阈值后才真正接管顺序 + 吞掉尾随的 click。
+    this.iconDrag = null;
+    // 拖拽越过阈值后置位：吞掉这次拖拽松手后紧随而来的 click，避免误触发选中/收纳切换。
+    // 超时兜底同主类的 suppressNextOutsideClick，防止浏览器这次没派发 click 导致标记卡死。
+    this.suppressNextIconClick = false;
+    this.onIconPointerMove = (e) => {
+      var _a;
+      const drag = this.iconDrag;
+      if (!drag) return;
+      const stackEl = this.stack.getStackEl();
+      if (!drag.dragging) {
+        const dx = e.clientX - drag.startX;
+        const dy = e.clientY - drag.startY;
+        if (Math.hypot(dx, dy) < ICON_DRAG_THRESHOLD_PX) return;
+        drag.dragging = true;
+        this.suppressNextIconClick = true;
+        window.setTimeout(() => {
+          this.suppressNextIconClick = false;
+        }, 300);
+        stackEl == null ? void 0 : stackEl.addClass(STACK_DRAGGING_CLASS);
+        activeDocument.body.addClass(ICON_DRAGGING_BODY_CLASS);
+        (_a = stackEl == null ? void 0 : stackEl.querySelector(`[data-rsb-key="${CSS.escape(drag.key)}"]`)) == null ? void 0 : _a.addClass(ICON_DRAG_ACTIVE_CLASS);
+      }
+      e.preventDefault();
+      this.updateIconDragTarget(e.clientX);
+      this.followIconPointer(e.clientX);
+    };
+    this.onIconPointerUp = () => {
+      const drag = this.iconDrag;
+      this.iconDrag = null;
+      activeDocument.removeEventListener("pointermove", this.onIconPointerMove, true);
+      activeDocument.removeEventListener("pointerup", this.onIconPointerUp, true);
+      if (!drag || !drag.dragging) return;
+      const stackEl = this.stack.getStackEl();
+      stackEl == null ? void 0 : stackEl.removeClass(STACK_DRAGGING_CLASS);
+      activeDocument.body.removeClass(ICON_DRAGGING_BODY_CLASS);
+      const s = this.getSettings();
+      s.rightSidebarStackOrder = drag.order.map((key) => {
+        if (key === STOW_KEY) return STOW_KEY;
+        const leaf = this.stack.leafForInstanceKey(key);
+        return leaf ? this.stack.keyOf(leaf) : key;
+      });
+      void this.save();
+      this.notifyDragEnd();
+      this.stack.renderStackIcons();
+    };
+  }
+  // 供 ViewStack 的图标 click 处理器调用：拖拽刚越过阈值时吞掉紧随的一次 click。
+  consumeSuppressedClick() {
+    if (!this.suppressNextIconClick) return false;
+    this.suppressNextIconClick = false;
+    return true;
+  }
+  startIconDrag(e, key) {
+    if (e.button !== 0) return;
+    const stackEl = this.stack.getStackEl();
+    const el = stackEl == null ? void 0 : stackEl.querySelector(`[data-rsb-key="${CSS.escape(key)}"]`);
+    this.iconDrag = {
+      key,
+      startX: e.clientX,
+      startY: e.clientY,
+      dragging: false,
+      order: this.stack.computeRenderOrder().map((item) => item === STOW_KEY ? STOW_KEY : this.stack.instanceKeyOf(item)),
+      grabOffsetX: el ? e.clientX - el.getBoundingClientRect().left : 0,
+      translateX: 0
+    };
+    activeDocument.addEventListener("pointermove", this.onIconPointerMove, true);
+    activeDocument.addEventListener("pointerup", this.onIconPointerUp, true);
+  }
+  // 被拖拽图标的"跟手"位移：越过阈值后每帧都让它的视觉位置贴着指针（保留抓取时指针相对
+  // 图标左边缘的偏移，而不是让图标左边缘直接对齐指针）。它在 DOM 流里的"自然位置"只由
+  // updateIconDragTarget 的重排决定，这里在自然位置之上叠加一段 translateX 补足到指针实际
+  // 位置——与 flipIconPositions 处理其余图标各自独立，互不干扰。
+  // ICON_DRAG_ACTIVE_CLASS 的 scale(1.12) 由 CSS 类声明，但内联 transform 会整体覆盖它，
+  // 故这里把两者写进同一个 transform 字符串里。
+  followIconPointer(clientX) {
+    const drag = this.iconDrag;
+    const stackEl = this.stack.getStackEl();
+    if (!drag || !drag.dragging || !stackEl) return;
+    const el = stackEl.querySelector(`[data-rsb-key="${CSS.escape(drag.key)}"]`);
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const naturalLeft = rect.left - drag.translateX;
+    const desiredLeft = clientX - drag.grabOffsetX;
+    drag.translateX = desiredLeft - naturalLeft;
+    el.setCssStyles({ transform: `translateX(${drag.translateX}px) scale(1.12)` });
+  }
+  // 用"虚拟位置排序"而非逐格判断相邻位来求新顺序（见类注释）。容器 right 固定、内容变宽
+  // 会让兄弟节点左移，故每次都现场测量，不用拖拽起点缓存的 rect。
+  updateIconDragTarget(clientX) {
+    const drag = this.iconDrag;
+    const stackEl = this.stack.getStackEl();
+    if (!drag || !drag.dragging || !stackEl) return;
+    const children = Array.from(stackEl.children);
+    const byKey = (key) => {
+      var _a;
+      return (_a = children.find((c) => c.dataset.rsbKey === key)) != null ? _a : null;
+    };
+    const entries = [];
+    for (const key of drag.order) {
+      if (key === drag.key) continue;
+      const el = byKey(key);
+      if (!el) continue;
+      const rect = el.getBoundingClientRect();
+      entries.push({ key, center: rect.left + rect.width / 2 });
+    }
+    entries.push({ key: drag.key, center: clientX });
+    entries.sort((a, b) => a.center - b.center);
+    const newOrder = entries.map((entry) => entry.key);
+    if (newOrder.join(" ") === drag.order.join(" ")) return;
+    drag.order = newOrder;
+    const others = children.filter((el) => el.dataset.rsbKey !== drag.key);
+    this.flipIconPositions(others, () => {
+      let cursor = stackEl.firstChild;
+      for (const key of newOrder) {
+        const el = byKey(key);
+        if (!el) continue;
+        if (cursor !== el) stackEl.insertBefore(el, cursor);
+        cursor = el.nextSibling;
+      }
+    });
+    this.applyStowedClasses(newOrder, byKey);
+  }
+  // 按当前顺序把哨兵左侧的图标标记为"已收纳"（灰化提示，见 STACK_ICON_STOWED_CLASS）。
+  applyStowedClasses(order, byKey) {
+    const stowIndex = order.indexOf(STOW_KEY);
+    order.forEach((key, idx) => {
+      var _a;
+      if (key === STOW_KEY) return;
+      (_a = byKey(key)) == null ? void 0 : _a.toggleClass(STACK_ICON_STOWED_CLASS2, idx < stowIndex);
+    });
+  }
+  // FLIP（First-Last-Invert-Play）：mutate 前先清掉每个元素可能残留的上一轮位移（无过渡、
+  // 瞬间归位——先清后测才准，也让连续快速重排时动画能被自然打断重启，不会越叠越乱），
+  // 记录 First 位置；跑 mutate；量出 Last 位置，用位移差瞬时"倒回" First（同样无过渡）；
+  // 强制回流后清空 transform——图标自身的 CSS 已带 transform 0.15s ease 过渡，这一步会被
+  // 浏览器动画成滑向 Last，不需要额外声明过渡时长。
+  flipIconPositions(els, mutate) {
+    var _a, _b;
+    for (const el of els) {
+      el.setCssStyles({ transition: "none", transform: "" });
+    }
+    void ((_a = this.stack.getStackEl()) == null ? void 0 : _a.offsetWidth);
+    const firstLeft = /* @__PURE__ */ new Map();
+    for (const el of els) firstLeft.set(el, el.getBoundingClientRect().left);
+    mutate();
+    for (const el of els) {
+      const first = firstLeft.get(el);
+      if (first === void 0) continue;
+      const delta = first - el.getBoundingClientRect().left;
+      if (delta !== 0) el.setCssStyles({ transform: `translateX(${delta}px)` });
+    }
+    void ((_b = this.stack.getStackEl()) == null ? void 0 : _b.offsetWidth);
+    for (const el of els) {
+      el.setCssStyles({ transition: "", transform: "" });
+    }
+  }
+  // 强制结束进行中的拖拽（remove() 调用），不持久化、不重渲染。
+  endIconDrag() {
+    if (!this.iconDrag) return;
+    this.iconDrag = null;
+    activeDocument.removeEventListener("pointermove", this.onIconPointerMove, true);
+    activeDocument.removeEventListener("pointerup", this.onIconPointerUp, true);
+    const stackEl = this.stack.getStackEl();
+    stackEl == null ? void 0 : stackEl.removeClass(STACK_DRAGGING_CLASS);
+    activeDocument.body.removeClass(ICON_DRAGGING_BODY_CLASS);
+    this.suppressNextIconClick = false;
+  }
+};
+
+// src/right-sidebar/RightSidebarButtonManager.ts
+var LAUNCHER_CLASS = "minimalism-ui-rsb-launcher";
+var BUTTON_CLASS = "minimalism-ui-rsb-button";
+var PANEL_CLASS = "minimalism-ui-rsb-panel";
+var OPEN_CLASS = "minimalism-ui-rsb-panel-open";
+var BUTTON_ACTIVE_CLASS = "minimalism-ui-rsb-button-active";
+var SURFACE_CLASS = "minimalism-ui-rsb-surface";
+var PIN_CLASS = "minimalism-ui-rsb-pin";
+var PIN_HINT_CLASS = "minimalism-ui-rsb-pin-hint";
+var PIN_ACTIVE_CLASS = "minimalism-ui-rsb-pin-active";
+var RESIZE_HANDLE_CLASS = "minimalism-ui-rsb-resize-handle";
+var RESIZING_BODY_CLASS = "minimalism-ui-rsb-resizing";
+var STACK_CLASS = "minimalism-ui-rsb-stack";
+var STACK_EXPANDED_CLASS = "minimalism-ui-rsb-stack-expanded";
+var CONTENT_CLASS = "minimalism-ui-rsb-content";
+var DEFAULT_ICON2 = "panel-right";
+var MIN_WIDTH2 = 280;
+var MAX_WIDTH2 = 720;
+var MIN_HEIGHT = 220;
+var MAX_HEIGHT = 800;
+var VIEWPORT_MARGIN_X = 40;
+var VIEWPORT_MARGIN_Y = 92;
+var PIN_HOVER_ZONE_PX = 40;
+var PIN_ICON = "pin";
+var STACK_AUTO_EXPAND_DELAY = 500;
+var STACK_AUTO_COLLAPSE_DELAY = 2e3;
+var STACK_HOVER_LEAVE_DELAY = 300;
+var TOGGLE_RIGHT_SIDEBAR_COMMAND_ID = "app:toggle-right-sidebar";
+var RightSidebarButtonManager = class {
+  constructor(app, getSettings, save) {
+    this.app = app;
+    this.getSettings = getSettings;
+    this.save = save;
+    this.launcherEl = null;
+    this.buttonEl = null;
+    this.stackEl = null;
+    this.panelEl = null;
+    this.surfaceEl = null;
+    this.contentEl = null;
+    this.resizeHandleEl = null;
+    this.pinEl = null;
+    this.outsideClickHandler = null;
+    this.pointerDownHandler = null;
+    // pointerdown（capture 阶段，先于 click）时记录的"按下点是否在面板/launcher 内"——
+    // 见 outsideClickHandler 顶部注释，click 事件的 composedPath() 在某些场景不可靠，
+    // 这个提前一步、DOM 还未被任何 mousedown 触发的副作用改动过的快照更可信。
+    this.pointerDownInsidePanel = false;
+    this.keydownHandler = null;
+    this.layoutChangeHandler = null;
+    // 见 patchExecuteCommand()：调用它返回的 unpatch()，remove() 时执行即可安全还原。
+    this.unpatchExecuteCommand = null;
+    this.isOpen = false;
+    this.stackExpanded = false;
+    // 面板是否被 pin 住；跨重启持久化于设置，见类注释。
+    this.isPinned = false;
+    // 面板开关态（isOpen）的订阅者——供 StatusBarMenuManager 之类的外部消费方在自己的
+    // 悬浮面板打开期间，实时感知"用户直接点了右下角悬浮按钮"这类不经过它的触发路径。
+    // 不随 remove()/apply() 的内部重建清空：订阅关系属于调用方，与本管理器的 DOM 重建
+    // 生命周期无关（详见 apply() 里 wasOpen/restoreOpenState 的重建保活注释）。
+    this.stateChangeListeners = /* @__PURE__ */ new Set();
+    // 鼠标是否停留在 launcher（按钮 + 堆叠）范围内——决定自动收起定时器要不要暂停。
+    this.isHovering = false;
+    this.autoExpandTimer = null;
+    this.autoCollapseTimer = null;
+    // 进行中的拖拽起点；null 表示未在拖拽。
+    this.resizeStart = null;
+    this.currentSize = null;
+    this.stopResizeDrag = null;
+    // 拖拽超出可调节范围时，松手瞬间指针已远离面板：随之而来的 click 会落在面板外，
+    // 被"点击外部关闭"误判。此标记在拖拽结束后短暂生效，让该次 click 被忽略。
+    this.suppressNextOutsideClick = false;
+    // 堆叠隐藏态下唤出跳过 500ms 延迟（那个延迟只属于"面板刚打开"那一次）；
+    // 已经展开时悬浮只是暂停当前倒计时（清掉定时器），不重新触发亮相动画。
+    this.onLauncherMouseEnter = () => {
+      this.isHovering = true;
+      if (!this.isOpen) return;
+      if (!this.stackExpanded) {
+        this.showStack();
+        return;
+      }
+      if (this.autoCollapseTimer !== null) {
+        window.clearTimeout(this.autoCollapseTimer);
+        this.autoCollapseTimer = null;
+      }
+    };
+    // 鼠标移出 launcher：用户已经主动看过、决定移开了，收起前只留 300ms 短缓冲
+    // （区别于"面板刚打开、无人理会"那次的 2s——见 showStack）。
+    this.onLauncherMouseLeave = () => {
+      this.isHovering = false;
+      if (!this.isOpen) return;
+      if (this.stackExpanded) this.scheduleAutoCollapse(STACK_HOVER_LEAVE_DELAY);
+    };
+    // 鼠标距面板顶边 PIN_HOVER_ZONE_PX 以内时探出 pin 按钮；已 pin 住的话本就常驻显示
+    // （由 PIN_ACTIVE_CLASS 控制），这里只管未 pin 时的悬浮提示态。
+    this.onPanelMouseMove = (e) => {
+      var _a;
+      if (!this.panelEl || this.isPinned) return;
+      const rect = this.panelEl.getBoundingClientRect();
+      const nearTop = e.clientY - rect.top <= PIN_HOVER_ZONE_PX;
+      (_a = this.pinEl) == null ? void 0 : _a.toggleClass(PIN_HINT_CLASS, nearTop);
+    };
+    this.onPanelMouseLeave = () => {
+      var _a;
+      (_a = this.pinEl) == null ? void 0 : _a.removeClass(PIN_HINT_CLASS);
+    };
+    // ─── 拖拽调整面板尺寸 ───────────────────────────────────────────────────
+    this.onResizePointerDown = (e) => {
+      if (!this.panelEl) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = this.panelEl.getBoundingClientRect();
+      this.resizeStart = { x: e.clientX, y: e.clientY, width: rect.width, height: rect.height };
+      activeDocument.body.addClass(RESIZING_BODY_CLASS);
+      this.stopResizeDrag = trackPointerDrag({ onMove: this.onResizePointerMove, onEnd: this.onResizePointerUp });
+    };
+    this.onResizePointerMove = (e) => {
+      if (!this.resizeStart || !this.panelEl) return;
+      const dx = this.resizeStart.x - e.clientX;
+      const dy = this.resizeStart.y - e.clientY;
+      const maxWidth = Math.min(MAX_WIDTH2, activeWindow.innerWidth - VIEWPORT_MARGIN_X);
+      const maxHeight = Math.min(MAX_HEIGHT, activeWindow.innerHeight - VIEWPORT_MARGIN_Y);
+      const width = Math.max(MIN_WIDTH2, Math.min(maxWidth, Math.round(this.resizeStart.width + dx)));
+      const height = Math.max(MIN_HEIGHT, Math.min(maxHeight, Math.round(this.resizeStart.height + dy)));
+      this.currentSize = { width, height };
+      this.panelEl.setCssStyles({ width: `${width}px`, height: `${height}px` });
+      const mountedLeaf = this.viewStack.getMountedLeaf();
+      if (mountedLeaf) this.viewStack.notifyResize(mountedLeaf);
+    };
+    this.onResizePointerUp = () => {
+      const size = this.currentSize;
+      const had = this.resizeStart !== null;
+      if (had) {
+        this.suppressOutsideClickOnce();
+      }
+      this.endResizeDrag();
+      if (had && size) {
+        const s = this.getSettings();
+        s.rightSidebarPanelWidth = size.width;
+        s.rightSidebarPanelHeight = size.height;
+        void this.save();
+      }
+    };
+    this.viewStack = new RightSidebarViewStack(app, getSettings, save);
+    this.iconDrag = new RightSidebarIconDrag(this.viewStack, getSettings, save, () => this.suppressOutsideClickOnce());
+    this.viewStack.bindIconDrag(this.iconDrag);
+  }
+  apply() {
+    const wasOpen = this.isOpen;
+    this.remove();
+    if (!this.getSettings().showRightSidebarButton) return;
+    this.inject();
+    if (wasOpen) this.restoreOpenState();
+  }
+  // 重建后原样恢复"已打开"态：只還原面板可见性与当前挂载的视图内容，不触碰堆叠展开/收起
+  // 动画计时器（那套只属于用户主动点击 launcher 的那一次，见类注释）。
+  restoreOpenState() {
+    var _a, _b;
+    this.isOpen = true;
+    (_a = this.panelEl) == null ? void 0 : _a.addClass(OPEN_CLASS);
+    (_b = this.buttonEl) == null ? void 0 : _b.addClass(BUTTON_ACTIVE_CLASS);
+    this.viewStack.refreshStack();
+  }
+  inject() {
+    this.isPinned = this.getSettings().rightSidebarPanelPinned;
+    this.panelEl = activeDocument.body.createDiv({ cls: PANEL_CLASS });
+    const s = this.getSettings();
+    this.panelEl.setCssStyles({
+      width: `${s.rightSidebarPanelWidth}px`,
+      height: `${s.rightSidebarPanelHeight}px`
+    });
+    this.surfaceEl = this.panelEl.createDiv({ cls: SURFACE_CLASS });
+    this.contentEl = this.surfaceEl.createDiv({ cls: CONTENT_CLASS });
+    this.resizeHandleEl = this.surfaceEl.createDiv({ cls: RESIZE_HANDLE_CLASS });
+    this.resizeHandleEl.addEventListener("pointerdown", this.onResizePointerDown);
+    this.pinEl = this.panelEl.createDiv({
+      cls: PIN_CLASS,
+      attr: { "aria-label": t(this.isPinned ? "rightSidebarPanelUnpin" : "rightSidebarPanelPin") }
+    });
+    (0, import_obsidian10.setIcon)(this.pinEl, PIN_ICON);
+    this.pinEl.toggleClass(PIN_ACTIVE_CLASS, this.isPinned);
+    this.pinEl.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.togglePinned();
+    });
+    this.panelEl.addEventListener("mousemove", this.onPanelMouseMove);
+    this.panelEl.addEventListener("mouseleave", this.onPanelMouseLeave);
+    this.launcherEl = activeDocument.body.createDiv({ cls: LAUNCHER_CLASS });
+    this.stackEl = this.launcherEl.createDiv({ cls: STACK_CLASS });
+    this.launcherEl.addEventListener("mouseenter", this.onLauncherMouseEnter);
+    this.launcherEl.addEventListener("mouseleave", this.onLauncherMouseLeave);
+    this.buttonEl = this.launcherEl.createDiv({
+      cls: BUTTON_CLASS,
+      attr: { "aria-label": t("rightSidebarButtonLabel") }
+    });
+    (0, import_obsidian10.setIcon)(this.buttonEl, DEFAULT_ICON2);
+    this.buttonEl.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.setStackExpanded(false);
+      this.toggle();
+    });
+    this.viewStack.mount({ stackEl: this.stackEl, contentEl: this.contentEl, buttonEl: this.buttonEl });
+    this.pointerDownHandler = (e) => {
+      const path = e.composedPath();
+      this.pointerDownInsidePanel = this.launcherEl != null && path.includes(this.launcherEl) || this.panelEl != null && path.includes(this.panelEl);
+    };
+    activeDocument.addEventListener("pointerdown", this.pointerDownHandler, true);
+    this.outsideClickHandler = (e) => {
+      if (this.suppressNextOutsideClick) {
+        this.suppressNextOutsideClick = false;
+        return;
+      }
+      const path = e.composedPath();
+      const inStack = this.stackEl != null && path.includes(this.stackEl);
+      if (this.stackExpanded && !inStack) {
+        this.clearStackTimers();
+        this.setStackExpanded(false);
+      }
+      if (!this.isOpen) return;
+      const insidePanel = this.pointerDownInsidePanel || this.launcherEl != null && path.includes(this.launcherEl) || this.panelEl != null && path.includes(this.panelEl);
+      if (insidePanel) return;
+      if (this.isPinned) return;
+      this.close();
+    };
+    activeDocument.addEventListener("click", this.outsideClickHandler);
+    this.keydownHandler = (e) => {
+      if (e.key !== "Escape" || !this.isOpen) return;
+      if (this.isPinned) return;
+      e.stopPropagation();
+      this.close();
+    };
+    activeDocument.addEventListener("keydown", this.keydownHandler);
+    this.layoutChangeHandler = () => {
+      if (this.isOpen) this.viewStack.refreshStack();
+    };
+    this.app.workspace.on("layout-change", this.layoutChangeHandler);
+    this.unpatchExecuteCommand = patchExecuteCommand(this.app, (commandId) => {
+      if (commandId === TOGGLE_RIGHT_SIDEBAR_COMMAND_ID) this.toggle();
+    });
+  }
+  toggle() {
+    if (this.isOpen) this.close();
+    else this.open();
+  }
+  // 供外部（StatusBarMenuManager）触发的公开入口，与直接点击右下角悬浮按钮等价。
+  // launcherEl 为 null 说明 showRightSidebarButton 关闭、面板未注入，直接 no-op。
+  togglePanel() {
+    if (!this.launcherEl) return;
+    this.toggle();
+  }
+  isPanelOpen() {
+    return this.isOpen;
+  }
+  // 订阅 isOpen 变化（见字段注释）。返回取消订阅函数。
+  onStateChange(cb) {
+    this.stateChangeListeners.add(cb);
+    return () => this.stateChangeListeners.delete(cb);
+  }
+  notifyStateChange() {
+    for (const cb of this.stateChangeListeners) cb();
+  }
+  open() {
+    var _a, _b;
+    this.isOpen = true;
+    (_a = this.panelEl) == null ? void 0 : _a.addClass(OPEN_CLASS);
+    (_b = this.buttonEl) == null ? void 0 : _b.addClass(BUTTON_ACTIVE_CLASS);
+    this.notifyStateChange();
+    this.viewStack.refreshStack();
+    this.clearStackTimers();
+    this.autoExpandTimer = window.setTimeout(() => {
+      this.autoExpandTimer = null;
+      if (this.isOpen) this.showStack();
+    }, STACK_AUTO_EXPAND_DELAY);
+    if (!this.viewStack.hasProbed()) {
+      this.viewStack.markProbed();
+      void this.viewStack.ensureAllToolViewsExist().then(() => this.viewStack.materializeDeferredLeaves()).then(() => {
+        if (this.isOpen) this.viewStack.refreshStack();
+      });
+    } else {
+      void this.viewStack.materializeDeferredLeaves();
+    }
+  }
+  close() {
+    var _a, _b;
+    this.isOpen = false;
+    this.clearStackTimers();
+    this.setStackExpanded(false);
+    (_a = this.panelEl) == null ? void 0 : _a.removeClass(OPEN_CLASS);
+    (_b = this.buttonEl) == null ? void 0 : _b.removeClass(BUTTON_ACTIVE_CLASS);
+    this.notifyStateChange();
+  }
+  setStackExpanded(expanded) {
+    var _a;
+    this.stackExpanded = expanded;
+    (_a = this.stackEl) == null ? void 0 : _a.toggleClass(STACK_EXPANDED_CLASS, expanded);
+  }
+  // 堆叠从隐藏变为可见的唯一入口：500ms 自动亮相定时器、悬浮唤出都走这里。
+  // 亮相当下鼠标没停在 launcher 上才排"首次亮相"的 2s 自动收起——否则等 mouseleave
+  // 再排（见 onLauncherMouseLeave，用的是更短的 300ms），避免鼠标正停在上面时
+  // 列表突然从指针底下收走。
+  showStack() {
+    this.setStackExpanded(true);
+    if (this.autoCollapseTimer !== null) {
+      window.clearTimeout(this.autoCollapseTimer);
+      this.autoCollapseTimer = null;
+    }
+    if (!this.isHovering) this.scheduleAutoCollapse(STACK_AUTO_COLLAPSE_DELAY);
+  }
+  scheduleAutoCollapse(delayMs) {
+    if (this.autoCollapseTimer !== null) window.clearTimeout(this.autoCollapseTimer);
+    this.autoCollapseTimer = window.setTimeout(() => {
+      this.autoCollapseTimer = null;
+      if (!this.isHovering) this.setStackExpanded(false);
+    }, delayMs);
+  }
+  clearStackTimers() {
+    if (this.autoExpandTimer !== null) {
+      window.clearTimeout(this.autoExpandTimer);
+      this.autoExpandTimer = null;
+    }
+    if (this.autoCollapseTimer !== null) {
+      window.clearTimeout(this.autoCollapseTimer);
+      this.autoCollapseTimer = null;
+    }
+  }
+  togglePinned() {
+    var _a, _b;
+    this.isPinned = !this.isPinned;
+    (_a = this.pinEl) == null ? void 0 : _a.toggleClass(PIN_ACTIVE_CLASS, this.isPinned);
+    (_b = this.pinEl) == null ? void 0 : _b.setAttribute("aria-label", t(this.isPinned ? "rightSidebarPanelUnpin" : "rightSidebarPanelPin"));
+    const s = this.getSettings();
+    s.rightSidebarPanelPinned = this.isPinned;
+    void this.save();
+  }
   endResizeDrag() {
+    var _a;
     if (!this.resizeStart) return;
     this.resizeStart = null;
     this.currentSize = null;
     activeDocument.body.removeClass(RESIZING_BODY_CLASS);
-    activeDocument.removeEventListener("pointermove", this.onResizePointerMove, true);
-    activeDocument.removeEventListener("pointerup", this.onResizePointerUp, true);
+    (_a = this.stopResizeDrag) == null ? void 0 : _a.call(this);
+    this.stopResizeDrag = null;
+  }
+  // 消费该次 click 后立即复位；若浏览器这次没有派发 click，靠超时兜底避免标记卡死。
+  // 供面板 resize 拖拽（见上）与图标拖拽重排（见 RightSidebarIconDrag 的 notifyDragEnd）共用：
+  // 两者松手点都可能落在 launcher/panel 之外，误触发"点击外部关闭"。
+  suppressOutsideClickOnce() {
+    this.suppressNextOutsideClick = true;
+    window.setTimeout(() => {
+      this.suppressNextOutsideClick = false;
+    }, 300);
   }
   remove() {
     var _a, _b, _c, _d, _e, _f, _g, _h;
@@ -4104,15 +4199,9 @@ var RightSidebarButtonManager = class {
     this.unpatchExecuteCommand = null;
     this.endResizeDrag();
     activeDocument.body.removeClass(RESIZING_BODY_CLASS);
-    this.endIconDrag();
-    this.stowExpanded = false;
-    this.suppressNextIconClick = false;
-    this.restoreMounted();
+    this.iconDrag.endIconDrag();
+    this.viewStack.unmount();
     this.clearStackTimers();
-    this.leafOrder = [];
-    this.activeLeaf = null;
-    this.leafInstanceKeys = /* @__PURE__ */ new WeakMap();
-    this.instanceKeyToLeaf.clear();
     this.isHovering = false;
     (_b = this.resizeHandleEl) == null ? void 0 : _b.removeEventListener("pointerdown", this.onResizePointerDown);
     this.resizeHandleEl = null;
@@ -4136,7 +4225,7 @@ var RightSidebarButtonManager = class {
 };
 
 // src/onboarding/OnboardingManager.ts
-var import_obsidian10 = require("obsidian");
+var import_obsidian11 = require("obsidian");
 var PANEL_CLASS2 = "minimalism-ui-onboarding";
 var ALL_DONE_HIDE_DELAY = 2500;
 var EXIT_DURATION = 320;
@@ -4147,8 +4236,8 @@ function hasIndexNote(app) {
 function homeNoteHasLink(app, settings) {
   const path = settings.homePage.trim();
   if (!path) return false;
-  const file = app.vault.getAbstractFileByPath((0, import_obsidian10.normalizePath)(path));
-  if (!(file instanceof import_obsidian10.TFile)) return false;
+  const file = app.vault.getAbstractFileByPath((0, import_obsidian11.normalizePath)(path));
+  if (!(file instanceof import_obsidian11.TFile)) return false;
   const links = app.metadataCache.resolvedLinks[file.path];
   return links != null && Object.keys(links).length > 0;
 }
@@ -4164,7 +4253,7 @@ function openPluginSettings(app) {
   setting == null ? void 0 : setting.open();
   setting == null ? void 0 : setting.openTabById(PLUGIN_ID);
 }
-var MOD_SYMBOLS = import_obsidian10.Platform.isMacOS ? { Mod: "\u2318", Ctrl: "\u2303", Meta: "\u2318", Alt: "\u2325", Shift: "\u21E7" } : { Mod: "Ctrl", Ctrl: "Ctrl", Meta: "Win", Alt: "Alt", Shift: "Shift" };
+var MOD_SYMBOLS = import_obsidian11.Platform.isMacOS ? { Mod: "\u2318", Ctrl: "\u2303", Meta: "\u2318", Alt: "\u2325", Shift: "\u21E7" } : { Mod: "Ctrl", Ctrl: "Ctrl", Meta: "Win", Alt: "Alt", Shift: "Shift" };
 var MOD_ORDER = ["Ctrl", "Alt", "Shift", "Meta", "Mod"];
 var KEY_LABELS = {
   ArrowLeft: "\u2190",
@@ -4400,8 +4489,8 @@ var FirstRunCleanup = class {
 };
 
 // src/SettingTab.ts
-var import_obsidian11 = require("obsidian");
-var FileSuggest = class extends import_obsidian11.AbstractInputSuggest {
+var import_obsidian12 = require("obsidian");
+var FileSuggest = class extends import_obsidian12.AbstractInputSuggest {
   constructor() {
     super(...arguments);
     this.onPickCb = null;
@@ -4423,7 +4512,7 @@ var FileSuggest = class extends import_obsidian11.AbstractInputSuggest {
     this.close();
   }
 };
-var MinimalismUISettingTab = class extends import_obsidian11.PluginSettingTab {
+var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -4573,29 +4662,29 @@ var MinimalismUISettingTab = class extends import_obsidian11.PluginSettingTab {
     intro.createEl("p", { text: t("introDesc1") });
     intro.createEl("p", { text: t("introDesc2") });
     const generalEl = this.addCollapsibleSection("general", t("headingGeneral"));
-    this.configureLanguage(new import_obsidian11.Setting(generalEl));
-    this.configureTheme(new import_obsidian11.Setting(generalEl));
+    this.configureLanguage(new import_obsidian12.Setting(generalEl));
+    this.configureTheme(new import_obsidian12.Setting(generalEl));
     const interactionEl = this.addCollapsibleSection("interaction", t("headingInteraction"));
-    this.configureSinglePage(new import_obsidian11.Setting(interactionEl));
-    this.configureHomePage(new import_obsidian11.Setting(interactionEl));
+    this.configureSinglePage(new import_obsidian12.Setting(interactionEl));
+    this.configureHomePage(new import_obsidian12.Setting(interactionEl));
     const appearanceEl = this.addCollapsibleSection("appearance", t("headingAppearance"));
-    this.configureHideTabBar(new import_obsidian11.Setting(appearanceEl));
-    this.configureShowProperties(new import_obsidian11.Setting(appearanceEl));
-    this.configureShowLocalGraph(new import_obsidian11.Setting(appearanceEl));
-    this.configureShowVaultProfile(new import_obsidian11.Setting(appearanceEl));
-    this.configureShowRightSidebarButton(new import_obsidian11.Setting(appearanceEl));
+    this.configureHideTabBar(new import_obsidian12.Setting(appearanceEl));
+    this.configureShowProperties(new import_obsidian12.Setting(appearanceEl));
+    this.configureShowLocalGraph(new import_obsidian12.Setting(appearanceEl));
+    this.configureShowVaultProfile(new import_obsidian12.Setting(appearanceEl));
+    this.configureShowRightSidebarButton(new import_obsidian12.Setting(appearanceEl));
     const animationEl = this.addCollapsibleSection("animation", t("headingAnimation"));
-    this.configureNavAnimation(new import_obsidian11.Setting(animationEl));
+    this.configureNavAnimation(new import_obsidian12.Setting(animationEl));
     const advancedEl = this.addCollapsibleSection("advanced", t("headingAdvanced"));
-    this.configureFilenamePrefixManual(new import_obsidian11.Setting(advancedEl));
+    this.configureFilenamePrefixManual(new import_obsidian12.Setting(advancedEl));
     if (this.plugin.settings.filenamePrefixManual) {
-      this.configureFilenamePrefixLength(new import_obsidian11.Setting(advancedEl));
+      this.configureFilenamePrefixLength(new import_obsidian12.Setting(advancedEl));
     }
   }
 };
 
 // main.ts
-var MinimalismUIPlugin = class extends import_obsidian12.Plugin {
+var MinimalismUIPlugin = class extends import_obsidian13.Plugin {
   constructor() {
     super(...arguments);
     // 所有功能单元，统一用于卸载，避免逐个手写 remove() 时遗漏。

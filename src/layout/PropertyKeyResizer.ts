@@ -1,5 +1,6 @@
 import { MinimalismUISettings } from '../core/settings';
 import { Feature } from '../core/Feature';
+import { trackPointerDrag } from '../core/utils';
 
 // CSS 变量名：styles.css 中 .metadata-property-key 的 width 读取它，缺省回落 100px。
 const WIDTH_VAR = '--minimalism-ui-prop-key-width';
@@ -25,6 +26,7 @@ export class PropertyKeyResizer implements Feature {
 	// 进行中的拖拽：key 的左边界（用于 width = clientX - keyLeft）。null 表示未在拖拽。
 	private keyLeft: number | null = null;
 	private currentWidth = 0;
+	private stopDrag: (() => void) | null = null;
 
 	constructor(
 		private getSettings: () => MinimalismUISettings,
@@ -62,8 +64,7 @@ export class PropertyKeyResizer implements Feature {
 		e.preventDefault();
 		e.stopPropagation();
 		this.keyLeft = rect.left;
-		activeDocument.addEventListener('pointermove', this.onPointerMove, true);
-		activeDocument.addEventListener('pointerup', this.onPointerUp, true);
+		this.stopDrag = trackPointerDrag({ onMove: this.onPointerMove, onEnd: this.onPointerUp });
 	};
 
 	private onPointerMove = (e: PointerEvent) => {
@@ -86,7 +87,7 @@ export class PropertyKeyResizer implements Feature {
 	private endDrag() {
 		if (this.keyLeft === null) return;
 		this.keyLeft = null;
-		activeDocument.removeEventListener('pointermove', this.onPointerMove, true);
-		activeDocument.removeEventListener('pointerup', this.onPointerUp, true);
+		this.stopDrag?.();
+		this.stopDrag = null;
 	}
 }
