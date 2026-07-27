@@ -812,15 +812,23 @@ var LeafCache = class {
     this.touch(active);
     const rootLeaves = [];
     this.app.workspace.iterateRootLeaves((l) => rootLeaves.push(l));
-    this.queue = this.queue.filter((l) => rootLeaves.includes(l));
+    const rootLeafSet = new Set(rootLeaves);
+    this.queue = this.queue.filter((l) => rootLeafSet.has(l));
     const tracked = new Set(this.queue);
     const missing = rootLeaves.filter((l) => !tracked.has(l));
     if (missing.length) this.queue = [...missing, ...this.queue];
-    if (this.queue.length > this.max) {
+    if (rootLeaves.length > this.max) {
       this.isEvicting = true;
       try {
-        while (this.queue.length > this.max) {
-          this.queue.shift().detach();
+        let liveCount = rootLeaves.length;
+        while (liveCount > this.max && this.queue.length > 0) {
+          const victim = this.queue.shift();
+          victim.detach();
+          let stillOpen = false;
+          this.app.workspace.iterateRootLeaves((l) => {
+            if (l === victim) stillOpen = true;
+          });
+          if (!stillOpen) liveCount--;
         }
       } finally {
         this.isEvicting = false;

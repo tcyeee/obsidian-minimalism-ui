@@ -48,8 +48,9 @@ export class LeafCache {
 
 		const rootLeaves: WorkspaceLeaf[] = [];
 		this.app.workspace.iterateRootLeaves(l => rootLeaves.push(l));
+		const rootLeafSet = new Set(rootLeaves);
 		// 移除队列中已不存在于 workspace 的 leaf
-		this.queue = this.queue.filter(l => rootLeaves.includes(l));
+		this.queue = this.queue.filter(l => rootLeafSet.has(l));
 		// 收录队列里缺失、但已存在于主区域的 root leaf：例如 SingleTabGroupGuard 经
 		// createLeafInParent 合并分屏/弹窗、或重启恢复出的多分屏布局，会产生从未被激活、
 		// 因而从未经 touch() 进入队列的 root leaf。若不补录，淘汰阈值就按"漏数的队列长度"
@@ -58,11 +59,24 @@ export class LeafCache {
 		const missing = rootLeaves.filter(l => !tracked.has(l));
 		if (missing.length) this.queue = [...missing, ...this.queue];
 
-		if (this.queue.length > this.max) {
+		if (rootLeaves.length > this.max) {
 			this.isEvicting = true;
 			try {
-				while (this.queue.length > this.max) {
-					this.queue.shift()!.detach();
+				// 终止条件用真实存活的 root leaf 数（liveCount），而不是 this.queue.length：
+				// 若某个 leaf 的 detach() 出于某种原因没能真正让它从 workspace 消失（比如 Obsidian
+				// 内部对某类视图的保护、或某次调用被吞掉），只看 queue.length 会把它当作"已淘汰"
+				// 提前收工——该 leaf 随即在下一次 trackActive() 里被上面的"missing"逻辑重新捕获、
+				// 排到队首，此后每一轮都优先"淘汰"它（一样失败），真正可关闭的 leaf 永远轮不到,
+				// 真实 tab 数就此只增不减、不受 30 上限约束（实测长期使用后台会堆积到几百个 tab、
+				// 拖慢 Obsidian，正是这个原因）。改为按 liveCount 收尾后，即使某个 leaf 顽固淘汰不掉，
+				// 循环也会继续处理队列里下一个候选者，直到真实数量降到上限为止。
+				let liveCount = rootLeaves.length;
+				while (liveCount > this.max && this.queue.length > 0) {
+					const victim = this.queue.shift()!;
+					victim.detach();
+					let stillOpen = false;
+					this.app.workspace.iterateRootLeaves(l => { if (l === victim) stillOpen = true; });
+					if (!stillOpen) liveCount--;
 				}
 			} finally {
 				this.isEvicting = false;
