@@ -343,6 +343,17 @@ export class NavigationHistory {
 			const idx = this.history.lastIndexOf(closingPath);
 			if (idx !== -1) this.history.splice(idx, 1);
 		}
+		// 新栈顶若是死条目（isReopenable 为 false），就地丢弃、继续往前找，直到找到一个真正
+		// 可重开的条目或清空为止——与 back() 的死条目清理同一套原则（不做 rollback，永久丢弃）。
+		// 不做这一步的话，下面会把死条目原样当 target 返回；activateOrOpenFile 对着一个既无
+		// 现存 leaf、又打不开文件的路径会直接静默 return（不调用 setActiveLeaf），使正在关闭的
+		// leaf 在 original() 执行时仍是"活动 leaf"——那一刻会轮到 Obsidian 原生的"关闭活动 leaf
+		// 后自动挑相邻 leaf"逻辑接管，选中的往往是面包屑之外的 future 残留 tab，而 isClosingTab
+		// 这个一次性标志只能兜住一次这样的意外事件，挑选过程里多发一次就会被当成新导航写回历史，
+		// 表现为“面包屑越关越多、还平移到了不相干的 tab”。
+		while (this.history.length > 0 && !this.isReopenable(this.history[this.history.length - 1])) {
+			this.history.pop();
+		}
 		// history 真正清空是"用户关完了整条后退链"的信号，交由 HomePageManager 据 isEmpty()
 		// 走正规的首页打开流程；ensureHomeInvariant 自身在 history 为空时会跳过，不会把这个
 		// 信号吞掉。

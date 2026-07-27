@@ -631,6 +631,9 @@ var NavigationHistory = class {
       const idx = this.history.lastIndexOf(closingPath);
       if (idx !== -1) this.history.splice(idx, 1);
     }
+    while (this.history.length > 0 && !this.isReopenable(this.history[this.history.length - 1])) {
+      this.history.pop();
+    }
     this.ensureHomeInvariant();
     const prevPath = this.history[this.history.length - 1];
     if (prevPath !== void 0) {
