@@ -5,6 +5,22 @@
 
 ---
 
+## Version 1.3.18
+
+- Fixed: in Single-Page Mode, creating a new note could jump to the home note before the note actually finished being created, scrambling the breadcrumb and navigation history — the plugin now waits for the on-disk creation signal before deciding a pending tab is really blank
+- Fixed: the 30-tab LRU cap in Single-Page Mode could silently stop evicting anything once a single leaf failed to detach, letting background tabs accumulate unbounded and slow the app down over extended use
+- Fixed: closing a tab in Single-Page Mode could reopen an already-dead history entry, handing control to Obsidian's native tab-picking behavior and polluting the breadcrumb with an unrelated tab
+- Added: drag-and-drop reordering for the right sidebar's icon stack, with visual feedback for dragging and stowed icons
+- Internal: patched two high-severity dependency vulnerabilities (`brace-expansion` DoS) in the dev toolchain — dev-only, no effect on the shipped plugin
+
+- 修复：单页模式下新建笔记时，可能在笔记真正创建完成前就跳转到首页，导致面包屑和导航历史错乱——现在会等待磁盘落盘信号确认后，才判定一个待定标签页确实为空白页
+- 修复：单页模式的 30 个标签页 LRU 上限在某个标签页分离失败后可能静默失效，导致后台标签页无限增长，长时间使用后拖慢应用
+- 修复：单页模式下关闭标签页时，可能重新打开一条已失效的历史记录，导致控制权被交给 Obsidian 原生的标签页选择行为，并在面包屑中混入无关标签页
+- 新增：右侧栏图标堆叠支持拖拽排序，并为拖拽和收起状态提供了视觉反馈
+- 内部修复：修复了两处高危依赖漏洞（`brace-expansion` 的 DoS），仅影响开发工具链，不影响已发布插件
+
+---
+
 ## Version 1.3.17
 
 - **1.3.16 was rejected by Obsidian's plugin review** and never went out through official channels — this release supersedes it with compliant fixes for the same two review items
