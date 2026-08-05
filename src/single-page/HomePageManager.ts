@@ -16,6 +16,12 @@ import { SinglePageEngine } from './SinglePageEngine';
 export class HomePageManager {
 	private activeLeafHandler: ((leaf: WorkspaceLeaf | null) => void) | null = null;
 
+	// pending leaf 轮询参数：见 watchPendingLeaf 顶部注释。
+	private static readonly PENDING_POLL_MS = 60;
+	private static readonly PENDING_MIN_GRACE_MS = 250;
+	private static readonly PENDING_CREATE_SIGNAL_MS = 400;
+	private static readonly PENDING_MAX_WAIT_MS = 2000;
+
 	constructor(
 		private app: App,
 		private getSettings: () => MinimalismUISettings,
@@ -42,23 +48,14 @@ export class HomePageManager {
 		// 从不进入 pending 集合，故这条分支只可能命中用户/Obsidian 发起的真实 getLeaf 调用
 		// （如 Cmd+N“新建标签页”），与当前导航栈是否为空无关，可放心不受 isNavEmpty 限制，
 		// 直接把“打开新空白页”这个动作重定向到首页。
-		// 两种情形需要用 setTimeout(0) 跨到下一个宏任务区分：
-		//   ① 链接/命令即将调 openFile（如 Cmd+N 建新笔记）——openFile 与 getLeaf 同宏任务同步调用，
-		//      此时不能抢先用首页覆盖它；
+		// 两种情形需要区分，交给 watchPendingLeaf 判断：
+		//   ① 链接/命令即将调 openFile（如“新建笔记”，内部先 vault.create() 落盘再 openFile，
+		//      落盘是真实异步 IO，可能跨越多个宏任务）——此时不能抢先用首页覆盖它；
 		//   ② 用户纯粹用快捷键开了一个新空页，不会再有 openFile——leaf 应加载首页。
 		// 若 openFile 被调用，leaf 已离开 pending；若仍在 pending，说明无文件将加载。
 		const active = this.app.workspace.getMostRecentLeaf();
 		if (active && this.engine.hasPendingIntercept(active)) {
-			window.setTimeout(() => {
-				if (!this.engine.hasPendingIntercept(active)) return; // openFile 已调用，跳过
-				if (this.engine.isOpeningHomePage()) return;
-				// leaf 确认为空：释放 pending 使 openHomePage 可复用该 leaf，避免多开新 tab
-				this.engine.releasePendingLeaf(active);
-				// 用 goHome 而非直接 openHomePage：若首页已在导航历史栈中间（如新开空白 tab 前
-				// 已打开过首页又继续前进了几篇），直接 openHomePage 触发的 record 会在栈尾重复
-				// push 一次首页路径，产生重复的首页词条；goHome 会先折叠回原位再定位。
-				this.engine.goHome();
-			}, 0);
+			this.watchPendingLeaf(active, Date.now());
 			return;
 		}
 
@@ -73,6 +70,35 @@ export class HomePageManager {
 		// 自动激活残留 leaf 的那次 record，使历史保持为空，故此处能正确触发。
 		if (!this.engine.isNavEmpty()) return;
 		this.engine.goHome();
+	}
+
+	// 轮询等待 pending leaf 明确结果：openFile 已调用（放弃，交由其它路径处理）或确定不会再有
+	// 内容进来（判定为真正的空白页，跳首页）。不能只等一个 0ms 宏任务就下结论——“新建笔记”命令
+	// 内部先 vault.create() 落盘（真实异步 IO，耗时可能超过一个宏任务）、创建完成后才调用
+	// openFile，过早判定为空白页会抢在笔记创建完成前跳首页：goHome 会把首页 push 进跨 tab 导航
+	// 栈并释放 pending leaf，随后真正的 openFile 落到已被首页占用的 leaf 上时会绕开一次性拦截器
+	// （其 openFile/setViewState 已在首页那次调用中被还原成原生实现），既不触发 nav.push 也不
+	// 触发 active-leaf-change——表现为“新建笔记后面包屑被清空、历史记录错乱”。
+	// 用 vault 最近一次 create 事件延长等待：有信号说明内容大概率正在路上，继续等；
+	// 已过最短宽限期且长时间无信号，才判定为真正的空白页（如 Cmd+T 开的空 tab）。
+	private watchPendingLeaf(leaf: WorkspaceLeaf, startedAt: number) {
+		window.setTimeout(() => {
+			if (!this.engine.hasPendingIntercept(leaf)) return; // openFile 已调用，跳过
+			if (this.engine.isOpeningHomePage()) return;
+			const elapsed = Date.now() - startedAt;
+			const expectingContent = this.engine.msSinceLastFileCreate() < HomePageManager.PENDING_CREATE_SIGNAL_MS;
+			if (elapsed < HomePageManager.PENDING_MAX_WAIT_MS
+				&& (elapsed < HomePageManager.PENDING_MIN_GRACE_MS || expectingContent)) {
+				this.watchPendingLeaf(leaf, startedAt);
+				return;
+			}
+			// leaf 确认为空：释放 pending 使 openHomePage 可复用该 leaf，避免多开新 tab
+			this.engine.releasePendingLeaf(leaf);
+			// 用 goHome 而非直接 openHomePage：若首页已在导航历史栈中间（如新开空白 tab 前
+			// 已打开过首页又继续前进了几篇），直接 openHomePage 触发的 record 会在栈尾重复
+			// push 一次首页路径，产生重复的首页词条；goHome 会先折叠回原位再定位。
+			this.engine.goHome();
+		}, HomePageManager.PENDING_POLL_MS);
 	}
 
 	async openHomePage() {

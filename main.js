@@ -901,6 +901,10 @@ var SinglePageEngine = class {
     this._homePageReopenQueued = false;
     this.renameHandler = null;
     this.deleteHandler = null;
+    this.createHandler = null;
+    // 最近一次 vault 创建事件的时间戳。供 HomePageManager 判断"当前 pending leaf 是否大概率正
+    // 等待一个刚创建的文件被 openFile"——见 msSinceLastFileCreate。
+    this.lastFileCreateAt = 0;
     // 导航历史变更通知：引擎记录一次导航后回调，使面包屑等独立组件能在 active-leaf-change 未触发
     // （如 deferred 视图经 revealLeaf 显示）时也及时刷新。由 main.ts 注入，跨 apply/remove 持续有效。
     this.navChangeListener = null;
@@ -967,6 +971,10 @@ var SinglePageEngine = class {
       this.nav.handleDelete(file.path);
     };
     this.app.vault.on("delete", this.deleteHandler);
+    this.createHandler = () => {
+      this.lastFileCreateAt = Date.now();
+    };
+    this.app.vault.on("create", this.createHandler);
   }
   remove() {
     if (this.originalGetLeaf) {
@@ -994,6 +1002,10 @@ var SinglePageEngine = class {
       this.app.vault.off("delete", this.deleteHandler);
       this.deleteHandler = null;
     }
+    if (this.createHandler) {
+      this.app.vault.off("create", this.createHandler);
+      this.createHandler = null;
+    }
     this.leafCache.reset();
     this.pendingInterceptLeaves.clear();
     this.graphSidebar.reset();
@@ -1012,6 +1024,11 @@ var SinglePageEngine = class {
   // 会先产生一个临时空 leaf 并触发 active-leaf-change，此时不能再次触发打开（会无限重入）。
   isOpeningHomePage() {
     return this._isOpeningHomePage;
+  }
+  // 距最近一次 vault 文件创建事件过去了多少毫秒；从未发生过则返回 Infinity。
+  // 供 HomePageManager 判断某个 pending leaf 是否大概率正等着接收一个刚创建的文件。
+  msSinceLastFileCreate() {
+    return this.lastFileCreateAt ? Date.now() - this.lastFileCreateAt : Infinity;
   }
   getNavHistory() {
     return this.nav.getHistory();
@@ -1547,7 +1564,7 @@ var PinManager = class {
 };
 
 // src/single-page/HomePageManager.ts
-var HomePageManager = class {
+var _HomePageManager = class _HomePageManager {
   constructor(app, getSettings, engine) {
     this.app = app;
     this.getSettings = getSettings;
@@ -1565,16 +1582,34 @@ var HomePageManager = class {
     if (this.engine.isOpeningHomePage()) return;
     const active = this.app.workspace.getMostRecentLeaf();
     if (active && this.engine.hasPendingIntercept(active)) {
-      window.setTimeout(() => {
-        if (!this.engine.hasPendingIntercept(active)) return;
-        if (this.engine.isOpeningHomePage()) return;
-        this.engine.releasePendingLeaf(active);
-        this.engine.goHome();
-      }, 0);
+      this.watchPendingLeaf(active, Date.now());
       return;
     }
     if (!this.engine.isNavEmpty()) return;
     this.engine.goHome();
+  }
+  // 轮询等待 pending leaf 明确结果：openFile 已调用（放弃，交由其它路径处理）或确定不会再有
+  // 内容进来（判定为真正的空白页，跳首页）。不能只等一个 0ms 宏任务就下结论——“新建笔记”命令
+  // 内部先 vault.create() 落盘（真实异步 IO，耗时可能超过一个宏任务）、创建完成后才调用
+  // openFile，过早判定为空白页会抢在笔记创建完成前跳首页：goHome 会把首页 push 进跨 tab 导航
+  // 栈并释放 pending leaf，随后真正的 openFile 落到已被首页占用的 leaf 上时会绕开一次性拦截器
+  // （其 openFile/setViewState 已在首页那次调用中被还原成原生实现），既不触发 nav.push 也不
+  // 触发 active-leaf-change——表现为“新建笔记后面包屑被清空、历史记录错乱”。
+  // 用 vault 最近一次 create 事件延长等待：有信号说明内容大概率正在路上，继续等；
+  // 已过最短宽限期且长时间无信号，才判定为真正的空白页（如 Cmd+T 开的空 tab）。
+  watchPendingLeaf(leaf, startedAt) {
+    window.setTimeout(() => {
+      if (!this.engine.hasPendingIntercept(leaf)) return;
+      if (this.engine.isOpeningHomePage()) return;
+      const elapsed = Date.now() - startedAt;
+      const expectingContent = this.engine.msSinceLastFileCreate() < _HomePageManager.PENDING_CREATE_SIGNAL_MS;
+      if (elapsed < _HomePageManager.PENDING_MAX_WAIT_MS && (elapsed < _HomePageManager.PENDING_MIN_GRACE_MS || expectingContent)) {
+        this.watchPendingLeaf(leaf, startedAt);
+        return;
+      }
+      this.engine.releasePendingLeaf(leaf);
+      this.engine.goHome();
+    }, _HomePageManager.PENDING_POLL_MS);
   }
   async openHomePage() {
     return this.engine.openHomePage();
@@ -1586,6 +1621,12 @@ var HomePageManager = class {
     }
   }
 };
+// pending leaf 轮询参数：见 watchPendingLeaf 顶部注释。
+_HomePageManager.PENDING_POLL_MS = 60;
+_HomePageManager.PENDING_MIN_GRACE_MS = 250;
+_HomePageManager.PENDING_CREATE_SIGNAL_MS = 400;
+_HomePageManager.PENDING_MAX_WAIT_MS = 2e3;
+var HomePageManager = _HomePageManager;
 
 // src/single-page/EmptyViewButtonManager.ts
 var HOME_ACTION_CLASS = "minimalism-ui-home-action";

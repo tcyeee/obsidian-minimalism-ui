@@ -88,6 +88,10 @@ export class SinglePageEngine {
 	private _homePageReopenQueued = false;
 	private renameHandler: ((file: TAbstractFile, oldPath: string) => void) | null = null;
 	private deleteHandler: ((file: TAbstractFile) => void) | null = null;
+	private createHandler: ((file: TAbstractFile) => void) | null = null;
+	// 最近一次 vault 创建事件的时间戳。供 HomePageManager 判断"当前 pending leaf 是否大概率正
+	// 等待一个刚创建的文件被 openFile"——见 msSinceLastFileCreate。
+	private lastFileCreateAt = 0;
 	// 导航历史变更通知：引擎记录一次导航后回调，使面包屑等独立组件能在 active-leaf-change 未触发
 	// （如 deferred 视图经 revealLeaf 显示）时也及时刷新。由 main.ts 注入，跨 apply/remove 持续有效。
 	private navChangeListener: ((leaf: WorkspaceLeaf | null) => void) | null = null;
@@ -204,6 +208,14 @@ export class SinglePageEngine {
 			this.nav.handleDelete(file.path);
 		};
 		this.app.vault.on('delete', this.deleteHandler);
+
+		// 记录文件创建时间：新建笔记命令内部先 vault.create() 落盘（真实磁盘 IO，耗时可能跨越
+		// 多个宏任务）、创建完成后才对 pending leaf 调用 openFile。HomePageManager 用这个时间戳
+		// 判断"是否该再等等"，避免在笔记创建完成前误判 pending leaf 为空白页而抢先跳首页。
+		this.createHandler = () => {
+			this.lastFileCreateAt = Date.now();
+		};
+		this.app.vault.on('create', this.createHandler);
 	}
 
 	remove() {
@@ -232,6 +244,10 @@ export class SinglePageEngine {
 			this.app.vault.off('delete', this.deleteHandler);
 			this.deleteHandler = null;
 		}
+		if (this.createHandler) {
+			this.app.vault.off('create', this.createHandler);
+			this.createHandler = null;
+		}
 		this.leafCache.reset();
 		this.pendingInterceptLeaves.clear();
 		// 若卸载 / 关闭单页模式时仍停在关系图上，恢复左侧边栏到进入前状态，避免残留收起状态。
@@ -254,6 +270,12 @@ export class SinglePageEngine {
 	// 会先产生一个临时空 leaf 并触发 active-leaf-change，此时不能再次触发打开（会无限重入）。
 	isOpeningHomePage(): boolean {
 		return this._isOpeningHomePage;
+	}
+
+	// 距最近一次 vault 文件创建事件过去了多少毫秒；从未发生过则返回 Infinity。
+	// 供 HomePageManager 判断某个 pending leaf 是否大概率正等着接收一个刚创建的文件。
+	msSinceLastFileCreate(): number {
+		return this.lastFileCreateAt ? Date.now() - this.lastFileCreateAt : Infinity;
 	}
 
 	getNavHistory(): string[] {
