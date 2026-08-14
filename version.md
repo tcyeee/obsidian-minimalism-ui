@@ -5,6 +5,16 @@
 
 ---
 
+## Version 1.3.19
+
+- Fixed: on Obsidian 1.13+, changing any setting while the Settings window was open applied the change to the *Settings* window instead of the main window — Obsidian now opens Settings as a separate window and repoints the global `activeWindow`/`activeDocument` at it for as long as it stays open, which is exactly when the plugin re-applies its settings. Symptoms: the floating bottom-right button was injected into the Settings window (and vanished from the main window once Settings closed), CSS-driven toggles (hide tab bar, hide the bottom user-settings area, Single-Page Mode appearance) looked like they did nothing until a restart, and DOM-injection features silently failed because workspace nodes couldn't be found. All plugin DOM access now resolves the main window explicitly; the same bug applied when a note popout window had focus
+- Fixed: the Local Graph panel in the merged left sidebar could go permanently blank after collapsing and re-expanding the sidebar — the WebGL canvas was being resized to zero height during the collapse animation and, unlike DOM panels, a dead WebGL context does not recover on the next valid resize. The size guard now measures the element the graph renderer actually measures (previously it measured an outer container that included the injected 28px header, leaving a window where the container passed the check but the content area was already at zero), and intermediate sidebar widths reported mid-animation are ignored instead of being converted into a sub-header-height panel
+
+- 修复：在 Obsidian 1.13+ 上，设置窗口开着时修改任何设置，改动都会作用到**设置窗口**而不是主窗口——Obsidian 现在把「设置」放在独立窗口中打开，并在该窗口存在期间把全局 `activeWindow`/`activeDocument` 整个改指向它，而这恰恰是插件重新应用设置的时刻。表现为：右下角悬浮按钮被注入到设置窗口（设置一关就彻底消失），纯 CSS 驱动的开关（隐藏标签栏、隐藏底部用户设置区域、单页模式外观）改了像没反应、要重启才生效，依赖 DOM 注入的功能因找不到工作区节点而静默失效。现在插件所有 DOM 操作都显式解析到主窗口；焦点在笔记弹出窗口时同样会踩这个坑，已一并修复
+- 修复：合并式左侧栏中的关系图面板在折叠再展开侧边栏后可能永久变空白——折叠动画期间 WebGL canvas 被 resize 到 0 高度，而与 DOM 面板不同，WebGL 上下文一旦失效不会在下一次有效 resize 时自行恢复。现在尺寸保护判定的是关系图渲染器真正测量的那个元素（此前测量的是外层容器，它还额外包着注入的 28px 标题栏，存在一段「容器通过检查、内容区实际已为 0」的窗口），并且忽略动画过程中报出的中间宽度值，不再据此折算出小于标题栏高度的面板高度
+
+---
+
 ## Version 1.3.18
 
 - Fixed: in Single-Page Mode, creating a new note could jump to the home note before the note actually finished being created, scrambling the breadcrumb and navigation history — the plugin now waits for the on-disk creation signal before deciding a pending tab is really blank
