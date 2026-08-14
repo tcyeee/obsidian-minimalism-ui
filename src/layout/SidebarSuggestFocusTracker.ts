@@ -1,4 +1,5 @@
 import { Feature } from '../core/Feature';
+import { uiDoc } from '../core/appDom';
 
 const FOCUS_CLASS = 'minimalism-ui-sidebar-prop-focus';
 const SIDEBAR_PROP_SELECTOR = '.workspace-split.mod-left-split .metadata-property-value';
@@ -24,25 +25,25 @@ export class SidebarSuggestFocusTracker implements Feature {
 
 	apply() {
 		if (this.bound) return;
-		activeDocument.addEventListener('focusin', this.onFocusIn);
-		activeDocument.addEventListener('focusout', this.onFocusOut);
+		uiDoc().addEventListener('focusin', this.onFocusIn);
+		uiDoc().addEventListener('focusout', this.onFocusOut);
 		this.bound = true;
 		this.sync();
 	}
 
 	remove() {
 		if (!this.bound) return;
-		activeDocument.removeEventListener('focusin', this.onFocusIn);
-		activeDocument.removeEventListener('focusout', this.onFocusOut);
+		uiDoc().removeEventListener('focusin', this.onFocusIn);
+		uiDoc().removeEventListener('focusout', this.onFocusOut);
 		this.bound = false;
-		activeDocument.body.classList.remove(FOCUS_CLASS);
+		uiDoc().body.classList.remove(FOCUS_CLASS);
 	}
 
 	private sync() {
 		// remove() 后可能还有一个 pending 的 focusout setTimeout 回调，跳过避免重新加 class。
 		if (!this.bound) return;
-		const active = activeDocument.activeElement;
+		const active = uiDoc().activeElement;
 		const focused = !!active?.closest(SIDEBAR_PROP_SELECTOR);
-		activeDocument.body.classList.toggle(FOCUS_CLASS, focused);
+		uiDoc().body.classList.toggle(FOCUS_CLASS, focused);
 	}
 }

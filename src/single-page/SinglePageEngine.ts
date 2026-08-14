@@ -30,6 +30,7 @@
  */
 import { App, TAbstractFile, TFile, WorkspaceLeaf, normalizePath } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
+import { uiDoc } from '../core/appDom';
 import { AnimationClass, GLOBAL_GRAPH_KEY, NavigationHistory, filelessViewKey, isFilelessViewKey, viewTypeFromKey } from './NavigationHistory';
 import { ResizeObserverErrorSuppressor } from './ResizeObserverErrorSuppressor';
 import { LeafCache } from './LeafCache';
@@ -648,7 +649,11 @@ export class SinglePageEngine {
 		}
 		const path = this.getSettings().homePage;
 		if (!path) return;
-		if (activeDocument.querySelector('.modal-container')) return;
+		// 有模态框开着时不抢焦点开首页。两个 document 都要查：Obsidian 1.13 起「设置」是一个
+		// 独立窗口（见 core/appDom.ts），它的 .modal-container 只存在于那个窗口的 document 里，
+		// 主窗口查不到；反过来若设置窗口开着，activeDocument 又查不到主窗口里的普通模态框。
+		if (uiDoc().querySelector('.modal-container')) return;
+		if (activeDocument !== uiDoc() && activeDocument.querySelector('.modal-container')) return;
 		const file = this.app.vault.getAbstractFileByPath(normalizePath(path));
 		if (!(file instanceof TFile)) return;
 		this._isOpeningHomePage = true;

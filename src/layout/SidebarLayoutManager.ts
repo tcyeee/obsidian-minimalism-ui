@@ -2,8 +2,15 @@ import { App, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
 import { t } from '../core/i18n';
 import { PinManager } from '../tabs/PinManager';
+import { uiDoc } from '../core/appDom';
 
 type WorkspaceSidedock = { collapsed: boolean; expand(): void; children?: unknown[] };
+
+// 关系图 canvas 允许重绘的最小边长(px)：小于此值一律跳过 renderer.onResize，
+// 避免 PIXI/WebGL 被 resize 到 (近)0 尺寸后再也画不出东西。见 injectLocalGraphIntoOutline。
+const MIN_GRAPH_RENDER_PX = 20;
+// 左侧栏宽度小于此值时视为「正在折叠/展开动画中」，不据此换算关系图面板高度。
+const MIN_SIDEBAR_WIDTH_PX = 100;
 
 /**
  * SidebarLayoutManager — triggered when 极简侧边栏 is enabled.
@@ -294,13 +301,21 @@ export class SidebarLayoutManager {
 		// re-expands (unlike DOM panels, a broken WebGL context doesn't self-heal
 		// on the next valid resize). Patching view.onResize itself is the only way
 		// to intercept both that native observer and our own below.
-		const graphView = graphLeaf.view as { onResize?(): void } | undefined;
+		//
+		// 量哪个元素很关键：Obsidian 的 renderer 量的是 view.contentEl(.view-content)，
+		// 而 graphLeafContent(.workspace-leaf-content) 还额外包着上面那条注入的 LOCAL GRAPH
+		// 标题栏(≈28px)。若拿 graphLeafContent 判定，就存在一段「容器 20~28px、放行，但
+		// .view-content 实际已是 0」的窗口 —— 侧栏折叠/展开动画每次都会扫过它(高度由
+		// 侧栏宽度按 4:3 算，宽度 27~39px 时正好落进去)，于是 renderer.resize(w, 0) 被执行。
+		// 这里统一按 renderer 真正要量的那个元素判定。
+		const graphView = graphLeaf.view as { onResize?(): void; contentEl?: HTMLElement } | undefined;
 		if (graphView && typeof graphView.onResize === 'function') {
 			const origOnResize = graphView.onResize.bind(graphView);
+			const measureEl = graphView.contentEl ?? viewContent ?? graphLeafContent;
 			this.patchedGraphView = graphView;
 			this.origGraphOnResize = origOnResize;
 			graphView.onResize = () => {
-				if (graphLeafContent.clientWidth < 20 || graphLeafContent.clientHeight < 20) return;
+				if (measureEl.clientWidth < MIN_GRAPH_RENDER_PX || measureEl.clientHeight < MIN_GRAPH_RENDER_PX) return;
 				origOnResize();
 			};
 		}
@@ -311,11 +326,15 @@ export class SidebarLayoutManager {
 		this.injectedGraphLeaf = graphLeaf;
 		this.graphResizeObserver?.disconnect();
 		const leftSplitEl = this.app.workspace.leftSplit as unknown as { containerEl?: HTMLElement };
-		const observeTarget = leftSplitEl?.containerEl ?? activeDocument.querySelector<HTMLElement>('.workspace-split.mod-left-split');
+		const observeTarget = leftSplitEl?.containerEl ?? uiDoc().querySelector<HTMLElement>('.workspace-split.mod-left-split');
+		// 宽度下限不是 0 而是 MIN_SIDEBAR_WIDTH_PX：侧栏折叠/展开是 CSS 宽度过渡，
+		// ResizeObserver 会连续报出 1px、5px、30px 这类中间值，按 4:3 折算出的面板高度
+		// 会小于标题栏高度，把 .view-content 挤成 0。收起期间侧栏本就 display:none，
+		// 保留上一次的有效高度即可，展开到正常宽度后自然会被重新写入。
 		if (observeTarget) {
 			this.graphResizeObserver = new ResizeObserver((entries) => {
 				const w = entries[0].contentRect.width;
-				if (w > 0) {
+				if (w >= MIN_SIDEBAR_WIDTH_PX) {
 					graphLeafContent.setCssProps({'--minimalism-ui-graph-height': `${Math.round(w * 3 / 4)}px`});
 				}
 				(this.injectedGraphLeaf?.view as { onResize?(): void } | undefined)?.onResize?.();
@@ -326,7 +345,7 @@ export class SidebarLayoutManager {
 		// Set initial 4:3 height after layout has settled, then apply graph colors.
 		window.setTimeout(() => {
 			const w = graphLeafContent.getBoundingClientRect().width;
-			if (w > 0) {
+			if (w >= MIN_SIDEBAR_WIDTH_PX) {
 				graphLeafContent.setCssProps({'--minimalism-ui-graph-height': `${Math.round(w * 3 / 4)}px`});
 			}
 			this.applyGraphColors();
@@ -367,9 +386,9 @@ export class SidebarLayoutManager {
 		this.patchedRenderer = renderer;
 		this.origTestCSS = orig;
 		renderer.testCSS = () => {
-			activeDocument.body.classList.add('minimalism-ui-sidebar-graph-reading');
+			uiDoc().body.classList.add('minimalism-ui-sidebar-graph-reading');
 			orig();
-			activeDocument.body.classList.remove('minimalism-ui-sidebar-graph-reading');
+			uiDoc().body.classList.remove('minimalism-ui-sidebar-graph-reading');
 		};
 
 		renderer.testCSS();

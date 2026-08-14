@@ -1,6 +1,7 @@
 import { MinimalismUISettings } from '../core/settings';
 import { Feature } from '../core/Feature';
 import { trackPointerDrag } from '../core/utils';
+import { uiDoc } from '../core/appDom';
 
 // CSS 变量名：styles.css 中 .metadata-property-key 的 width 读取它，缺省回落 100px。
 const WIDTH_VAR = '--minimalism-ui-prop-key-width';
@@ -17,7 +18,7 @@ const MAX_WIDTH = 240;
  * （WIDTH_VAR），整列统一、所有属性行共享同一变量天然对齐。styles.css 里 key 的
  * `::after` 是右边缘的视觉把手（col-resize 光标）。
  *
- * 监听走 activeDocument 上的捕获阶段委托，故每次切换笔记后 metadata DOM 被重建也无需重绑。
+ * 监听走主窗口文档(uiDoc())上的捕获阶段委托，故每次切换笔记后 metadata DOM 被重建也无需重绑。
  * 拖拽结束才把宽度写入设置并落盘（save 回调仅 saveData，不触发全量 saveSettings 重应用，
  * 避免拖拽中重建侧边栏抖动）。
  */
@@ -36,21 +37,21 @@ export class PropertyKeyResizer implements Feature {
 	apply() {
 		this.remove();
 		this.setVar(this.getSettings().propertyKeyWidth);
-		activeDocument.addEventListener('pointerdown', this.onPointerDown, true);
+		uiDoc().addEventListener('pointerdown', this.onPointerDown, true);
 		this.bound = true;
 	}
 
 	remove() {
 		if (this.bound) {
-			activeDocument.removeEventListener('pointerdown', this.onPointerDown, true);
+			uiDoc().removeEventListener('pointerdown', this.onPointerDown, true);
 			this.bound = false;
 		}
 		this.endDrag();
-		activeDocument.body.style.removeProperty(WIDTH_VAR);
+		uiDoc().body.style.removeProperty(WIDTH_VAR);
 	}
 
 	private setVar(width: number) {
-		activeDocument.body.setCssProps({ [WIDTH_VAR]: `${width}px` });
+		uiDoc().body.setCssProps({ [WIDTH_VAR]: `${width}px` });
 	}
 
 	private onPointerDown = (e: PointerEvent) => {

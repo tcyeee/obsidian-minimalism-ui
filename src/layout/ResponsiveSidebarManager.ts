@@ -17,12 +17,13 @@
  * 那一刻文本列恰好≈readable，故「窗口回到 collapseWidth 以上」即「文本列又能放下 readable」。
  * 收起判断用文本列(直接实测、可靠)，展开判断用窗口宽度(与侧栏开合无关、连续)，互不打架。
  *
- * 触发：监听 activeWindow 的 resize(带 ~100ms 防抖)；apply() 时立即评估一次，
+ * 触发：监听主窗口(uiWin())的 resize(带 ~100ms 防抖)；apply() 时立即评估一次，
  * 处理启动时窗口已经很窄的情况。阈值每次评估时实时读 --file-line-width，
  * 用户改了 readable line length 设置即自动跟随。
  */
 import { App } from 'obsidian';
 import { Feature } from '../core/Feature';
+import { uiDoc, uiWin } from '../core/appDom';
 
 type WorkspaceSidedock = { collapsed: boolean; collapse(): void; expand(): void };
 type WorkspaceSplit = { containerEl?: HTMLElement };
@@ -40,7 +41,7 @@ export class ResponsiveSidebarManager implements Feature {
 	private debounceTimer: number | null = null;
 
 	// 文本列(受 --file-line-width 约束)元素选择器：编辑视图 .cm-sizer / 阅读视图 .markdown-preview-sizer。
-	// 在 activeDocument 全局查找(侧栏面板不含 .cm-sizer，不会误命中)，不依赖 rootSplit/.mod-active 作用域。
+	// 在主窗口文档(uiDoc())全局查找(侧栏面板不含 .cm-sizer，不会误命中)，不依赖 rootSplit/.mod-active 作用域。
 	private static readonly SIZER_SELECTOR = '.cm-sizer, .markdown-preview-sizer';
 	// rootSplit 容器到文本列的横向内边距兜底值(实测无法拿到文本列时用)。
 	private static readonly FALLBACK_OFFSET = 60;
@@ -58,7 +59,7 @@ export class ResponsiveSidebarManager implements Feature {
 
 	apply(): void {
 		this.remove();
-		activeWindow.addEventListener('resize', this.onResize);
+		uiWin().addEventListener('resize', this.onResize);
 		this.evaluate();
 	}
 
@@ -67,7 +68,7 @@ export class ResponsiveSidebarManager implements Feature {
 			window.clearTimeout(this.debounceTimer);
 			this.debounceTimer = null;
 		}
-		activeWindow.removeEventListener('resize', this.onResize);
+		uiWin().removeEventListener('resize', this.onResize);
 		// 卸载不还原侧栏可见状态，仅清内部状态。
 		this.autoCollapsed = false;
 		this.collapseWidth = 0;
@@ -83,7 +84,7 @@ export class ResponsiveSidebarManager implements Feature {
 
 	// 读取 readable line length 像素宽度，解析失败回退到默认值。
 	private getReadableWidth(): number {
-		const raw = getComputedStyle(activeDocument.body)
+		const raw = getComputedStyle(uiDoc().body)
 			.getPropertyValue('--file-line-width')
 			.trim();
 		const parsed = parseFloat(raw);
@@ -93,7 +94,7 @@ export class ResponsiveSidebarManager implements Feature {
 	// 当前笔记文本列宽度：优先实测 .cm-sizer/.markdown-preview-sizer(受 --file-line-width 约束的真正文本列)；
 	// 实测不到则用 rootSplit 容器宽 - 兜底内边距估算。都拿不到返回 null(跳过)。
 	private getColumnWidth(): number | null {
-		const sizerEl = activeDocument.querySelector<HTMLElement>(ResponsiveSidebarManager.SIZER_SELECTOR);
+		const sizerEl = uiDoc().querySelector<HTMLElement>(ResponsiveSidebarManager.SIZER_SELECTOR);
 		if (sizerEl) {
 			const width = sizerEl.getBoundingClientRect().width;
 			if (width > 0) return width;
@@ -108,7 +109,7 @@ export class ResponsiveSidebarManager implements Feature {
 	private evaluate(): void {
 		const split = this.leftSplit;
 		if (!split) return;
-		const innerWidth = activeWindow.innerWidth;
+		const innerWidth = uiWin().innerWidth;
 
 		if (split.collapsed) {
 			// 收起态：只判断是否该展开(用窗口宽度，不依赖文本列)。

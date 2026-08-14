@@ -2,6 +2,7 @@ import { App, Platform, setIcon, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
 import { BreadcrumbRenderer } from './BreadcrumbRenderer';
 import { t } from '../core/i18n';
+import { uiDoc } from '../core/appDom';
 
 type WorkspaceSplitInternal = { containerEl: HTMLElement };
 
@@ -125,7 +126,7 @@ export class DragBarManager {
 		this.app.workspace.on('layout-change', this.layoutHandler);
 
 		// 将 status-bar 搬入 row1 右侧
-		const statusBar = activeDocument.querySelector<HTMLElement>('.status-bar');
+		const statusBar = uiDoc().querySelector<HTMLElement>('.status-bar');
 		if (statusBar) {
 			this.statusBarOriginalParent = statusBar.parentElement;
 			this.statusBarOriginalNextSibling = statusBar.nextElementSibling;
@@ -163,7 +164,7 @@ export class DragBarManager {
 	/** 左侧栏 containerEl 当前实测宽度;取不到时按 0(即视作收起)处理。 */
 	private getLeftSplitWidth(): number {
 		const el = (this.app.workspace.leftSplit as unknown as { containerEl?: HTMLElement }).containerEl
-			?? activeDocument.querySelector<HTMLElement>('.workspace-split.mod-left-split');
+			?? uiDoc().querySelector<HTMLElement>('.workspace-split.mod-left-split');
 		return el ? el.getBoundingClientRect().width : 0;
 	}
 
@@ -176,7 +177,7 @@ export class DragBarManager {
 		if (!this.isMac) return;
 		const leftSplitEl = this.app.workspace.leftSplit as unknown as { containerEl?: HTMLElement };
 		const target = leftSplitEl?.containerEl
-			?? activeDocument.querySelector<HTMLElement>('.workspace-split.mod-left-split');
+			?? uiDoc().querySelector<HTMLElement>('.workspace-split.mod-left-split');
 		if (!target) return;
 		this.leftSplitObserver = new ResizeObserver((entries) => {
 			this.updateLeftCollapsedClass(entries[0].contentRect.width);
@@ -196,7 +197,7 @@ export class DragBarManager {
 		}
 		// 还原 status-bar 到原始位置
 		if (this.statusBarOriginalParent) {
-			const statusBar = activeDocument.querySelector<HTMLElement>('.status-bar');
+			const statusBar = uiDoc().querySelector<HTMLElement>('.status-bar');
 			if (statusBar) {
 				if (this.statusBarOriginalNextSibling) {
 					this.statusBarOriginalParent.insertBefore(statusBar, this.statusBarOriginalNextSibling);

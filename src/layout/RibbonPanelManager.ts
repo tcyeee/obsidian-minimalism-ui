@@ -1,6 +1,7 @@
 import { setIcon } from 'obsidian';
 import { Feature } from '../core/Feature';
 import { MinimalismUISettings } from '../core/settings';
+import { uiDoc } from '../core/appDom';
 
 type MovedNode = { el: HTMLElement; parent: HTMLElement; next: ChildNode | null };
 
@@ -39,10 +40,10 @@ export class RibbonPanelManager implements Feature {
 	apply() {
 		this.remove();
 
-		const sideDocActions = activeDocument.querySelector<HTMLElement>(
+		const sideDocActions = uiDoc().querySelector<HTMLElement>(
 			'.workspace-ribbon.side-dock-ribbon.mod-left .side-dock-actions',
 		);
-		const vaultProfile = activeDocument.querySelector<HTMLElement>(
+		const vaultProfile = uiDoc().querySelector<HTMLElement>(
 			'.workspace-split.mod-left-split .workspace-sidedock-vault-profile',
 		);
 		const vaultActions = vaultProfile?.querySelector<HTMLElement>(

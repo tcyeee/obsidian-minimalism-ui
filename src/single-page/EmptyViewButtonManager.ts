@@ -3,6 +3,7 @@ import { MinimalismUISettings } from '../core/settings';
 import { Feature } from '../core/Feature';
 import { t } from '../core/i18n';
 import { SinglePageEngine } from './SinglePageEngine';
+import { uiDoc } from '../core/appDom';
 
 const HOME_ACTION_CLASS = 'minimalism-ui-home-action';
 
@@ -34,7 +35,7 @@ export class EmptyViewButtonManager implements Feature {
 	}
 
 	private inject() {
-		const lists = activeDocument.querySelectorAll<HTMLElement>(
+		const lists = uiDoc().querySelectorAll<HTMLElement>(
 			'.empty-state .empty-state-action-list',
 		);
 		lists.forEach((list) => {
@@ -53,7 +54,7 @@ export class EmptyViewButtonManager implements Feature {
 			this.app.workspace.off('active-leaf-change', this.handler);
 			this.handler = null;
 		}
-		activeDocument
+		uiDoc()
 			.querySelectorAll(`.${HOME_ACTION_CLASS}`)
 			.forEach((el) => el.remove());
 	}

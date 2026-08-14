@@ -2,6 +2,7 @@ import { App, EventRef, FileSystemAdapter, MarkdownView, Modal, Notice, Plugin, 
 import { Feature } from '../core/Feature';
 import { t } from '../core/i18n';
 import { executeCommandById } from '../core/obsidianCommands';
+import { uiDoc, uiWin } from '../core/appDom';
 
 // Electron 的 shell 模块：桌面端渲染进程可通过 window.require 拿到（isDesktopOnly 插件），
 // 用于调起系统默认程序打开文件；不引入 @types/electron，只声明用到的这一个方法。
@@ -29,7 +30,7 @@ type NoteMode = 'locked' | 'edit' | 'source';
  *   3. 左侧边栏（workspace.leftSplit）、右侧边栏悬浮面板（RightSidebarButtonManager）的显示/隐藏，
  *      用 Obsidian 原生 ToggleComponent（与 Settings 页一致的开关样式），保持主题一致、不关闭面板。
  *
- * 面板挂在 activeDocument.body，优先定位于触发图标正上方展开；若图标被 DragBarManager
+ * 面板挂在主窗口 body（uiDoc().body），优先定位于触发图标正上方展开；若图标被 DragBarManager
  * 挪到顶部拖拽栏、上方空间不足，positionPopover() 会自动改为向下展开（见其注释）。
  * 每次 open() 都重新创建 DOM（内容依赖当次的活动文件/模式，重建比増量 diff 更简单可靠）。
  *
@@ -118,7 +119,7 @@ export class StatusBarMenuManager implements Feature {
 	}
 
 	private open(): void {
-		this.popoverEl = activeDocument.body.createDiv({ cls: POPOVER_CLASS, attr: { role: 'menu' } });
+		this.popoverEl = uiDoc().body.createDiv({ cls: POPOVER_CLASS, attr: { role: 'menu' } });
 		this.renderContent();
 		this.positionPopover();
 		// 键盘用户打开后焦点停在状态栏图标上，主动挪到第一个可交互项，否则 Tab 键从这里
@@ -131,7 +132,7 @@ export class StatusBarMenuManager implements Feature {
 			if (this.statusBarItem && path.includes(this.statusBarItem)) return;
 			this.close();
 		};
-		activeDocument.addEventListener('click', this.outsideClickHandler);
+		uiDoc().addEventListener('click', this.outsideClickHandler);
 
 		this.keydownHandler = (e: KeyboardEvent) => {
 			if (e.key !== 'Escape') return;
@@ -141,16 +142,16 @@ export class StatusBarMenuManager implements Feature {
 			// 主动发出的关闭动作，理应把焦点还给触发这个面板的图标，而不是让焦点凭空丢失。
 			this.statusBarItem?.focus();
 		};
-		activeDocument.addEventListener('keydown', this.keydownHandler);
+		uiDoc().addEventListener('keydown', this.keydownHandler);
 	}
 
 	private close(): void {
 		if (this.outsideClickHandler) {
-			activeDocument.removeEventListener('click', this.outsideClickHandler);
+			uiDoc().removeEventListener('click', this.outsideClickHandler);
 			this.outsideClickHandler = null;
 		}
 		if (this.keydownHandler) {
-			activeDocument.removeEventListener('keydown', this.keydownHandler);
+			uiDoc().removeEventListener('keydown', this.keydownHandler);
 			this.keydownHandler = null;
 		}
 		this.popoverEl?.remove();
@@ -167,7 +168,7 @@ export class StatusBarMenuManager implements Feature {
 		const rect = this.statusBarItem.getBoundingClientRect();
 
 		let left = rect.right - POPOVER_WIDTH;
-		left = Math.max(VIEWPORT_MARGIN, Math.min(left, activeWindow.innerWidth - POPOVER_WIDTH - VIEWPORT_MARGIN));
+		left = Math.max(VIEWPORT_MARGIN, Math.min(left, uiWin().innerWidth - POPOVER_WIDTH - VIEWPORT_MARGIN));
 
 		// 先定宽并隐藏測高：宽度会影响文本换行，必须先设宽再量高度才准确。
 		this.popoverEl.setCssStyles({
@@ -180,10 +181,10 @@ export class StatusBarMenuManager implements Feature {
 		const height = this.popoverEl.getBoundingClientRect().height;
 
 		const spaceAbove = rect.top - POPOVER_GAP;
-		const spaceBelow = activeWindow.innerHeight - rect.bottom - POPOVER_GAP;
+		const spaceBelow = uiWin().innerHeight - rect.bottom - POPOVER_GAP;
 		const openUpward = spaceAbove >= height || spaceAbove >= spaceBelow;
 		let top = openUpward ? rect.top - POPOVER_GAP - height : rect.bottom + POPOVER_GAP;
-		top = Math.max(VIEWPORT_MARGIN, Math.min(top, activeWindow.innerHeight - height - VIEWPORT_MARGIN));
+		top = Math.max(VIEWPORT_MARGIN, Math.min(top, uiWin().innerHeight - height - VIEWPORT_MARGIN));
 
 		this.popoverEl.setCssStyles({ top: `${top}px`, visibility: 'visible' });
 	}
@@ -346,7 +347,7 @@ export class StatusBarMenuManager implements Feature {
 		const adapter = this.app.vault.adapter;
 		if (!(adapter instanceof FileSystemAdapter)) return;
 		const fullPath = adapter.getFullPath(file.path);
-		const req = (activeWindow as unknown as { require?: (id: string) => { shell: ElectronShell } }).require;
+		const req = (uiWin() as unknown as { require?: (id: string) => { shell: ElectronShell } }).require;
 		if (!req) return;
 		void req('electron').shell.openPath(fullPath);
 	}

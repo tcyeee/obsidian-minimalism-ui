@@ -1,5 +1,6 @@
 import { App, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
+import { uiDoc } from '../core/appDom';
 
 type LeafInternal = WorkspaceLeaf & {
 	containerEl?: HTMLElement;
@@ -43,7 +44,7 @@ export class PinManager {
 					e.preventDefault();
 				}
 			};
-			activeDocument.addEventListener('contextmenu', this.pinBlockHandler, true);
+			uiDoc().addEventListener('contextmenu', this.pinBlockHandler, true);
 
 			// 2. 侧边栏 leaf detach 守卫，新 leaf 在 layout-change 时补 patch。
 			this.patchSidebarLeafDetach();
@@ -54,7 +55,7 @@ export class PinManager {
 
 	remove() {
 		if (this.pinBlockHandler) {
-			activeDocument.removeEventListener('contextmenu', this.pinBlockHandler, true);
+			uiDoc().removeEventListener('contextmenu', this.pinBlockHandler, true);
 			this.pinBlockHandler = null;
 		}
 		if (this.sidebarLayoutChangeHandler) {

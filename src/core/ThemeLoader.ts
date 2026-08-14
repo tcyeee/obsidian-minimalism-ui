@@ -1,6 +1,7 @@
 import { Feature } from './Feature';
 import { MinimalismUISettings } from './settings';
 import { THEME_NAMES } from '../generated/theme-assets';
+import { uiDoc } from './appDom';
 
 // body 上的主题作用域钩子：body.minimalism-ui-theme-<name>。
 // 各主题 CSS 收敛在此命名空间下，使"当前是哪个主题"成为可被选择器表达的状态。
@@ -33,12 +34,12 @@ export class ThemeLoader implements Feature {
 		const name = this.settings().theme;
 		if (!name) return;
 
-		activeDocument.body.classList.add(`${THEME_CLASS_PREFIX}${name}`);
+		uiDoc().body.classList.add(`${THEME_CLASS_PREFIX}${name}`);
 	}
 
 	remove() {
 		// 清除 body 上任何主题作用域钩子（切换主题时一并移除上一个）
-		const cls = activeDocument.body.classList;
+		const cls = uiDoc().body.classList;
 		Array.from(cls)
 			.filter(c => c.startsWith(THEME_CLASS_PREFIX))
 			.forEach(c => cls.remove(c));

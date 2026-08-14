@@ -1,4 +1,5 @@
 import { App } from 'obsidian';
+import { uiDoc } from './appDom';
 
 // Obsidian「唯一笔记创建器」(zk-prefixer) 内部插件形态——未文档化，本地 cast 取用。
 type ZkPrefixerPlugin = {
@@ -19,15 +20,15 @@ type InternalPluginsApp = App & {
 export function trackPointerDrag(handlers: { onMove(e: PointerEvent): void; onEnd(): void }): () => void {
 	const onMove = (e: PointerEvent) => handlers.onMove(e);
 	const detach = () => {
-		activeDocument.removeEventListener('pointermove', onMove, true);
-		activeDocument.removeEventListener('pointerup', onUp, true);
+		uiDoc().removeEventListener('pointermove', onMove, true);
+		uiDoc().removeEventListener('pointerup', onUp, true);
 	};
 	const onUp = () => {
 		detach();
 		handlers.onEnd();
 	};
-	activeDocument.addEventListener('pointermove', onMove, true);
-	activeDocument.addEventListener('pointerup', onUp, true);
+	uiDoc().addEventListener('pointermove', onMove, true);
+	uiDoc().addEventListener('pointerup', onUp, true);
 	return detach;
 }
 

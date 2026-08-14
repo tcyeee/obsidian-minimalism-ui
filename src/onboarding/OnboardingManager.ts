@@ -3,6 +3,7 @@ import { MinimalismUISettings } from '../core/settings';
 import { Feature } from '../core/Feature';
 import { t } from '../core/i18n';
 import { patchExecuteCommand } from '../core/obsidianCommands';
+import { uiDoc } from '../core/appDom';
 
 const PANEL_CLASS = 'minimalism-ui-onboarding';
 // 全部完成后停留展示全勾选的时长（毫秒），之后淡出并永久关闭引导。
@@ -147,7 +148,7 @@ export class OnboardingManager implements Feature {
 		this.remove();
 		if (!this.getSettings().onboarding) return;
 
-		const panel = activeDocument.body.createDiv({ cls: PANEL_CLASS });
+		const panel = uiDoc().body.createDiv({ cls: PANEL_CLASS });
 		const header = panel.createDiv({ cls: `${PANEL_CLASS}-header` });
 		header.createSpan({ text: t('onboardingTitle') });
 		const skipBtn = header.createEl('button', {
@@ -338,6 +339,6 @@ export class OnboardingManager implements Feature {
 			this.panel = null;
 		}
 		// 兜底：清理可能残留的同类节点（如热重载）
-		activeDocument.querySelectorAll(`.${PANEL_CLASS}`).forEach((el) => el.remove());
+		uiDoc().querySelectorAll(`.${PANEL_CLASS}`).forEach((el) => el.remove());
 	}
 }

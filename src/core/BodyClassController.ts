@@ -1,6 +1,7 @@
 import { MinimalismUISettings } from './settings';
 import { Feature } from './Feature';
 import { getLang } from './i18n';
+import { uiDoc } from './appDom';
 
 const BODY_CLASSES = [
 	'minimalism-ui-mac-sidebar',
@@ -24,7 +25,7 @@ export class BodyClassController implements Feature {
 
 	apply() {
 		const s = this.getSettings();
-		const cls = activeDocument.body.classList;
+		const cls = uiDoc().body.classList;
 		// 极简侧边栏全程默认开启，不再受设置开关控制
 		cls.add('minimalism-ui-mac-sidebar');
 		cls.toggle('minimalism-ui-hide-tab-bar', s.hideTabBar);
@@ -47,6 +48,6 @@ export class BodyClassController implements Feature {
 	}
 
 	remove() {
-		activeDocument.body.classList.remove(...BODY_CLASSES);
+		uiDoc().body.classList.remove(...BODY_CLASSES);
 	}
 }

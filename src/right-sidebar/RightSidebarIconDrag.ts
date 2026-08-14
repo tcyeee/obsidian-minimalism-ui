@@ -1,5 +1,6 @@
 import { RightSidebarViewStack, STOW_KEY } from './RightSidebarViewStack';
 import { MinimalismUISettings } from '../core/settings';
+import { uiDoc } from '../core/appDom';
 
 const STACK_DRAGGING_CLASS = 'minimalism-ui-rsb-stack-dragging';
 const ICON_DRAG_ACTIVE_CLASS = 'minimalism-ui-rsb-stack-icon-drag-active';
@@ -68,8 +69,8 @@ export class RightSidebarIconDrag {
 			grabOffsetX: el ? e.clientX - el.getBoundingClientRect().left : 0,
 			translateX: 0,
 		};
-		activeDocument.addEventListener('pointermove', this.onIconPointerMove, true);
-		activeDocument.addEventListener('pointerup', this.onIconPointerUp, true);
+		uiDoc().addEventListener('pointermove', this.onIconPointerMove, true);
+		uiDoc().addEventListener('pointerup', this.onIconPointerUp, true);
 	}
 
 	private onIconPointerMove = (e: PointerEvent) => {
@@ -84,7 +85,7 @@ export class RightSidebarIconDrag {
 			this.suppressNextIconClick = true;
 			window.setTimeout(() => { this.suppressNextIconClick = false; }, 300);
 			stackEl?.addClass(STACK_DRAGGING_CLASS);
-			activeDocument.body.addClass(ICON_DRAGGING_BODY_CLASS);
+			uiDoc().body.addClass(ICON_DRAGGING_BODY_CLASS);
 			stackEl?.querySelector<HTMLElement>(`[data-rsb-key="${CSS.escape(drag.key)}"]`)
 				?.addClass(ICON_DRAG_ACTIVE_CLASS);
 		}
@@ -196,13 +197,13 @@ export class RightSidebarIconDrag {
 	private onIconPointerUp = () => {
 		const drag = this.iconDrag;
 		this.iconDrag = null;
-		activeDocument.removeEventListener('pointermove', this.onIconPointerMove, true);
-		activeDocument.removeEventListener('pointerup', this.onIconPointerUp, true);
+		uiDoc().removeEventListener('pointermove', this.onIconPointerMove, true);
+		uiDoc().removeEventListener('pointerup', this.onIconPointerUp, true);
 		if (!drag || !drag.dragging) return;
 
 		const stackEl = this.stack.getStackEl();
 		stackEl?.removeClass(STACK_DRAGGING_CLASS);
-		activeDocument.body.removeClass(ICON_DRAGGING_BODY_CLASS);
+		uiDoc().body.removeClass(ICON_DRAGGING_BODY_CLASS);
 
 		// drag.order 里存的是本次运行时的实例 key，落盘前换回按 view type 持久化的 key
 		// （见 RightSidebarViewStack 的 leafInstanceKeys 字段注释）——同 type 的多个 leaf
@@ -226,11 +227,11 @@ export class RightSidebarIconDrag {
 	endIconDrag() {
 		if (!this.iconDrag) return;
 		this.iconDrag = null;
-		activeDocument.removeEventListener('pointermove', this.onIconPointerMove, true);
-		activeDocument.removeEventListener('pointerup', this.onIconPointerUp, true);
+		uiDoc().removeEventListener('pointermove', this.onIconPointerMove, true);
+		uiDoc().removeEventListener('pointerup', this.onIconPointerUp, true);
 		const stackEl = this.stack.getStackEl();
 		stackEl?.removeClass(STACK_DRAGGING_CLASS);
-		activeDocument.body.removeClass(ICON_DRAGGING_BODY_CLASS);
+		uiDoc().body.removeClass(ICON_DRAGGING_BODY_CLASS);
 		this.suppressNextIconClick = false;
 	}
 }

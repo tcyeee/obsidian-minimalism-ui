@@ -1,6 +1,7 @@
 import { Feature } from './Feature';
 import { MinimalismUISettings } from './settings';
 import { FONTS } from '../generated/theme-assets';
+import { uiDoc } from './appDom';
 
 interface MutableFontFaceSet {
 	add(font: FontFace): void;
@@ -85,7 +86,7 @@ export class FontLoader implements Feature {
 	}
 
 	remove() {
-		for (const font of this.loadedFonts) (activeDocument.fonts as unknown as MutableFontFaceSet).delete(font);
+		for (const font of this.loadedFonts) (uiDoc().fonts as unknown as MutableFontFaceSet).delete(font);
 		this.loadedFonts = [];
 	}
 
@@ -96,7 +97,7 @@ export class FontLoader implements Feature {
 		try {
 			// 从 ArrayBuffer 构造的 FontFace 同步解析完成，无需再 load()
 			const face = new FontFace(family, base64ToArrayBuffer(base64), desc);
-			(activeDocument.fonts as unknown as MutableFontFaceSet).add(face);
+			(uiDoc().fonts as unknown as MutableFontFaceSet).add(face);
 			this.loadedFonts.push(face);
 		} catch {
 			// 字体数据解析失败时静默跳过

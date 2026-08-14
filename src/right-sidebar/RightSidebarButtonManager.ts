@@ -6,6 +6,7 @@ import { patchExecuteCommand } from '../core/obsidianCommands';
 import { trackPointerDrag } from '../core/utils';
 import { RightSidebarViewStack } from './RightSidebarViewStack';
 import { RightSidebarIconDrag } from './RightSidebarIconDrag';
+import { uiDoc, uiWin } from '../core/appDom';
 
 const LAUNCHER_CLASS = 'minimalism-ui-rsb-launcher';
 const BUTTON_CLASS = 'minimalism-ui-rsb-button';
@@ -166,7 +167,7 @@ export class RightSidebarButtonManager implements Feature {
 
 	private inject() {
 		this.isPinned = this.getSettings().rightSidebarPanelPinned;
-		this.panelEl = activeDocument.body.createDiv({ cls: PANEL_CLASS });
+		this.panelEl = uiDoc().body.createDiv({ cls: PANEL_CLASS });
 		const s = this.getSettings();
 		this.panelEl.setCssStyles({
 			width: `${s.rightSidebarPanelWidth}px`,
@@ -190,7 +191,7 @@ export class RightSidebarButtonManager implements Feature {
 		this.panelEl.addEventListener('mousemove', this.onPanelMouseMove);
 		this.panelEl.addEventListener('mouseleave', this.onPanelMouseLeave);
 
-		this.launcherEl = activeDocument.body.createDiv({ cls: LAUNCHER_CLASS });
+		this.launcherEl = uiDoc().body.createDiv({ cls: LAUNCHER_CLASS });
 		this.stackEl = this.launcherEl.createDiv({ cls: STACK_CLASS });
 		this.launcherEl.addEventListener('mouseenter', this.onLauncherMouseEnter);
 		this.launcherEl.addEventListener('mouseleave', this.onLauncherMouseLeave);
@@ -219,7 +220,7 @@ export class RightSidebarButtonManager implements Feature {
 				(this.launcherEl != null && path.includes(this.launcherEl)) ||
 				(this.panelEl != null && path.includes(this.panelEl));
 		};
-		activeDocument.addEventListener('pointerdown', this.pointerDownHandler, true);
+		uiDoc().addEventListener('pointerdown', this.pointerDownHandler, true);
 
 		this.outsideClickHandler = (e: MouseEvent) => {
 			if (this.suppressNextOutsideClick) {
@@ -249,7 +250,7 @@ export class RightSidebarButtonManager implements Feature {
 			if (this.isPinned) return;
 			this.close();
 		};
-		activeDocument.addEventListener('click', this.outsideClickHandler);
+		uiDoc().addEventListener('click', this.outsideClickHandler);
 
 		// stackExpanded 只可能在 isOpen 为 true 时出现（见 showStack 的调用路径），此前曾单独
 		// 分支处理它、仅收起堆叠而不关闭面板，导致堆叠恰好展开时用户要按两次 Escape 才能真正
@@ -261,7 +262,7 @@ export class RightSidebarButtonManager implements Feature {
 			e.stopPropagation();
 			this.close();
 		};
-		activeDocument.addEventListener('keydown', this.keydownHandler);
+		uiDoc().addEventListener('keydown', this.keydownHandler);
 
 		// 可切换 leaf 增减（第三方插件开关视图、手动拖拽 leaf 进出左/右侧栏）时，面板开着才重新扫描。
 		this.layoutChangeHandler = () => {
@@ -430,7 +431,7 @@ export class RightSidebarButtonManager implements Feature {
 		e.stopPropagation();
 		const rect = this.panelEl.getBoundingClientRect();
 		this.resizeStart = { x: e.clientX, y: e.clientY, width: rect.width, height: rect.height };
-		activeDocument.body.addClass(RESIZING_BODY_CLASS);
+		uiDoc().body.addClass(RESIZING_BODY_CLASS);
 		this.stopResizeDrag = trackPointerDrag({ onMove: this.onResizePointerMove, onEnd: this.onResizePointerUp });
 	};
 
@@ -439,8 +440,8 @@ export class RightSidebarButtonManager implements Feature {
 		// 把手在左上角，面板锚定右下角：指针左移/上移 → 宽/高增大。
 		const dx = this.resizeStart.x - e.clientX;
 		const dy = this.resizeStart.y - e.clientY;
-		const maxWidth = Math.min(MAX_WIDTH, activeWindow.innerWidth - VIEWPORT_MARGIN_X);
-		const maxHeight = Math.min(MAX_HEIGHT, activeWindow.innerHeight - VIEWPORT_MARGIN_Y);
+		const maxWidth = Math.min(MAX_WIDTH, uiWin().innerWidth - VIEWPORT_MARGIN_X);
+		const maxHeight = Math.min(MAX_HEIGHT, uiWin().innerHeight - VIEWPORT_MARGIN_Y);
 		const width = Math.max(MIN_WIDTH, Math.min(maxWidth, Math.round(this.resizeStart.width + dx)));
 		const height = Math.max(MIN_HEIGHT, Math.min(maxHeight, Math.round(this.resizeStart.height + dy)));
 		this.currentSize = { width, height };
@@ -470,7 +471,7 @@ export class RightSidebarButtonManager implements Feature {
 		if (!this.resizeStart) return;
 		this.resizeStart = null;
 		this.currentSize = null;
-		activeDocument.body.removeClass(RESIZING_BODY_CLASS);
+		uiDoc().body.removeClass(RESIZING_BODY_CLASS);
 		this.stopResizeDrag?.();
 		this.stopResizeDrag = null;
 	}
@@ -485,16 +486,16 @@ export class RightSidebarButtonManager implements Feature {
 
 	remove() {
 		if (this.outsideClickHandler) {
-			activeDocument.removeEventListener('click', this.outsideClickHandler);
+			uiDoc().removeEventListener('click', this.outsideClickHandler);
 			this.outsideClickHandler = null;
 		}
 		if (this.pointerDownHandler) {
-			activeDocument.removeEventListener('pointerdown', this.pointerDownHandler, true);
+			uiDoc().removeEventListener('pointerdown', this.pointerDownHandler, true);
 			this.pointerDownHandler = null;
 		}
 		this.pointerDownInsidePanel = false;
 		if (this.keydownHandler) {
-			activeDocument.removeEventListener('keydown', this.keydownHandler);
+			uiDoc().removeEventListener('keydown', this.keydownHandler);
 			this.keydownHandler = null;
 		}
 		if (this.layoutChangeHandler) {
@@ -504,7 +505,7 @@ export class RightSidebarButtonManager implements Feature {
 		this.unpatchExecuteCommand?.();
 		this.unpatchExecuteCommand = null;
 		this.endResizeDrag();
-		activeDocument.body.removeClass(RESIZING_BODY_CLASS);
+		uiDoc().body.removeClass(RESIZING_BODY_CLASS);
 		this.iconDrag.endIconDrag();
 		this.viewStack.unmount();
 		this.clearStackTimers();

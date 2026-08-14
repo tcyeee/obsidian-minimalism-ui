@@ -1,4 +1,5 @@
 import { App, EventRef } from 'obsidian';
+import { uiDoc } from '../core/appDom';
 
 /**
  * MermaidZoomManager
@@ -33,9 +34,11 @@ export class MermaidZoomManager {
     apply() {
         this.remove();
 
-        this.attachToDocument(activeDocument);
+        // 起点固定取主窗口（uiDoc()）而非 activeDocument：设置窗口开着时后者指向设置窗口，
+        // 那里既没有笔记也没有 mermaid，反而会漏掉主窗口的挂载。见 core/appDom.ts。
+        this.attachToDocument(uiDoc());
 
-        const seen = new Set<Document>([activeDocument]);
+        const seen = new Set<Document>([uiDoc()]);
         this.app.workspace.iterateAllLeaves((leaf) => {
             const doc = leaf.view.containerEl.ownerDocument;
             if (!seen.has(doc)) {
