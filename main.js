@@ -624,17 +624,14 @@ var NavigationHistory = class {
   }
   // tab 关闭时调用：从 history 移除该路径的最后一次出现，使历史指针与实际位置一致，
   // 并返回关闭后应落到的「面包屑前一页」路径（即新的 history 栈顶）；无前驱时返回 null。
-  // 关键：本方法不再自行 scheduleActivate（setTimeout 异步激活）。异步激活会与 Obsidian 在
-  // detach 活动 leaf 时同步/延迟自动挑选相邻 leaf 产生竞态——若 Obsidian 的挑选后触发，它会胜出
-  // 并把面包屑之外的 future tab 写入历史（表现为“关闭后随意跳转到面包屑之外的 tab”）。改由引擎拿到
-  // 返回值后，在真正 detach **之前**同步激活该前驱，使待关闭 leaf 变为非活动 leaf，Obsidian 便不再
-  // 自动挑选，竞态根除。
-  // 仍置 jumpPath / isClosingTab：前者吞掉引擎激活前驱时写入的 record（避免重复入栈）；后者作为兜底——
-  // 前驱已被 LRU 淘汰需异步重开时，detach 仍可能让 Obsidian 自动激活相邻 leaf，置位吞掉那一次 record，
-  // 防止历史被写入无关路径。
+  // 关键：本方法不自行 scheduleActivate（setTimeout 异步激活），只做簿记并把目标交回引擎。
+  // 谁来显示这个目标、以及"待关闭 leaf 何时不再占着可视位"，统一由 SinglePageEngine.detachRootLeaf
+  // 那条不变量负责（见该处注释）——历史上这里试过异步激活，结果与 Obsidian 自己挑选接替 tab 的
+  // 逻辑赛跑，输了就跳到面包屑之外的 tab；现在 Obsidian 根本没有挑选的机会，竞态不存在。
+  // 仍置 jumpPath / isClosingTab：前者吞掉引擎激活前驱时写入的 record（避免重复入栈），
+  // 后者作为兜底（正常路径上会被 record 的 jumpPath 分支一并清掉）。
   // future 不修改：关闭 tab 不影响前进历史，已关闭的文件路径仍可通过前进重新打开。
-  // hasOtherFileLeaf：关闭后 workspace 中是否仍有其他文件 leaf（由引擎在 detach 前统计，排除本 leaf）。
-  onTabClosing(closingPath, hasOtherFileLeaf) {
+  onTabClosing(closingPath) {
     if (closingPath) {
       const idx = this.history.lastIndexOf(closingPath);
       if (idx !== -1) this.history.splice(idx, 1);
@@ -648,9 +645,6 @@ var NavigationHistory = class {
       this.isClosingTab = true;
       this.jumpPath = prevPath;
       return prevPath;
-    }
-    if (hasOtherFileLeaf) {
-      this.isClosingTab = true;
     }
     return null;
   }
@@ -907,6 +901,13 @@ var SinglePageEngine = class {
     // openHomePage 异步打开 await 期间，首页 leaf 又被快速 CMD+W 关掉时置位（await 后 parent 为 null）。
     // 此刻重入锁未释放，无法立即重开，置位后由当前这次的 finally 兜底补开，保证最终落在首页而非空页。
     this._homePageReopenQueued = false;
+    // 正在执行 detach 补丁体的那个 leaf。它马上就要消失，因此在这段窗口里绝不能被当成
+    // "接替者"选中（否则内容会加载进一个随即被销毁的 leaf，用户停在空白页上）。
+    // 触发路径：关闭 A→需重开前驱 B 时先建空白 leaf 顶位，用户在 B 加载完成前又按了一次 CMD+W，
+    // 此时活动 leaf 正是那个还没有文件的空白 leaf，会同时满足"待关闭"和"可复用的空白 leaf"。
+    this.closingLeaf = null;
+    // layout-change 兜底：把任何新冒出来的 root leaf 纳入 detach 补丁（见 apply 中的注释）
+    this.layoutChangeHandler = null;
     this.renameHandler = null;
     this.deleteHandler = null;
     this.createHandler = null;
@@ -958,6 +959,13 @@ var SinglePageEngine = class {
       this.patchLeafHistory(leaf);
       this.patchRootLeafDetach(leaf);
     });
+    this.layoutChangeHandler = () => {
+      this.app.workspace.iterateRootLeaves((leaf) => {
+        this.patchLeafHistory(leaf);
+        this.patchRootLeafDetach(leaf);
+      });
+    };
+    this.app.workspace.on("layout-change", this.layoutChangeHandler);
     this.leafCache.seed();
     const mostRecent = this.app.workspace.getMostRecentLeaf();
     if (mostRecent) {
@@ -996,6 +1004,10 @@ var SinglePageEngine = class {
     if (this.activeLeafChangeHandler) {
       this.app.workspace.off("active-leaf-change", this.activeLeafChangeHandler);
       this.activeLeafChangeHandler = null;
+    }
+    if (this.layoutChangeHandler) {
+      this.app.workspace.off("layout-change", this.layoutChangeHandler);
+      this.layoutChangeHandler = null;
     }
     this.nav.dispose();
     this.nav.unpatchCommands();
@@ -1115,15 +1127,61 @@ var SinglePageEngine = class {
     if (!viewType || viewType === "empty") return null;
     return filelessViewKey(viewType);
   }
-  // 关闭 except 这个 leaf 后，workspace 中是否仍有其他带文件的 root leaf。
-  // 在 detach 前调用，故需排除正在关闭的 leaf 自身。
-  hasOtherFileLeaf(except) {
-    let found = false;
-    this.app.workspace.iterateRootLeaves((l) => {
-      if (found || l === except) return;
-      if (this.filePathForLeaf(l)) found = true;
-    });
-    return found;
+  // ───────────────────────────────────────────────────────────────────────────────
+  // 单页模式的核心不变量：**绝不销毁正占着"可视位"的 root leaf。**
+  //
+  // 为什么这是架构级的而不是又一个补丁：主区域是否显示某个 tab，Obsidian 自己有两套状态——
+  // `workspace.activeLeaf` 和标签组的 `currentTab` 下标。当被 detach 的 leaf 正好持有其中任意
+  // 一个时，Obsidian 会**自行决定**接替者，而且这个决定是我们抢不过的：
+  //   ① `WorkspaceTabs.removeChild`：移除的正是 currentTab 时 → `currentTab = max(0, n - 1)`，
+  //      即"左边那个 tab"。单页模式下缓存着最多 30 个 tab，左邻几乎必然是一篇不相干的旧笔记。
+  //   ② `Workspace.updateLayout`（detach 触发 onLayoutChange 后于**下一帧**执行）：发现
+  //      `activeLeaf` 已不再 attached 时 → 取 `activeTabGroup.children[currentTab]`，
+  //      也就是①刚挑出来的那个左邻，然后 `setActiveLeaf(它, { focus: true })`。
+  // 这就是"关掉当前笔记却平移到另一篇笔记"的全部来源。
+  //
+  // 旧实现试图靠"抢先一步"取胜：detach 之前先同步激活面包屑前一页。前驱 leaf 还开着时确实有效，
+  // 但只要接替者需要**异步**产生就必然失守——`openFile()` / `setViewState()` 要跨帧 resolve，而
+  // updateLayout 下一帧就跑；更隐蔽的是 `getLeaf('tab')` 只在用户开启了 `focusNewTab` 配置时才
+  // 顺带 setActiveLeaf，关掉该配置的用户连"临时新 tab 顶位"这一步都拿不到。再叠加
+  // `active-leaf-change` 本身是 0ms 去抖并合并的（Obsidian 的 requestActiveLeafEvents），
+  // 用来吞掉误记的 `isClosingTab` 一次性标志也可能吞错对象——于是概率高、且难以复现稳定。
+  //
+  // 改法：不再和 Obsidian 抢时序，而是让它**根本没有选择的机会**。所有销毁 root leaf 的路径统一
+  // 收口到 detachRootLeaf()：真正 detach 之前，若该 leaf 仍持有可视位，就同步造一个空白 leaf 顶上。
+  // 交接完成后 Obsidian 看到的永远是"移除一个非当前、非活动的 tab"——①走 else 分支保持选中不变、
+  // ②因 activeLeaf 仍 attached 而整段跳过。异步接替者（重开被淘汰的笔记、加载首页）此后只是往
+  // 这个已经就位的空白 leaf 里填内容，跨多少帧都无所谓。
+  // ───────────────────────────────────────────────────────────────────────────────
+  // leaf 是否正占着可视位：workspace 的活动 leaf，或其所在标签组的当前可见 tab。
+  // 两者都要查：revealLeaf 只改 currentTab 不改 activeLeaf，二者可以短暂不一致。
+  isHoldingViewSlot(leaf) {
+    const ws = this.app.workspace;
+    if (ws.activeLeaf === leaf) return true;
+    const parent = leaf.parent;
+    if (!parent || parent.currentTab === void 0 || !parent.children) return false;
+    return parent.children[parent.currentTab] === leaf;
+  }
+  // 同步把可视位从 leaf 手里接过来：在同一标签组里新建一个空白 leaf 并激活它。
+  // 用 createLeafInParent 而非 getLeaf('tab')：后者会"若最近活跃的 leaf 是空视图就直接复用它"
+  // （可能把待关闭的 leaf 自己还回来），且是否 setActiveLeaf 取决于用户的 focusNewTab 配置——
+  // 两点都会让交接失败。这里要的是无条件、确定地拿到一个新 leaf 并让它立刻成为活动 leaf。
+  handOverViewSlot(leaf) {
+    var _a, _b, _c;
+    const parent = leaf.parent;
+    if (!parent || !this.originalGetLeaf) return;
+    const ws = this.app.workspace;
+    const placeholder = ws.createLeafInParent(parent, (_b = (_a = parent.children) == null ? void 0 : _a.length) != null ? _b : 0);
+    if (!placeholder || placeholder === leaf) return;
+    (_c = placeholder.setDimension) == null ? void 0 : _c.call(placeholder, null);
+    this.patchRootLeafDetach(placeholder);
+    this.app.workspace.setActiveLeaf(placeholder, { focus: true });
+  }
+  // 销毁 root leaf 的唯一出口（detach 补丁只经由这里调用原始 detach）。
+  // 先保证不变量成立，再执行真正的 detach。
+  detachRootLeaf(leaf, original) {
+    if (this.isHoldingViewSlot(leaf)) this.handOverViewSlot(leaf);
+    original();
   }
   // 复用一个已存在的空白 leaf（无文件、未处于 pending 拦截中）而非总是新开 tab，与
   // openHomePage() 的 canReuse 判断同一套逻辑。onTabClosing 关闭最后一篇笔记后落到 home
@@ -1131,8 +1189,11 @@ var SinglePageEngine = class {
   // 若不复用，会把一个 Cmd+N 之类留下的空白标签晾在一边、又额外新开一个标签。
   acquireReopenLeaf() {
     const active = this.app.workspace.getMostRecentLeaf();
-    const canReuse = !!active && !this.filePathForLeaf(active) && !this.pendingInterceptLeaves.has(active);
-    return canReuse && active ? active : this.originalGetLeaf("tab");
+    const canReuse = !!active && active !== this.closingLeaf && !this.filePathForLeaf(active) && !this.pendingInterceptLeaves.has(active);
+    if (canReuse && active) return active;
+    const leaf = this.originalGetLeaf("tab");
+    this.app.workspace.setActiveLeaf(leaf, { focus: true });
+    return leaf;
   }
   // 激活已显示目标路径的 root leaf；若无（已被 LRU 淘汰或手动关闭）则重新打开该文件。
   // 供 NavigationHistory 的 back/forward/onTabClosing 回调调用，收敛此前散落 4 处的重复逻辑。
@@ -1141,7 +1202,8 @@ var SinglePageEngine = class {
   activateOrOpenFile(path, animCls) {
     let targetLeaf = null;
     this.app.workspace.iterateRootLeaves((l) => {
-      if (!targetLeaf && this.navKeyForLeaf(l) === path) targetLeaf = l;
+      if (targetLeaf || l === this.closingLeaf) return;
+      if (this.navKeyForLeaf(l) === path) targetLeaf = l;
     });
     if (targetLeaf) {
       this.app.workspace.setActiveLeaf(targetLeaf, { focus: true });
@@ -1295,7 +1357,7 @@ var SinglePageEngine = class {
     this.historyPatches.clear();
   }
   // root leaf detach 补丁：通过捕获所有关闭路径（CMD+W、右键、X 按钮、API 调用）
-  // 在 detach 前通知 nav（移除历史条目、设置关闭标志），并在真正 detach 之前同步激活面包屑前一页，
+  // 在 detach 前通知 nav（移除历史条目、设置关闭标志），随后经 detachRootLeaf 这个不变量出口销毁，
   // detach 后从 patch 注册表移除该 leaf，避免已销毁 leaf 在 Map 中无限累积（内存泄漏）。
   // isReusingLeaf / 缓存淘汰中（leafCache.isEvictingNow）时豁免 nav 通知：属于插件内部操作而非用户关闭 tab。
   patchRootLeafDetach(leaf) {
@@ -1303,18 +1365,23 @@ var SinglePageEngine = class {
     const original = leaf.detach.bind(leaf);
     leaf.detach = () => {
       var _a;
-      if (!this.isReusingLeaf && !this.leafCache.isEvictingNow()) {
-        const closingPath = (_a = this.navKeyForLeaf(leaf)) != null ? _a : void 0;
-        const hasOtherFileLeaf = this.hasOtherFileLeaf(leaf);
-        const target = this.nav.onTabClosing(closingPath, hasOtherFileLeaf);
-        if (target !== null) {
-          this.activateOrOpenFile(target, "minimalism-ui-slide-from-left");
+      const outerClosingLeaf = this.closingLeaf;
+      this.closingLeaf = leaf;
+      try {
+        if (!this.isReusingLeaf && !this.leafCache.isEvictingNow()) {
+          const closingPath = (_a = this.navKeyForLeaf(leaf)) != null ? _a : void 0;
+          const target = this.nav.onTabClosing(closingPath);
+          if (target !== null) {
+            this.activateOrOpenFile(target, "minimalism-ui-slide-from-left");
+          }
         }
+        this.detachRootLeaf(leaf, original);
+        this.rootDetachPatches.delete(leaf);
+        this.historyPatches.delete(leaf);
+        this.pendingInterceptLeaves.delete(leaf);
+      } finally {
+        this.closingLeaf = outerClosingLeaf;
       }
-      original();
-      this.rootDetachPatches.delete(leaf);
-      this.historyPatches.delete(leaf);
-      this.pendingInterceptLeaves.delete(leaf);
     };
     this.rootDetachPatches.set(leaf, original);
   }

@@ -328,17 +328,14 @@ export class NavigationHistory {
 
 	// tab 关闭时调用：从 history 移除该路径的最后一次出现，使历史指针与实际位置一致，
 	// 并返回关闭后应落到的「面包屑前一页」路径（即新的 history 栈顶）；无前驱时返回 null。
-	// 关键：本方法不再自行 scheduleActivate（setTimeout 异步激活）。异步激活会与 Obsidian 在
-	// detach 活动 leaf 时同步/延迟自动挑选相邻 leaf 产生竞态——若 Obsidian 的挑选后触发，它会胜出
-	// 并把面包屑之外的 future tab 写入历史（表现为“关闭后随意跳转到面包屑之外的 tab”）。改由引擎拿到
-	// 返回值后，在真正 detach **之前**同步激活该前驱，使待关闭 leaf 变为非活动 leaf，Obsidian 便不再
-	// 自动挑选，竞态根除。
-	// 仍置 jumpPath / isClosingTab：前者吞掉引擎激活前驱时写入的 record（避免重复入栈）；后者作为兜底——
-	// 前驱已被 LRU 淘汰需异步重开时，detach 仍可能让 Obsidian 自动激活相邻 leaf，置位吞掉那一次 record，
-	// 防止历史被写入无关路径。
+	// 关键：本方法不自行 scheduleActivate（setTimeout 异步激活），只做簿记并把目标交回引擎。
+	// 谁来显示这个目标、以及"待关闭 leaf 何时不再占着可视位"，统一由 SinglePageEngine.detachRootLeaf
+	// 那条不变量负责（见该处注释）——历史上这里试过异步激活，结果与 Obsidian 自己挑选接替 tab 的
+	// 逻辑赛跑，输了就跳到面包屑之外的 tab；现在 Obsidian 根本没有挑选的机会，竞态不存在。
+	// 仍置 jumpPath / isClosingTab：前者吞掉引擎激活前驱时写入的 record（避免重复入栈），
+	// 后者作为兜底（正常路径上会被 record 的 jumpPath 分支一并清掉）。
 	// future 不修改：关闭 tab 不影响前进历史，已关闭的文件路径仍可通过前进重新打开。
-	// hasOtherFileLeaf：关闭后 workspace 中是否仍有其他文件 leaf（由引擎在 detach 前统计，排除本 leaf）。
-	onTabClosing(closingPath: string | undefined, hasOtherFileLeaf: boolean): string | null {
+	onTabClosing(closingPath: string | undefined): string | null {
 		if (closingPath) {
 			const idx = this.history.lastIndexOf(closingPath);
 			if (idx !== -1) this.history.splice(idx, 1);
@@ -366,15 +363,13 @@ export class NavigationHistory {
 			return prevPath;
 		}
 
-		// 历史已空：用户关完了整条后退链。此时应回到首页（由 HomePageManager 据 isEmpty() 触发），
-		// 而非停留在曾经后退留下、仍开着的 future 残留 tab 上。
-		// 仅当确实还有其他文件 leaf 时才置 isClosingTab：关闭瞬间 Obsidian 会自动激活其中一个并触发
-		// 一次 record，置位把它吞掉，使 history 保持为空，HomePageManager 据此打开首页。
-		// 若已无任何其他文件 leaf，关闭后落到空 leaf（navKey 为 null，不进入 record），此时置位只会让
-		// 标志滞留，进而误吞随后首页打开的那次 record，导致首页不入导航历史栈——故无其他 leaf 时不置位。
-		if (hasOtherFileLeaf) {
-			this.isClosingTab = true;
-		}
+		// 历史已空：用户关完了整条后退链，应回到首页（由 HomePageManager 据 isEmpty() 触发）。
+		// 这里**不**置 isClosingTab。以前需要置位，是因为关闭瞬间 Obsidian 会自行激活一个 future
+		// 残留 tab 并触发一次 record，得靠这个一次性标志把它吞掉、让 history 保持为空。现在
+		// SinglePageEngine.detachRootLeaf 保证 detach 前可视位已交接给一个空白 leaf，Obsidian 不再
+		// 有挑选机会，那次误 record 从源头就不存在了。而空白 leaf 的 navKey 为 null、根本进不了
+		// record，标志无处消耗只会滞留下来，反过来误吞随后首页打开的那次 record（表现为首页不入栈、
+		// 面包屑空白）——所以现在置位是纯粹的副作用，必须去掉。
 		return null;
 	}
 
