@@ -213,21 +213,7 @@ export class SinglePageEngine {
 
 		// 用当前所有 root leaf 初始化 LRU 缓存，最近活跃的 leaf 排到队尾。
 		this.leafCache.seed();
-		// Seed nav history with the current file when apply() is called mid-session:
-		// workspace restore fires active-leaf-change automatically, but a mid-session
-		// re-apply does not, leaving the history empty so the first back press finds
-		// length < 2 and silently fails.
-		const mostRecent = this.app.workspace.getMostRecentLeaf();
-		if (mostRecent) {
-			const seedKey = this.navKeyForLeaf(mostRecent);
-			if (seedKey) {
-				if (this.nav.isEmpty()) this.nav.seed(seedKey);
-				// 初始化当前活动 root leaf 键，避免首次后退时把“当前页”误判为无文件视图而原地重激活。
-				this.nav.markActiveRoot(seedKey);
-				// mid-session 启用时若当前就停在全局关系图上，同步收起左侧边栏，保持行为一致。
-				this.graphSidebar.handleRootNav(seedKey);
-			}
-		}
+		this.ensureNavSeeded();
 
 		// 把内置的 app:go-back / app:go-forward 命令路由到我们的跨 tab 导航栈
 		this.nav.patchCommands();
@@ -338,6 +324,35 @@ export class SinglePageEngine {
 	// 为空即应回到首页，即便 future 中仍残留打开的 tab。
 	isNavEmpty(): boolean {
 		return this.nav.isEmpty();
+	}
+
+	// 用主区域当前显示的 root leaf 兜底初始化导航栈（幂等：历史非空则只同步 markActiveRoot）。
+	// 返回该 leaf 是否有可入栈的内容（笔记，或关系图等无文件功能视图）——即「主区域此刻显示的
+	// 是真内容还是空页」，这也正是调用方判断该不该打开首页所需的信号，故与 seed 合为一个方法：
+	// 两者必须读同一个 leaf，分成独立的 hasContent() + seed() 会让判断与入栈的对象不一致
+	// （例如显示的是空页、但别的 tab 里还开着笔记时，判断说“有内容”而 seed 什么也没写入，
+	// 结果既不跳首页、面包屑又是空的）。
+	// 两处调用：
+	//   ① apply() 中途启用——workspace 恢复会自动触发 active-leaf-change，但会话中途重新 apply()
+	//      不会，历史留空会让首次后退因 length < 2 静默失败；
+	//   ② 启动时决定不抢占已恢复的笔记（见 HomePageManager.openHomePageOnStartup）——此时必须
+	//      保证那篇笔记确实在栈内，seed() 收尾的 ensureHomeInvariant 才会把首页钉到 index 0，
+	//      面包屑呈现「首页 / 上次的笔记」。
+	// 用 navKeyForLeaf 而非 filePathForLeaf：deferred（重启恢复出、尚未点开）的视图经
+	// getViewState() 兜底也能正确识别，不会被误判为空页。
+	ensureNavSeeded(): boolean {
+		const mostRecent = this.app.workspace.getMostRecentLeaf();
+		if (!mostRecent) return false;
+		const seedKey = this.navKeyForLeaf(mostRecent);
+		if (!seedKey) return false;
+		if (this.nav.isEmpty()) this.nav.seed(seedKey);
+		// 初始化当前活动 root leaf 键，避免首次后退时把“当前页”误判为无文件视图而原地重激活。
+		this.nav.markActiveRoot(seedKey);
+		// mid-session 启用时若当前就停在全局关系图上，同步收起左侧边栏，保持行为一致。
+		this.graphSidebar.handleRootNav(seedKey);
+		// 恢复出的 deferred 视图不一定发过 active-leaf-change，面包屑得由这里驱动首绘。
+		this.navChangeListener?.(mostRecent);
+		return true;
 	}
 
 	// 面包屑点击:跳转到导航历史栈中指定下标的条目(语义等同连续后退)。

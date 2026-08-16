@@ -967,15 +967,7 @@ var SinglePageEngine = class {
     };
     this.app.workspace.on("layout-change", this.layoutChangeHandler);
     this.leafCache.seed();
-    const mostRecent = this.app.workspace.getMostRecentLeaf();
-    if (mostRecent) {
-      const seedKey = this.navKeyForLeaf(mostRecent);
-      if (seedKey) {
-        if (this.nav.isEmpty()) this.nav.seed(seedKey);
-        this.nav.markActiveRoot(seedKey);
-        this.graphSidebar.handleRootNav(seedKey);
-      }
-    }
+    this.ensureNavSeeded();
     this.nav.patchCommands();
     this.renameHandler = (file, oldPath) => {
       if (!(file instanceof import_obsidian2.TFile)) return;
@@ -1064,6 +1056,32 @@ var SinglePageEngine = class {
   // 为空即应回到首页，即便 future 中仍残留打开的 tab。
   isNavEmpty() {
     return this.nav.isEmpty();
+  }
+  // 用主区域当前显示的 root leaf 兜底初始化导航栈（幂等：历史非空则只同步 markActiveRoot）。
+  // 返回该 leaf 是否有可入栈的内容（笔记，或关系图等无文件功能视图）——即「主区域此刻显示的
+  // 是真内容还是空页」，这也正是调用方判断该不该打开首页所需的信号，故与 seed 合为一个方法：
+  // 两者必须读同一个 leaf，分成独立的 hasContent() + seed() 会让判断与入栈的对象不一致
+  // （例如显示的是空页、但别的 tab 里还开着笔记时，判断说“有内容”而 seed 什么也没写入，
+  // 结果既不跳首页、面包屑又是空的）。
+  // 两处调用：
+  //   ① apply() 中途启用——workspace 恢复会自动触发 active-leaf-change，但会话中途重新 apply()
+  //      不会，历史留空会让首次后退因 length < 2 静默失败；
+  //   ② 启动时决定不抢占已恢复的笔记（见 HomePageManager.openHomePageOnStartup）——此时必须
+  //      保证那篇笔记确实在栈内，seed() 收尾的 ensureHomeInvariant 才会把首页钉到 index 0，
+  //      面包屑呈现「首页 / 上次的笔记」。
+  // 用 navKeyForLeaf 而非 filePathForLeaf：deferred（重启恢复出、尚未点开）的视图经
+  // getViewState() 兜底也能正确识别，不会被误判为空页。
+  ensureNavSeeded() {
+    var _a;
+    const mostRecent = this.app.workspace.getMostRecentLeaf();
+    if (!mostRecent) return false;
+    const seedKey = this.navKeyForLeaf(mostRecent);
+    if (!seedKey) return false;
+    if (this.nav.isEmpty()) this.nav.seed(seedKey);
+    this.nav.markActiveRoot(seedKey);
+    this.graphSidebar.handleRootNav(seedKey);
+    (_a = this.navChangeListener) == null ? void 0 : _a.call(this, mostRecent);
+    return true;
   }
   // 面包屑点击:跳转到导航历史栈中指定下标的条目(语义等同连续后退)。
   navigateHistoryTo(index) {
@@ -1688,6 +1706,20 @@ var _HomePageManager = class _HomePageManager {
     }, _HomePageManager.PENDING_POLL_MS);
   }
   async openHomePage() {
+    return this.engine.openHomePage();
+  }
+  // 启动时（onLayoutReady）的首页处理。与会话中的 openHomePage 区别在于：**不抢占**工作区
+  // 恢复出的笔记。
+  // 旧行为是无条件 openHomePage：Obsidian 恢复上次的笔记 A 后，首页又被打开顶到最前，用户看到
+  // 「先闪一下 A、再跳到首页」；且因为首页是最后打开的，ensureHomeInvariant 的 wasCurrent 分支
+  // 会把它留在栈尾，面包屑呈现「A / 首页」——顺序也是反的。
+  // 现在把决定权交给 ensureNavSeeded：它返回 true 表示主区域此刻显示的是真内容（笔记或功能
+  // 视图）且已入栈，此时由 ensureHomeInvariant 把首页钉在 index 0 充当可点击的锚点，面包屑即为
+  // 「首页 / A」，页面停留在 A 不跳转；返回 false 表示停在空页（全新库、或上次退出时就是空页），
+  // 才走原来的打开首页流程。
+  async openHomePageOnStartup() {
+    if (!this.getSettings().homePage) return;
+    if (this.engine.ensureNavSeeded()) return;
     return this.engine.openHomePage();
   }
   remove() {
@@ -4904,7 +4936,7 @@ var MinimalismUIPlugin = class extends import_obsidian13.Plugin {
       this.emptyViewButton.apply();
       this.tabGroupGuard.apply();
       if (!this.settings.firstRunCleanupDone) void this.firstRunCleanup.run();
-      void this.homePage.openHomePage();
+      void this.homePage.openHomePageOnStartup();
       void this.sidebarLayout.apply();
       this.responsiveSidebar.apply();
       this.ribbonPanel.apply();

@@ -105,6 +105,21 @@ export class HomePageManager {
 		return this.engine.openHomePage();
 	}
 
+	// 启动时（onLayoutReady）的首页处理。与会话中的 openHomePage 区别在于：**不抢占**工作区
+	// 恢复出的笔记。
+	// 旧行为是无条件 openHomePage：Obsidian 恢复上次的笔记 A 后，首页又被打开顶到最前，用户看到
+	// 「先闪一下 A、再跳到首页」；且因为首页是最后打开的，ensureHomeInvariant 的 wasCurrent 分支
+	// 会把它留在栈尾，面包屑呈现「A / 首页」——顺序也是反的。
+	// 现在把决定权交给 ensureNavSeeded：它返回 true 表示主区域此刻显示的是真内容（笔记或功能
+	// 视图）且已入栈，此时由 ensureHomeInvariant 把首页钉在 index 0 充当可点击的锚点，面包屑即为
+	// 「首页 / A」，页面停留在 A 不跳转；返回 false 表示停在空页（全新库、或上次退出时就是空页），
+	// 才走原来的打开首页流程。
+	async openHomePageOnStartup() {
+		if (!this.getSettings().homePage) return;
+		if (this.engine.ensureNavSeeded()) return;
+		return this.engine.openHomePage();
+	}
+
 	remove() {
 		if (this.activeLeafHandler) {
 			this.app.workspace.off('active-leaf-change', this.activeLeafHandler);
