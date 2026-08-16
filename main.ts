@@ -149,7 +149,8 @@ export default class MinimalismUIPlugin extends Plugin {
 			this.tabGroupGuard.apply();
 			// 首次启用：先把主区残留的多余标签页/分屏收成一个，再让首页逻辑在干净状态上运行。
 			if (!this.settings.firstRunCleanupDone) void this.firstRunCleanup.run();
-			void this.homePage.openHomePage();
+			// 启动专用入口：主区域已由 workspace 恢复出笔记时不跳首页，只把首页钉进面包屑。
+			void this.homePage.openHomePageOnStartup();
 			void this.sidebarLayout.apply();
 			// 窗口宽度自适应收起左侧栏：依赖 leftSplit 与窗口尺寸就绪。
 			this.responsiveSidebar.apply();
