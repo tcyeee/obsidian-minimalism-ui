@@ -899,6 +899,19 @@ body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-
 	background: rgba(0, 122, 255, 0.25);
 }
 
+/* 属性栏 hover / 聚焦底色：core 的 input[type="text"]:not(:disabled):hover 规则
+   （0,3,1）压过 input.metadata-property-key-input:hover（0,2,1），把 key 输入框和
+   .metadata-input-text 的 hover 底刷成 --background-modifier-form-field-hover——那是
+   跟随全局明暗主题的浅色，落在 Forest 的深色侧边栏上就是一块白斑。这里不比拼选择器
+   权重，直接在侧边栏作用域内把相关变量改成浅色半透明白，hover / focus 态自然贴合深底。 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .metadata-content {
+	--background-modifier-form-field-hover: rgba(255, 255, 255, 0.08);
+	/* 聚焦态（core 默认取 --background-modifier-hover，浅色主题下是半透明黑，深底上几乎没反馈）
+	   一并改为比 hover 更亮一档的半透明白，hover → 聚焦有层次且都贴合深底。 */
+	--metadata-label-background-active: rgba(255, 255, 255, 0.12);
+	--metadata-input-background-active: rgba(255, 255, 255, 0.12);
+}
+
 /* 属性栏输入光标：浅色适配深底 */
 body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value,
 body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .metadata-content .metadata-property-value input,
