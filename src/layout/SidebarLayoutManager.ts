@@ -4,7 +4,7 @@ import { t } from '../core/i18n';
 import { PinManager } from '../tabs/PinManager';
 import { uiDoc } from '../core/appDom';
 
-type WorkspaceSidedock = { collapsed: boolean; expand(): void; children?: unknown[] };
+type WorkspaceSidedock = { collapsed: boolean; expand(): void; collapse(): void; children?: unknown[] };
 
 // 关系图 canvas 允许重绘的最小边长(px)：小于此值一律跳过 renderer.onResize，
 // 避免 PIXI/WebGL 被 resize 到 (近)0 尺寸后再也画不出东西。见 injectLocalGraphIntoOutline。
@@ -124,11 +124,33 @@ export class SidebarLayoutManager {
 		const leftSplit = workspace.leftSplit as unknown as WorkspaceSidedock;
 		const { showProperties, showLocalGraph } = this.getSettings();
 
+		// 快照用户当前的折叠意图。clearLeftSidebar 会清空左栏，Obsidian 随后会
+		// 「异步」把变空的 split 自动折叠——若只在下面某个同步瞬间读一次
+		// leftSplit.collapsed 来决定是否 expand，就会把用户的状态取反：
+		// 本来关着的被强行展开、本来开着的因异步自动折叠而被关掉。
+		// 这里在清空前记住真实状态，重建完成后（finally）按此还原。
+		const wasCollapsed = leftSplit?.collapsed ?? false;
+
 		// 1. Clear the entire left sidebar
 		this.clearLeftSidebar();
 
-		// 2. Expand left sidebar (may have auto-collapsed after clearing)
+		// 2. 重建期间需要展开，才能正确挂载并测量各 leaf 的 DOM。
 		if (leftSplit?.collapsed) leftSplit.expand();
+
+		try {
+			await this.buildLeftSidebar(showProperties, showLocalGraph);
+		} finally {
+			// 3. 按用户原本的意图还原折叠状态（覆盖上面为重建而做的强制展开，
+			//    以及 Obsidian 对空 split 的异步自动折叠）。
+			if (wasCollapsed) leftSplit?.collapse();
+			else if (leftSplit?.collapsed) leftSplit.expand();
+		}
+	}
+
+	// 创建并注入 Outline / Properties / Local Graph 各 leaf。
+	// 折叠状态的快照与还原由调用方 doApply 负责。
+	private async buildLeftSidebar(showProperties: boolean, showLocalGraph: boolean): Promise<void> {
+		const { workspace } = this.app;
 
 		// 3. Outline leaf (always present)
 		const outlineLeaf = workspace.getLeftLeaf(false);
