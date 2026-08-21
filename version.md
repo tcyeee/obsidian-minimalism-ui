@@ -5,6 +5,22 @@
 
 ---
 
+## Version 1.3.21
+
+- Fixed: in Single-Page Mode, closing the tab holding the visible slot could race Obsidian's own auto-selection of a neighboring tab — losing the race jumped to an unrelated tab outside the breadcrumb and corrupted navigation history. Closing a tab now synchronously hands the visible slot to its deterministic successor before calling `detach()`, so Obsidian never gets the chance to pick one itself
+- Changed: on startup, the home note no longer briefly flashes in before Obsidian's own restored note/view is shown — Single-Page Mode now only opens the home note when nothing was actually restored, otherwise it just seeds the breadcrumb trail with it
+- Fixed: in the Forest theme's dark sidebar, hovering or focusing a Properties field could paint a light-theme white patch instead of the intended translucent-white hover state; also added a touch of spacing below the Outline/Properties section headers for clearer separation
+- Fixed: the left sidebar's collapsed/expanded state could invert itself on startup — a closed sidebar was forced open, or an open one ended up closed — because Obsidian asynchronously auto-collapses an emptied split after the sidebar rebuild's synchronous state check ran
+- Internal: patched a high-severity dependency vulnerability (`js-yaml` quadratic CPU consumption in `!!omap` resolution, CVE-2026-59870) in the dev toolchain — dev-only, no effect on the shipped plugin
+
+- 修复：单页模式下关闭占着可视位的标签页时，可能与 Obsidian 自身的相邻标签页自动选择产生竞态——输掉竞态会跳转到面包屑之外的无关标签页，并破坏导航历史。现在关闭标签页会在调用 `detach()` 之前，同步把可视位交接给确定的接替者，Obsidian 不再有机会自行挑选
+- 变更：启动时首页笔记不再在 Obsidian 自身恢复的笔记/视图显示前短暂闪现——单页模式现在只在确实没有恢复任何内容时才打开首页，否则只是把首页写入面包屑轨迹
+- 修复：Forest 主题深色侧边栏中，鼠标悬停或聚焦 Properties 字段时可能出现浅色主题的白色色块，而不是预期的半透明白色悬停效果；同时为 Outline/Properties 分区标题下方增加了少量间距以获得更清晰的视觉分隔
+- 修复：左侧栏的折叠/展开状态在启动时可能自我反转——原本折叠的侧边栏被强制展开，或原本展开的最终变成折叠——原因是侧边栏重建的同步状态检查跑完后，Obsidian 又异步地对被清空的分栏做了自动折叠
+- 内部修复：修复了一处高危依赖漏洞（`js-yaml` 在 `!!omap` 解析中的二次方 CPU 消耗，CVE-2026-59870），仅影响开发工具链，不影响已发布插件
+
+---
+
 ## Version 1.3.19
 
 - Fixed: on Obsidian 1.13+, changing any setting while the Settings window was open applied the change to the *Settings* window instead of the main window — Obsidian now opens Settings as a separate window and repoints the global `activeWindow`/`activeDocument` at it for as long as it stays open, which is exactly when the plugin re-applies its settings. Symptoms: the floating bottom-right button was injected into the Settings window (and vanished from the main window once Settings closed), CSS-driven toggles (hide tab bar, hide the bottom user-settings area, Single-Page Mode appearance) looked like they did nothing until a restart, and DOM-injection features silently failed because workspace nodes couldn't be found. All plugin DOM access now resolves the main window explicitly; the same bug applied when a note popout window had focus
