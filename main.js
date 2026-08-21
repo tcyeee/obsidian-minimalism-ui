@@ -2288,12 +2288,25 @@ var SidebarLayoutManager = class {
     } while (this.rerunRequested);
   }
   async doApply() {
+    var _a;
     this.remove();
     const { workspace } = this.app;
     const leftSplit = workspace.leftSplit;
     const { showProperties, showLocalGraph } = this.getSettings();
+    const wasCollapsed = (_a = leftSplit == null ? void 0 : leftSplit.collapsed) != null ? _a : false;
     this.clearLeftSidebar();
     if (leftSplit == null ? void 0 : leftSplit.collapsed) leftSplit.expand();
+    try {
+      await this.buildLeftSidebar(showProperties, showLocalGraph);
+    } finally {
+      if (wasCollapsed) leftSplit == null ? void 0 : leftSplit.collapse();
+      else if (leftSplit == null ? void 0 : leftSplit.collapsed) leftSplit.expand();
+    }
+  }
+  // 创建并注入 Outline / Properties / Local Graph 各 leaf。
+  // 折叠状态的快照与还原由调用方 doApply 负责。
+  async buildLeftSidebar(showProperties, showLocalGraph) {
+    const { workspace } = this.app;
     const outlineLeaf = workspace.getLeftLeaf(false);
     if (outlineLeaf) {
       await outlineLeaf.setViewState({ type: "outline", active: false });
