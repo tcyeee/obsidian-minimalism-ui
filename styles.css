@@ -1450,6 +1450,10 @@ body.is-mac.minimalism-ui-mac-sidebar .titlebar-button-container.mod-left {
 	transform: rotate(0deg);
 }
 
+.minimalism-ui-collapsible-heading-collapsed + .minimalism-ui-collapsible-content {
+	display: none;
+}
+
 /* ── 新手引导悬浮框 ───────────────────────────────────────────────────── */
 /* 页面右上角常驻卡片，由 OnboardingManager 注入到 body。固定定位、不参与拖拽。 */
 .minimalism-ui-onboarding {
