@@ -50,3 +50,16 @@ export function executeCommandById(app: App, id: string): boolean {
 	const commands = (app as unknown as { commands?: Partial<CommandApi> }).commands;
 	return commands?.executeCommandById?.(id) ?? false;
 }
+
+// Obsidian 内部设置面板形状：打开设置并切到指定插件页签。未出现在官方类型声明中。
+type SettingApi = { open: () => void; openTabById: (id: string) => void };
+
+// 本插件 id（与 manifest.json 一致），用于打开本插件的设置页签。
+const PLUGIN_ID = 'minimalism-ui';
+
+// 打开本插件的设置页。
+export function openPluginSettings(app: App): void {
+	const setting = (app as unknown as { setting?: SettingApi }).setting;
+	setting?.open();
+	setting?.openTabById(PLUGIN_ID);
+}

@@ -1,7 +1,7 @@
 import { App, EventRef, FileSystemAdapter, MarkdownView, Modal, Notice, Plugin, TFile, ToggleComponent, WorkspaceLeaf, normalizePath, setIcon } from 'obsidian';
 import { Feature } from '../core/Feature';
 import { t } from '../core/i18n';
-import { executeCommandById } from '../core/obsidianCommands';
+import { executeCommandById, openPluginSettings } from '../core/obsidianCommands';
 import { uiDoc, uiWin } from '../core/appDom';
 
 // Electron 的 shell 模块：桌面端渲染进程可通过 window.require 拿到（isDesktopOnly 插件），
@@ -209,6 +209,8 @@ export class StatusBarMenuManager implements Feature {
 		this.renderFileRows(this.popoverEl, file);
 		this.popoverEl.createDiv({ cls: 'minimalism-ui-status-popover-divider' });
 		this.renderSidebarRows(this.popoverEl);
+		this.popoverEl.createDiv({ cls: 'minimalism-ui-status-popover-divider' });
+		this.renderPluginSettingsRow(this.popoverEl);
 	}
 
 	// ─── 笔记三态切换（分段控件） ───────────────────────────────────────────
@@ -389,6 +391,17 @@ export class StatusBarMenuManager implements Feature {
 				if (this.syncingToggles) return;
 				this.rightSidebar.togglePanel();
 			});
+	}
+
+	// ─── 插件设置入口 ───────────────────────────────────────────────────────
+
+	private renderPluginSettingsRow(container: HTMLElement): void {
+		this.createActionRow(container, {
+			icon: 'settings',
+			label: t('statusBarMenuPluginSettings'),
+			disabled: false,
+			onClick: () => { openPluginSettings(this.app); this.close(); },
+		});
 	}
 }
 

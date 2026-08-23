@@ -2,7 +2,7 @@ import { App, Hotkey, Modifier, Platform, TFile, normalizePath } from 'obsidian'
 import { MinimalismUISettings } from '../core/settings';
 import { Feature } from '../core/Feature';
 import { t } from '../core/i18n';
-import { patchExecuteCommand } from '../core/obsidianCommands';
+import { patchExecuteCommand, openPluginSettings } from '../core/obsidianCommands';
 import { uiDoc } from '../core/appDom';
 
 const PANEL_CLASS = 'minimalism-ui-onboarding';
@@ -13,9 +13,6 @@ const EXIT_DURATION = 320;
 
 // 任务三态：已完成 / 进行中 / 未开始。
 type TaskStatus = 'done' | 'doing' | 'todo';
-
-// 本插件 id（与 manifest.json 一致），用于打开本插件的设置页签。
-const PLUGIN_ID = 'minimalism-ui';
 
 // 单条新手任务。两类完成方式：
 //   - 状态型：提供 isSatisfied 谓词，在 refresh() 中被动判定（如「设置主页」）。
@@ -56,15 +53,9 @@ const TASKS: TaskDef[] = [
 	{ label: 'onboardingGoForward', commandId: 'app:go-forward' },
 ];
 
-// Obsidian 内部设置面板形状：打开设置并切到指定插件页签；close 用于可逆拦截（见 apply()）。
+// Obsidian 内部设置面板形状：close 用于可逆拦截（见 apply()）；open/openTabById 见
+// core/obsidianCommands.ts 的 openPluginSettings（两处共用同一份未文档化 API 形状假设）。
 type SettingApi = { open: () => void; openTabById: (id: string) => void; close: () => void };
-
-// 打开本插件的设置页（设置 Index 为主页处）。
-function openPluginSettings(app: App) {
-	const setting = (app as unknown as { setting?: SettingApi }).setting;
-	setting?.open();
-	setting?.openTabById(PLUGIN_ID);
-}
 
 // Obsidian 内部热键管理器形状（自定义优先，否则取默认）。
 type HotkeyManager = {

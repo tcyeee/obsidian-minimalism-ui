@@ -244,6 +244,7 @@ var translations = {
     statusBarMenuOpenDefaultApp: "\u4F7F\u7528\u9ED8\u8BA4\u8F6F\u4EF6\u6253\u5F00",
     statusBarMenuToggleLeftSidebar: "\u5DE6\u4FA7\u8FB9\u680F",
     statusBarMenuToggleRightSidebar: "\u53F3\u4FA7\u8FB9\u680F",
+    statusBarMenuPluginSettings: "\u63D2\u4EF6\u8BBE\u7F6E",
     renameModalTitle: "\u91CD\u547D\u540D\u7B14\u8BB0",
     renameModalPlaceholder: "\u8F93\u5165\u65B0\u6587\u4EF6\u540D",
     renameModalConfirm: "\u91CD\u547D\u540D",
@@ -321,6 +322,7 @@ var translations = {
     statusBarMenuOpenDefaultApp: "Open with default app",
     statusBarMenuToggleLeftSidebar: "Left sidebar",
     statusBarMenuToggleRightSidebar: "Right sidebar",
+    statusBarMenuPluginSettings: "Plugin settings",
     renameModalTitle: "Rename note",
     renameModalPlaceholder: "Enter new filename",
     renameModalConfirm: "Rename",
@@ -2908,6 +2910,12 @@ function executeCommandById(app, id) {
   const commands = app.commands;
   return (_b = (_a = commands == null ? void 0 : commands.executeCommandById) == null ? void 0 : _a.call(commands, id)) != null ? _b : false;
 }
+var PLUGIN_ID = "minimalism-ui";
+function openPluginSettings(app) {
+  const setting = app.setting;
+  setting == null ? void 0 : setting.open();
+  setting == null ? void 0 : setting.openTabById(PLUGIN_ID);
+}
 
 // src/layout/StatusBarMenuManager.ts
 var TRIGGER_ICON = "ellipsis-vertical";
@@ -3051,6 +3059,8 @@ var StatusBarMenuManager = class {
     this.renderFileRows(this.popoverEl, file);
     this.popoverEl.createDiv({ cls: "minimalism-ui-status-popover-divider" });
     this.renderSidebarRows(this.popoverEl);
+    this.popoverEl.createDiv({ cls: "minimalism-ui-status-popover-divider" });
+    this.renderPluginSettingsRow(this.popoverEl);
   }
   // ─── 笔记三态切换（分段控件） ───────────────────────────────────────────
   // mode:'source' 时 source 理应是显式 boolean，但留一道兜底：Obsidian 默认即 Live Preview，
@@ -3212,6 +3222,18 @@ var StatusBarMenuManager = class {
     rightRow.createSpan({ cls: "minimalism-ui-status-popover-row-label", text: t("statusBarMenuToggleRightSidebar") });
     const rightToggleEl = rightRow.createDiv();
     this.rightSidebarToggle = new import_obsidian8.ToggleComponent(rightToggleEl).setValue(this.rightSidebar.isPanelOpen()).onChange(() => this.rightSidebar.togglePanel());
+  }
+  // ─── 插件设置入口 ───────────────────────────────────────────────────────
+  renderPluginSettingsRow(container) {
+    this.createActionRow(container, {
+      icon: "settings",
+      label: t("statusBarMenuPluginSettings"),
+      disabled: false,
+      onClick: () => {
+        openPluginSettings(this.app);
+        this.close();
+      }
+    });
   }
 };
 function createModalButtonRow(contentEl, opts) {
@@ -4405,7 +4427,6 @@ var import_obsidian11 = require("obsidian");
 var PANEL_CLASS2 = "minimalism-ui-onboarding";
 var ALL_DONE_HIDE_DELAY = 2500;
 var EXIT_DURATION = 320;
-var PLUGIN_ID = "minimalism-ui";
 function hasIndexNote(app) {
   return app.vault.getMarkdownFiles().some((f) => f.basename.trim().toLowerCase() === "index");
 }
@@ -4424,11 +4445,6 @@ var TASKS = [
   { label: "onboardingGoBack", commandId: "app:go-back" },
   { label: "onboardingGoForward", commandId: "app:go-forward" }
 ];
-function openPluginSettings(app) {
-  const setting = app.setting;
-  setting == null ? void 0 : setting.open();
-  setting == null ? void 0 : setting.openTabById(PLUGIN_ID);
-}
 var MOD_SYMBOLS = import_obsidian11.Platform.isMacOS ? { Mod: "\u2318", Ctrl: "\u2303", Meta: "\u2318", Alt: "\u2325", Shift: "\u21E7" } : { Mod: "Ctrl", Ctrl: "Ctrl", Meta: "Win", Alt: "Alt", Shift: "Shift" };
 var MOD_ORDER = ["Ctrl", "Alt", "Shift", "Meta", "Mod"];
 var KEY_LABELS = {
