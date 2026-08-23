@@ -45,6 +45,9 @@ export class StatusBarMenuManager implements Feature {
 	// 面板开着时才需要保活的左右侧边栏开关引用，用于状态变化回调里原地刷新（见 refreshSidebarToggles）。
 	private leftSidebarToggle: ToggleComponent | null = null;
 	private rightSidebarToggle: ToggleComponent | null = null;
+	// ToggleComponent.setValue() 会触发 onChange，程序化同步开关显示值时用此标记屏蔽回调，
+	// 否则 refreshSidebarToggles → setValue → onChange → togglePanel → 状态变化 → refreshSidebarToggles 无限递归。
+	private syncingToggles = false;
 	private resizeEventRef: EventRef | null = null;
 	private unsubscribeRightSidebar: (() => void) | null = null;
 
@@ -104,14 +107,19 @@ export class StatusBarMenuManager implements Feature {
 		}
 	}
 
-	// 面板开着时，把左右两个开关的显示值刷新为当前真实状态。只调 setValue（不触发 onChange，
-	// 不会导致 collapse()/expand() 被重复调用形成回路），也不走 renderContent() 整体重建，
-	// 避免打断用户正在操作的笔记三态分段控件。
+	// 面板开着时，把左右两个开关的显示值刷新为当前真实状态。setValue() 会触发 onChange，
+	// 故用 syncingToggles 屏蔽回调（避免 collapse()/expand()/togglePanel() 被反向调用形成回路），
+	// 也不走 renderContent() 整体重建，避免打断用户正在操作的笔记三态分段控件。
 	private refreshSidebarToggles(): void {
 		if (!this.popoverEl) return;
 		const leftSplit = this.app.workspace.leftSplit ?? null;
-		this.leftSidebarToggle?.setValue(leftSplit ? !leftSplit.collapsed : false);
-		this.rightSidebarToggle?.setValue(this.rightSidebar.isPanelOpen());
+		this.syncingToggles = true;
+		try {
+			this.leftSidebarToggle?.setValue(leftSplit ? !leftSplit.collapsed : false);
+			this.rightSidebarToggle?.setValue(this.rightSidebar.isPanelOpen());
+		} finally {
+			this.syncingToggles = false;
+		}
 	}
 
 	private toggle(): void {
@@ -366,7 +374,7 @@ export class StatusBarMenuManager implements Feature {
 			.setValue(leftSplit ? !leftSplit.collapsed : false)
 			.setDisabled(!leftSplit)
 			.onChange((value) => {
-				if (!leftSplit) return;
+				if (this.syncingToggles || !leftSplit) return;
 				if (value) leftSplit.expand(); else leftSplit.collapse();
 			});
 
@@ -377,7 +385,10 @@ export class StatusBarMenuManager implements Feature {
 		const rightToggleEl = rightRow.createDiv();
 		this.rightSidebarToggle = new ToggleComponent(rightToggleEl)
 			.setValue(this.rightSidebar.isPanelOpen())
-			.onChange(() => this.rightSidebar.togglePanel());
+			.onChange(() => {
+				if (this.syncingToggles) return;
+				this.rightSidebar.togglePanel();
+			});
 	}
 }
 
