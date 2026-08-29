@@ -5,6 +5,18 @@
 
 ---
 
+## Version 1.3.22
+
+- Added: the status bar menu gained a "Plugin settings" entry for quick access to the plugin's configuration
+- Fixed: the status bar menu's left/right sidebar toggles could enter an infinite recursion loop when their displayed state was refreshed programmatically — flipping a toggle triggered its `onChange`, which fired the sidebar collapse/expand, which triggered another refresh, and so on
+- Fixed: in the plugin's settings tab, collapsing a section heading left its content still visible below it instead of hiding it
+
+- 新增：状态栏菜单新增"插件设置"入口，可快速打开插件配置
+- 修复：状态栏菜单中左右侧栏开关在程序化刷新显示状态时可能陷入无限递归——切换开关触发其 `onChange`，进而触发侧边栏折叠/展开，又触发一次刷新，如此循环
+- 修复：插件设置页中折叠某个分区标题后，其下方内容仍然可见，未被一并隐藏
+
+---
+
 ## Version 1.3.21
 
 - Fixed: in Single-Page Mode, closing the tab holding the visible slot could race Obsidian's own auto-selection of a neighboring tab — losing the race jumped to an unrelated tab outside the breadcrumb and corrupted navigation history. Closing a tab now synchronously hands the visible slot to its deterministic successor before calling `detach()`, so Obsidian never gets the chance to pick one itself
