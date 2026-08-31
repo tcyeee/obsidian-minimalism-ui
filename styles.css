@@ -974,6 +974,49 @@ body.minimalism-ui-mac-sidebar .workspace-tab-header-tab-list {
 	border-color: var(--interactive-accent);
 }
 
+/* 「在主区打开」按钮：与 pin 同构（探出面板右上角、悬浮面板顶部区域时显现），
+   紧挨在 pin 左侧。没有常驻/激活态；面板空态时加 -hidden 整个移除。 */
+.minimalism-ui-rsb-expand {
+	position: absolute;
+	top: -14px;
+	right: 20px;
+	z-index: 1;
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--background-secondary);
+	color: var(--text-muted);
+	border: 1px solid var(--background-modifier-border);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+	cursor: pointer;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.15s ease, transform 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+	-webkit-app-region: no-drag;
+}
+
+.minimalism-ui-rsb-expand svg {
+	width: 14px;
+	height: 14px;
+}
+
+.minimalism-ui-rsb-expand:hover {
+	color: var(--text-normal);
+	transform: scale(1.08);
+}
+
+.minimalism-ui-rsb-panel-open .minimalism-ui-rsb-expand.minimalism-ui-rsb-expand-hint {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.minimalism-ui-rsb-expand.minimalism-ui-rsb-expand-hidden {
+	display: none;
+}
+
 /* 收起态：整叠图标退到按钮下方，透明且不可交互（被按钮完全遮挡）；展开态整体
    向左滑出显示，供选择。显隐节奏由 RightSidebarButtonManager 的定时器/悬浮逻辑
    驱动，不再是逐个图标叠放——见该文件类注释。 */

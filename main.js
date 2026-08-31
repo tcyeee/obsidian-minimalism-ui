@@ -201,6 +201,7 @@ var translations = {
     rightSidebarPanelEmpty: "\u53F3\u4FA7\u8FB9\u680F\u6682\u65E0\u5185\u5BB9",
     rightSidebarPanelPin: "\u56FA\u5B9A\u9762\u677F\uFF08\u5931\u7126/Esc \u4E0D\u518D\u5173\u95ED\uFF09",
     rightSidebarPanelUnpin: "\u53D6\u6D88\u56FA\u5B9A",
+    rightSidebarPanelExpand: "\u5728\u4E3B\u533A\u6253\u5F00",
     rightSidebarStowExpand: "\u5C55\u5F00\u5DF2\u6536\u7EB3\u7684\u89C6\u56FE",
     rightSidebarStowCollapse: "\u6536\u8D77\u89C6\u56FE\u5217\u8868",
     theme: "\u4E3B\u9898",
@@ -279,6 +280,7 @@ var translations = {
     rightSidebarPanelEmpty: "Nothing in the right sidebar yet",
     rightSidebarPanelPin: "Pin panel (stays open on blur/Esc)",
     rightSidebarPanelUnpin: "Unpin",
+    rightSidebarPanelExpand: "Open in main area",
     rightSidebarStowExpand: "Show stowed views",
     rightSidebarStowCollapse: "Collapse view list",
     theme: "Theme",
@@ -3518,6 +3520,19 @@ var RightSidebarViewStack = class {
   getMountedLeaf() {
     return this.mountedLeaf;
   }
+  // 把当前挂载的视图在主编辑区新开一个真实标签页。右侧栏原 leaf 不动——用 getViewState()
+  // 克隆一份状态到新 leaf（等于复制，而非搬迁），故堆叠里的图标依旧在。先 restoreMounted()
+  // 把被搬进面板的 containerEl 还回隐藏的右侧栏，避免后续 setViewState 触发的重渲染误伤它。
+  async openMountedInMainArea() {
+    const leaf = this.mountedLeaf;
+    if (!leaf) return false;
+    const state = leaf.getViewState();
+    this.restoreMounted();
+    const mainLeaf = this.app.workspace.getLeaf("tab");
+    await mainLeaf.setViewState({ ...state, active: true });
+    this.app.workspace.setActiveLeaf(mainLeaf, { focus: true });
+    return true;
+  }
   hasProbed() {
     return this.hasProbedAllViewTypes;
   }
@@ -4044,6 +4059,10 @@ var SURFACE_CLASS = "minimalism-ui-rsb-surface";
 var PIN_CLASS = "minimalism-ui-rsb-pin";
 var PIN_HINT_CLASS = "minimalism-ui-rsb-pin-hint";
 var PIN_ACTIVE_CLASS = "minimalism-ui-rsb-pin-active";
+var EXPAND_CLASS = "minimalism-ui-rsb-expand";
+var EXPAND_HINT_CLASS = "minimalism-ui-rsb-expand-hint";
+var EXPAND_HIDDEN_CLASS = "minimalism-ui-rsb-expand-hidden";
+var EXPAND_ICON = "arrow-up-right";
 var RESIZE_HANDLE_CLASS = "minimalism-ui-rsb-resize-handle";
 var RESIZING_BODY_CLASS = "minimalism-ui-rsb-resizing";
 var STACK_CLASS = "minimalism-ui-rsb-stack";
@@ -4075,6 +4094,7 @@ var RightSidebarButtonManager = class {
     this.contentEl = null;
     this.resizeHandleEl = null;
     this.pinEl = null;
+    this.expandEl = null;
     this.outsideClickHandler = null;
     this.pointerDownHandler = null;
     // pointerdown（capture 阶段，先于 click）时记录的"按下点是否在面板/launcher 内"——
@@ -4129,15 +4149,18 @@ var RightSidebarButtonManager = class {
     // 鼠标距面板顶边 PIN_HOVER_ZONE_PX 以内时探出 pin 按钮；已 pin 住的话本就常驻显示
     // （由 PIN_ACTIVE_CLASS 控制），这里只管未 pin 时的悬浮提示态。
     this.onPanelMouseMove = (e) => {
-      var _a;
-      if (!this.panelEl || this.isPinned) return;
+      var _a, _b;
+      if (!this.panelEl) return;
       const rect = this.panelEl.getBoundingClientRect();
       const nearTop = e.clientY - rect.top <= PIN_HOVER_ZONE_PX;
-      (_a = this.pinEl) == null ? void 0 : _a.toggleClass(PIN_HINT_CLASS, nearTop);
+      if (!this.isPinned) (_a = this.pinEl) == null ? void 0 : _a.toggleClass(PIN_HINT_CLASS, nearTop);
+      this.syncExpandVisibility();
+      (_b = this.expandEl) == null ? void 0 : _b.toggleClass(EXPAND_HINT_CLASS, nearTop);
     };
     this.onPanelMouseLeave = () => {
-      var _a;
+      var _a, _b;
       (_a = this.pinEl) == null ? void 0 : _a.removeClass(PIN_HINT_CLASS);
+      (_b = this.expandEl) == null ? void 0 : _b.removeClass(EXPAND_HINT_CLASS);
     };
     // ─── 拖拽调整面板尺寸 ───────────────────────────────────────────────────
     this.onResizePointerDown = (e) => {
@@ -4217,6 +4240,17 @@ var RightSidebarButtonManager = class {
     this.pinEl.addEventListener("click", (e) => {
       e.stopPropagation();
       this.togglePinned();
+    });
+    this.expandEl = this.panelEl.createDiv({
+      cls: EXPAND_CLASS,
+      attr: { "aria-label": t("rightSidebarPanelExpand") }
+    });
+    (0, import_obsidian10.setIcon)(this.expandEl, EXPAND_ICON);
+    this.expandEl.addEventListener("click", (e) => {
+      e.stopPropagation();
+      void this.viewStack.openMountedInMainArea().then((ok) => {
+        if (ok) this.close();
+      });
     });
     this.panelEl.addEventListener("mousemove", this.onPanelMouseMove);
     this.panelEl.addEventListener("mouseleave", this.onPanelMouseLeave);
@@ -4358,6 +4392,11 @@ var RightSidebarButtonManager = class {
       this.autoCollapseTimer = null;
     }
   }
+  // 面板里没有挂载任何视图（空态）时把「在主区打开」按钮整个藏掉——没有东西可搬。
+  syncExpandVisibility() {
+    var _a;
+    (_a = this.expandEl) == null ? void 0 : _a.toggleClass(EXPAND_HIDDEN_CLASS, this.viewStack.getMountedLeaf() == null);
+  }
   togglePinned() {
     var _a, _b;
     this.isPinned = !this.isPinned;
@@ -4427,6 +4466,7 @@ var RightSidebarButtonManager = class {
     this.panelEl = null;
     this.surfaceEl = null;
     this.pinEl = null;
+    this.expandEl = null;
     this.isOpen = false;
     this.stackExpanded = false;
     this.isPinned = false;
