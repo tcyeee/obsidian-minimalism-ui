@@ -17,6 +17,10 @@ const SURFACE_CLASS = 'minimalism-ui-rsb-surface';
 const PIN_CLASS = 'minimalism-ui-rsb-pin';
 const PIN_HINT_CLASS = 'minimalism-ui-rsb-pin-hint';
 const PIN_ACTIVE_CLASS = 'minimalism-ui-rsb-pin-active';
+const EXPAND_CLASS = 'minimalism-ui-rsb-expand';
+const EXPAND_HINT_CLASS = 'minimalism-ui-rsb-expand-hint';
+const EXPAND_HIDDEN_CLASS = 'minimalism-ui-rsb-expand-hidden';
+const EXPAND_ICON = 'arrow-up-right';
 const RESIZE_HANDLE_CLASS = 'minimalism-ui-rsb-resize-handle';
 const RESIZING_BODY_CLASS = 'minimalism-ui-rsb-resizing';
 const STACK_CLASS = 'minimalism-ui-rsb-stack';
@@ -94,6 +98,7 @@ export class RightSidebarButtonManager implements Feature {
 	private contentEl: HTMLElement | null = null;
 	private resizeHandleEl: HTMLElement | null = null;
 	private pinEl: HTMLElement | null = null;
+	private expandEl: HTMLElement | null = null;
 	private outsideClickHandler: ((e: MouseEvent) => void) | null = null;
 	private pointerDownHandler: ((e: PointerEvent) => void) | null = null;
 	// pointerdown（capture 阶段，先于 click）时记录的"按下点是否在面板/launcher 内"——
@@ -188,6 +193,22 @@ export class RightSidebarButtonManager implements Feature {
 			e.stopPropagation();
 			this.togglePinned();
 		});
+
+		// 「在主区打开」按钮：把面板当前展示的视图克隆成主编辑区的一个真实标签页（右侧栏
+		// 原 leaf 不动，见 RightSidebarViewStack.openMountedInMainArea）。与 pin 一样挂在
+		// panelEl 上探出右上角、靠 onPanelMouseMove 的顶部悬浮判定显现；面板为空时无视图
+		// 可搬，加 EXPAND_HIDDEN_CLASS 整个藏掉（可见性在 showLeaf/showEmpty 之后由
+		// syncExpandVisibility 刷新）。
+		this.expandEl = this.panelEl.createDiv({
+			cls: EXPAND_CLASS,
+			attr: { 'aria-label': t('rightSidebarPanelExpand') },
+		});
+		setIcon(this.expandEl, EXPAND_ICON);
+		this.expandEl.addEventListener('click', (e) => {
+			e.stopPropagation();
+			void this.viewStack.openMountedInMainArea().then((ok) => { if (ok) this.close(); });
+		});
+
 		this.panelEl.addEventListener('mousemove', this.onPanelMouseMove);
 		this.panelEl.addEventListener('mouseleave', this.onPanelMouseLeave);
 
@@ -404,15 +425,23 @@ export class RightSidebarButtonManager implements Feature {
 	// 鼠标距面板顶边 PIN_HOVER_ZONE_PX 以内时探出 pin 按钮；已 pin 住的话本就常驻显示
 	// （由 PIN_ACTIVE_CLASS 控制），这里只管未 pin 时的悬浮提示态。
 	private onPanelMouseMove = (e: MouseEvent) => {
-		if (!this.panelEl || this.isPinned) return;
+		if (!this.panelEl) return;
 		const rect = this.panelEl.getBoundingClientRect();
 		const nearTop = e.clientY - rect.top <= PIN_HOVER_ZONE_PX;
-		this.pinEl?.toggleClass(PIN_HINT_CLASS, nearTop);
+		if (!this.isPinned) this.pinEl?.toggleClass(PIN_HINT_CLASS, nearTop);
+		this.syncExpandVisibility();
+		this.expandEl?.toggleClass(EXPAND_HINT_CLASS, nearTop);
 	};
 
 	private onPanelMouseLeave = () => {
 		this.pinEl?.removeClass(PIN_HINT_CLASS);
+		this.expandEl?.removeClass(EXPAND_HINT_CLASS);
 	};
+
+	// 面板里没有挂载任何视图（空态）时把「在主区打开」按钮整个藏掉——没有东西可搬。
+	private syncExpandVisibility() {
+		this.expandEl?.toggleClass(EXPAND_HIDDEN_CLASS, this.viewStack.getMountedLeaf() == null);
+	}
 
 	private togglePinned() {
 		this.isPinned = !this.isPinned;
@@ -525,6 +554,7 @@ export class RightSidebarButtonManager implements Feature {
 		this.panelEl = null;
 		this.surfaceEl = null;
 		this.pinEl = null;
+		this.expandEl = null;
 		this.isOpen = false;
 		this.stackExpanded = false;
 		this.isPinned = false;

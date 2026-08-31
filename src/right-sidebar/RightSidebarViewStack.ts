@@ -138,6 +138,20 @@ export class RightSidebarViewStack {
 		return this.mountedLeaf;
 	}
 
+	// 把当前挂载的视图在主编辑区新开一个真实标签页。右侧栏原 leaf 不动——用 getViewState()
+	// 克隆一份状态到新 leaf（等于复制，而非搬迁），故堆叠里的图标依旧在。先 restoreMounted()
+	// 把被搬进面板的 containerEl 还回隐藏的右侧栏，避免后续 setViewState 触发的重渲染误伤它。
+	async openMountedInMainArea(): Promise<boolean> {
+		const leaf = this.mountedLeaf;
+		if (!leaf) return false;
+		const state = leaf.getViewState();
+		this.restoreMounted();
+		const mainLeaf = this.app.workspace.getLeaf('tab');
+		await mainLeaf.setViewState({ ...state, active: true });
+		this.app.workspace.setActiveLeaf(mainLeaf, { focus: true });
+		return true;
+	}
+
 	hasProbed(): boolean {
 		return this.hasProbedAllViewTypes;
 	}
