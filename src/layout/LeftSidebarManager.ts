@@ -244,21 +244,24 @@ export class LeftSidebarManager {
 			this.lastDesiredKey = desiredKey;
 		}
 
-		// 0 个 slot：左侧栏应完全空白。摘掉所有工具面板（含 Obsidian 默认的文件浏览器 / 搜索 /
-		// 书签）；若没有文档类 leaf 兜底，则保留最后 1 个工具 leaf —— leftSplit 子节点归零会连
-		// sidedock 一起被摘掉 —— 然后收起侧栏。
+		// 0 个 slot：左侧栏应完全空白。摘掉左侧栏里的所有工具面板（含 Obsidian 默认的文件浏览器 /
+		// 搜索 / 书签），让原生「侧栏为空」提示显出来（文案 + 图标改写见 applyEmptyStateHint）。
+		// detachLeaf 走的是 leaf.detach()（= 关标签页的原生路径），空 sidedock 是 Obsidian 支持的
+		// 状态；文档类 leaf（极少数情况下被拖进左侧栏）保留不动。
+		//
+		// 不主动收起侧栏：用户在设置里清空面板列表后，侧栏应保持清空前的开合状态。此前会无条件
+		// collapse()，导致「清空面板 = 侧栏自动关闭」，用户反馈不符预期。摘掉最后一个 leaf 后
+		// Obsidian 会在随后几百毫秒内异步把空 sidedock 收起，故清空前是展开态时要多次补发
+		// expand() 压过它（sync + rAF 太早，实测无效）。
 		if (desired.length === 0) {
 			this.slotLeaves.clear();
-			const leaves = this.leftLeaves();
-			const hasDoc = leaves.some(l => DOCUMENT_VIEW_TYPES.has(this.viewTypeOf(l)));
-			const tools = leaves.filter(l => !DOCUMENT_VIEW_TYPES.has(this.viewTypeOf(l)));
-			const keepAlive = hasDoc ? undefined : tools[tools.length - 1];
-			for (const leaf of tools) {
-				if (leaf !== keepAlive) this.detachLeaf(leaf);
+			const wasCollapsed = ls.collapsed;
+			for (const leaf of this.leftLeaves()) {
+				if (!DOCUMENT_VIEW_TYPES.has(this.viewTypeOf(leaf))) this.detachLeaf(leaf);
 			}
-			if (!ls.collapsed) ls.collapse();
 			// 原生「侧栏为空」提示：换成引导去设置配置面板的文案 + 图标（居中排版见 styles.css）。
 			this.applyEmptyStateHint(ls);
+			this.persistCollapsedState(ls, wasCollapsed);
 			return;
 		}
 
@@ -376,6 +379,17 @@ export class LeftSidebarManager {
 		window.requestAnimationFrame(sync);
 	}
 
+	// enforceCollapsed 的加强版：清空所有 slot 后 Obsidian 会在随后几百毫秒内异步收起空 sidedock，
+	// 单次 sync + rAF 压不住。这里在 ~0.5s 内多次补发目标状态，直到 Obsidian 那次自动收起过去。
+	private persistCollapsedState(ls: SidedockLike, collapsed: boolean): void {
+		const sync = () => {
+			if (collapsed && !ls.collapsed) ls.collapse();
+			else if (!collapsed && ls.collapsed) ls.expand();
+		};
+		sync();
+		for (const delay of [0, 60, 150, 300, 500]) window.setTimeout(sync, delay);
+	}
+
 	// ── workspace-item 树辅助 ─────────────────────────────────────────────────
 
 	// leftSplit 里承载指定 viewType 的直接子节点（通常是 WorkspaceTabs，也可能是裸 leaf）。
@@ -455,9 +469,13 @@ export class LeftSidebarManager {
 	// styles.css 里的 .minimalism-ui-sidebar-empty-hint 规则。原生 <p class="u-muted"> 保留
 	// 在 DOM 里（用 CSS 隐藏），卸载时移除我们加的节点即可无痕还原。
 
-	private applyEmptyStateHint(ls: SidedockLike): void {
+	private applyEmptyStateHint(ls: SidedockLike, retries = 3): void {
 		const host = ls.emptyStateEl;
-		if (!host) return;
+		if (!host) {
+			// Obsidian 在最后一个 leaf 摘掉后才异步建出 emptyStateEl —— 下一帧再试几次。
+			if (retries > 0) window.requestAnimationFrame(() => this.applyEmptyStateHint(ls, retries - 1));
+			return;
+		}
 		host.classList.add(EMPTY_HINT_CLASS);
 		this.hintedEmptyStateEl = host;
 

@@ -2498,15 +2498,12 @@ var LeftSidebarManager = class {
     }
     if (desired.length === 0) {
       this.slotLeaves.clear();
-      const leaves = this.leftLeaves();
-      const hasDoc = leaves.some((l) => DOCUMENT_VIEW_TYPES.has(this.viewTypeOf(l)));
-      const tools = leaves.filter((l) => !DOCUMENT_VIEW_TYPES.has(this.viewTypeOf(l)));
-      const keepAlive = hasDoc ? void 0 : tools[tools.length - 1];
-      for (const leaf of tools) {
-        if (leaf !== keepAlive) this.detachLeaf(leaf);
+      const wasCollapsed2 = ls.collapsed;
+      for (const leaf of this.leftLeaves()) {
+        if (!DOCUMENT_VIEW_TYPES.has(this.viewTypeOf(leaf))) this.detachLeaf(leaf);
       }
-      if (!ls.collapsed) ls.collapse();
       this.applyEmptyStateHint(ls);
+      this.persistCollapsedState(ls, wasCollapsed2);
       return;
     }
     this.restoreEmptyStateHint();
@@ -2586,6 +2583,16 @@ var LeftSidebarManager = class {
     sync();
     window.requestAnimationFrame(sync);
   }
+  // enforceCollapsed 的加强版：清空所有 slot 后 Obsidian 会在随后几百毫秒内异步收起空 sidedock，
+  // 单次 sync + rAF 压不住。这里在 ~0.5s 内多次补发目标状态，直到 Obsidian 那次自动收起过去。
+  persistCollapsedState(ls, collapsed) {
+    const sync = () => {
+      if (collapsed && !ls.collapsed) ls.collapse();
+      else if (!collapsed && ls.collapsed) ls.expand();
+    };
+    sync();
+    for (const delay of [0, 60, 150, 300, 500]) window.setTimeout(sync, delay);
+  }
   // ── workspace-item 树辅助 ─────────────────────────────────────────────────
   // leftSplit 里承载指定 viewType 的直接子节点（通常是 WorkspaceTabs，也可能是裸 leaf）。
   findSlotGroup(ls, viewType) {
@@ -2654,10 +2661,13 @@ var LeftSidebarManager = class {
   // 0 面板时把它替换成「去设置里配置侧栏面板」的引导文案，并加一个图标；居中排版交给
   // styles.css 里的 .minimalism-ui-sidebar-empty-hint 规则。原生 <p class="u-muted"> 保留
   // 在 DOM 里（用 CSS 隐藏），卸载时移除我们加的节点即可无痕还原。
-  applyEmptyStateHint(ls) {
+  applyEmptyStateHint(ls, retries = 3) {
     var _a;
     const host = ls.emptyStateEl;
-    if (!host) return;
+    if (!host) {
+      if (retries > 0) window.requestAnimationFrame(() => this.applyEmptyStateHint(ls, retries - 1));
+      return;
+    }
     host.classList.add(EMPTY_HINT_CLASS);
     this.hintedEmptyStateEl = host;
     if (!host.querySelector(`:scope > .${EMPTY_HINT_ICON_CLASS}`)) {
