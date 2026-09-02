@@ -12,7 +12,7 @@ const translations = {
 		introDesc2: '请指定一篇笔记作为首页。它如同一棵树的主干,你在其上用双链不断新建笔记,让知识开枝散叶,最终长成参天大树。',
 
 		headingGeneral: '通用设置',
-		headingAppearance: '左侧边栏设置',
+		headingAppearance: '左侧边栏样式',
 		headingInteraction: '交互设置',
 		headingAnimation: '动画设置 (beta)',
 		headingAdvanced: '高级设置',
@@ -25,7 +25,7 @@ const translations = {
 		leftSidebarPanelsDesc: '选择要显示在左侧栏的面板，最多 4 个，可拖拽排序。默认空白。',
 		leftSidebarPanelsEmpty: '左侧栏当前为空白。点击「添加面板」选择要显示的内容。',
 		leftSidebarPanelsFull: '已达到 4 个面板上限。',
-		sidebarEmptyHint: '左侧栏还没有面板。前往「设置 → 左侧边栏设置」添加大纲、属性、本地关系图等面板。',
+		sidebarEmptyHint: '左侧栏还没有面板。前往「设置 → 左侧边栏样式」添加大纲、属性、本地关系图等面板。',
 		addPanel: '添加面板',
 		removePanel: '移除面板',
 		dragToReorder: '拖拽排序',
