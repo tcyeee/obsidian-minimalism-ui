@@ -76,6 +76,22 @@ export class LeftSidebarManager {
 	// 已被我们改写文案 / 加图标的原生「侧栏为空」提示容器，restore 时还原。
 	private hintedEmptyStateEl: HTMLElement | null = null;
 
+	// 持续守卫：apply() 只在启动 / 设置变更时跑一次，中间任何往 leftSplit 里冒出来的 leaf
+	// （Obsidian 恢复 workspace.json、ribbon 点击、其他插件、用户拖拽）都会滞留成「多出来的 Tab」。
+	// 订阅 layout-change，每次只做一次廉价的 hasDrift() 判定，发现漂移才触发一次完整 reconcile。
+	// 思路同 SingleTabGroupGuard / PinManager 的侧栏 layout-change 兜底。
+	private layoutChangeHandler: (() => void) | null = null;
+
+	// reconcile 自身的 detach / 建 leaf / setViewState 都会再次触发 layout-change；期间置位，
+	// 避免守卫把我们自己的中间态误判成漂移而重入。runApplyLoop 全程持有。
+	private isReconciling = false;
+
+	// 建不出来的 slot viewType（插件已卸载 / 该 view 无文件上下文 setViewState 必抛）。记下后
+	// 本轮配置内不再反复重试 —— 否则 hasDrift 永远为真，layout-change 守卫会无限重入。
+	// slot 列表一变（用户可能重装了插件）即清空重试，signature 存在 lastDesiredKey。
+	private unsatisfiableTypes = new Set<string>();
+	private lastDesiredKey = '';
+
 	constructor(
 		private app: App,
 		private getSettings: () => MinimalismUISettings,
@@ -86,6 +102,7 @@ export class LeftSidebarManager {
 	// ── Public ────────────────────────────────────────────────────────────────
 
 	async apply(opts?: { revealNewPanels?: boolean }): Promise<void> {
+		this.ensureLayoutGuard();
 		if (opts?.revealNewPanels) this.revealNewPanels = true;
 		if (this.applyRun) {
 			this.rerunRequested = true;
@@ -100,6 +117,7 @@ export class LeftSidebarManager {
 	}
 
 	private async runApplyLoop(): Promise<void> {
+		this.isReconciling = true;
 		try {
 			do {
 				this.rerunRequested = false;
@@ -107,14 +125,59 @@ export class LeftSidebarManager {
 			} while (this.rerunRequested);
 		} finally {
 			this.revealNewPanels = false;
+			this.isReconciling = false;
 		}
 	}
 
-	/** 卸载：还原 testCSS patch + 原生空侧栏提示。split 结构本身保留（多 stacked leaf 是 Obsidian 可接受状态）。 */
+	/** 卸载：解绑 layout-change 守卫，还原 testCSS patch + 原生空侧栏提示。split 结构本身保留（多 stacked leaf 是 Obsidian 可接受状态）。 */
 	remove(): void {
+		if (this.layoutChangeHandler) {
+			this.app.workspace.off('layout-change', this.layoutChangeHandler);
+			this.layoutChangeHandler = null;
+		}
 		this.restoreTestCSS();
 		this.restoreEmptyStateHint();
 		this.slotLeaves.clear();
+	}
+
+	// ── 持续守卫 ──────────────────────────────────────────────────────────────
+
+	private ensureLayoutGuard(): void {
+		if (this.layoutChangeHandler) return;
+		this.layoutChangeHandler = () => {
+			if (this.isReconciling || this.applyRun) return;
+			if (!this.hasDrift()) return;
+			void this.apply();
+		};
+		this.app.workspace.on('layout-change', this.layoutChangeHandler);
+	}
+
+	/**
+	 * 廉价判定：leftSplit 里的工具类 leaf 是否已偏离「每个 enabled slot 恰好一个、且没有别的」。
+	 * 命中才值得跑完整 reconcile —— 绝大多数 layout-change 在此快速返回 false。
+	 */
+	private hasDrift(): boolean {
+		const ls = this.leftSplit();
+		if (!ls) return false;
+		const desired = this.enabledSlots().map(s => s.viewType);
+		const byType = this.toolLeavesByType();
+
+		if (desired.length === 0) {
+			let toolLeaves = 0;
+			for (const leaves of byType.values()) toolLeaves += leaves.length;
+			// 0 slot：侧栏应为空（仅保留 1 个 keep-alive 子节点）。多于此即漂移。
+			return toolLeaves > 0 && (ls.children?.length ?? 0) > 1;
+		}
+
+		const desiredSet = new Set(desired);
+		for (const type of byType.keys()) {
+			if (!desiredSet.has(type)) return true; // 外来工具面板
+		}
+		for (const type of desired) {
+			if (this.unsatisfiableTypes.has(type)) continue; // 建不出来的类型不算漂移，避免无限重入
+			if ((byType.get(type)?.length ?? 0) !== 1) return true; // 缺失或重复
+		}
+		return false;
 	}
 
 	/** 当前 enabled slot 占用的 view type 集合 —— 供右侧栏悬浮面板避让（两模块单一事实源）。 */
@@ -138,32 +201,60 @@ export class LeftSidebarManager {
 		return this.getSettings().leftSidebarSlots.filter(s => s.enabled).slice(0, MAX_LEFT_SIDEBAR_SLOTS);
 	}
 
-	// 一个 leftSplit 直接子节点是否是文档类 leaf（markdown / canvas / pdf …）——这些不是我们
-	// 管的工具面板，reconcile 清场时不碰。
-	private isDocumentChild(child: unknown): boolean {
-		const leaf = this.leafOfGroup(child);
-		return !!leaf && DOCUMENT_VIEW_TYPES.has(this.viewTypeOf(leaf));
-	}
-
 	private leftSplit(): SidedockLike | null {
 		const ls = this.app.workspace.leftSplit as unknown as SidedockLike | undefined;
 		return ls && Array.isArray(ls.children) ? ls : null;
 	}
 
+	// leftSplit 为根的全部 leaf —— 以 leaf 为粒度，而非 leftSplit.children（tab 组）。
+	// 一个组可能包着 ≥2 个 leaf（Obsidian 默认的「文件浏览器 / 搜索 / 书签」就是一个三标签组，
+	// 恢复 workspace.json 时也可能把两个 slot 并进一组）。按组遍历会整组漏看 —— 正是
+	// 「设置里只有一个 Tab、左侧栏实际两个 Tab」的架构根因。
+	private leftLeaves(): WorkspaceLeaf[] {
+		const ls = this.app.workspace.leftSplit as unknown;
+		const out: WorkspaceLeaf[] = [];
+		this.app.workspace.iterateAllLeaves(leaf => {
+			if (leaf.getRoot() === ls) out.push(leaf);
+		});
+		return out;
+	}
+
+	// leftSplit 里的工具类 leaf 按 viewType 分桶（文档类 leaf 不参与，reconcile 不碰）。
+	private toolLeavesByType(): Map<string, WorkspaceLeaf[]> {
+		const map = new Map<string, WorkspaceLeaf[]>();
+		for (const leaf of this.leftLeaves()) {
+			const type = this.viewTypeOf(leaf);
+			if (!type || DOCUMENT_VIEW_TYPES.has(type)) continue;
+			const bucket = map.get(type);
+			if (bucket) bucket.push(leaf);
+			else map.set(type, [leaf]);
+		}
+		return map;
+	}
+
 	private async doReconcile(): Promise<void> {
 		const ls = this.leftSplit();
 		if (!ls) return;
-		const slots = this.enabledSlots();
+		const desired = this.enabledSlots().map(s => s.viewType);
+
+		// slot 列表变了就重置「建不出来」黑名单：用户可能刚重装了某个提供 view 的插件。
+		const desiredKey = desired.join(' ');
+		if (desiredKey !== this.lastDesiredKey) {
+			this.unsatisfiableTypes.clear();
+			this.lastDesiredKey = desiredKey;
+		}
 
 		// 0 个 slot：左侧栏应完全空白。摘掉所有工具面板（含 Obsidian 默认的文件浏览器 / 搜索 /
-		// 书签），但至少留 1 个子节点——children 归零会连 sidedock 一起被摘掉——然后收起侧栏。
-		if (slots.length === 0) {
+		// 书签）；若没有文档类 leaf 兜底，则保留最后 1 个工具 leaf —— leftSplit 子节点归零会连
+		// sidedock 一起被摘掉 —— 然后收起侧栏。
+		if (desired.length === 0) {
 			this.slotLeaves.clear();
-			for (const child of [...(ls.children ?? [])]) {
-				if ((ls.children?.length ?? 0) <= 1) break;
-				if (this.isDocumentChild(child)) continue;
-				const leaf = this.leafOfGroup(child);
-				if (leaf) this.detachGroupOf(ls, leaf);
+			const leaves = this.leftLeaves();
+			const hasDoc = leaves.some(l => DOCUMENT_VIEW_TYPES.has(this.viewTypeOf(l)));
+			const tools = leaves.filter(l => !DOCUMENT_VIEW_TYPES.has(this.viewTypeOf(l)));
+			const keepAlive = hasDoc ? undefined : tools[tools.length - 1];
+			for (const leaf of tools) {
+				if (leaf !== keepAlive) this.detachLeaf(leaf);
 			}
 			if (!ls.collapsed) ls.collapse();
 			// 原生「侧栏为空」提示：换成引导去设置配置面板的文案 + 图标（居中排版见 styles.css）。
@@ -187,38 +278,59 @@ export class LeftSidebarManager {
 				ls.setDirection('horizontal');
 			}
 
-			// 2. 为每个尚无 leaf 的 slot viewType 建 leaf（末尾新建 tab 组），随后统一重排。
-			for (const slot of slots) {
-				if (this.findSlotGroup(ls, slot.viewType)) continue;
+			const desiredSet = new Set(desired);
+
+			// 顺序刻意为「先补齐、后清场」：teardown 期间 leftSplit 子节点归零会连 sidedock 一起
+			// 被 Obsidian 摘掉，所以务必先把 desired 面板建进去，再删外来 / 重复的。
+
+			// 2. 不变量「一个面板 = 一个独立 tab 组」：与别的 leaf 同组的 desired leaf 摘掉，交给
+			//    第 3 步在各自独立组里重建。恢复 workspace.json 把两个 slot 并进一组时，若不拆开，
+			//    第 3 步的 findSlotGroup 会漏看它、反复建重复 leaf，与 layout-change 守卫来回拉锯。
+			//    每组按遍历序保留一个 —— 组内至少留 1 个 leaf，leftSplit 子节点数不会因此归零。
+			for (const leaf of this.leftLeaves()) {
+				const type = this.viewTypeOf(leaf);
+				if (!desiredSet.has(type)) continue;
+				const group = (leaf as unknown as { parent?: { children?: unknown[] } }).parent;
+				if (group && (group as unknown) !== this.app.workspace.leftSplit && (group.children?.length ?? 1) > 1) {
+					this.detachLeaf(leaf);
+				}
+			}
+
+			// 3. 为每个尚无 leaf 的 desired viewType 建 leaf（末尾新建独立 tab 组），随后统一重排。
+			for (const type of desired) {
+				if (this.findSlotGroup(ls, type)) continue;
+				if (this.unsatisfiableTypes.has(type)) continue;
 				const leaf = this.app.workspace.getLeftLeaf(true);
 				if (!leaf) continue;
 				try {
-					await leaf.setViewState({ type: slot.viewType, active: false });
+					await leaf.setViewState({ type, active: false });
 					createdLeaf = true;
 				} catch (err: unknown) {
-					console.error(`[minimalism-ui] left sidebar slot "${slot.viewType}" setViewState failed`, err);
-					this.detachGroupOf(ls, leaf);
+					console.error(`[minimalism-ui] left sidebar slot "${type}" setViewState failed`, err);
+					this.unsatisfiableTypes.add(type);
+					this.detachLeaf(leaf);
 				}
 			}
 
-			// 2b. 清场：左侧栏只应留下当前 slot 列表里的工具面板。任何不在列表里的工具类 leaf
-			//     —— 用户删掉的旧 slot、或 Obsidian 默认放进来的文件浏览器 / 搜索 / 书签 —— 一律摘掉。
-			//     文档类 leaf（markdown / canvas …）不碰；始终至少留 1 个子节点，避免连 sidedock 被摘。
-			const enabledTypes = new Set(slots.map(s => s.viewType));
-			for (const child of [...(ls.children ?? [])]) {
+			// 4. 清场（leaf 粒度、幂等）：不在 slot 列表里的工具 leaf（旧 slot、Obsidian 默认放进来
+			//    的文件浏览器 / 搜索 / 书签）以及同一 viewType 的重复 leaf 一律摘掉。文档类 leaf 不碰；
+			//    leftSplit 至少留 1 个子节点（第 3 步已放进 ≥1 个 desired 面板，这里恒成立，仍加保险）。
+			const seenType = new Set<string>();
+			for (const leaf of this.leftLeaves()) {
 				if ((ls.children?.length ?? 0) <= 1) break;
-				if (this.isDocumentChild(child)) continue;
-				const leaf = this.leafOfGroup(child);
-				if (!leaf) continue;
-				if (!enabledTypes.has(this.viewTypeOf(leaf))) {
-					this.detachGroupOf(ls, leaf);
+				const type = this.viewTypeOf(leaf);
+				if (!type || DOCUMENT_VIEW_TYPES.has(type)) continue;
+				if (!desiredSet.has(type) || seenType.has(type)) {
+					this.detachLeaf(leaf);
+					continue;
 				}
+				seenType.add(type);
 			}
 
-			// 3. 重排：期望顺序 = slot 顺序，占据 leftSplit 子节点列表的前段；
-			//    未被任何 slot 匹配的「外来」tab 组保持在后段、不动。
-			for (let i = 0; i < slots.length; i++) {
-				const group = this.findSlotGroup(ls, slots[i].viewType);
+			// 5. 重排：期望顺序 = slot 顺序，占据 leftSplit 子节点列表的前段；
+			//    未被任何 slot 匹配的「外来」文档类 tab 组保持在后段、不动。
+			for (let i = 0; i < desired.length; i++) {
+				const group = this.findSlotGroup(ls, desired[i]);
 				if (!group) continue;
 				const current = ls.children!.indexOf(group);
 				if (current === i) continue;
@@ -229,19 +341,20 @@ export class LeftSidebarManager {
 			}
 			ls.recomputeChildrenDimensions?.();
 
-			// 4. 记录 slot leaf 引用 + 物化 deferred（关系图等虚拟/canvas 视图尤其需要）。
+			// 6. 记录 slot leaf 引用 + 物化 deferred（关系图等虚拟/canvas 视图尤其需要）。
 			this.slotLeaves.clear();
-			for (const slot of slots) {
-				const leaf = this.leafOfGroup(this.findSlotGroup(ls, slot.viewType));
-				if (leaf) this.slotLeaves.set(slot.viewType, leaf);
+			const finalByType = this.toolLeavesByType();
+			for (const type of desired) {
+				const leaf = finalByType.get(type)?.[0];
+				if (leaf) this.slotLeaves.set(type, leaf);
 			}
 			await this.leafMount.materializeDeferredLeaves([...this.slotLeaves.values()]);
 
-			// 5. 让各 view 绑定到当前文件（原生侧栏 leaf 一般自动跟随，这里补一次兜底）。
+			// 7. 让各 view 绑定到当前文件（原生侧栏 leaf 一般自动跟随，这里补一次兜底）。
 			const activeFile = this.app.workspace.getActiveFile();
 			if (activeFile) this.app.workspace.trigger('file-open', activeFile);
 
-			// 6. 关系图颜色首次探测。
+			// 8. 关系图颜色首次探测。
 			const graphLeaf = this.slotLeaves.get('localgraph');
 			if (graphLeaf) window.setTimeout(() => this.applyGraphColors(graphLeaf), 200);
 		} finally {
@@ -287,14 +400,17 @@ export class LeftSidebarManager {
 
 	private viewTypeOf(leaf: WorkspaceLeaf): string {
 		try {
-			return leaf.view?.getViewType?.() ?? leaf.getViewState().type;
+			// getViewState().type 是持久化的真实类型，deferred（未物化）leaf 也正确；
+			// view.getViewType() 在 leaf 未物化时可能返回占位类型，故以前者优先 —— 否则
+			// 启动时恢复出的 deferred slot leaf 认不出来，会被重复新建成第二个 Tab。
+			return leaf.getViewState().type || leaf.view?.getViewType?.() || '';
 		} catch {
 			return '';
 		}
 	}
 
-	// setViewState 失败时，把刚 getLeftLeaf 出来的 leaf 连同其 tab 组一起摘掉，不留半初始化条目。
-	private detachGroupOf(ls: SidedockLike, leaf: WorkspaceLeaf): void {
+	// 把一个 leaf 连同（若因此清空的）tab 组一起摘掉，不留半初始化条目。
+	private detachLeaf(leaf: WorkspaceLeaf): void {
 		try {
 			this.pinManager.forceDetachLeaf(leaf);
 		} catch {
