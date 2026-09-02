@@ -182,8 +182,8 @@ export default class MinimalismUIPlugin extends Plugin {
 
 	// ─── Sidebar Layout ───────────────────────────────────────────────────────
 
-	async applyMacSidebarLayout() {
-		await this.leftSidebar.apply();
+	async applyMacSidebarLayout(opts?: { revealNewPanels?: boolean }) {
+		await this.leftSidebar.apply(opts);
 	}
 
 	// 设置里更换首页后：把主区收拢为只剩首页一个 tab，面包屑也只剩首页。

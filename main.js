@@ -2344,6 +2344,9 @@ var LeftSidebarManager = class {
     // 请求重跑，然后一起 resolve 所有等待者。（沿用 SidebarLayoutManager 的思路。）
     this.applyRun = null;
     this.rerunRequested = false;
+    // 本轮 apply 是否由设置里「添加 / 更换面板」触发：若这轮确实新建了面板，即便进入前侧栏是
+    // 收起态也保持展开 —— 用户刚加的面板要能看到，不能开一下又收回去。跨 rerun 保持，循环结束清零。
+    this.revealNewPanels = false;
     // 当前各 slot viewType → 其 leaf 的引用（关系图颜色重探、owned 查询用；显式持有引用而非
     // getLeavesOfType，以隔离多窗口 / 弹出窗口，见记忆 project-sidebar-local-graph-rewrite）。
     this.slotLeaves = /* @__PURE__ */ new Map();
@@ -2354,7 +2357,8 @@ var LeftSidebarManager = class {
     this.hintedEmptyStateEl = null;
   }
   // ── Public ────────────────────────────────────────────────────────────────
-  async apply() {
+  async apply(opts) {
+    if (opts == null ? void 0 : opts.revealNewPanels) this.revealNewPanels = true;
     if (this.applyRun) {
       this.rerunRequested = true;
       return this.applyRun;
@@ -2367,10 +2371,14 @@ var LeftSidebarManager = class {
     }
   }
   async runApplyLoop() {
-    do {
-      this.rerunRequested = false;
-      await this.doReconcile();
-    } while (this.rerunRequested);
+    try {
+      do {
+        this.rerunRequested = false;
+        await this.doReconcile();
+      } while (this.rerunRequested);
+    } finally {
+      this.revealNewPanels = false;
+    }
   }
   /** 卸载：还原 testCSS patch + 原生空侧栏提示。split 结构本身保留（多 stacked leaf 是 Obsidian 可接受状态）。 */
   remove() {
@@ -2425,6 +2433,7 @@ var LeftSidebarManager = class {
     this.restoreEmptyStateHint();
     const wasCollapsed = ls.collapsed;
     if (ls.collapsed) ls.expand();
+    let createdLeaf = false;
     try {
       if (ls.direction !== "horizontal" && typeof ls.setDirection === "function") {
         ls.setDirection("horizontal");
@@ -2435,6 +2444,7 @@ var LeftSidebarManager = class {
         if (!leaf) continue;
         try {
           await leaf.setViewState({ type: slot.viewType, active: false });
+          createdLeaf = true;
         } catch (err) {
           console.error(`[minimalism-ui] left sidebar slot "${slot.viewType}" setViewState failed`, err);
           this.detachGroupOf(ls, leaf);
@@ -2470,9 +2480,19 @@ var LeftSidebarManager = class {
       const graphLeaf = this.slotLeaves.get("localgraph");
       if (graphLeaf) window.setTimeout(() => this.applyGraphColors(graphLeaf), 200);
     } finally {
-      if (wasCollapsed) ls.collapse();
-      else if (ls.collapsed) ls.expand();
+      const keepExpanded = createdLeaf && this.revealNewPanels;
+      this.enforceCollapsed(ls, wasCollapsed && !keepExpanded);
     }
+  }
+  // 断言侧栏收起态：立即设一次，并在下一帧再设一次 —— Obsidian 对「变动过的」split 会在随后
+  // 异步自动折叠，单次同步调用会被它覆盖，导致「开一下又收回去」。
+  enforceCollapsed(ls, collapsed) {
+    const sync = () => {
+      if (collapsed && !ls.collapsed) ls.collapse();
+      else if (!collapsed && ls.collapsed) ls.expand();
+    };
+    sync();
+    window.requestAnimationFrame(sync);
   }
   // ── workspace-item 树辅助 ─────────────────────────────────────────────────
   // leftSplit 里承载指定 viewType 的直接子节点（通常是 WorkspaceTabs，也可能是裸 leaf）。
@@ -4750,7 +4770,7 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
   }
   async persistSlots() {
     await this.plugin.saveSettings();
-    await this.plugin.applyMacSidebarLayout();
+    await this.plugin.applyMacSidebarLayout({ revealNewPanels: true });
     this.display();
   }
   configureLeftSidebarSlots(parentEl) {
@@ -5020,8 +5040,8 @@ var MinimalismUIPlugin = class extends import_obsidian13.Plugin {
     for (const feature of this.features) feature.remove();
   }
   // ─── Sidebar Layout ───────────────────────────────────────────────────────
-  async applyMacSidebarLayout() {
-    await this.leftSidebar.apply();
+  async applyMacSidebarLayout(opts) {
+    await this.leftSidebar.apply(opts);
   }
   // 设置里更换首页后：把主区收拢为只剩首页一个 tab，面包屑也只剩首页。
   // 仅在首页路径真正变化时由 SettingTab 调用，避免每次保存设置都误关标签。

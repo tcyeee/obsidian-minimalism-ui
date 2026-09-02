@@ -61,6 +61,10 @@ export class LeftSidebarManager {
 	private applyRun: Promise<void> | null = null;
 	private rerunRequested = false;
 
+	// 本轮 apply 是否由设置里「添加 / 更换面板」触发：若这轮确实新建了面板，即便进入前侧栏是
+	// 收起态也保持展开 —— 用户刚加的面板要能看到，不能开一下又收回去。跨 rerun 保持，循环结束清零。
+	private revealNewPanels = false;
+
 	// 当前各 slot viewType → 其 leaf 的引用（关系图颜色重探、owned 查询用；显式持有引用而非
 	// getLeavesOfType，以隔离多窗口 / 弹出窗口，见记忆 project-sidebar-local-graph-rewrite）。
 	private slotLeaves = new Map<string, WorkspaceLeaf>();
@@ -81,7 +85,8 @@ export class LeftSidebarManager {
 
 	// ── Public ────────────────────────────────────────────────────────────────
 
-	async apply(): Promise<void> {
+	async apply(opts?: { revealNewPanels?: boolean }): Promise<void> {
+		if (opts?.revealNewPanels) this.revealNewPanels = true;
 		if (this.applyRun) {
 			this.rerunRequested = true;
 			return this.applyRun;
@@ -95,10 +100,14 @@ export class LeftSidebarManager {
 	}
 
 	private async runApplyLoop(): Promise<void> {
-		do {
-			this.rerunRequested = false;
-			await this.doReconcile();
-		} while (this.rerunRequested);
+		try {
+			do {
+				this.rerunRequested = false;
+				await this.doReconcile();
+			} while (this.rerunRequested);
+		} finally {
+			this.revealNewPanels = false;
+		}
 	}
 
 	/** 卸载：还原 testCSS patch + 原生空侧栏提示。split 结构本身保留（多 stacked leaf 是 Obsidian 可接受状态）。 */
@@ -169,6 +178,9 @@ export class LeftSidebarManager {
 		// 构造 / 测量需要展开态。
 		if (ls.collapsed) ls.expand();
 
+		// 本轮是否真的新建了面板 leaf —— 与 revealNewPanels 一起决定结尾要不要保持展开。
+		let createdLeaf = false;
+
 		try {
 			// 1. 纵向堆叠 = direction 'horizontal'（spike 结论）。仅在不符时纠正。
 			if (ls.direction !== 'horizontal' && typeof ls.setDirection === 'function') {
@@ -182,6 +194,7 @@ export class LeftSidebarManager {
 				if (!leaf) continue;
 				try {
 					await leaf.setViewState({ type: slot.viewType, active: false });
+					createdLeaf = true;
 				} catch (err: unknown) {
 					console.error(`[minimalism-ui] left sidebar slot "${slot.viewType}" setViewState failed`, err);
 					this.detachGroupOf(ls, leaf);
@@ -232,10 +245,22 @@ export class LeftSidebarManager {
 			const graphLeaf = this.slotLeaves.get('localgraph');
 			if (graphLeaf) window.setTimeout(() => this.applyGraphColors(graphLeaf), 200);
 		} finally {
-			// Obsidian 对空 / 变动过的 split 会异步自动折叠 —— 按用户原本意图还原。
-			if (wasCollapsed) ls.collapse();
-			else if (ls.collapsed) ls.expand();
+			// 结尾的收起意图：进入前是收起的就还原收起 —— 唯一例外是这轮由设置里「添加 / 更换面板」
+			// 触发且确实新建了面板，那种情况用户是想立刻看到新面板，保持展开。
+			const keepExpanded = createdLeaf && this.revealNewPanels;
+			this.enforceCollapsed(ls, wasCollapsed && !keepExpanded);
 		}
+	}
+
+	// 断言侧栏收起态：立即设一次，并在下一帧再设一次 —— Obsidian 对「变动过的」split 会在随后
+	// 异步自动折叠，单次同步调用会被它覆盖，导致「开一下又收回去」。
+	private enforceCollapsed(ls: SidedockLike, collapsed: boolean): void {
+		const sync = () => {
+			if (collapsed && !ls.collapsed) ls.collapse();
+			else if (!collapsed && ls.collapsed) ls.expand();
+		};
+		sync();
+		window.requestAnimationFrame(sync);
 	}
 
 	// ── workspace-item 树辅助 ─────────────────────────────────────────────────
