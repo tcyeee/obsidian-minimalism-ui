@@ -291,18 +291,18 @@ var translations = {
     introDesc1: '\u672C\u63D2\u4EF6\u662F\u4E00\u6B3E"\u505A\u51CF\u6CD5"\u7684\u5DE5\u5177,\u8BBE\u8BA1\u7406\u5FF5\u4E0E\u4E3B\u6D41\u7528\u6CD5\u76F8\u6096:\u5B83\u53EA\u4FDD\u7559\u5DE6\u4FA7\u8FB9\u680F(\u9ED8\u8BA4\u7A7A\u767D,\u53EF\u81EA\u884C\u6DFB\u52A0\u5927\u7EB2\u3001\u5C5E\u6027\u3001\u672C\u5730\u5173\u7CFB\u56FE\u7B49\u9762\u677F,\u6700\u591A 4 \u4E2A),\u5E76\u88C1\u526A\u6389\u4E86\u5927\u91CF\u6838\u5FC3\u529F\u80FD,\u751A\u81F3\u5305\u62EC"\u6587\u4EF6\u5939"\u3002\u5B89\u88C5\u524D\u8BF7\u5148\u786E\u8BA4\u4F60\u8BA4\u540C\u8FD9\u5957\u6781\u7B80\u7406\u5FF5\u3002',
     introDesc2: "\u8BF7\u6307\u5B9A\u4E00\u7BC7\u7B14\u8BB0\u4F5C\u4E3A\u9996\u9875\u3002\u5B83\u5982\u540C\u4E00\u68F5\u6811\u7684\u4E3B\u5E72,\u4F60\u5728\u5176\u4E0A\u7528\u53CC\u94FE\u4E0D\u65AD\u65B0\u5EFA\u7B14\u8BB0,\u8BA9\u77E5\u8BC6\u5F00\u679D\u6563\u53F6,\u6700\u7EC8\u957F\u6210\u53C2\u5929\u5927\u6811\u3002",
     headingGeneral: "\u901A\u7528\u8BBE\u7F6E",
-    headingAppearance: "\u4FA7\u8FB9\u680F\u8BBE\u7F6E",
+    headingAppearance: "\u5DE6\u4FA7\u8FB9\u680F\u8BBE\u7F6E",
     headingInteraction: "\u4EA4\u4E92\u8BBE\u7F6E",
     headingAnimation: "\u52A8\u753B\u8BBE\u7F6E (beta)",
     headingAdvanced: "\u9AD8\u7EA7\u8BBE\u7F6E",
     showProperties: "\u5C5E\u6027\u9762\u677F",
     showLocalGraph: "\u672C\u5730\u5173\u7CFB\u56FE",
     showVaultProfile: "\u5E95\u90E8\u7528\u6237\u8BBE\u7F6E\u533A\u57DF",
-    leftSidebarPanels: "\u5DE6\u4FA7\u680F\u9762\u677F",
+    leftSidebarPanels: "\u9762\u677F\u914D\u7F6E",
     leftSidebarPanelsDesc: "\u9009\u62E9\u8981\u663E\u793A\u5728\u5DE6\u4FA7\u680F\u7684\u9762\u677F\uFF0C\u6700\u591A 4 \u4E2A\uFF0C\u53EF\u62D6\u62FD\u6392\u5E8F\u3002\u9ED8\u8BA4\u7A7A\u767D\u3002",
     leftSidebarPanelsEmpty: "\u5DE6\u4FA7\u680F\u5F53\u524D\u4E3A\u7A7A\u767D\u3002\u70B9\u51FB\u300C\u6DFB\u52A0\u9762\u677F\u300D\u9009\u62E9\u8981\u663E\u793A\u7684\u5185\u5BB9\u3002",
     leftSidebarPanelsFull: "\u5DF2\u8FBE\u5230 4 \u4E2A\u9762\u677F\u4E0A\u9650\u3002",
-    sidebarEmptyHint: "\u5DE6\u4FA7\u680F\u8FD8\u6CA1\u6709\u9762\u677F\u3002\u524D\u5F80\u300C\u8BBE\u7F6E \u2192 \u4FA7\u8FB9\u680F\u8BBE\u7F6E\u300D\u6DFB\u52A0\u5927\u7EB2\u3001\u5C5E\u6027\u3001\u672C\u5730\u5173\u7CFB\u56FE\u7B49\u9762\u677F\u3002",
+    sidebarEmptyHint: "\u5DE6\u4FA7\u680F\u8FD8\u6CA1\u6709\u9762\u677F\u3002\u524D\u5F80\u300C\u8BBE\u7F6E \u2192 \u5DE6\u4FA7\u8FB9\u680F\u8BBE\u7F6E\u300D\u6DFB\u52A0\u5927\u7EB2\u3001\u5C5E\u6027\u3001\u672C\u5730\u5173\u7CFB\u56FE\u7B49\u9762\u677F\u3002",
     addPanel: "\u6DFB\u52A0\u9762\u677F",
     removePanel: "\u79FB\u9664\u9762\u677F",
     dragToReorder: "\u62D6\u62FD\u6392\u5E8F",
@@ -377,18 +377,18 @@ var translations = {
     introDesc1: "This plugin is all about subtraction, and its philosophy runs against mainstream usage: it keeps only the left sidebar (empty by default \u2014 add up to 4 panels such as Outline, Properties, and Local Graph yourself) and strips away many core features, including Folders. Make sure this minimalist philosophy suits you before installing.",
     introDesc2: "Pick one note as your home page. Think of it as the trunk of a tree: keep creating notes from it through backlinks, letting your knowledge branch out until it grows into a towering tree.",
     headingGeneral: "General",
-    headingAppearance: "Sidebar",
+    headingAppearance: "Left sidebar",
     headingInteraction: "Interaction",
     headingAnimation: "Animation (beta)",
     headingAdvanced: "Advanced",
     showProperties: "Properties",
     showLocalGraph: "Local Graph",
     showVaultProfile: "Bottom settings area",
-    leftSidebarPanels: "Left sidebar panels",
+    leftSidebarPanels: "Panel configuration",
     leftSidebarPanelsDesc: "Choose which panels appear in the left sidebar. Up to 4, drag to reorder. Empty by default.",
     leftSidebarPanelsEmpty: 'The left sidebar is empty. Click "Add panel" to choose what to show.',
     leftSidebarPanelsFull: "Panel limit of 4 reached.",
-    sidebarEmptyHint: "No panels in the left sidebar yet. Add panels like Outline, Properties, or Local Graph from Settings \u2192 Sidebar.",
+    sidebarEmptyHint: "No panels in the left sidebar yet. Add panels like Outline, Properties, or Local Graph from Settings \u2192 Left sidebar.",
     addPanel: "Add panel",
     removePanel: "Remove panel",
     dragToReorder: "Drag to reorder",
@@ -4753,8 +4753,9 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
     await this.plugin.applyMacSidebarLayout();
     this.display();
   }
-  configureLeftSidebarSlots(sectionEl) {
+  configureLeftSidebarSlots(parentEl) {
     var _a, _b;
+    const sectionEl = parentEl.createDiv({ cls: "minimalism-ui-slot-section" });
     const slots = this.plugin.settings.leftSidebarSlots;
     const options = this.plugin.listSidebarViewOptions();
     const atLimit = slots.length >= MAX_LEFT_SIDEBAR_SLOTS;

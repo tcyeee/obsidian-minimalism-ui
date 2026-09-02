@@ -1399,6 +1399,17 @@ body.minimalism-ui-rsb-icon-dragging {
 
 /* ── 左侧栏面板列表（设置页） ─────────────────────────────────────────── */
 
+.minimalism-ui-slot-section {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	padding: 4px 16px 8px 16px;
+	margin: 12px 0;
+}
+
+.minimalism-ui-slot-section .setting-item {
+	border-top: none;
+}
+
 .minimalism-ui-slot-list {
 	display: flex;
 	flex-direction: column;

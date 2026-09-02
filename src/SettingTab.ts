@@ -168,7 +168,9 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		this.display();
 	}
 
-	private configureLeftSidebarSlots(sectionEl: HTMLElement): void {
+	private configureLeftSidebarSlots(parentEl: HTMLElement): void {
+		// 整个「面板配置」区域套一个 border，视觉上与其他设置项区分开
+		const sectionEl = parentEl.createDiv({ cls: 'minimalism-ui-slot-section' });
 		const slots = this.plugin.settings.leftSidebarSlots;
 		const options = this.plugin.listSidebarViewOptions();
 		const atLimit = slots.length >= MAX_LEFT_SIDEBAR_SLOTS;
