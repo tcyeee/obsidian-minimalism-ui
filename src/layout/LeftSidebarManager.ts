@@ -4,6 +4,7 @@ import { LeafMountService, DOCUMENT_VIEW_TYPES } from '../core/LeafMountService'
 import { PinManager } from '../tabs/PinManager';
 import { uiDoc } from '../core/appDom';
 import { t } from '../core/i18n';
+import { openPluginSettings } from '../core/obsidianCommands';
 
 // Obsidian 内部 workspace-item 树的最小结构约定（官方类型声明里没有 children/insertChild 等）。
 // spike 结论（2026-09-01，见记忆 project-configurable-left-sidebar-slots）：
@@ -40,6 +41,7 @@ type SidedockLike = ItemLike & {
 const EMPTY_HINT_CLASS = 'minimalism-ui-sidebar-empty-hint';
 const EMPTY_HINT_ICON_CLASS = 'minimalism-ui-sidebar-empty-hint-icon';
 const EMPTY_HINT_TEXT_CLASS = 'minimalism-ui-sidebar-empty-hint-text';
+const EMPTY_HINT_LINK_CLASS = 'minimalism-ui-sidebar-empty-hint-link';
 
 /**
  * LeftSidebarManager —— 「极简侧边栏」启用时接管左侧栏结构。
@@ -566,9 +568,23 @@ export class LeftSidebarManager {
 			setIcon(host.createDiv({ cls: EMPTY_HINT_ICON_CLASS, prepend: true }), 'panel-left');
 		}
 
+		// 提示文案里嵌一个「前往设置」链接：i18n 文案用 {link} 占位，切成前后两段文本包住 <a>，
+		// 让链接读起来是句子的一部分而非孤立按钮。每次都重建（textEl.empty()），旧节点连监听器一起 GC。
 		const textEl = host.querySelector<HTMLElement>(`:scope > .${EMPTY_HINT_TEXT_CLASS}`)
 			?? host.createEl('p', { cls: EMPTY_HINT_TEXT_CLASS });
-		textEl.setText(t('sidebarEmptyHint'));
+		textEl.empty();
+		const [before, after = ''] = t('sidebarEmptyHint').split('{link}');
+		textEl.appendText(before);
+		const linkEl = textEl.createEl('a', {
+			cls: EMPTY_HINT_LINK_CLASS,
+			href: '#',
+			text: t('sidebarEmptyHintLink'),
+		});
+		linkEl.addEventListener('click', e => {
+			e.preventDefault();
+			openPluginSettings(this.app, t('headingAppearance'));
+		});
+		textEl.appendText(after);
 	}
 
 	private restoreEmptyStateHint(): void {

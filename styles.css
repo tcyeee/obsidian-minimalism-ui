@@ -311,7 +311,7 @@ body.minimalism-ui-disable-note-tabs .workspace-split.mod-root .workspace-leaf-c
 
 /* ── 左侧栏为空（0 个面板）时的引导提示 ─────────────────────────────────
    Obsidian 原生 .workspace-sidedock-empty-state 只有一行灰字；LeftSidebarManager
-   在 0 面板时往里加一个图标 + 引导去设置的文案（原生 <p> 保留但隐藏）。这里做居中排版。 */
+   在 0 面板时往里加一个图标 + 引导文案 + 一个跳转到本插件设置的链接（原生 <p> 保留但隐藏）。这里做居中排版。 */
 .workspace-sidedock-empty-state.minimalism-ui-sidebar-empty-hint {
 	display: flex;
 	flex: 1 1 auto;
@@ -345,6 +345,19 @@ body.minimalism-ui-disable-note-tabs .workspace-split.mod-root .workspace-leaf-c
 	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
 	line-height: 1.5;
+}
+
+/* 句中内嵌的「前往设置」链接：始终带下划线 + 强调色，明确可点击 */
+.minimalism-ui-sidebar-empty-hint-text .minimalism-ui-sidebar-empty-hint-link {
+	color: var(--text-accent);
+	cursor: pointer;
+	font-weight: var(--font-medium);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.minimalism-ui-sidebar-empty-hint-text .minimalism-ui-sidebar-empty-hint-link:hover {
+	color: var(--text-accent-hover);
 }
 
 /* ── 信息栏美化：左侧边栏顶部内边距 ─────────────────────────────────── */
