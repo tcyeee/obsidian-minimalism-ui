@@ -84,16 +84,37 @@ body.theme-dark.minimalism-ui-mac-sidebar .workspace-split.mod-left-split {
 		0 1px 6px rgba(0, 0, 0, 0.3);
 }
 
-/* 隐藏左侧边栏各 panel 之间的拖拽分隔条。
-   只命中嵌套 .workspace-split 内部的分隔条（堆叠面板之间），
-   不要碰 .mod-left-split 的直接子级 handle，那个是用来拖拽调整整个侧边栏宽度的。 */
-body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-split .workspace-leaf-resize-handle {
+/* 隐藏侧栏内层（单 leaf tab 组内部、嵌套 split）里那些用不上的 resize handle。
+   Obsidian 给每个 .workspace-leaf 和嵌套 .workspace-split 都放了一条 handle，但侧栏每个
+   面板只有一个 leaf，这些内层 handle 拖了没有意义，一律隐藏。
+   面板之间（.mod-left-split 直接子 .workspace-tabs 各自的 handle，Obsidian 定位在面板底边）
+   保留可见可拖——见下方虚线分隔条规则。 */
+body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-split .workspace-leaf-resize-handle,
+body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-tab-container .workspace-leaf-resize-handle {
 	display: none;
 }
 
-/* 隐藏顶部留白标签区（drag bar 左侧）内的拖拽分隔条 */
-body.minimalism-ui-mac-sidebar .workspace-tabs.mod-top.mod-top-left-space .workspace-leaf-resize-handle {
-	display: none;
+/* ── 左侧栏堆叠面板之间的虚线分隔条 ────────────────────────────────────────
+   用户在设置里配置了多个面板（settings.leftSidebarSlots）时，相邻面板之间显示一条可拖拽
+   的虚线；拖动它即调整上下两个面板的高度（Obsidian 原生 WorkspaceTabs.setDimension，取
+   flex-grow 百分比）。结果由 LeftSidebarManager 持久化进 slot.height，并在面板重建时还原。
+
+   虚线画在每个面板的顶边；最顶部面板（.mod-top-left-space，上方只有 vault profile / 空白）
+   不画。拖拽命中区是 Obsidian 原生 handle——它定位在上一个面板的*底边*，正好压住这条虚线。
+   最后一个面板的 handle（底边下方没有可调整面板）由 Obsidian 的 .workspace-tabs:last-child
+   规则隐藏，这里不覆盖。 */
+body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split > .workspace-tabs:not(.mod-top-left-space) {
+	border-top: 1px dashed var(--background-modifier-border);
+}
+
+body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split > .workspace-tabs > .workspace-leaf-resize-handle {
+	height: 11px;
+	z-index: 6;
+}
+
+body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split > .workspace-tabs > .workspace-leaf-resize-handle:hover {
+	background: var(--interactive-accent);
+	opacity: 0.25;
 }
 
 /* ── 左侧 ribbon（活动栏）结构样式 ─────────────────────────────────────

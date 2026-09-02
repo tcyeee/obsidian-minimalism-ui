@@ -23,6 +23,10 @@ type ItemLike = {
 	recomputeChildrenDimensions?(): void;
 	getViewState?(): { type: string };
 	view?: { getViewType?(): string };
+	// WorkspaceTabs：面板高度 = flex-grow 百分比（0<n<100，否则等分）。用户拖面板间的
+	// resize handle 时 Obsidian 写在这里；我们据此持久化 slot.height 并在重建时还原。
+	setDimension?(n: number | null): void;
+	dimension?: number | null;
 };
 type SidedockLike = ItemLike & {
 	collapsed: boolean;
@@ -84,6 +88,12 @@ export class LeftSidebarManager {
 	// 思路同 SingleTabGroupGuard / PinManager 的侧栏 layout-change 兜底。
 	private layoutChangeHandler: (() => void) | null = null;
 
+	// Phase 2：面板高度持久化。用户拖面板之间的虚线分隔条 → Obsidian 更新各 WorkspaceTabs 的
+	// dimension（flex-grow 百分比）并触发 workspace 'resize'。这里防抖读回、写进 slot.height。
+	// 面板被 reconcile 重建时 dimension 会丢，doReconcile 结尾按 slot.height 重新下发。
+	private resizeHandler: (() => void) | null = null;
+	private persistTimer: number | null = null;
+
 	// reconcile 自身的 detach / 建 leaf / setViewState 都会再次触发 layout-change；期间置位，
 	// 避免守卫把我们自己的中间态误判成漂移而重入。runApplyLoop 全程持有。
 	private isReconciling = false;
@@ -99,12 +109,14 @@ export class LeftSidebarManager {
 		private getSettings: () => MinimalismUISettings,
 		private leafMount: LeafMountService,
 		private pinManager: PinManager,
+		private saveSettings: () => void | Promise<void>,
 	) {}
 
 	// ── Public ────────────────────────────────────────────────────────────────
 
 	async apply(opts?: { revealNewPanels?: boolean }): Promise<void> {
 		this.ensureLayoutGuard();
+		this.ensureResizeGuard();
 		if (opts?.revealNewPanels) this.revealNewPanels = true;
 		if (this.applyRun) {
 			this.rerunRequested = true;
@@ -137,6 +149,14 @@ export class LeftSidebarManager {
 			this.app.workspace.off('layout-change', this.layoutChangeHandler);
 			this.layoutChangeHandler = null;
 		}
+		if (this.resizeHandler) {
+			this.app.workspace.off('resize', this.resizeHandler);
+			this.resizeHandler = null;
+		}
+		if (this.persistTimer != null) {
+			window.clearTimeout(this.persistTimer);
+			this.persistTimer = null;
+		}
 		this.restoreTestCSS();
 		this.restoreEmptyStateHint();
 		this.slotLeaves.clear();
@@ -152,6 +172,66 @@ export class LeftSidebarManager {
 			void this.apply();
 		};
 		this.app.workspace.on('layout-change', this.layoutChangeHandler);
+	}
+
+	// 面板高度持久化守卫：workspace 'resize' 在窗口 / split 尺寸变化时触发（含用户拖面板间
+	// 分隔条）。防抖后把各 WorkspaceTabs 当前 dimension 读回写进对应 slot.height。
+	private ensureResizeGuard(): void {
+		if (this.resizeHandler) return;
+		this.resizeHandler = () => {
+			if (this.isReconciling || this.applyRun) return;
+			if (this.persistTimer != null) window.clearTimeout(this.persistTimer);
+			this.persistTimer = window.setTimeout(() => {
+				this.persistTimer = null;
+				this.persistSlotHeights();
+			}, 500);
+		};
+		this.app.workspace.on('resize', this.resizeHandler);
+	}
+
+	/** 把各面板当前高度（WorkspaceTabs.dimension，flex-grow 百分比）读回写进 slot.height。 */
+	private persistSlotHeights(): void {
+		if (this.isReconciling || this.applyRun) return;
+		const ls = this.leftSplit();
+		if (!ls) return;
+		let changed = false;
+		for (const slot of this.getSettings().leftSidebarSlots) {
+			if (!slot.enabled) continue;
+			const leaf = this.slotLeaves.get(slot.viewType);
+			if (!leaf || leaf.getRoot() !== (this.app.workspace.leftSplit as unknown)) continue;
+			const group = this.groupOf(leaf);
+			if (!group) continue;
+			const dim = typeof group.dimension === 'number' && group.dimension > 0
+				? Math.round(group.dimension * 10) / 10
+				: null;
+			const prev = slot.height ?? null;
+			const differs = dim == null ? prev != null : prev == null || Math.abs(dim - prev) > 0.5;
+			if (differs) {
+				slot.height = dim;
+				changed = true;
+			}
+		}
+		if (changed) void this.saveSettings();
+	}
+
+	/** slot leaf 所在的 WorkspaceTabs（leftSplit 的直接子节点，持有 dimension / setDimension）。 */
+	private groupOf(leaf: WorkspaceLeaf): ItemLike | null {
+		const g = (leaf as unknown as { parent?: ItemLike }).parent;
+		return g && typeof g.setDimension === 'function' ? g : null;
+	}
+
+	/** 还原用户保存的面板高度：doReconcile 结尾按 slot.height 把 dimension 重新下发到各面板。 */
+	private applySlotHeights(ls: SidedockLike): void {
+		let touched = false;
+		for (const slot of this.enabledSlots()) {
+			const leaf = this.slotLeaves.get(slot.viewType);
+			const group = leaf ? this.groupOf(leaf) : null;
+			if (!group?.setDimension) continue;
+			const h = slot.height;
+			group.setDimension(h != null && h > 0 && h < 100 ? h : null);
+			touched = true;
+		}
+		if (touched) ls.recomputeChildrenDimensions?.();
 	}
 
 	/**
@@ -354,6 +434,9 @@ export class LeftSidebarManager {
 				if (leaf) this.slotLeaves.set(type, leaf);
 			}
 			await this.leafMount.materializeDeferredLeaves([...this.slotLeaves.values()]);
+
+			// 6b. 还原用户拖拽保存的面板高度（新建 / 重建的面板 dimension 会是 null）。
+			this.applySlotHeights(ls);
 
 			// 7. 让各 view 绑定到当前文件（原生侧栏 leaf 一般自动跟随，这里补一次兜底）。
 			const activeFile = this.app.workspace.getActiveFile();

@@ -2379,11 +2379,12 @@ var EMPTY_HINT_ICON_CLASS = "minimalism-ui-sidebar-empty-hint-icon";
 var EMPTY_HINT_TEXT_CLASS = "minimalism-ui-sidebar-empty-hint-text";
 var EMPTY_HINT_LINK_CLASS = "minimalism-ui-sidebar-empty-hint-link";
 var LeftSidebarManager = class {
-  constructor(app, getSettings, leafMount, pinManager) {
+  constructor(app, getSettings, leafMount, pinManager, saveSettings) {
     this.app = app;
     this.getSettings = getSettings;
     this.leafMount = leafMount;
     this.pinManager = pinManager;
+    this.saveSettings = saveSettings;
     // 并发守卫：apply() 内有 await，第二次调用不能与进行中的并发（会建重复 leaf），也不能被
     // 静默丢弃（设置可能在两次调用间变了）。进行中的那次记在 applyRun；期间到达的调用只置位
     // rerunRequested 并 await 同一个 promise —— runApplyLoop 重读设置再跑，直到某一轮没有再被
@@ -2406,6 +2407,11 @@ var LeftSidebarManager = class {
     // 订阅 layout-change，每次只做一次廉价的 hasDrift() 判定，发现漂移才触发一次完整 reconcile。
     // 思路同 SingleTabGroupGuard / PinManager 的侧栏 layout-change 兜底。
     this.layoutChangeHandler = null;
+    // Phase 2：面板高度持久化。用户拖面板之间的虚线分隔条 → Obsidian 更新各 WorkspaceTabs 的
+    // dimension（flex-grow 百分比）并触发 workspace 'resize'。这里防抖读回、写进 slot.height。
+    // 面板被 reconcile 重建时 dimension 会丢，doReconcile 结尾按 slot.height 重新下发。
+    this.resizeHandler = null;
+    this.persistTimer = null;
     // reconcile 自身的 detach / 建 leaf / setViewState 都会再次触发 layout-change；期间置位，
     // 避免守卫把我们自己的中间态误判成漂移而重入。runApplyLoop 全程持有。
     this.isReconciling = false;
@@ -2418,6 +2424,7 @@ var LeftSidebarManager = class {
   // ── Public ────────────────────────────────────────────────────────────────
   async apply(opts) {
     this.ensureLayoutGuard();
+    this.ensureResizeGuard();
     if (opts == null ? void 0 : opts.revealNewPanels) this.revealNewPanels = true;
     if (this.applyRun) {
       this.rerunRequested = true;
@@ -2448,6 +2455,14 @@ var LeftSidebarManager = class {
       this.app.workspace.off("layout-change", this.layoutChangeHandler);
       this.layoutChangeHandler = null;
     }
+    if (this.resizeHandler) {
+      this.app.workspace.off("resize", this.resizeHandler);
+      this.resizeHandler = null;
+    }
+    if (this.persistTimer != null) {
+      window.clearTimeout(this.persistTimer);
+      this.persistTimer = null;
+    }
     this.restoreTestCSS();
     this.restoreEmptyStateHint();
     this.slotLeaves.clear();
@@ -2461,6 +2476,62 @@ var LeftSidebarManager = class {
       void this.apply();
     };
     this.app.workspace.on("layout-change", this.layoutChangeHandler);
+  }
+  // 面板高度持久化守卫：workspace 'resize' 在窗口 / split 尺寸变化时触发（含用户拖面板间
+  // 分隔条）。防抖后把各 WorkspaceTabs 当前 dimension 读回写进对应 slot.height。
+  ensureResizeGuard() {
+    if (this.resizeHandler) return;
+    this.resizeHandler = () => {
+      if (this.isReconciling || this.applyRun) return;
+      if (this.persistTimer != null) window.clearTimeout(this.persistTimer);
+      this.persistTimer = window.setTimeout(() => {
+        this.persistTimer = null;
+        this.persistSlotHeights();
+      }, 500);
+    };
+    this.app.workspace.on("resize", this.resizeHandler);
+  }
+  /** 把各面板当前高度（WorkspaceTabs.dimension，flex-grow 百分比）读回写进 slot.height。 */
+  persistSlotHeights() {
+    var _a;
+    if (this.isReconciling || this.applyRun) return;
+    const ls = this.leftSplit();
+    if (!ls) return;
+    let changed = false;
+    for (const slot of this.getSettings().leftSidebarSlots) {
+      if (!slot.enabled) continue;
+      const leaf = this.slotLeaves.get(slot.viewType);
+      if (!leaf || leaf.getRoot() !== this.app.workspace.leftSplit) continue;
+      const group = this.groupOf(leaf);
+      if (!group) continue;
+      const dim = typeof group.dimension === "number" && group.dimension > 0 ? Math.round(group.dimension * 10) / 10 : null;
+      const prev = (_a = slot.height) != null ? _a : null;
+      const differs = dim == null ? prev != null : prev == null || Math.abs(dim - prev) > 0.5;
+      if (differs) {
+        slot.height = dim;
+        changed = true;
+      }
+    }
+    if (changed) void this.saveSettings();
+  }
+  /** slot leaf 所在的 WorkspaceTabs（leftSplit 的直接子节点，持有 dimension / setDimension）。 */
+  groupOf(leaf) {
+    const g = leaf.parent;
+    return g && typeof g.setDimension === "function" ? g : null;
+  }
+  /** 还原用户保存的面板高度：doReconcile 结尾按 slot.height 把 dimension 重新下发到各面板。 */
+  applySlotHeights(ls) {
+    var _a;
+    let touched = false;
+    for (const slot of this.enabledSlots()) {
+      const leaf = this.slotLeaves.get(slot.viewType);
+      const group = leaf ? this.groupOf(leaf) : null;
+      if (!(group == null ? void 0 : group.setDimension)) continue;
+      const h = slot.height;
+      group.setDimension(h != null && h > 0 && h < 100 ? h : null);
+      touched = true;
+    }
+    if (touched) (_a = ls.recomputeChildrenDimensions) == null ? void 0 : _a.call(ls);
   }
   /**
    * 廉价判定：leftSplit 里的工具类 leaf 是否已偏离「每个 enabled slot 恰好一个、且没有别的」。
@@ -2610,6 +2681,7 @@ var LeftSidebarManager = class {
         if (leaf) this.slotLeaves.set(type, leaf);
       }
       await this.leafMount.materializeDeferredLeaves([...this.slotLeaves.values()]);
+      this.applySlotHeights(ls);
       const activeFile = this.app.workspace.getActiveFile();
       if (activeFile) this.app.workspace.trigger("file-open", activeFile);
       const graphLeaf = this.slotLeaves.get("localgraph");
@@ -5095,7 +5167,7 @@ var MinimalismUIPlugin = class extends import_obsidian13.Plugin {
       () => this.engine.canGoForward()
     );
     this.engine.setNavChangeListener((leaf) => this.dragBar.notifyNavChange(leaf));
-    this.leftSidebar = new LeftSidebarManager(this.app, settings, this.leafMount, this.pinManager);
+    this.leftSidebar = new LeftSidebarManager(this.app, settings, this.leafMount, this.pinManager, () => this.saveData(this.settings));
     this.sidebarSuggestFocus = new SidebarSuggestFocusTracker();
     this.responsiveSidebar = new ResponsiveSidebarManager(this.app);
     this.propertyKeyResizer = new PropertyKeyResizer(settings, () => this.saveData(this.settings));
