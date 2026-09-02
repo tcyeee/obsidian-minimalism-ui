@@ -90,7 +90,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		// active-leaf-change 未触发时（如 deferred 视图经 revealLeaf 显示），引擎记录导航后
 		// 直接驱动面包屑刷新，使其与历史栈保持同步。
 		this.engine.setNavChangeListener((leaf) => this.dragBar.notifyNavChange(leaf));
-		this.leftSidebar = new LeftSidebarManager(this.app, settings, this.leafMount, this.pinManager);
+		this.leftSidebar = new LeftSidebarManager(this.app, settings, this.leafMount, this.pinManager, () => this.saveData(this.settings));
 		this.sidebarSuggestFocus = new SidebarSuggestFocusTracker();
 		this.responsiveSidebar = new ResponsiveSidebarManager(this.app);
 		this.propertyKeyResizer = new PropertyKeyResizer(settings, () => this.saveData(this.settings));
