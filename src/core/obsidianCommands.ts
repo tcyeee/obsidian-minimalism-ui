@@ -52,14 +52,33 @@ export function executeCommandById(app: App, id: string): boolean {
 }
 
 // Obsidian 内部设置面板形状：打开设置并切到指定插件页签。未出现在官方类型声明中。
-type SettingApi = { open: () => void; openTabById: (id: string) => void };
+type SettingApi = {
+	open: () => void;
+	openTabById: (id: string) => void;
+	activeTab?: { containerEl?: HTMLElement } | null;
+};
 
 // 本插件 id（与 manifest.json 一致），用于打开本插件的设置页签。
 const PLUGIN_ID = 'minimalism-ui';
 
-// 打开本插件的设置页。
-export function openPluginSettings(app: App): void {
+// 打开本插件的设置页。传 sectionTitle 时，切到该页签后把标题匹配的可折叠分区展开并滚动到视野内
+// （分区标题文案见 SettingTab.display() 里的 t('headingXxx')）。
+export function openPluginSettings(app: App, sectionTitle?: string): void {
 	const setting = (app as unknown as { setting?: SettingApi }).setting;
 	setting?.open();
 	setting?.openTabById(PLUGIN_ID);
+	if (!sectionTitle) return;
+
+	// openTabById 同步重建 DOM，但保险起见下一帧再找分区。
+	window.requestAnimationFrame(() => {
+		const root = setting?.activeTab?.containerEl;
+		if (!root) return;
+		const headings = root.querySelectorAll<HTMLElement>('.minimalism-ui-collapsible-heading');
+		for (const heading of Array.from(headings)) {
+			if (heading.textContent?.trim() !== sectionTitle.trim()) continue;
+			if (heading.classList.contains('minimalism-ui-collapsible-heading-collapsed')) heading.click();
+			heading.scrollIntoView({ block: 'start' });
+			return;
+		}
+	});
 }

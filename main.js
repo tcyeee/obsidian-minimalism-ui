@@ -291,7 +291,7 @@ var translations = {
     introDesc1: '\u672C\u63D2\u4EF6\u662F\u4E00\u6B3E"\u505A\u51CF\u6CD5"\u7684\u5DE5\u5177,\u8BBE\u8BA1\u7406\u5FF5\u4E0E\u4E3B\u6D41\u7528\u6CD5\u76F8\u6096:\u5B83\u53EA\u4FDD\u7559\u5DE6\u4FA7\u8FB9\u680F(\u9ED8\u8BA4\u7A7A\u767D,\u53EF\u81EA\u884C\u6DFB\u52A0\u5927\u7EB2\u3001\u5C5E\u6027\u3001\u672C\u5730\u5173\u7CFB\u56FE\u7B49\u9762\u677F,\u6700\u591A 4 \u4E2A),\u5E76\u88C1\u526A\u6389\u4E86\u5927\u91CF\u6838\u5FC3\u529F\u80FD,\u751A\u81F3\u5305\u62EC"\u6587\u4EF6\u5939"\u3002\u5B89\u88C5\u524D\u8BF7\u5148\u786E\u8BA4\u4F60\u8BA4\u540C\u8FD9\u5957\u6781\u7B80\u7406\u5FF5\u3002',
     introDesc2: "\u8BF7\u6307\u5B9A\u4E00\u7BC7\u7B14\u8BB0\u4F5C\u4E3A\u9996\u9875\u3002\u5B83\u5982\u540C\u4E00\u68F5\u6811\u7684\u4E3B\u5E72,\u4F60\u5728\u5176\u4E0A\u7528\u53CC\u94FE\u4E0D\u65AD\u65B0\u5EFA\u7B14\u8BB0,\u8BA9\u77E5\u8BC6\u5F00\u679D\u6563\u53F6,\u6700\u7EC8\u957F\u6210\u53C2\u5929\u5927\u6811\u3002",
     headingGeneral: "\u901A\u7528\u8BBE\u7F6E",
-    headingAppearance: "\u5DE6\u4FA7\u8FB9\u680F\u8BBE\u7F6E",
+    headingAppearance: "\u5DE6\u4FA7\u8FB9\u680F\u6837\u5F0F",
     headingInteraction: "\u4EA4\u4E92\u8BBE\u7F6E",
     headingAnimation: "\u52A8\u753B\u8BBE\u7F6E (beta)",
     headingAdvanced: "\u9AD8\u7EA7\u8BBE\u7F6E",
@@ -302,7 +302,8 @@ var translations = {
     leftSidebarPanelsDesc: "\u9009\u62E9\u8981\u663E\u793A\u5728\u5DE6\u4FA7\u680F\u7684\u9762\u677F\uFF0C\u6700\u591A 4 \u4E2A\uFF0C\u53EF\u62D6\u62FD\u6392\u5E8F\u3002\u9ED8\u8BA4\u7A7A\u767D\u3002",
     leftSidebarPanelsEmpty: "\u5DE6\u4FA7\u680F\u5F53\u524D\u4E3A\u7A7A\u767D\u3002\u70B9\u51FB\u300C\u6DFB\u52A0\u9762\u677F\u300D\u9009\u62E9\u8981\u663E\u793A\u7684\u5185\u5BB9\u3002",
     leftSidebarPanelsFull: "\u5DF2\u8FBE\u5230 4 \u4E2A\u9762\u677F\u4E0A\u9650\u3002",
-    sidebarEmptyHint: "\u5DE6\u4FA7\u680F\u8FD8\u6CA1\u6709\u9762\u677F\u3002\u524D\u5F80\u300C\u8BBE\u7F6E \u2192 \u5DE6\u4FA7\u8FB9\u680F\u8BBE\u7F6E\u300D\u6DFB\u52A0\u5927\u7EB2\u3001\u5C5E\u6027\u3001\u672C\u5730\u5173\u7CFB\u56FE\u7B49\u9762\u677F\u3002",
+    sidebarEmptyHint: "\u5DE6\u4FA7\u680F\u8FD8\u6CA1\u6709\u9762\u677F\uFF0C{link}\u5373\u53EF\u6DFB\u52A0\u5927\u7EB2\u3001\u5C5E\u6027\u3001\u672C\u5730\u5173\u7CFB\u56FE\u7B49\u9762\u677F\u3002",
+    sidebarEmptyHintLink: "\u524D\u5F80\u300C\u5DE6\u4FA7\u8FB9\u680F\u6837\u5F0F\u300D\u8BBE\u7F6E",
     addPanel: "\u6DFB\u52A0\u9762\u677F",
     removePanel: "\u79FB\u9664\u9762\u677F",
     dragToReorder: "\u62D6\u62FD\u6392\u5E8F",
@@ -388,7 +389,8 @@ var translations = {
     leftSidebarPanelsDesc: "Choose which panels appear in the left sidebar. Up to 4, drag to reorder. Empty by default.",
     leftSidebarPanelsEmpty: 'The left sidebar is empty. Click "Add panel" to choose what to show.',
     leftSidebarPanelsFull: "Panel limit of 4 reached.",
-    sidebarEmptyHint: "No panels in the left sidebar yet. Add panels like Outline, Properties, or Local Graph from Settings \u2192 Left sidebar.",
+    sidebarEmptyHint: "No panels in the left sidebar yet \u2014 {link} to add panels like Outline, Properties, or Local Graph.",
+    sidebarEmptyHintLink: "open Left sidebar settings",
     addPanel: "Add panel",
     removePanel: "Remove panel",
     dragToReorder: "Drag to reorder",
@@ -2329,9 +2331,53 @@ var DragBarManager = _DragBarManager;
 
 // src/layout/LeftSidebarManager.ts
 var import_obsidian5 = require("obsidian");
+
+// src/core/obsidianCommands.ts
+function patchExecuteCommand(app, onExecuted) {
+  const commands = app.commands;
+  if (!commands || typeof commands.executeCommand !== "function") return () => {
+  };
+  const original = commands.executeCommand;
+  const wrapped = (command, ...rest) => {
+    const result = original.call(commands, command, ...rest);
+    if (result && command) onExecuted(command.id);
+    return result;
+  };
+  commands.executeCommand = wrapped;
+  return () => {
+    if (commands.executeCommand === wrapped) commands.executeCommand = original;
+  };
+}
+function executeCommandById(app, id) {
+  var _a, _b;
+  const commands = app.commands;
+  return (_b = (_a = commands == null ? void 0 : commands.executeCommandById) == null ? void 0 : _a.call(commands, id)) != null ? _b : false;
+}
+var PLUGIN_ID = "minimalism-ui";
+function openPluginSettings(app, sectionTitle) {
+  const setting = app.setting;
+  setting == null ? void 0 : setting.open();
+  setting == null ? void 0 : setting.openTabById(PLUGIN_ID);
+  if (!sectionTitle) return;
+  window.requestAnimationFrame(() => {
+    var _a, _b;
+    const root = (_a = setting == null ? void 0 : setting.activeTab) == null ? void 0 : _a.containerEl;
+    if (!root) return;
+    const headings = root.querySelectorAll(".minimalism-ui-collapsible-heading");
+    for (const heading of Array.from(headings)) {
+      if (((_b = heading.textContent) == null ? void 0 : _b.trim()) !== sectionTitle.trim()) continue;
+      if (heading.classList.contains("minimalism-ui-collapsible-heading-collapsed")) heading.click();
+      heading.scrollIntoView({ block: "start" });
+      return;
+    }
+  });
+}
+
+// src/layout/LeftSidebarManager.ts
 var EMPTY_HINT_CLASS = "minimalism-ui-sidebar-empty-hint";
 var EMPTY_HINT_ICON_CLASS = "minimalism-ui-sidebar-empty-hint-icon";
 var EMPTY_HINT_TEXT_CLASS = "minimalism-ui-sidebar-empty-hint-text";
+var EMPTY_HINT_LINK_CLASS = "minimalism-ui-sidebar-empty-hint-link";
 var LeftSidebarManager = class {
   constructor(app, getSettings, leafMount, pinManager) {
     this.app = app;
@@ -2674,7 +2720,19 @@ var LeftSidebarManager = class {
       (0, import_obsidian5.setIcon)(host.createDiv({ cls: EMPTY_HINT_ICON_CLASS, prepend: true }), "panel-left");
     }
     const textEl = (_a = host.querySelector(`:scope > .${EMPTY_HINT_TEXT_CLASS}`)) != null ? _a : host.createEl("p", { cls: EMPTY_HINT_TEXT_CLASS });
-    textEl.setText(t("sidebarEmptyHint"));
+    textEl.empty();
+    const [before, after = ""] = t("sidebarEmptyHint").split("{link}");
+    textEl.appendText(before);
+    const linkEl = textEl.createEl("a", {
+      cls: EMPTY_HINT_LINK_CLASS,
+      href: "#",
+      text: t("sidebarEmptyHintLink")
+    });
+    linkEl.addEventListener("click", (e) => {
+      e.preventDefault();
+      openPluginSettings(this.app, t("headingAppearance"));
+    });
+    textEl.appendText(after);
   }
   restoreEmptyStateHint() {
     var _a, _b;
@@ -3018,36 +3076,6 @@ var EditorStatusManager = class {
 
 // src/layout/StatusBarMenuManager.ts
 var import_obsidian8 = require("obsidian");
-
-// src/core/obsidianCommands.ts
-function patchExecuteCommand(app, onExecuted) {
-  const commands = app.commands;
-  if (!commands || typeof commands.executeCommand !== "function") return () => {
-  };
-  const original = commands.executeCommand;
-  const wrapped = (command, ...rest) => {
-    const result = original.call(commands, command, ...rest);
-    if (result && command) onExecuted(command.id);
-    return result;
-  };
-  commands.executeCommand = wrapped;
-  return () => {
-    if (commands.executeCommand === wrapped) commands.executeCommand = original;
-  };
-}
-function executeCommandById(app, id) {
-  var _a, _b;
-  const commands = app.commands;
-  return (_b = (_a = commands == null ? void 0 : commands.executeCommandById) == null ? void 0 : _a.call(commands, id)) != null ? _b : false;
-}
-var PLUGIN_ID = "minimalism-ui";
-function openPluginSettings(app) {
-  const setting = app.setting;
-  setting == null ? void 0 : setting.open();
-  setting == null ? void 0 : setting.openTabById(PLUGIN_ID);
-}
-
-// src/layout/StatusBarMenuManager.ts
 var TRIGGER_ICON = "ellipsis-vertical";
 var POPOVER_CLASS = "minimalism-ui-status-popover";
 var POPOVER_WIDTH = 265;
