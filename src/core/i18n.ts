@@ -8,7 +8,7 @@ const translations = {
 		languageEn: 'English',
 
 		introTitle: '使用前必读',
-		introDesc1: '本插件是一款"做减法"的工具,设计理念与主流用法相悖:它只保留左侧边栏(至多显示大纲、属性、本地关系图),并裁剪掉了大量核心功能,甚至包括"文件夹"。安装前请先确认你认同这套极简理念。',
+		introDesc1: '本插件是一款"做减法"的工具,设计理念与主流用法相悖:它只保留左侧边栏(默认空白,可自行添加大纲、属性、本地关系图等面板,最多 4 个),并裁剪掉了大量核心功能,甚至包括"文件夹"。安装前请先确认你认同这套极简理念。',
 		introDesc2: '请指定一篇笔记作为首页。它如同一棵树的主干,你在其上用双链不断新建笔记,让知识开枝散叶,最终长成参天大树。',
 
 		headingGeneral: '通用设置',
@@ -21,7 +21,14 @@ const translations = {
 		showLocalGraph: '本地关系图',
 		showVaultProfile: '底部用户设置区域',
 
-		hideTabBar: '隐藏大纲按钮',
+		leftSidebarPanels: '左侧栏面板',
+		leftSidebarPanelsDesc: '选择要显示在左侧栏的面板，最多 4 个，可拖拽排序。默认空白。',
+		leftSidebarPanelsEmpty: '左侧栏当前为空白。点击「添加面板」选择要显示的内容。',
+		leftSidebarPanelsFull: '已达到 4 个面板上限。',
+		sidebarEmptyHint: '左侧栏还没有面板。前往「设置 → 侧边栏设置」添加大纲、属性、本地关系图等面板。',
+		addPanel: '添加面板',
+		removePanel: '移除面板',
+		dragToReorder: '拖拽排序',
 
 		showRightSidebarButton: '右侧栏悬浮按钮',
 		showRightSidebarButtonDesc: '在右下角显示一个悬浮按钮，用于展开/收起右侧边栏（供依赖右侧栏的插件，如 AI 对话插件使用）。',
@@ -102,7 +109,7 @@ const translations = {
 		languageEn: 'English',
 
 		introTitle: 'Read this before you start',
-		introDesc1: 'This plugin is all about subtraction, and its philosophy runs against mainstream usage: it keeps only the left sidebar (showing at most Outline, Properties, and Local Graph) and strips away many core features, including Folders. Make sure this minimalist philosophy suits you before installing.',
+		introDesc1: 'This plugin is all about subtraction, and its philosophy runs against mainstream usage: it keeps only the left sidebar (empty by default — add up to 4 panels such as Outline, Properties, and Local Graph yourself) and strips away many core features, including Folders. Make sure this minimalist philosophy suits you before installing.',
 		introDesc2: 'Pick one note as your home page. Think of it as the trunk of a tree: keep creating notes from it through backlinks, letting your knowledge branch out until it grows into a towering tree.',
 
 		headingGeneral: 'General',
@@ -115,7 +122,14 @@ const translations = {
 		showLocalGraph: 'Local Graph',
 		showVaultProfile: 'Bottom settings area',
 
-		hideTabBar: 'Hide outline button',
+		leftSidebarPanels: 'Left sidebar panels',
+		leftSidebarPanelsDesc: 'Choose which panels appear in the left sidebar. Up to 4, drag to reorder. Empty by default.',
+		leftSidebarPanelsEmpty: 'The left sidebar is empty. Click "Add panel" to choose what to show.',
+		leftSidebarPanelsFull: 'Panel limit of 4 reached.',
+		sidebarEmptyHint: 'No panels in the left sidebar yet. Add panels like Outline, Properties, or Local Graph from Settings → Sidebar.',
+		addPanel: 'Add panel',
+		removePanel: 'Remove panel',
+		dragToReorder: 'Drag to reorder',
 
 		showRightSidebarButton: 'Right sidebar button',
 		showRightSidebarButtonDesc: 'Show a floating button in the bottom-right corner to expand/collapse the right sidebar (for plugins that need it, e.g. AI chat plugins).',

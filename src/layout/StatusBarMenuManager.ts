@@ -1,4 +1,5 @@
-import { App, EventRef, FileSystemAdapter, MarkdownView, Modal, Notice, Plugin, TFile, ToggleComponent, WorkspaceLeaf, normalizePath, setIcon } from 'obsidian';
+import { App, EventRef, FileSystemAdapter, MarkdownView, Modal, Notice, TFile, ToggleComponent, WorkspaceLeaf, normalizePath, setIcon } from 'obsidian';
+import type MinimalismUIPlugin from '../../main';
 import { Feature } from '../core/Feature';
 import { t } from '../core/i18n';
 import { executeCommandById, openPluginSettings } from '../core/obsidianCommands';
@@ -27,8 +28,9 @@ type NoteMode = 'locked' | 'edit' | 'source';
  *      源码=源码模式 mode:'source',source:true）——与 EditorStatusManager 的阅读/编辑两态锁图标
  *      是完全独立的第二入口，互不影响、互不复用状态。分段控件点击后原地刷新高亮，不关闭面板。
  *   2. 重命名 / 删除当前笔记（分别弹出 RenameModal / ConfirmDeleteModal 二次确认，点击后关闭本面板）。
- *   3. 左侧边栏（workspace.leftSplit）、右侧边栏悬浮面板（RightSidebarButtonManager）的显示/隐藏，
- *      用 Obsidian 原生 ToggleComponent（与 Settings 页一致的开关样式），保持主题一致、不关闭面板。
+ *   3. 左侧边栏（workspace.leftSplit）的显示/隐藏，以及右下角悬浮框（minimalism-ui-rsb-launcher，
+ *      即 showRightSidebarButton 设置）的显示/隐藏，用 Obsidian 原生 ToggleComponent（与 Settings 页
+ *      一致的开关样式），保持主题一致、不关闭面板。
  *
  * 面板挂在主窗口 body（uiDoc().body），优先定位于触发图标正上方展开；若图标被 DragBarManager
  * 挪到顶部拖拽栏、上方空间不足，positionPopover() 会自动改为向下展开（见其注释）。
@@ -46,15 +48,16 @@ export class StatusBarMenuManager implements Feature {
 	private leftSidebarToggle: ToggleComponent | null = null;
 	private rightSidebarToggle: ToggleComponent | null = null;
 	// ToggleComponent.setValue() 会触发 onChange，程序化同步开关显示值时用此标记屏蔽回调，
-	// 否则 refreshSidebarToggles → setValue → onChange → togglePanel → 状态变化 → refreshSidebarToggles 无限递归。
+	// 否则 refreshSidebarToggles → setValue → onChange → collapse/expand → 状态变化 → refreshSidebarToggles 无限递归。
 	private syncingToggles = false;
 	private resizeEventRef: EventRef | null = null;
-	private unsubscribeRightSidebar: (() => void) | null = null;
 
 	constructor(
 		private app: App,
-		private plugin: Plugin,
-		private rightSidebar: { togglePanel(): void; isPanelOpen(): boolean; onStateChange(cb: () => void): () => void },
+		private plugin: MinimalismUIPlugin,
+		// 右下角悬浮框（minimalism-ui-rsb-launcher）的显隐——即 showRightSidebarButton 设置的读写；
+		// setVisible 内部会保存设置并触发 RightSidebarButtonManager 重新 apply（注入/拆除 DOM）。
+		private rsbLauncher: { getVisible(): boolean; setVisible(visible: boolean): void },
 	) {}
 
 	apply(): void {
@@ -85,10 +88,6 @@ export class StatusBarMenuManager implements Feature {
 		// 事件——任何 WorkspaceItem 尺寸变化（含侧边栏折叠/展开）都会触发它，因此只需订阅这一个
 		// 事件即可覆盖全部触发路径。
 		this.resizeEventRef = this.app.workspace.on('resize', () => this.refreshSidebarToggles());
-		// 右侧悬浮面板是本插件自绘的 DOM（非真实 rightSplit 的 collapse/expand），点击右下角
-		// 悬浮按钮本身不会触发上面的 'resize' 事件——单独订阅 RightSidebarButtonManager 自己的
-		// 开关态变化（见其 onStateChange 注释），覆盖“直接点悬浮按钮”这条路径。
-		this.unsubscribeRightSidebar = this.rightSidebar.onStateChange(() => this.refreshSidebarToggles());
 	}
 
 	remove(): void {
@@ -97,10 +96,6 @@ export class StatusBarMenuManager implements Feature {
 			this.app.workspace.offref(this.resizeEventRef);
 			this.resizeEventRef = null;
 		}
-		if (this.unsubscribeRightSidebar) {
-			this.unsubscribeRightSidebar();
-			this.unsubscribeRightSidebar = null;
-		}
 		if (this.statusBarItem) {
 			this.statusBarItem.remove();
 			this.statusBarItem = null;
@@ -108,7 +103,7 @@ export class StatusBarMenuManager implements Feature {
 	}
 
 	// 面板开着时，把左右两个开关的显示值刷新为当前真实状态。setValue() 会触发 onChange，
-	// 故用 syncingToggles 屏蔽回调（避免 collapse()/expand()/togglePanel() 被反向调用形成回路），
+	// 故用 syncingToggles 屏蔽回调（避免 collapse()/expand()/setVisible() 被反向调用形成回路），
 	// 也不走 renderContent() 整体重建，避免打断用户正在操作的笔记三态分段控件。
 	private refreshSidebarToggles(): void {
 		if (!this.popoverEl) return;
@@ -116,7 +111,7 @@ export class StatusBarMenuManager implements Feature {
 		this.syncingToggles = true;
 		try {
 			this.leftSidebarToggle?.setValue(leftSplit ? !leftSplit.collapsed : false);
-			this.rightSidebarToggle?.setValue(this.rightSidebar.isPanelOpen());
+			this.rightSidebarToggle?.setValue(this.rsbLauncher.getVisible());
 		} finally {
 			this.syncingToggles = false;
 		}
@@ -380,16 +375,18 @@ export class StatusBarMenuManager implements Feature {
 				if (value) leftSplit.expand(); else leftSplit.collapse();
 			});
 
+		// 右下角悬浮框（minimalism-ui-rsb-launcher）的显隐——即 showRightSidebarButton 设置。
+		// 关掉后连带右侧栏悬浮面板一起从 DOM 拆除，不再只是收起面板。
 		const rightRow = container.createDiv({ cls: 'minimalism-ui-status-popover-row is-static' });
 		const rightIcon = rightRow.createDiv({ cls: 'minimalism-ui-status-popover-row-icon' });
 		setIcon(rightIcon, 'panel-right');
 		rightRow.createSpan({ cls: 'minimalism-ui-status-popover-row-label', text: t('statusBarMenuToggleRightSidebar') });
 		const rightToggleEl = rightRow.createDiv();
 		this.rightSidebarToggle = new ToggleComponent(rightToggleEl)
-			.setValue(this.rightSidebar.isPanelOpen())
-			.onChange(() => {
+			.setValue(this.rsbLauncher.getVisible())
+			.onChange((value) => {
 				if (this.syncingToggles) return;
-				this.rightSidebar.togglePanel();
+				this.rsbLauncher.setVisible(value);
 			});
 	}
 

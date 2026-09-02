@@ -1,21 +1,14 @@
 import { App, setIcon, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
+import { LeafMountService } from '../core/LeafMountService';
 import { t } from '../core/i18n';
 import type { RightSidebarIconDrag } from './RightSidebarIconDrag';
 
-// 左侧栏里这三种 view type 由 SidebarLayoutManager 拆解合并进 Outline（Properties 只挪了
-// 内部节点，Graph 挪了整个 containerEl），继续套用通用挂载/归还逻辑会和它的簿记打架——
-// 排除在外；左侧栏里其余（用户手动加入、未被合并处理的）leaf 视为普通可切换项。
-const MANAGED_LEFT_VIEW_TYPES = new Set(['outline', 'localgraph', 'file-properties']);
-
-// "全部已注册 view"兜底扫描（见 ensureAllToolViewsExist）只覆盖工具类面板，不包括按文件渲染的
-// 文档类 view —— 这些 view 脱离文件上下文 setViewState 大概率报错或空白，且"切到 markdown/canvas
-// 视图"这个操作在悬浮面板的语义下也没有意义。此处只列出 Obsidian 核心已知的文档类 type；
-// 第三方插件注册的未知类型一律放行，由 ensureAllToolViewsExist 的 try/catch 兜底探测失败。
-const DOCUMENT_VIEW_TYPES = new Set([
-	'markdown', 'canvas', 'pdf', 'image', 'audio', 'video',
-	'empty', 'release-notes', 'webviewer', 'bases',
-]);
+// 左侧栏默认独占管理的三种 view type：右侧栏悬浮面板的通用挂载/归还逻辑会和左侧栏对它们的
+// 簿记打架——排除在外；左侧栏里其余（用户手动加入、未被管理的）leaf 视为普通可切换项。
+// Phase 4 会把这个集合改成向 LeftSidebarManager 动态查询"当前 enabled slot 占用的 view type"，
+// 此处先保留默认值，并允许外部通过 setManagedLeftViewTypesProvider 覆盖（Phase 1 起接线）。
+export const DEFAULT_MANAGED_LEFT_VIEW_TYPES: ReadonlySet<string> = new Set(['outline', 'localgraph', 'file-properties']);
 
 const DEFAULT_ICON = 'panel-right';
 const STACK_ICON_CLASS = 'minimalism-ui-rsb-stack-icon';
@@ -99,11 +92,20 @@ export class RightSidebarViewStack {
 	// 只由用户点击哨兵图标改变——切视图、堆叠自动收起等操作不再连带重置它（见类注释）。
 	private stowExpanded = false;
 
+	// 左侧栏独占的 view type 提供者：默认三件套，可被外部（LeftSidebarManager）覆盖为动态查询。
+	private getManagedLeftViewTypes: () => ReadonlySet<string> = () => DEFAULT_MANAGED_LEFT_VIEW_TYPES;
+
 	constructor(
 		private app: App,
 		private getSettings: () => MinimalismUISettings,
 		private save: () => Promise<void>,
+		private leafMount: LeafMountService,
 	) {}
+
+	// Phase 1 起由 main.ts 接线：让"左侧栏独占哪些 view type"成为两模块的单一事实源。
+	setManagedLeftViewTypesProvider(fn: () => ReadonlySet<string>) {
+		this.getManagedLeftViewTypes = fn;
+	}
 
 	// 双向引用只能在两者都构造完之后接上（见 RightSidebarButtonManager 的构造顺序）。
 	bindIconDrag(iconDrag: RightSidebarIconDrag) {
@@ -170,78 +172,29 @@ export class RightSidebarViewStack {
 			const root = leaf.getRoot();
 			if (rightSplit && root === rightSplit) {
 				leaves.push(leaf);
-			} else if (leftSplit && root === leftSplit && !MANAGED_LEFT_VIEW_TYPES.has(leaf.getViewState().type)) {
+			} else if (leftSplit && root === leftSplit && !this.getManagedLeftViewTypes().has(leaf.getViewState().type)) {
 				leaves.push(leaf);
 			}
 		});
 		return leaves;
 	}
 
-	// 全部已注册的"工具类" view type：viewByType 里排除文档类（DOCUMENT_VIEW_TYPES）和
-	// 已被 SidebarLayoutManager 合并管理的三种（MANAGED_LEFT_VIEW_TYPES）。
-	// viewByType 是内部 API（未出现在官方类型声明中），随 Obsidian 插件注册 registerView 时写入，
-	// 与是否有 leaf 打开无关 —— 这正是探测"已关闭但曾注册过"的 view 所需要的入口。
-	private allRegisteredToolViewTypes(): string[] {
-		const registry = (this.app as unknown as { viewRegistry?: { viewByType?: Record<string, unknown> } }).viewRegistry;
-		const types = Object.keys(registry?.viewByType ?? {});
-		return types.filter((type) => !DOCUMENT_VIEW_TYPES.has(type) && !MANAGED_LEFT_VIEW_TYPES.has(type));
-	}
-
 	// 为每个尚无 leaf 的工具类 view type 在（CSS 整体隐藏的）右侧栏静默创建一个 leaf 占位，
-	// 使其之后能被 collectSwitchableLeaves 发现。逐个 await 而非 Promise.all，避免并发调用
-	// getRightLeaf/setViewState 在 Obsidian 工作区内部产生竞态。
-	// 某个类型探测失败（第三方 view 在无文件上下文下抛错）不影响其余类型，失败时把刚创建的
-	// 空/半初始化 leaf 一并 detach 掉，不留垃圾条目。
-	// 共享同一个 tab 组而非每个 type 各 split 一块分屏：getRightLeaf(true) 的 split 语义是
-	// "把现有分栏再拆一个新的"，若每个 type 都调它，右侧栏会被拆成几十个分屏（虽然整体 CSS
-	// 隐藏，但仍是几十个 WorkspaceTabs/split 节点的 DOM 与内部状态开销）。优先复用右侧栏里
-	// 已存在的某个 leaf 所在的组；侧栏全空时才靠 getRightLeaf(true) 建第一个组，之后一律
-	// createLeafInParent 把新 leaf 挂到同一组下（与 SingleTabGroupGuard 合并主区分屏同一手法）。
+	// 使其之后能被 collectSwitchableLeaves 发现。枚举 / 建 leaf / 竞态守卫的通用逻辑在
+	// LeafMountService；本类只提供右侧栏专属的"在哪里建"策略：优先复用右侧栏里已存在的某个
+	// leaf 所在的组，侧栏全空时才 getRightLeaf(true) 建第一个组。
 	async ensureAllToolViewsExist() {
-		const ws = this.app.workspace as unknown as { createLeafInParent: (parent: unknown, index: number) => WorkspaceLeaf };
-		let sharedParent: unknown = this.findExistingRightSidebarParent();
-
-		for (const type of this.allRegisteredToolViewTypes()) {
-			if (this.app.workspace.getLeavesOfType(type).length > 0) continue;
-			let leaf: WorkspaceLeaf | null = null;
-			try {
-				if (sharedParent) {
-					const index = (sharedParent as { children?: unknown[] }).children?.length ?? 0;
-					leaf = ws.createLeafInParent(sharedParent, index);
-				} else {
-					leaf = this.app.workspace.getRightLeaf(true);
-					if (leaf) sharedParent = (leaf as unknown as { parent: unknown }).parent;
-				}
-				if (!leaf) continue;
-				await leaf.setViewState({ type, active: false });
-			} catch (err: unknown) {
-				console.error(`[minimalism-ui] probing view type "${type}" failed, skipping`, err);
-				leaf?.detach();
-				// detach 后若该组因此清空（唯一子 leaf 探测失败），Obsidian 会自动回收这个空组，
-				// sharedParent 引用随之失效——重置为 null，下一个 type 走 getRightLeaf(true) 重新建组。
-				if (sharedParent && ((sharedParent as { children?: unknown[] }).children?.length ?? 0) === 0) {
-					sharedParent = null;
-				}
-			}
-		}
+		await this.leafMount.ensureAllToolViewsExist({
+			excludedViewTypes: this.getManagedLeftViewTypes(),
+			findSharedParent: () => this.findExistingRightSidebarParent(),
+			createFallbackLeaf: () => this.app.workspace.getRightLeaf(true),
+		});
 	}
 
-	// Obsidian 的 deferred leaf 只有在"第一次真正被用到"时才物化真正的 View 实例，物化过程
-	// 会触发一次它所在 tab group 的内部重渲染——这个重渲染不知道我们把某个 sibling leaf 的
-	// containerEl 偷偷搬进了悬浮面板，会把它当垃圾一并摘掉（表现为那个 leaf 的 containerEl
-	// parentElement 变 null，内容清空，且不会再恢复）。日志实测证实：切到一个还没被物化过
-	// 的视图时，触发的重渲染会把"当前挂在面板里的另一个视图"顺带摘掉。
-	// 把物化这一步提前到用户开始点选之前（面板里还什么都没挂的时候）做，就没有东西可误伤。
-	// 逐个 await 而非 Promise.all，理由同 ensureAllToolViewsExist：避免物化过程互相踩踏。
+	// 把 deferred leaf 物化提前到用户开始点选之前做，避免它触发的重渲染误伤此刻被搬进悬浮
+	// 面板的 sibling leaf（详见 LeafMountService.materializeDeferredLeaves）。
 	async materializeDeferredLeaves() {
-		for (const leaf of this.collectSwitchableLeaves()) {
-			if (!leaf.isDeferred) continue;
-			try {
-				await leaf.loadIfDeferred();
-			} catch (err: unknown) {
-				console.error('[minimalism-ui] failed to materialize deferred leaf', leaf.view.getViewType(), err);
-			}
-		}
+		await this.leafMount.materializeDeferredLeaves(this.collectSwitchableLeaves());
 	}
 
 	// 右侧栏里任意一个已存在 leaf 所属的 tab 组（原生已打开的面板，或此前探测遗留的），
@@ -476,31 +429,10 @@ export class RightSidebarViewStack {
 		if (this.buttonEl) setIcon(this.buttonEl, DEFAULT_ICON);
 	}
 
-	// onResize() 跑的是任意第三方/核心视图的代码，出错也不该拖垮我们自己的挂载逻辑。
-	//
-	// 核心的 All Properties / Tags / Backlinks 等面板内部用虚拟滚动实现列表，其 onResize()
-	// 只有在"测得的宽度与上次可见时缓存的宽度不同"时才会真正重新排布；宽度相同则只重放上次
-	// 的缓存布局。缓存宽度的初值是 0，所以第一次挂进面板（宽度从 0 变为真实值）一定会触发
-	// 真正的重排,看起来正常;但只要面板尺寸不变,之后每次切走再切回来,宽度都和缓存一致,
-	// 于是只重放旧布局——如果内容在切走期间失效（如属性列表变化）就会一直空着，不会再重新
-	// 计算。这是 Obsidian 内部实现的私有细节，各视图的虚拟滚动字段名不通用，没法针对性调用；
-	// 索性手动把宽度先改一格再改回真实值，逼它认为"宽度变了"从而完整重排一次。
+	// 虚拟滚动视图（文件树 / 搜索 / 标签 / 反链）在 DOM 被裸搬进悬浮面板后不会自动重新
+	// measure，需显式骗一次宽度变化触发完整重排（详见 LeafMountService.notifyResize）。
 	notifyResize(leaf: WorkspaceLeaf) {
-		const el = leaf.view.containerEl;
-		const originalWidth = el.style.width;
-		try {
-			el.setCssStyles({ width: `${el.clientWidth + 1}px` });
-			leaf.onResize();
-		} catch (err: unknown) {
-			console.error('[minimalism-ui] right sidebar view onResize() failed', err);
-		} finally {
-			el.setCssStyles({ width: originalWidth });
-		}
-		try {
-			leaf.onResize();
-		} catch (err: unknown) {
-			console.error('[minimalism-ui] right sidebar view onResize() failed', err);
-		}
+		this.leafMount.notifyResize(leaf);
 	}
 
 	// 把当前挂载的 leaf 视图移回它原本所在的 DOM 位置（隐藏的右侧栏内）。

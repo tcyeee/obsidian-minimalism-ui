@@ -17,7 +17,7 @@ type LeafInternal = WorkspaceLeaf & {
  *
  * 两者都是单页模式的固有行为，单页模式关闭时一并停用。
  *
- * `forceDetachLeaf` 供 {@link SidebarLayoutManager} 绕过守卫强制 detach（重建侧边栏时使用）。
+ * `forceDetachLeaf` 供 {@link LeftSidebarManager} 绕过守卫强制 detach（reconcile 移除 slot 时使用）。
  * 该方法在守卫未启用时也可调用——此时无 patch，退化为普通 `leaf.detach()`。
  */
 export class PinManager {
@@ -68,7 +68,7 @@ export class PinManager {
 		this.sidebarDetachPatches.clear();
 	}
 
-	// 绕过 detach 守卫，强制 detach 一个 leaf（供 SidebarLayoutManager 重建侧边栏时调用）
+	// 绕过 detach 守卫，强制 detach 一个 leaf（供 LeftSidebarManager reconcile 时调用）
 	forceDetachLeaf(leaf: WorkspaceLeaf) {
 		const original = this.sidebarDetachPatches.get(leaf);
 		if (original) {
