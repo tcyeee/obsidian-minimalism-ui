@@ -2378,6 +2378,7 @@ function openPluginSettings(app, sectionTitle) {
 }
 
 // src/layout/LeftSidebarManager.ts
+var GRAPH_VIEW_TYPE = "localgraph";
 var EMPTY_HINT_CLASS = "minimalism-ui-sidebar-empty-hint";
 var EMPTY_HINT_ICON_CLASS = "minimalism-ui-sidebar-empty-hint-icon";
 var EMPTY_HINT_TEXT_CLASS = "minimalism-ui-sidebar-empty-hint-text";
@@ -2414,6 +2415,8 @@ var LeftSidebarManager = class {
     // Phase 2：面板高度持久化。用户拖面板之间的虚线分隔条 → Obsidian 更新各 WorkspaceTabs 的
     // dimension（flex-grow 百分比）并触发 workspace 'resize'。这里防抖读回、写进 slot.height。
     // 面板被 reconcile 重建时 dimension 会丢，doReconcile 结尾按 slot.height 重新下发。
+    // 双击 handle 复位：Obsidian 原生就会把该 split 全部子节点 setDimension(null) 再 requestResize，
+    // 于是同一个 'resize' 回调把各 slot.height 读成 null 存回，无需自己挂 dblclick。
     this.resizeHandler = null;
     this.persistTimer = null;
     // reconcile 自身的 detach / 建 leaf / setViewState 都会再次触发 layout-change；期间置位，
@@ -2490,20 +2493,24 @@ var LeftSidebarManager = class {
       if (this.persistTimer != null) window.clearTimeout(this.persistTimer);
       this.persistTimer = window.setTimeout(() => {
         this.persistTimer = null;
-        this.persistSlotHeights();
+        if (this.persistSlotHeights()) this.notifyResizedSlots();
       }, 500);
     };
     this.app.workspace.on("resize", this.resizeHandler);
   }
-  /** 把各面板当前高度（WorkspaceTabs.dimension，flex-grow 百分比）读回写进 slot.height。 */
+  /**
+   * 把各面板当前高度（WorkspaceTabs.dimension，flex-grow 百分比）读回写进 slot.height。
+   * 返回是否有任何 slot 的高度发生变化（供调用方决定要不要顺带重排虚拟滚动视图）。
+   */
   persistSlotHeights() {
     var _a;
-    if (this.isReconciling || this.applyRun) return;
+    if (this.isReconciling || this.applyRun) return false;
     const ls = this.leftSplit();
-    if (!ls) return;
+    if (!ls) return false;
     let changed = false;
     for (const slot of this.getSettings().leftSidebarSlots) {
       if (!slot.enabled) continue;
+      if (slot.viewType === GRAPH_VIEW_TYPE) continue;
       const leaf = this.slotLeaves.get(slot.viewType);
       if (!leaf || leaf.getRoot() !== this.app.workspace.leftSplit) continue;
       const group = this.groupOf(leaf);
@@ -2517,25 +2524,60 @@ var LeftSidebarManager = class {
       }
     }
     if (changed) void this.saveSettings();
+    return changed;
   }
   /** slot leaf 所在的 WorkspaceTabs（leftSplit 的直接子节点，持有 dimension / setDimension）。 */
   groupOf(leaf) {
     const g = leaf.parent;
     return g && typeof g.setDimension === "function" ? g : null;
   }
-  /** 还原用户保存的面板高度：doReconcile 结尾按 slot.height 把 dimension 重新下发到各面板。 */
+  /** slot 存的用户拖拽高度（flex-grow 百分比，0<n<100）；关系图 slot 恒 null（不持久化）。 */
+  storedHeight(slot) {
+    if (slot.viewType === GRAPH_VIEW_TYPE) return null;
+    const h = slot.height;
+    return h != null && h > 0 && h < 100 ? h : null;
+  }
+  /**
+   * 还原用户保存的面板高度：doReconcile 结尾按 slot.height 把 dimension 重新下发到各面板。
+   * recomputeChildrenDimensions 是「任一子节点 dimension 为 null 就整组等分」的全有或全无，
+   * 所以只要有一个 slot 存了高度，就得给没存的（关系图、或从没被拖过的）补一个隐式值——
+   * 拖拽后 Obsidian 会把各面板 dimension 归一化到总和 ~100，故这里按「100 − 已存之和」均分给
+   * 未存的 slot，正好还原出关系图当初分到的那块空间。
+   */
   applySlotHeights(ls) {
-    var _a;
+    var _a, _b;
+    const slots = this.enabledSlots();
+    const heights = slots.map((s) => this.storedHeight(s));
+    const stored = heights.filter((h) => h != null);
+    if (stored.length === 0) return;
+    const unknownCount = heights.length - stored.length;
+    const remainder = 100 - stored.reduce((a, h) => a + h, 0);
+    const fill = unknownCount > 0 ? Math.max(5, remainder / unknownCount) : 0;
     let touched = false;
-    for (const slot of this.enabledSlots()) {
+    for (const slot of slots) {
       const leaf = this.slotLeaves.get(slot.viewType);
       const group = leaf ? this.groupOf(leaf) : null;
       if (!(group == null ? void 0 : group.setDimension)) continue;
-      const h = slot.height;
-      group.setDimension(h != null && h > 0 && h < 100 ? h : null);
+      group.setDimension((_a = this.storedHeight(slot)) != null ? _a : fill);
       touched = true;
     }
-    if (touched) (_a = ls.recomputeChildrenDimensions) == null ? void 0 : _a.call(ls);
+    if (touched) (_b = ls.recomputeChildrenDimensions) == null ? void 0 : _b.call(ls);
+  }
+  /**
+   * 拖拽调整面板高度后，逼各面板里的虚拟滚动视图（文件树 / 搜索 / 标签 / 反链）按新高度重排——
+   * 它们的 onResize 只在测得尺寸变化时才完整重排，靠 LeafMountService.notifyResize 的宽度骗术触发。
+   * 关系图自绘 canvas，跳过。
+   */
+  notifyResizedSlots() {
+    if (this.isReconciling || this.applyRun) return;
+    const ls = this.leftSplit();
+    if (!ls || ls.collapsed) return;
+    const root = this.app.workspace.leftSplit;
+    for (const [type, leaf] of this.slotLeaves) {
+      if (type === GRAPH_VIEW_TYPE) continue;
+      if (leaf.getRoot() !== root) continue;
+      this.leafMount.notifyResize(leaf);
+    }
   }
   /**
    * 廉价判定：leftSplit 里的工具类 leaf 是否已偏离「每个 enabled slot 恰好一个、且没有别的」。

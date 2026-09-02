@@ -145,16 +145,24 @@ const DEFAULT_LEFT_SIDEBAR_SLOTS: SidebarSlot[] = [];
 - 实际：约 0.5d（含实机 spike + 验证），未触及的：Phase 2 高度持久化、Phase 3 slot UI、
   Phase 4 styles.css 重写与关系图 4:3 迁移
 
-### Phase 2 — resize handle + 高度持久化
+### Phase 2 — resize handle + 高度持久化 ✅ 2026-09-02 完成
 
-- [ ] 让原生 `.workspace-leaf-resize-handle` 在左侧栏嵌套 split 里**显示**（改 `styles.css:87-92`）
-- [ ] 监听拖拽结束（Obsidian 内部会更新 leaf `dimension`；或自己在 handle 上挂 pointerup）
-  → 把结果高度写回对应 `slot.height`，防抖 `saveSettings`
-- [ ] `apply()` 时按 `slot.height` 恢复各 leaf 高度（写 Obsidian 的 split 尺寸 API 或 flex-basis）
-- [ ] 双击 handle 复位到 `null`（默认高度）
-- [ ] 每次拖拽后对受影响 leaf 调 `LeafMountService.notifyResize`（虚拟滚动视图）
-- [ ] 关系图 slot：**不**给它上下的 handle 绑高度写回；它的高度仍由迁移过来的 4:3 逻辑管
-- 估计 1–1.5d
+- [x] 让原生 `.workspace-leaf-resize-handle` 在左侧栏面板之间**显示**：`styles.css` 只隐藏 leaf 内层 /
+  嵌套 split 的 handle，`.mod-left-split > .workspace-tabs > .workspace-leaf-resize-handle` 保留可拖，
+  配一条虚线分隔条 + hover 淡紫高亮（#18 / #20）
+- [x] 监听拖拽结束：订阅 workspace `'resize'`（Obsidian 拖 handle 会 `setDimension` 各 WorkspaceTabs
+  的 `dimension` 再 `requestResize` → 触发该事件），防抖 500ms 后把 `dimension` 读回写进 `slot.height`，
+  `saveSettings`（`ensureResizeGuard` / `persistSlotHeights`）
+- [x] `apply()` 时按 `slot.height` 恢复各面板高度（`doReconcile` 结尾 `applySlotHeights` → `setDimension`
+  + `recomputeChildrenDimensions`）
+- [x] 双击 handle 复位到 `null`：Obsidian 原生就会把该 split 全部子节点 `setDimension(null)` 再
+  `requestResize`，同一个 `'resize'` 回调把各 `slot.height` 读成 `null` 存回 —— 无需自己挂 `dblclick`
+- [x] 拖拽结束后对受影响 slot leaf 调 `LeafMountService.notifyResize`（`notifyResizedSlots`，随
+  `persistSlotHeights` 一起在防抖回调里跑；关系图跳过）
+- [x] 关系图 slot：`persistSlotHeights` 跳过它、`slot.height` 恒 `null`；`applySlotHeights` 因
+  `recomputeChildrenDimensions` 是「有一个 null 就整组等分」的全有或全无，给它补一个「其余已存高度均值」
+  的隐式值，让别的 slot 的用户高度生效、关系图分到剩余空间。真正的 4:3 自动高度逻辑 Phase 4 迁入。
+- 实际：大头在 #18（拖拽持久化 + 虚线分隔条），本次补齐双击复位说明 + `notifyResize` + 关系图排除
 
 ### Phase 3 — SettingTab slot 列表 UI ✅ 2026-09-02 完成
 
@@ -198,8 +206,10 @@ const DEFAULT_LEFT_SIDEBAR_SLOTS: SidebarSlot[] = [];
   `workspace.leftSplit` 的 children 树结构，照着构造。
 - [ ] **Obsidian 的 workspace.json 布局恢复 vs 插件构造的时序**：`onLayoutReady` 后 Obsidian 已恢复
   一份侧栏布局，插件的 reconcile 要在其之上做 diff，不能盲目重建（否则每次启动闪 + 丢用户拖的宽度）。
-- [ ] **leaf 高度 / dimension 的读写 API**：`WorkspaceLeaf` / `WorkspaceItem` 上的 `dimension` 字段？
-  `setDimension`？还是只能靠 resize handle 模拟拖拽 / 直接写 flex？
+- [x] **leaf 高度 / dimension 的读写 API**（Phase 2 已解）：面板对应的 `WorkspaceTabs` 上有
+  `dimension`（flex-grow 百分比，`serialize()` 时落进 workspace.json）+ `setDimension(n | null)`；
+  父 split 的 `recomputeChildrenDimensions()` 归一化——但它是「任一子节点 `dimension` 为 null 就整组
+  等分」的全有或全无。原生双击 handle = 把该 split 全部子节点 `setDimension(null)`。
 - [ ] **卸载还原**：`remove()` 后如果留下一个多 leaf 的侧栏 split，禁用插件的用户会看到一堆 tab；
   需要 collapse 成单 leaf 或接受这个状态（记录到风险）。
 
