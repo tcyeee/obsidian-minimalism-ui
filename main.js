@@ -2355,9 +2355,23 @@ var LeftSidebarManager = class {
     this.origTestCSS = null;
     // 已被我们改写文案 / 加图标的原生「侧栏为空」提示容器，restore 时还原。
     this.hintedEmptyStateEl = null;
+    // 持续守卫：apply() 只在启动 / 设置变更时跑一次，中间任何往 leftSplit 里冒出来的 leaf
+    // （Obsidian 恢复 workspace.json、ribbon 点击、其他插件、用户拖拽）都会滞留成「多出来的 Tab」。
+    // 订阅 layout-change，每次只做一次廉价的 hasDrift() 判定，发现漂移才触发一次完整 reconcile。
+    // 思路同 SingleTabGroupGuard / PinManager 的侧栏 layout-change 兜底。
+    this.layoutChangeHandler = null;
+    // reconcile 自身的 detach / 建 leaf / setViewState 都会再次触发 layout-change；期间置位，
+    // 避免守卫把我们自己的中间态误判成漂移而重入。runApplyLoop 全程持有。
+    this.isReconciling = false;
+    // 建不出来的 slot viewType（插件已卸载 / 该 view 无文件上下文 setViewState 必抛）。记下后
+    // 本轮配置内不再反复重试 —— 否则 hasDrift 永远为真，layout-change 守卫会无限重入。
+    // slot 列表一变（用户可能重装了插件）即清空重试，signature 存在 lastDesiredKey。
+    this.unsatisfiableTypes = /* @__PURE__ */ new Set();
+    this.lastDesiredKey = "";
   }
   // ── Public ────────────────────────────────────────────────────────────────
   async apply(opts) {
+    this.ensureLayoutGuard();
     if (opts == null ? void 0 : opts.revealNewPanels) this.revealNewPanels = true;
     if (this.applyRun) {
       this.rerunRequested = true;
@@ -2371,6 +2385,7 @@ var LeftSidebarManager = class {
     }
   }
   async runApplyLoop() {
+    this.isReconciling = true;
     try {
       do {
         this.rerunRequested = false;
@@ -2378,13 +2393,53 @@ var LeftSidebarManager = class {
       } while (this.rerunRequested);
     } finally {
       this.revealNewPanels = false;
+      this.isReconciling = false;
     }
   }
-  /** 卸载：还原 testCSS patch + 原生空侧栏提示。split 结构本身保留（多 stacked leaf 是 Obsidian 可接受状态）。 */
+  /** 卸载：解绑 layout-change 守卫，还原 testCSS patch + 原生空侧栏提示。split 结构本身保留（多 stacked leaf 是 Obsidian 可接受状态）。 */
   remove() {
+    if (this.layoutChangeHandler) {
+      this.app.workspace.off("layout-change", this.layoutChangeHandler);
+      this.layoutChangeHandler = null;
+    }
     this.restoreTestCSS();
     this.restoreEmptyStateHint();
     this.slotLeaves.clear();
+  }
+  // ── 持续守卫 ──────────────────────────────────────────────────────────────
+  ensureLayoutGuard() {
+    if (this.layoutChangeHandler) return;
+    this.layoutChangeHandler = () => {
+      if (this.isReconciling || this.applyRun) return;
+      if (!this.hasDrift()) return;
+      void this.apply();
+    };
+    this.app.workspace.on("layout-change", this.layoutChangeHandler);
+  }
+  /**
+   * 廉价判定：leftSplit 里的工具类 leaf 是否已偏离「每个 enabled slot 恰好一个、且没有别的」。
+   * 命中才值得跑完整 reconcile —— 绝大多数 layout-change 在此快速返回 false。
+   */
+  hasDrift() {
+    var _a, _b, _c, _d;
+    const ls = this.leftSplit();
+    if (!ls) return false;
+    const desired = this.enabledSlots().map((s) => s.viewType);
+    const byType = this.toolLeavesByType();
+    if (desired.length === 0) {
+      let toolLeaves = 0;
+      for (const leaves of byType.values()) toolLeaves += leaves.length;
+      return toolLeaves > 0 && ((_b = (_a = ls.children) == null ? void 0 : _a.length) != null ? _b : 0) > 1;
+    }
+    const desiredSet = new Set(desired);
+    for (const type of byType.keys()) {
+      if (!desiredSet.has(type)) return true;
+    }
+    for (const type of desired) {
+      if (this.unsatisfiableTypes.has(type)) continue;
+      if (((_d = (_c = byType.get(type)) == null ? void 0 : _c.length) != null ? _d : 0) !== 1) return true;
+    }
+    return false;
   }
   /** 当前 enabled slot 占用的 view type 集合 —— 供右侧栏悬浮面板避让（两模块单一事实源）。 */
   getOwnedViewTypes() {
@@ -2403,28 +2458,52 @@ var LeftSidebarManager = class {
   enabledSlots() {
     return this.getSettings().leftSidebarSlots.filter((s) => s.enabled).slice(0, MAX_LEFT_SIDEBAR_SLOTS);
   }
-  // 一个 leftSplit 直接子节点是否是文档类 leaf（markdown / canvas / pdf …）——这些不是我们
-  // 管的工具面板，reconcile 清场时不碰。
-  isDocumentChild(child) {
-    const leaf = this.leafOfGroup(child);
-    return !!leaf && DOCUMENT_VIEW_TYPES.has(this.viewTypeOf(leaf));
-  }
   leftSplit() {
     const ls = this.app.workspace.leftSplit;
     return ls && Array.isArray(ls.children) ? ls : null;
   }
+  // leftSplit 为根的全部 leaf —— 以 leaf 为粒度，而非 leftSplit.children（tab 组）。
+  // 一个组可能包着 ≥2 个 leaf（Obsidian 默认的「文件浏览器 / 搜索 / 书签」就是一个三标签组，
+  // 恢复 workspace.json 时也可能把两个 slot 并进一组）。按组遍历会整组漏看 —— 正是
+  // 「设置里只有一个 Tab、左侧栏实际两个 Tab」的架构根因。
+  leftLeaves() {
+    const ls = this.app.workspace.leftSplit;
+    const out = [];
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      if (leaf.getRoot() === ls) out.push(leaf);
+    });
+    return out;
+  }
+  // leftSplit 里的工具类 leaf 按 viewType 分桶（文档类 leaf 不参与，reconcile 不碰）。
+  toolLeavesByType() {
+    const map = /* @__PURE__ */ new Map();
+    for (const leaf of this.leftLeaves()) {
+      const type = this.viewTypeOf(leaf);
+      if (!type || DOCUMENT_VIEW_TYPES.has(type)) continue;
+      const bucket = map.get(type);
+      if (bucket) bucket.push(leaf);
+      else map.set(type, [leaf]);
+    }
+    return map;
+  }
   async doReconcile() {
-    var _a, _b, _c, _d, _e, _f, _g;
+    var _a, _b, _c, _d, _e, _f;
     const ls = this.leftSplit();
     if (!ls) return;
-    const slots = this.enabledSlots();
-    if (slots.length === 0) {
+    const desired = this.enabledSlots().map((s) => s.viewType);
+    const desiredKey = desired.join("\0");
+    if (desiredKey !== this.lastDesiredKey) {
+      this.unsatisfiableTypes.clear();
+      this.lastDesiredKey = desiredKey;
+    }
+    if (desired.length === 0) {
       this.slotLeaves.clear();
-      for (const child of [...(_a = ls.children) != null ? _a : []]) {
-        if (((_c = (_b = ls.children) == null ? void 0 : _b.length) != null ? _c : 0) <= 1) break;
-        if (this.isDocumentChild(child)) continue;
-        const leaf = this.leafOfGroup(child);
-        if (leaf) this.detachGroupOf(ls, leaf);
+      const leaves = this.leftLeaves();
+      const hasDoc = leaves.some((l) => DOCUMENT_VIEW_TYPES.has(this.viewTypeOf(l)));
+      const tools = leaves.filter((l) => !DOCUMENT_VIEW_TYPES.has(this.viewTypeOf(l)));
+      const keepAlive = hasDoc ? void 0 : tools[tools.length - 1];
+      for (const leaf of tools) {
+        if (leaf !== keepAlive) this.detachLeaf(leaf);
       }
       if (!ls.collapsed) ls.collapse();
       this.applyEmptyStateHint(ls);
@@ -2438,41 +2517,54 @@ var LeftSidebarManager = class {
       if (ls.direction !== "horizontal" && typeof ls.setDirection === "function") {
         ls.setDirection("horizontal");
       }
-      for (const slot of slots) {
-        if (this.findSlotGroup(ls, slot.viewType)) continue;
+      const desiredSet = new Set(desired);
+      for (const leaf of this.leftLeaves()) {
+        const type = this.viewTypeOf(leaf);
+        if (!desiredSet.has(type)) continue;
+        const group = leaf.parent;
+        if (group && group !== this.app.workspace.leftSplit && ((_b = (_a = group.children) == null ? void 0 : _a.length) != null ? _b : 1) > 1) {
+          this.detachLeaf(leaf);
+        }
+      }
+      for (const type of desired) {
+        if (this.findSlotGroup(ls, type)) continue;
+        if (this.unsatisfiableTypes.has(type)) continue;
         const leaf = this.app.workspace.getLeftLeaf(true);
         if (!leaf) continue;
         try {
-          await leaf.setViewState({ type: slot.viewType, active: false });
+          await leaf.setViewState({ type, active: false });
           createdLeaf = true;
         } catch (err) {
-          console.error(`[minimalism-ui] left sidebar slot "${slot.viewType}" setViewState failed`, err);
-          this.detachGroupOf(ls, leaf);
+          console.error(`[minimalism-ui] left sidebar slot "${type}" setViewState failed`, err);
+          this.unsatisfiableTypes.add(type);
+          this.detachLeaf(leaf);
         }
       }
-      const enabledTypes = new Set(slots.map((s) => s.viewType));
-      for (const child of [...(_d = ls.children) != null ? _d : []]) {
-        if (((_f = (_e = ls.children) == null ? void 0 : _e.length) != null ? _f : 0) <= 1) break;
-        if (this.isDocumentChild(child)) continue;
-        const leaf = this.leafOfGroup(child);
-        if (!leaf) continue;
-        if (!enabledTypes.has(this.viewTypeOf(leaf))) {
-          this.detachGroupOf(ls, leaf);
+      const seenType = /* @__PURE__ */ new Set();
+      for (const leaf of this.leftLeaves()) {
+        if (((_d = (_c = ls.children) == null ? void 0 : _c.length) != null ? _d : 0) <= 1) break;
+        const type = this.viewTypeOf(leaf);
+        if (!type || DOCUMENT_VIEW_TYPES.has(type)) continue;
+        if (!desiredSet.has(type) || seenType.has(type)) {
+          this.detachLeaf(leaf);
+          continue;
         }
+        seenType.add(type);
       }
-      for (let i = 0; i < slots.length; i++) {
-        const group = this.findSlotGroup(ls, slots[i].viewType);
+      for (let i = 0; i < desired.length; i++) {
+        const group = this.findSlotGroup(ls, desired[i]);
         if (!group) continue;
         const current = ls.children.indexOf(group);
         if (current === i) continue;
         ls.removeChild(group);
         ls.insertChild(Math.min(i, ls.children.length), group);
       }
-      (_g = ls.recomputeChildrenDimensions) == null ? void 0 : _g.call(ls);
+      (_e = ls.recomputeChildrenDimensions) == null ? void 0 : _e.call(ls);
       this.slotLeaves.clear();
-      for (const slot of slots) {
-        const leaf = this.leafOfGroup(this.findSlotGroup(ls, slot.viewType));
-        if (leaf) this.slotLeaves.set(slot.viewType, leaf);
+      const finalByType = this.toolLeavesByType();
+      for (const type of desired) {
+        const leaf = (_f = finalByType.get(type)) == null ? void 0 : _f[0];
+        if (leaf) this.slotLeaves.set(type, leaf);
       }
       await this.leafMount.materializeDeferredLeaves([...this.slotLeaves.values()]);
       const activeFile = this.app.workspace.getActiveFile();
@@ -2515,15 +2607,15 @@ var LeftSidebarManager = class {
     return null;
   }
   viewTypeOf(leaf) {
-    var _a, _b, _c;
+    var _a, _b;
     try {
-      return (_c = (_b = (_a = leaf.view) == null ? void 0 : _a.getViewType) == null ? void 0 : _b.call(_a)) != null ? _c : leaf.getViewState().type;
+      return leaf.getViewState().type || ((_b = (_a = leaf.view) == null ? void 0 : _a.getViewType) == null ? void 0 : _b.call(_a)) || "";
     } catch (e) {
       return "";
     }
   }
-  // setViewState 失败时，把刚 getLeftLeaf 出来的 leaf 连同其 tab 组一起摘掉，不留半初始化条目。
-  detachGroupOf(ls, leaf) {
+  // 把一个 leaf 连同（若因此清空的）tab 组一起摘掉，不留半初始化条目。
+  detachLeaf(leaf) {
     try {
       this.pinManager.forceDetachLeaf(leaf);
     } catch (e) {
