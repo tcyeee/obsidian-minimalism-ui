@@ -104,12 +104,15 @@ body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-tab-co
    最后一个面板的 handle（底边下方没有可调整面板）由 Obsidian 的 .workspace-tabs:last-child
    规则隐藏，这里不覆盖。 */
 body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split > .workspace-tabs:not(.mod-top-left-space) {
-	border-top: 1px dashed var(--background-modifier-border);
+	border-top: 1px dashed color-mix(in srgb, var(--background-modifier-border) 5%, transparent);
 }
 
 body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split > .workspace-tabs > .workspace-leaf-resize-handle {
 	height: 11px;
 	z-index: 6;
+	/* 抹掉 Obsidian 原生 handle 自带的分隔实线（border-color: var(--divider-color)）：
+	   非悬浮时只保留 .workspace-tabs 顶边那条虚线，悬浮时才显示淡紫色高亮 */
+	border-color: transparent;
 }
 
 body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split > .workspace-tabs > .workspace-leaf-resize-handle:hover {
