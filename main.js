@@ -355,6 +355,8 @@ var translations = {
     statusBarMenuExportPdf: "\u5BFC\u51FA\u4E3A PDF",
     statusBarMenuExportPdfFailed: "\u5BFC\u51FA\u5931\u8D25\uFF1A\u547D\u4EE4\u4E0D\u53EF\u7528",
     statusBarMenuOpenDefaultApp: "\u4F7F\u7528\u9ED8\u8BA4\u8F6F\u4EF6\u6253\u5F00",
+    statusBarMenuDynamicWidth: "\u52A8\u6001\u5BBD\u5EA6",
+    statusBarMenuDynamicWidthFailed: "\u5207\u6362\u5931\u8D25\uFF1A\u65E0\u6CD5\u5199\u5165\u7B14\u8BB0\u5C5E\u6027",
     statusBarMenuToggleLeftSidebar: "\u5DE6\u4FA7\u8FB9\u680F",
     statusBarMenuToggleRightSidebar: "\u53F3\u4FA7\u8FB9\u680F",
     statusBarMenuPluginSettings: "\u63D2\u4EF6\u8BBE\u7F6E",
@@ -442,6 +444,8 @@ var translations = {
     statusBarMenuExportPdf: "Export to PDF",
     statusBarMenuExportPdfFailed: "Export failed: command unavailable",
     statusBarMenuOpenDefaultApp: "Open with default app",
+    statusBarMenuDynamicWidth: "Dynamic width",
+    statusBarMenuDynamicWidthFailed: "Toggle failed: could not write note properties",
     statusBarMenuToggleLeftSidebar: "Left sidebar",
     statusBarMenuToggleRightSidebar: "Right sidebar",
     statusBarMenuPluginSettings: "Plugin settings",
@@ -3149,6 +3153,7 @@ var EditorStatusManager = class {
 // src/layout/StatusBarMenuManager.ts
 var import_obsidian8 = require("obsidian");
 var TRIGGER_ICON = "ellipsis-vertical";
+var DYNAMIC_WIDTH_CSS_CLASS = "minimalism-dynamic-width";
 var POPOVER_CLASS = "minimalism-ui-status-popover";
 var POPOVER_WIDTH = 265;
 var POPOVER_GAP = 8;
@@ -3398,6 +3403,51 @@ var StatusBarMenuManager = class {
         this.close();
       }
     });
+    if (this.isReadableLineLength()) this.renderDynamicWidthRow(container, file);
+  }
+  // ─── 动态宽度（写当前笔记 frontmatter 的 cssclasses） ─────────────────────
+  // 判定「编辑器 → 可读行长度」是否开启：优先读 vault 配置，配置缺省（从未显式设置）时
+  // 回落到 body 上的 is-readable-line-length class —— 后者直接反映当前渲染状态。
+  isReadableLineLength() {
+    const cfg = this.app.vault.getConfig("readableLineLength");
+    if (cfg === true) return true;
+    if (cfg === false) return false;
+    return uiDoc().body.classList.contains("is-readable-line-length");
+  }
+  // 开启后往当前笔记 frontmatter 的 cssclasses 写入 minimalism-dynamic-width 标记，
+  // styles.css 据此把正文最大宽度撑满窗口（减两侧内边距），覆盖「可读行长」的居中窄栏。
+  // 面板每次打开都重建，故开关初值直接读 metadataCache，无需保活刷新。
+  renderDynamicWidthRow(container, file) {
+    const row = container.createDiv({ cls: "minimalism-ui-status-popover-row is-static" });
+    const iconEl = row.createDiv({ cls: "minimalism-ui-status-popover-row-icon" });
+    (0, import_obsidian8.setIcon)(iconEl, "move-horizontal");
+    row.createSpan({ cls: "minimalism-ui-status-popover-row-label", text: t("statusBarMenuDynamicWidth") });
+    const toggleEl = row.createDiv();
+    new import_obsidian8.ToggleComponent(toggleEl).setValue(this.hasDynamicWidth(file)).setDisabled(!file).onChange((value) => {
+      if (!file) return;
+      void this.setDynamicWidth(file, value);
+    });
+  }
+  hasDynamicWidth(file) {
+    var _a, _b;
+    if (!file) return false;
+    const raw = (_b = (_a = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter) == null ? void 0 : _b.cssclasses;
+    return parseCssClasses(raw).includes(DYNAMIC_WIDTH_CSS_CLASS);
+  }
+  async setDynamicWidth(file, enabled) {
+    try {
+      await this.app.fileManager.processFrontMatter(file, (fm) => {
+        const list = parseCssClasses(fm.cssclasses);
+        const idx = list.indexOf(DYNAMIC_WIDTH_CSS_CLASS);
+        if (enabled && idx === -1) list.push(DYNAMIC_WIDTH_CSS_CLASS);
+        else if (!enabled && idx !== -1) list.splice(idx, 1);
+        if (list.length > 0) fm.cssclasses = list;
+        else delete fm.cssclasses;
+      });
+    } catch (err) {
+      new import_obsidian8.Notice(t("statusBarMenuDynamicWidthFailed"));
+      console.error("[minimalism-ui] toggle dynamic width failed", err);
+    }
   }
   createActionRow(container, opts) {
     const cls = ["minimalism-ui-status-popover-row", opts.warning ? "is-warning" : "", opts.disabled ? "is-disabled" : ""].filter(Boolean).join(" ");
@@ -3471,6 +3521,11 @@ var StatusBarMenuManager = class {
     });
   }
 };
+function parseCssClasses(raw) {
+  if (Array.isArray(raw)) return raw.filter((v) => typeof v === "string");
+  if (typeof raw === "string") return raw.split(/[\s,]+/).filter(Boolean);
+  return [];
+}
 function createModalButtonRow(contentEl, opts) {
   const buttonRow = contentEl.createDiv();
   buttonRow.setCssStyles({ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "12px" });
