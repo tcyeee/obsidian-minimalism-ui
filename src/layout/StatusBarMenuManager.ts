@@ -12,6 +12,9 @@ type ElectronShell = { openPath(path: string): Promise<string> };
 // 菜单图标：状态栏常驻的"更多操作"入口。
 const TRIGGER_ICON = 'ellipsis-vertical';
 
+// cssclasses 中的标记值：命中则本篇笔记正文宽度撑满窗口（见 styles.css 的 .minimalism-dynamic-width）。
+const DYNAMIC_WIDTH_CSS_CLASS = 'minimalism-dynamic-width';
+
 const POPOVER_CLASS = 'minimalism-ui-status-popover';
 const POPOVER_WIDTH = 265;
 const POPOVER_GAP = 8;
@@ -313,6 +316,60 @@ export class StatusBarMenuManager implements Feature {
 			disabled,
 			onClick: () => { this.openWithDefaultApp(file!); this.close(); },
 		});
+
+		// 「编辑器 → 可读行长度」关闭时正文本就撑满窗口，动态宽度开关没有意义 —— 整行不渲染。
+		if (this.isReadableLineLength()) this.renderDynamicWidthRow(container, file);
+	}
+
+	// ─── 动态宽度（写当前笔记 frontmatter 的 cssclasses） ─────────────────────
+
+	// 判定「编辑器 → 可读行长度」是否开启：优先读 vault 配置，配置缺省（从未显式设置）时
+	// 回落到 body 上的 is-readable-line-length class —— 后者直接反映当前渲染状态。
+	private isReadableLineLength(): boolean {
+		const cfg = (this.app.vault as unknown as { getConfig(key: string): unknown }).getConfig('readableLineLength');
+		if (cfg === true) return true;
+		if (cfg === false) return false;
+		return uiDoc().body.classList.contains('is-readable-line-length');
+	}
+
+	// 开启后往当前笔记 frontmatter 的 cssclasses 写入 minimalism-dynamic-width 标记，
+	// styles.css 据此把正文最大宽度撑满窗口（减两侧内边距），覆盖「可读行长」的居中窄栏。
+	// 面板每次打开都重建，故开关初值直接读 metadataCache，无需保活刷新。
+	private renderDynamicWidthRow(container: HTMLElement, file: TFile | null): void {
+		const row = container.createDiv({ cls: 'minimalism-ui-status-popover-row is-static' });
+		const iconEl = row.createDiv({ cls: 'minimalism-ui-status-popover-row-icon' });
+		setIcon(iconEl, 'move-horizontal');
+		row.createSpan({ cls: 'minimalism-ui-status-popover-row-label', text: t('statusBarMenuDynamicWidth') });
+		const toggleEl = row.createDiv();
+		new ToggleComponent(toggleEl)
+			.setValue(this.hasDynamicWidth(file))
+			.setDisabled(!file)
+			.onChange((value) => {
+				if (!file) return;
+				void this.setDynamicWidth(file, value);
+			});
+	}
+
+	private hasDynamicWidth(file: TFile | null): boolean {
+		if (!file) return false;
+		const raw: unknown = this.app.metadataCache.getFileCache(file)?.frontmatter?.cssclasses;
+		return parseCssClasses(raw).includes(DYNAMIC_WIDTH_CSS_CLASS);
+	}
+
+	private async setDynamicWidth(file: TFile, enabled: boolean): Promise<void> {
+		try {
+			await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+				const list = parseCssClasses(fm.cssclasses);
+				const idx = list.indexOf(DYNAMIC_WIDTH_CSS_CLASS);
+				if (enabled && idx === -1) list.push(DYNAMIC_WIDTH_CSS_CLASS);
+				else if (!enabled && idx !== -1) list.splice(idx, 1);
+				if (list.length > 0) fm.cssclasses = list;
+				else delete fm.cssclasses;
+			});
+		} catch (err: unknown) {
+			new Notice(t('statusBarMenuDynamicWidthFailed'));
+			console.error('[minimalism-ui] toggle dynamic width failed', err);
+		}
 	}
 
 	private createActionRow(
@@ -400,6 +457,13 @@ export class StatusBarMenuManager implements Feature {
 			onClick: () => { openPluginSettings(this.app); this.close(); },
 		});
 	}
+}
+
+// frontmatter 的 cssclasses 允许写成数组或以空格/逗号分隔的字符串，两种形态统一成 string[]。
+function parseCssClasses(raw: unknown): string[] {
+	if (Array.isArray(raw)) return raw.filter((v): v is string => typeof v === 'string');
+	if (typeof raw === 'string') return raw.split(/[\s,]+/).filter(Boolean);
+	return [];
 }
 
 // ─── Modals ─────────────────────────────────────────────────────────────────

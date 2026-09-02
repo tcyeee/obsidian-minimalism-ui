@@ -63,6 +63,20 @@
 	overflow: hidden;
 }
 
+/* ── 动态宽度（cssclasses: minimalism-dynamic-width） ──────────────────────────
+   单篇笔记专用：忽略 Obsidian「可读行长」的居中窄栏，正文最大宽度撑满窗口，
+   两侧留 --minimalism-dynamic-width-padding 的内边距。默认值随窗口宽度线性缩放
+   （clamp：窄窗最少 24px，宽窗最多 160px，中间取 6vw），窗口越宽两侧留白越舒展，
+   观感比固定 40px 更协调；需要固定值时覆盖 --minimalism-dynamic-width-padding 即可。
+   由状态栏操作菜单的「动态宽度」开关写入当前笔记 frontmatter 的 cssclasses 触发
+   （见 src/layout/StatusBarMenuManager.ts）。阅读视图的 cssclasses 落在
+   .markdown-preview-view，编辑视图落在 .markdown-source-view；两者都靠覆盖继承来的
+   --file-line-width 生效——该变量仅在「可读行长」开启时被 sizer 消费，关闭时本规则天然无副作用。 */
+.markdown-preview-view.minimalism-dynamic-width,
+.markdown-source-view.minimalism-dynamic-width {
+	--file-line-width: calc(100vw - 2 * var(--minimalism-dynamic-width-padding, clamp(24px, 6vw, 160px)));
+}
+
 /* ── macOS Finder 侧边栏风格（纯 CSS，不修改 DOM） ───────────────────── */
 
 /* 父容器允许阴影溢出 */
