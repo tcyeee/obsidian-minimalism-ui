@@ -1,6 +1,7 @@
 import { AbstractInputSuggest, App, PluginSettingTab, Setting, TFile } from 'obsidian';
 import type MinimalismUIPlugin from '../main';
 import { t, setLang } from './core/i18n';
+import { MAX_LEFT_SIDEBAR_SLOTS } from './core/settings';
 
 // ─── File Suggester ───────────────────────────────────────────────────────────
 
@@ -91,6 +92,8 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 					this.plugin.settings.language = v;
 					setLang(v);
 					await this.plugin.saveSettings();
+					// 空侧栏提示文案由 LeftSidebarManager 注入，语言切换后重新应用一次以刷新
+					void this.plugin.applyMacSidebarLayout();
 					this.display();
 				}));
 	}
@@ -154,36 +157,117 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 			});
 	}
 
-	private configureHideTabBar(setting: Setting): void {
-		setting.setName(t('hideTabBar'))
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.hideTabBar)
-				.onChange(async v => {
-					this.plugin.settings.hideTabBar = v;
-					await this.plugin.saveSettings();
-				}));
+	// ── 左侧栏面板列表（用户添加任意 view，最多 4 个，可拖拽排序）──────────────
+
+	// 拖拽排序进行中的源行下标；drop 时读取，结束即清空。
+	private slotDragIndex: number | null = null;
+
+	private async persistSlots(): Promise<void> {
+		await this.plugin.saveSettings();
+		await this.plugin.applyMacSidebarLayout();
+		this.display();
 	}
 
-	private configureShowProperties(setting: Setting): void {
-		setting.setName(t('showProperties'))
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.showProperties)
-				.onChange(async v => {
-					this.plugin.settings.showProperties = v;
-					await this.plugin.saveSettings();
-					await this.plugin.applyMacSidebarLayout();
-				}));
+	private configureLeftSidebarSlots(sectionEl: HTMLElement): void {
+		const slots = this.plugin.settings.leftSidebarSlots;
+		const options = this.plugin.listSidebarViewOptions();
+		const atLimit = slots.length >= MAX_LEFT_SIDEBAR_SLOTS;
+		const used = new Set(slots.map(s => s.viewType));
+		// 新增行默认选中：优先经典三面板，其次任意未占用的已注册 view。
+		const preferred = ['outline', 'file-properties', 'localgraph'];
+		const nextFree = preferred.filter(tp => options.some(o => o.type === tp)).find(tp => !used.has(tp))
+			?? options.find(o => !used.has(o.type))?.type;
+
+		const header = new Setting(sectionEl)
+			.setName(t('leftSidebarPanels'))
+			.setDesc(atLimit ? t('leftSidebarPanelsFull') : t('leftSidebarPanelsDesc'));
+		header.addButton(btn => {
+			btn.setButtonText(t('addPanel'));
+			if (atLimit || !nextFree) {
+				btn.setDisabled(true);
+			} else {
+				btn.setCta();
+				btn.onClick(async () => {
+					slots.push({ id: `slot-${Date.now()}`, viewType: nextFree, enabled: true, height: null });
+					await this.persistSlots();
+				});
+			}
+		});
+
+		const listEl = sectionEl.createDiv({ cls: 'minimalism-ui-slot-list' });
+		if (slots.length === 0) {
+			listEl.createDiv({ cls: 'minimalism-ui-slot-empty', text: t('leftSidebarPanelsEmpty') });
+			return;
+		}
+		slots.forEach((_, index) => this.renderSlotRow(listEl, index, options));
 	}
 
-	private configureShowLocalGraph(setting: Setting): void {
-		setting.setName(t('showLocalGraph'))
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.showLocalGraph)
-				.onChange(async v => {
-					this.plugin.settings.showLocalGraph = v;
-					await this.plugin.saveSettings();
-					await this.plugin.applyMacSidebarLayout();
-				}));
+	private renderSlotRow(
+		listEl: HTMLElement,
+		index: number,
+		options: { type: string; label: string }[],
+	): void {
+		const slots = this.plugin.settings.leftSidebarSlots;
+		const slot = slots[index];
+		const row = listEl.createDiv({ cls: 'minimalism-ui-slot-row', attr: { draggable: 'true' } });
+
+		row.createSpan({
+			cls: 'minimalism-ui-slot-handle',
+			text: '⠿',
+			attr: { 'aria-label': t('dragToReorder') },
+		});
+
+		const select = row.createEl('select', { cls: 'dropdown minimalism-ui-slot-select' });
+		const usedElsewhere = new Set(slots.filter((_, i) => i !== index).map(s => s.viewType));
+		let hasCurrent = false;
+		for (const opt of options) {
+			if (usedElsewhere.has(opt.type)) continue;
+			select.createEl('option', { value: opt.type, text: opt.label });
+			if (opt.type === slot.viewType) hasCurrent = true;
+		}
+		// 当前 slot 的 view type 未注册（插件已卸载等）时仍列出，避免下拉框回退到别的项。
+		if (!hasCurrent) select.createEl('option', { value: slot.viewType, text: slot.viewType });
+		select.value = slot.viewType;
+		select.addEventListener('change', async () => {
+			slot.viewType = select.value;
+			await this.persistSlots();
+		});
+
+		const removeBtn = row.createEl('button', {
+			cls: 'minimalism-ui-slot-remove clickable-icon',
+			text: '✕',
+			attr: { 'aria-label': t('removePanel') },
+		});
+		removeBtn.addEventListener('click', async () => {
+			slots.splice(index, 1);
+			await this.persistSlots();
+		});
+
+		row.addEventListener('dragstart', ev => {
+			this.slotDragIndex = index;
+			row.addClass('is-dragging');
+			ev.dataTransfer?.setData('text/plain', String(index));
+		});
+		row.addEventListener('dragend', () => {
+			this.slotDragIndex = null;
+			row.removeClass('is-dragging');
+		});
+		row.addEventListener('dragover', ev => {
+			if (this.slotDragIndex === null || this.slotDragIndex === index) return;
+			ev.preventDefault();
+			row.addClass('is-drop-target');
+		});
+		row.addEventListener('dragleave', () => row.removeClass('is-drop-target'));
+		row.addEventListener('drop', async ev => {
+			ev.preventDefault();
+			row.removeClass('is-drop-target');
+			const from = this.slotDragIndex;
+			this.slotDragIndex = null;
+			if (from === null || from === index) return;
+			const [moved] = slots.splice(from, 1);
+			slots.splice(index, 0, moved);
+			await this.persistSlots();
+		});
 	}
 
 	private configureShowVaultProfile(setting: Setting): void {
@@ -196,6 +280,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				}));
 	}
 
+	// 目前未在 display() 中调用——该开关已从设置页移除，仅保留实现以便日后恢复。
 	private configureShowRightSidebarButton(setting: Setting): void {
 		setting.setName(t('showRightSidebarButton'))
 			.setDesc(t('showRightSidebarButtonDesc'))
@@ -267,11 +352,9 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		this.configureHomePage(new Setting(interactionEl));
 
 		const appearanceEl = this.addCollapsibleSection('appearance', t('headingAppearance'));
-		this.configureHideTabBar(new Setting(appearanceEl));
-		this.configureShowProperties(new Setting(appearanceEl));
-		this.configureShowLocalGraph(new Setting(appearanceEl));
+		this.configureLeftSidebarSlots(appearanceEl);
 		this.configureShowVaultProfile(new Setting(appearanceEl));
-		this.configureShowRightSidebarButton(new Setting(appearanceEl));
+		// 「右侧栏悬浮按钮」不在设置页展示；开关仍可通过状态栏菜单切换（见 StatusBarMenuManager）。
 
 		const animationEl = this.addCollapsibleSection('animation', t('headingAnimation'));
 		this.configureNavAnimation(new Setting(animationEl));

@@ -1,7 +1,35 @@
+// 左侧栏的一个用户添加的面板。整个列表最多 4 项，顺序即纵向 split 自上而下的顺序。
+// 详见仓库根 TODO.md 的目标数据模型一节。
+export interface SidebarSlot {
+	// 稳定 id：供设置页列表渲染 / 拖拽排序做 key。新增用 `slot-<时间戳>`。
+	id: string;
+	// 任意已注册的工具类 view type（'outline' / 'file-properties' / 'localgraph' / 'backlink' …）。
+	// 同一列表内不重复（设置页下拉框会排除已占用的类型）。
+	viewType: string;
+	// 预留：列表里的每一项都视为启用（添加即启用、移除即删除）。LeftSidebarManager 仍按此字段
+	// 过滤，故新增项一律置 true。
+	enabled: boolean;
+	// 用户拖 resize handle 写入的高度。Obsidian 的 WorkspaceItem.setDimension() 取值是
+	// flex-grow 数值（0 < n < 100，否则视为等分）——存这个值，null = 交给 split 等分 / 内容自适应。
+	// （Phase 2 才写入；Phase 1 只读不写。）
+	height: number | null;
+}
+
+// 上限：整个列表最多 4 项。
+export const MAX_LEFT_SIDEBAR_SLOTS = 4;
+
+// 默认空列表：全新安装时左侧栏完全空白，由用户在设置页自行添加面板。
+// 老用户升级的迁移见 main.ts loadSettings。
+export const DEFAULT_LEFT_SIDEBAR_SLOTS: SidebarSlot[] = [];
+
 export interface MinimalismUISettings {
+	// 废弃：旧固定三面板的开关。由 leftSidebarSlots 取代，仅 loadSettings 迁移时读一次旧值。
 	showProperties: boolean;
 	showLocalGraph: boolean;
 	showVaultProfile: boolean;
+	// 左侧栏面板列表。用户在设置页添加 / 删除 / 拖拽排序，最多 4 项；顺序即纵向 split 中
+	// 自上而下的顺序。默认空 = 空白侧栏。
+	leftSidebarSlots: SidebarSlot[];
 	ribbonPanelExpanded: boolean;
 	hideTabBar: boolean;
 	disableNoteTabs: boolean;
@@ -43,10 +71,11 @@ export interface MinimalismUISettings {
 }
 
 export const DEFAULT_SETTINGS: MinimalismUISettings = {
-	// 除高级功能外，所有功能默认开启
-	showProperties: true,
-	showLocalGraph: true,
+	// 左侧栏面板默认全关（新装即空白侧栏）；showVaultProfile 是独立的 vault profile 开关，保持默认开。
+	showProperties: false,
+	showLocalGraph: false,
 	showVaultProfile: true,
+	leftSidebarSlots: DEFAULT_LEFT_SIDEBAR_SLOTS.map(s => ({ ...s })),
 	// 默认展开：首次安装即可看到 ribbon 图标
 	ribbonPanelExpanded: true,
 	hideTabBar: true,

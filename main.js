@@ -30,11 +30,14 @@ module.exports = __toCommonJS(main_exports);
 var import_obsidian13 = require("obsidian");
 
 // src/core/settings.ts
+var MAX_LEFT_SIDEBAR_SLOTS = 4;
+var DEFAULT_LEFT_SIDEBAR_SLOTS = [];
 var DEFAULT_SETTINGS = {
-  // 除高级功能外，所有功能默认开启
-  showProperties: true,
-  showLocalGraph: true,
+  // 左侧栏面板默认全关（新装即空白侧栏）；showVaultProfile 是独立的 vault profile 开关，保持默认开。
+  showProperties: false,
+  showLocalGraph: false,
   showVaultProfile: true,
+  leftSidebarSlots: DEFAULT_LEFT_SIDEBAR_SLOTS.map((s) => ({ ...s })),
   // 默认展开：首次安装即可看到 ribbon 图标
   ribbonPanelExpanded: true,
   hideTabBar: true,
@@ -62,6 +65,107 @@ var DEFAULT_SETTINGS = {
   rightSidebarStackOrder: [],
   rightSidebarStowExpanded: false,
   rightSidebarLastActiveView: ""
+};
+
+// src/core/LeafMountService.ts
+var DOCUMENT_VIEW_TYPES = /* @__PURE__ */ new Set([
+  "markdown",
+  "canvas",
+  "pdf",
+  "image",
+  "audio",
+  "video",
+  "empty",
+  "release-notes",
+  "webviewer",
+  "bases"
+]);
+var LeafMountService = class {
+  constructor(app) {
+    this.app = app;
+  }
+  /**
+   * 全部已注册的"工具类" view type：读 `app.viewRegistry.viewByType`（内部 API，registerView
+   * 时写入，与是否有 leaf 打开无关 —— 正是探测"已关闭但曾注册过"的 view 所需入口），
+   * 排除文档类（DOCUMENT_VIEW_TYPES）与调用方声明独占的类型（excludedViewTypes）。
+   */
+  allRegisteredToolViewTypes(excludedViewTypes = /* @__PURE__ */ new Set()) {
+    var _a;
+    const registry = this.app.viewRegistry;
+    const types = Object.keys((_a = registry == null ? void 0 : registry.viewByType) != null ? _a : {});
+    return types.filter((type) => !DOCUMENT_VIEW_TYPES.has(type) && !excludedViewTypes.has(type));
+  }
+  /**
+   * 为每个尚无 leaf 的工具类 view type 静默创建一个 leaf 占位，使其之后能被枚举 / 挂载。
+   * 逐个 await 而非 Promise.all，避免并发调用 setViewState 在工作区内部产生竞态。
+   * 某个类型探测失败（第三方 view 在无文件上下文下抛错）不影响其余类型，失败时把刚创建的
+   * 空 / 半初始化 leaf 一并 detach，不留垃圾条目；若该组因此清空，重置 sharedParent。
+   */
+  async ensureAllToolViewsExist(opts) {
+    var _a, _b, _c, _d;
+    const ws = this.app.workspace;
+    let sharedParent = opts.findSharedParent();
+    for (const type of this.allRegisteredToolViewTypes(opts.excludedViewTypes)) {
+      if (this.app.workspace.getLeavesOfType(type).length > 0) continue;
+      let leaf = null;
+      try {
+        if (sharedParent) {
+          const index = (_b = (_a = sharedParent.children) == null ? void 0 : _a.length) != null ? _b : 0;
+          leaf = ws.createLeafInParent(sharedParent, index);
+        } else {
+          leaf = opts.createFallbackLeaf();
+          if (leaf) sharedParent = leaf.parent;
+        }
+        if (!leaf) continue;
+        await leaf.setViewState({ type, active: false });
+      } catch (err) {
+        console.error(`[minimalism-ui] probing view type "${type}" failed, skipping`, err);
+        leaf == null ? void 0 : leaf.detach();
+        if (sharedParent && ((_d = (_c = sharedParent.children) == null ? void 0 : _c.length) != null ? _d : 0) === 0) {
+          sharedParent = null;
+        }
+      }
+    }
+  }
+  /**
+   * Obsidian 的 deferred leaf 只有在"第一次真正被用到"时才物化真正的 View 实例，物化过程会
+   * 触发一次其所在 tab group 的内部重渲染。把物化提前到用户开始点选之前做，避免它误伤此刻
+   * 被搬进悬浮面板的 sibling leaf。逐个 await，理由同 ensureAllToolViewsExist。
+   */
+  async materializeDeferredLeaves(leaves) {
+    for (const leaf of leaves) {
+      if (!leaf.isDeferred) continue;
+      try {
+        await leaf.loadIfDeferred();
+      } catch (err) {
+        console.error("[minimalism-ui] failed to materialize deferred leaf", leaf.view.getViewType(), err);
+      }
+    }
+  }
+  /**
+   * 核心的 All Properties / Tags / Backlinks 等面板内部用虚拟滚动实现列表，其 onResize() 只有
+   * 在"测得的宽度与上次缓存的宽度不同"时才真正重排；宽度相同则只重放缓存布局。当我们绕过
+   * Obsidian 原生 leaf 缩放流程直接搬运 DOM（右侧栏悬浮窗），或 leaf 从隐藏区进入可见区时，
+   * 它量到的宽度可能与缓存一致而一直空着。手动把宽度先改一格再改回，逼它认为"宽度变了"
+   * 从而完整重排一次。onResize() 跑第三方 / 核心视图代码，出错也不该拖垮调用方，故 try/catch。
+   */
+  notifyResize(leaf) {
+    const el = leaf.view.containerEl;
+    const originalWidth = el.style.width;
+    try {
+      el.setCssStyles({ width: `${el.clientWidth + 1}px` });
+      leaf.onResize();
+    } catch (err) {
+      console.error("[minimalism-ui] view onResize() failed", err);
+    } finally {
+      el.setCssStyles({ width: originalWidth });
+    }
+    try {
+      leaf.onResize();
+    } catch (err) {
+      console.error("[minimalism-ui] view onResize() failed", err);
+    }
+  }
 };
 
 // src/generated/theme-assets.ts
@@ -184,7 +288,7 @@ var translations = {
     languageZh: "\u4E2D\u6587",
     languageEn: "English",
     introTitle: "\u4F7F\u7528\u524D\u5FC5\u8BFB",
-    introDesc1: '\u672C\u63D2\u4EF6\u662F\u4E00\u6B3E"\u505A\u51CF\u6CD5"\u7684\u5DE5\u5177,\u8BBE\u8BA1\u7406\u5FF5\u4E0E\u4E3B\u6D41\u7528\u6CD5\u76F8\u6096:\u5B83\u53EA\u4FDD\u7559\u5DE6\u4FA7\u8FB9\u680F(\u81F3\u591A\u663E\u793A\u5927\u7EB2\u3001\u5C5E\u6027\u3001\u672C\u5730\u5173\u7CFB\u56FE),\u5E76\u88C1\u526A\u6389\u4E86\u5927\u91CF\u6838\u5FC3\u529F\u80FD,\u751A\u81F3\u5305\u62EC"\u6587\u4EF6\u5939"\u3002\u5B89\u88C5\u524D\u8BF7\u5148\u786E\u8BA4\u4F60\u8BA4\u540C\u8FD9\u5957\u6781\u7B80\u7406\u5FF5\u3002',
+    introDesc1: '\u672C\u63D2\u4EF6\u662F\u4E00\u6B3E"\u505A\u51CF\u6CD5"\u7684\u5DE5\u5177,\u8BBE\u8BA1\u7406\u5FF5\u4E0E\u4E3B\u6D41\u7528\u6CD5\u76F8\u6096:\u5B83\u53EA\u4FDD\u7559\u5DE6\u4FA7\u8FB9\u680F(\u9ED8\u8BA4\u7A7A\u767D,\u53EF\u81EA\u884C\u6DFB\u52A0\u5927\u7EB2\u3001\u5C5E\u6027\u3001\u672C\u5730\u5173\u7CFB\u56FE\u7B49\u9762\u677F,\u6700\u591A 4 \u4E2A),\u5E76\u88C1\u526A\u6389\u4E86\u5927\u91CF\u6838\u5FC3\u529F\u80FD,\u751A\u81F3\u5305\u62EC"\u6587\u4EF6\u5939"\u3002\u5B89\u88C5\u524D\u8BF7\u5148\u786E\u8BA4\u4F60\u8BA4\u540C\u8FD9\u5957\u6781\u7B80\u7406\u5FF5\u3002',
     introDesc2: "\u8BF7\u6307\u5B9A\u4E00\u7BC7\u7B14\u8BB0\u4F5C\u4E3A\u9996\u9875\u3002\u5B83\u5982\u540C\u4E00\u68F5\u6811\u7684\u4E3B\u5E72,\u4F60\u5728\u5176\u4E0A\u7528\u53CC\u94FE\u4E0D\u65AD\u65B0\u5EFA\u7B14\u8BB0,\u8BA9\u77E5\u8BC6\u5F00\u679D\u6563\u53F6,\u6700\u7EC8\u957F\u6210\u53C2\u5929\u5927\u6811\u3002",
     headingGeneral: "\u901A\u7528\u8BBE\u7F6E",
     headingAppearance: "\u4FA7\u8FB9\u680F\u8BBE\u7F6E",
@@ -194,7 +298,14 @@ var translations = {
     showProperties: "\u5C5E\u6027\u9762\u677F",
     showLocalGraph: "\u672C\u5730\u5173\u7CFB\u56FE",
     showVaultProfile: "\u5E95\u90E8\u7528\u6237\u8BBE\u7F6E\u533A\u57DF",
-    hideTabBar: "\u9690\u85CF\u5927\u7EB2\u6309\u94AE",
+    leftSidebarPanels: "\u5DE6\u4FA7\u680F\u9762\u677F",
+    leftSidebarPanelsDesc: "\u9009\u62E9\u8981\u663E\u793A\u5728\u5DE6\u4FA7\u680F\u7684\u9762\u677F\uFF0C\u6700\u591A 4 \u4E2A\uFF0C\u53EF\u62D6\u62FD\u6392\u5E8F\u3002\u9ED8\u8BA4\u7A7A\u767D\u3002",
+    leftSidebarPanelsEmpty: "\u5DE6\u4FA7\u680F\u5F53\u524D\u4E3A\u7A7A\u767D\u3002\u70B9\u51FB\u300C\u6DFB\u52A0\u9762\u677F\u300D\u9009\u62E9\u8981\u663E\u793A\u7684\u5185\u5BB9\u3002",
+    leftSidebarPanelsFull: "\u5DF2\u8FBE\u5230 4 \u4E2A\u9762\u677F\u4E0A\u9650\u3002",
+    sidebarEmptyHint: "\u5DE6\u4FA7\u680F\u8FD8\u6CA1\u6709\u9762\u677F\u3002\u524D\u5F80\u300C\u8BBE\u7F6E \u2192 \u4FA7\u8FB9\u680F\u8BBE\u7F6E\u300D\u6DFB\u52A0\u5927\u7EB2\u3001\u5C5E\u6027\u3001\u672C\u5730\u5173\u7CFB\u56FE\u7B49\u9762\u677F\u3002",
+    addPanel: "\u6DFB\u52A0\u9762\u677F",
+    removePanel: "\u79FB\u9664\u9762\u677F",
+    dragToReorder: "\u62D6\u62FD\u6392\u5E8F",
     showRightSidebarButton: "\u53F3\u4FA7\u680F\u60AC\u6D6E\u6309\u94AE",
     showRightSidebarButtonDesc: "\u5728\u53F3\u4E0B\u89D2\u663E\u793A\u4E00\u4E2A\u60AC\u6D6E\u6309\u94AE\uFF0C\u7528\u4E8E\u5C55\u5F00/\u6536\u8D77\u53F3\u4FA7\u8FB9\u680F\uFF08\u4F9B\u4F9D\u8D56\u53F3\u4FA7\u680F\u7684\u63D2\u4EF6\uFF0C\u5982 AI \u5BF9\u8BDD\u63D2\u4EF6\u4F7F\u7528\uFF09\u3002",
     rightSidebarButtonLabel: "\u53F3\u4FA7\u8FB9\u680F",
@@ -263,7 +374,7 @@ var translations = {
     languageZh: "\u4E2D\u6587",
     languageEn: "English",
     introTitle: "Read this before you start",
-    introDesc1: "This plugin is all about subtraction, and its philosophy runs against mainstream usage: it keeps only the left sidebar (showing at most Outline, Properties, and Local Graph) and strips away many core features, including Folders. Make sure this minimalist philosophy suits you before installing.",
+    introDesc1: "This plugin is all about subtraction, and its philosophy runs against mainstream usage: it keeps only the left sidebar (empty by default \u2014 add up to 4 panels such as Outline, Properties, and Local Graph yourself) and strips away many core features, including Folders. Make sure this minimalist philosophy suits you before installing.",
     introDesc2: "Pick one note as your home page. Think of it as the trunk of a tree: keep creating notes from it through backlinks, letting your knowledge branch out until it grows into a towering tree.",
     headingGeneral: "General",
     headingAppearance: "Sidebar",
@@ -273,7 +384,14 @@ var translations = {
     showProperties: "Properties",
     showLocalGraph: "Local Graph",
     showVaultProfile: "Bottom settings area",
-    hideTabBar: "Hide outline button",
+    leftSidebarPanels: "Left sidebar panels",
+    leftSidebarPanelsDesc: "Choose which panels appear in the left sidebar. Up to 4, drag to reorder. Empty by default.",
+    leftSidebarPanelsEmpty: 'The left sidebar is empty. Click "Add panel" to choose what to show.',
+    leftSidebarPanelsFull: "Panel limit of 4 reached.",
+    sidebarEmptyHint: "No panels in the left sidebar yet. Add panels like Outline, Properties, or Local Graph from Settings \u2192 Sidebar.",
+    addPanel: "Add panel",
+    removePanel: "Remove panel",
+    dragToReorder: "Drag to reorder",
     showRightSidebarButton: "Right sidebar button",
     showRightSidebarButtonDesc: "Show a floating button in the bottom-right corner to expand/collapse the right sidebar (for plugins that need it, e.g. AI chat plugins).",
     rightSidebarButtonLabel: "Right sidebar",
@@ -1638,7 +1756,7 @@ var PinManager = class {
     }
     this.sidebarDetachPatches.clear();
   }
-  // 绕过 detach 守卫，强制 detach 一个 leaf（供 SidebarLayoutManager 重建侧边栏时调用）
+  // 绕过 detach 守卫，强制 detach 一个 leaf（供 LeftSidebarManager reconcile 时调用）
   forceDetachLeaf(leaf) {
     const original = this.sidebarDetachPatches.get(leaf);
     if (original) {
@@ -2209,70 +2327,33 @@ var _DragBarManager = class _DragBarManager {
 _DragBarManager.TRAFFIC_LIGHT_SAFE_WIDTH = 80;
 var DragBarManager = _DragBarManager;
 
-// src/layout/SidebarLayoutManager.ts
+// src/layout/LeftSidebarManager.ts
 var import_obsidian5 = require("obsidian");
-var MIN_GRAPH_RENDER_PX = 20;
-var MIN_SIDEBAR_WIDTH_PX = 100;
-var SidebarLayoutManager = class {
-  constructor(app, getSettings, pinManager) {
+var EMPTY_HINT_CLASS = "minimalism-ui-sidebar-empty-hint";
+var EMPTY_HINT_ICON_CLASS = "minimalism-ui-sidebar-empty-hint-icon";
+var EMPTY_HINT_TEXT_CLASS = "minimalism-ui-sidebar-empty-hint-text";
+var LeftSidebarManager = class {
+  constructor(app, getSettings, leafMount, pinManager) {
     this.app = app;
     this.getSettings = getSettings;
+    this.leafMount = leafMount;
     this.pinManager = pinManager;
-    // Guard against concurrent calls: each `apply()` awaits async ops, so a second
-    // call arriving mid-flight must not run concurrently (would create duplicate
-    // leaves) and must not be silently dropped (would leave stale state if settings
-    // changed between the two calls). `applyRun` is the in-flight run; a call that
-    // arrives while it's set just requests a rerun (`rerunRequested`) and awaits the
-    // same promise — `runApplyLoop()` re-reads settings and re-runs until no rerun
-    // was requested during the last pass, then resolves every waiting caller together.
+    // 并发守卫：apply() 内有 await，第二次调用不能与进行中的并发（会建重复 leaf），也不能被
+    // 静默丢弃（设置可能在两次调用间变了）。进行中的那次记在 applyRun；期间到达的调用只置位
+    // rerunRequested 并 await 同一个 promise —— runApplyLoop 重读设置再跑，直到某一轮没有再被
+    // 请求重跑，然后一起 resolve 所有等待者。（沿用 SidebarLayoutManager 的思路。）
     this.applyRun = null;
     this.rerunRequested = false;
-    // Saved state for reversible injection — one record per injected element.
-    this.injectedItems = [];
-    this.hiddenShells = [];
-    // Elements created (not moved) by apply() — removed entirely on cleanup.
-    this.createdEls = [];
-    this.injectedGraphLeaf = null;
-    this.graphResizeObserver = null;
-    // Monkey-patched testCSS ref — restored on remove().
+    // 当前各 slot viewType → 其 leaf 的引用（关系图颜色重探、owned 查询用；显式持有引用而非
+    // getLeavesOfType，以隔离多窗口 / 弹出窗口，见记忆 project-sidebar-local-graph-rewrite）。
+    this.slotLeaves = /* @__PURE__ */ new Map();
+    // 被 monkey-patch 的关系图 renderer.testCSS，remove() 时还原。
     this.patchedRenderer = null;
     this.origTestCSS = null;
-    // Monkey-patched graph view.onResize ref — restored on remove(). See injectLocalGraphIntoOutline.
-    this.patchedGraphView = null;
-    this.origGraphOnResize = null;
+    // 已被我们改写文案 / 加图标的原生「侧栏为空」提示容器，restore 时还原。
+    this.hintedEmptyStateEl = null;
   }
   // ── Public ────────────────────────────────────────────────────────────────
-  /** Undo all DOM injections and restore leaves to their original state. */
-  remove() {
-    var _a;
-    if (this.injectedItems.length === 0 && this.hiddenShells.length === 0 && this.createdEls.length === 0) return;
-    for (const { el, originalParent, originalNextSibling, addedClass } of this.injectedItems) {
-      if (addedClass) el.classList.remove(addedClass);
-      originalParent.insertBefore(el, originalNextSibling);
-    }
-    for (const shell of this.hiddenShells) {
-      shell.classList.remove("minimalism-ui-is-hidden");
-    }
-    for (const el of this.createdEls) {
-      el.remove();
-    }
-    (_a = this.graphResizeObserver) == null ? void 0 : _a.disconnect();
-    this.graphResizeObserver = null;
-    this.injectedGraphLeaf = null;
-    if (this.patchedRenderer && this.origTestCSS) {
-      this.patchedRenderer.testCSS = this.origTestCSS;
-      this.patchedRenderer = null;
-      this.origTestCSS = null;
-    }
-    if (this.patchedGraphView && this.origGraphOnResize) {
-      this.patchedGraphView.onResize = this.origGraphOnResize;
-      this.patchedGraphView = null;
-      this.origGraphOnResize = null;
-    }
-    this.injectedItems = [];
-    this.hiddenShells = [];
-    this.createdEls = [];
-  }
   async apply() {
     if (this.applyRun) {
       this.rerunRequested = true;
@@ -2288,196 +2369,156 @@ var SidebarLayoutManager = class {
   async runApplyLoop() {
     do {
       this.rerunRequested = false;
-      await this.doApply();
+      await this.doReconcile();
     } while (this.rerunRequested);
   }
-  async doApply() {
-    var _a;
-    this.remove();
-    const { workspace } = this.app;
-    const leftSplit = workspace.leftSplit;
-    const { showProperties, showLocalGraph } = this.getSettings();
-    const wasCollapsed = (_a = leftSplit == null ? void 0 : leftSplit.collapsed) != null ? _a : false;
-    this.clearLeftSidebar();
-    if (leftSplit == null ? void 0 : leftSplit.collapsed) leftSplit.expand();
-    try {
-      await this.buildLeftSidebar(showProperties, showLocalGraph);
-    } finally {
-      if (wasCollapsed) leftSplit == null ? void 0 : leftSplit.collapse();
-      else if (leftSplit == null ? void 0 : leftSplit.collapsed) leftSplit.expand();
-    }
+  /** 卸载：还原 testCSS patch + 原生空侧栏提示。split 结构本身保留（多 stacked leaf 是 Obsidian 可接受状态）。 */
+  remove() {
+    this.restoreTestCSS();
+    this.restoreEmptyStateHint();
+    this.slotLeaves.clear();
   }
-  // 创建并注入 Outline / Properties / Local Graph 各 leaf。
-  // 折叠状态的快照与还原由调用方 doApply 负责。
-  async buildLeftSidebar(showProperties, showLocalGraph) {
-    const { workspace } = this.app;
-    const outlineLeaf = workspace.getLeftLeaf(false);
-    if (outlineLeaf) {
-      await outlineLeaf.setViewState({ type: "outline", active: false });
-    }
-    let graphLeaf = null;
-    if (showLocalGraph) {
-      graphLeaf = workspace.getLeftLeaf(true);
-      if (graphLeaf) {
-        await graphLeaf.setViewState({ type: "localgraph", active: false });
-      }
-    }
-    let propsLeaf = null;
-    if (showProperties) {
-      propsLeaf = workspace.getLeftLeaf(true);
-      if (propsLeaf) {
-        await propsLeaf.setViewState({ type: "file-properties", active: false });
-      }
-    }
-    if (!showProperties && !showLocalGraph) return;
-    await new Promise((resolve) => window.setTimeout(resolve, 100));
-    const activeFile = workspace.getActiveFile();
-    if (activeFile) {
-      workspace.trigger("file-open", activeFile);
-      await new Promise((resolve) => window.setTimeout(resolve, 50));
-    }
-    if (outlineLeaf && propsLeaf) {
-      this.injectMetadataIntoOutline(outlineLeaf, propsLeaf);
-    }
-    if (outlineLeaf && graphLeaf) {
-      this.injectLocalGraphIntoOutline(outlineLeaf, graphLeaf);
-    }
-  }
-  // ── Private ───────────────────────────────────────────────────────────────
-  /**
-   * Moves `.metadata-content` (direct child of `.metadata-container`) from
-   * the Properties leaf into the Outline leaf's `.workspace-leaf-content`.
-   * The now-empty Properties workspace-tabs shell is hidden.
-   */
-  injectMetadataIntoOutline(outlineLeaf, propsLeaf) {
-    const outlineEl = outlineLeaf.containerEl;
-    const propsEl = propsLeaf.containerEl;
-    const metadataContent = propsEl.querySelector(
-      ".metadata-container > .metadata-content"
-    );
-    const outlineLeafContent = outlineEl.querySelector(
-      '.workspace-leaf-content[data-type="outline"]'
-    );
-    if (!metadataContent || !outlineLeafContent) return;
-    const originalParent = metadataContent.parentElement;
-    const originalNextSibling = metadataContent.nextSibling;
-    outlineLeafContent.appendChild(metadataContent);
-    this.injectedItems.push({ el: metadataContent, originalParent, originalNextSibling });
-    const propsWorkspaceTabs = propsEl.closest(".workspace-tabs");
-    if (propsWorkspaceTabs) {
-      propsWorkspaceTabs.classList.add("minimalism-ui-is-hidden");
-      this.hiddenShells.push(propsWorkspaceTabs);
-    }
+  /** 当前 enabled slot 占用的 view type 集合 —— 供右侧栏悬浮面板避让（两模块单一事实源）。 */
+  getOwnedViewTypes() {
+    return new Set(this.enabledSlots().map((s) => s.viewType));
   }
   /**
-   * Moves the Local Graph's entire `.workspace-leaf-content` (the view's containerEl)
-   * into the Outline leaf's `.workspace-leaf-content`, above the Properties panel.
-   *
-   * Why the whole containerEl and not just .view-content:
-   *   Obsidian's graph view registers all mouse/wheel event listeners on
-   *   `this.containerEl` (.workspace-leaf-content[data-type="localgraph"]).
-   *   If only .view-content is moved, canvas events bubble up through the new
-   *   DOM parent (outline's containerEl) and never reach the original, now-hidden
-   *   localgraph containerEl — making the graph completely non-interactive.
-   *   Moving the containerEl itself keeps the event listeners wired up.
-   *
-   * The class `minimalism-ui-injected-graph` is added for CSS targeting.
-   */
-  injectLocalGraphIntoOutline(outlineLeaf, graphLeaf) {
-    var _a, _b, _c, _d, _e;
-    const outlineEl = outlineLeaf.containerEl;
-    const graphEl = graphLeaf.containerEl;
-    const graphLeafContent = graphEl.querySelector(
-      '.workspace-leaf-content[data-type="localgraph"]'
-    );
-    const outlineLeafContent = outlineEl.querySelector(
-      '.workspace-leaf-content[data-type="outline"]'
-    );
-    if (!graphLeafContent || !outlineLeafContent) return;
-    const originalParent = graphLeafContent.parentElement;
-    const originalNextSibling = graphLeafContent.nextSibling;
-    const addedClass = "minimalism-ui-injected-graph";
-    graphLeafContent.classList.add(addedClass);
-    const viewContent = graphLeafContent.querySelector(".view-content");
-    const graphControls = graphLeafContent.querySelector(".graph-controls");
-    if (graphControls && !graphControls.classList.contains("is-close")) {
-      graphControls.classList.add("is-close");
-    }
-    const header = createDiv();
-    header.className = "minimalism-ui-graph-header";
-    const titleSpan = createSpan();
-    titleSpan.textContent = t("localGraph");
-    header.appendChild(titleSpan);
-    if (viewContent) {
-      graphLeafContent.insertBefore(header, viewContent);
-    } else {
-      graphLeafContent.prepend(header);
-    }
-    this.createdEls.push(header);
-    outlineLeafContent.appendChild(graphLeafContent);
-    this.injectedItems.push({ el: graphLeafContent, originalParent, originalNextSibling, addedClass });
-    const graphWorkspaceTabs = (_a = graphEl.closest(".workspace-tabs")) != null ? _a : graphEl;
-    if (graphWorkspaceTabs) {
-      graphWorkspaceTabs.classList.add("minimalism-ui-is-hidden");
-      this.hiddenShells.push(graphWorkspaceTabs);
-    }
-    const graphView = graphLeaf.view;
-    if (graphView && typeof graphView.onResize === "function") {
-      const origOnResize = graphView.onResize.bind(graphView);
-      const measureEl = (_c = (_b = graphView.contentEl) != null ? _b : viewContent) != null ? _c : graphLeafContent;
-      this.patchedGraphView = graphView;
-      this.origGraphOnResize = origOnResize;
-      graphView.onResize = () => {
-        if (measureEl.clientWidth < MIN_GRAPH_RENDER_PX || measureEl.clientHeight < MIN_GRAPH_RENDER_PX) return;
-        origOnResize();
-      };
-    }
-    this.injectedGraphLeaf = graphLeaf;
-    (_d = this.graphResizeObserver) == null ? void 0 : _d.disconnect();
-    const leftSplitEl = this.app.workspace.leftSplit;
-    const observeTarget = (_e = leftSplitEl == null ? void 0 : leftSplitEl.containerEl) != null ? _e : uiDoc().querySelector(".workspace-split.mod-left-split");
-    if (observeTarget) {
-      this.graphResizeObserver = new ResizeObserver((entries) => {
-        var _a2, _b2, _c2;
-        const w = entries[0].contentRect.width;
-        if (w >= MIN_SIDEBAR_WIDTH_PX) {
-          graphLeafContent.setCssProps({ "--minimalism-ui-graph-height": `${Math.round(w * 3 / 4)}px` });
-        }
-        (_c2 = (_b2 = (_a2 = this.injectedGraphLeaf) == null ? void 0 : _a2.view) == null ? void 0 : _b2.onResize) == null ? void 0 : _c2.call(_b2);
-      });
-      this.graphResizeObserver.observe(observeTarget);
-    }
-    window.setTimeout(() => {
-      const w = graphLeafContent.getBoundingClientRect().width;
-      if (w >= MIN_SIDEBAR_WIDTH_PX) {
-        graphLeafContent.setCssProps({ "--minimalism-ui-graph-height": `${Math.round(w * 3 / 4)}px` });
-      }
-      this.applyGraphColors();
-    }, 200);
-  }
-  /**
-   * Re-probe the injected local graph's colors from the (possibly switched) theme CSS.
-   *
-   * The graph renders to a <canvas>; its node/link/text colors are captured once via
-   * Obsidian's renderer.testCSS() when the graph is injected. Switching themes swaps the
-   * theme <style> and body scope class but does NOT re-trigger that probe, so the canvas
-   * keeps the old theme's colors until the sidebar is rebuilt. Call this after a theme
-   * switch to refresh colors in place — no leaf recreation, no flicker.
-   *
-   * No-op when no graph is currently injected (renderer absent → early return).
-   * Deferred one frame so the newly injected theme CSS is in effect before the probe reads it.
+   * 主题切换后重新探测关系图 canvas 颜色（renderer.testCSS 只在注入时探测一次）。
+   * 无关系图 slot / renderer 缺失时静默返回。延后一帧以确保新主题 CSS 已生效。
    */
   reapplyGraphColors() {
-    if (!this.injectedGraphLeaf) return;
-    window.requestAnimationFrame(() => this.applyGraphColors());
+    const graphLeaf = this.slotLeaves.get("localgraph");
+    if (!graphLeaf) return;
+    window.requestAnimationFrame(() => this.applyGraphColors(graphLeaf));
   }
-  applyGraphColors() {
-    var _a, _b;
-    const renderer = (_b = (_a = this.injectedGraphLeaf) == null ? void 0 : _a.view) == null ? void 0 : _b.renderer;
-    if (!(renderer == null ? void 0 : renderer.testCSS)) return;
-    if (this.patchedRenderer && this.origTestCSS) {
-      this.patchedRenderer.testCSS = this.origTestCSS;
+  // ── Reconcile ─────────────────────────────────────────────────────────────
+  enabledSlots() {
+    return this.getSettings().leftSidebarSlots.filter((s) => s.enabled).slice(0, MAX_LEFT_SIDEBAR_SLOTS);
+  }
+  // 一个 leftSplit 直接子节点是否是文档类 leaf（markdown / canvas / pdf …）——这些不是我们
+  // 管的工具面板，reconcile 清场时不碰。
+  isDocumentChild(child) {
+    const leaf = this.leafOfGroup(child);
+    return !!leaf && DOCUMENT_VIEW_TYPES.has(this.viewTypeOf(leaf));
+  }
+  leftSplit() {
+    const ls = this.app.workspace.leftSplit;
+    return ls && Array.isArray(ls.children) ? ls : null;
+  }
+  async doReconcile() {
+    var _a, _b, _c, _d, _e, _f, _g;
+    const ls = this.leftSplit();
+    if (!ls) return;
+    const slots = this.enabledSlots();
+    if (slots.length === 0) {
+      this.slotLeaves.clear();
+      for (const child of [...(_a = ls.children) != null ? _a : []]) {
+        if (((_c = (_b = ls.children) == null ? void 0 : _b.length) != null ? _c : 0) <= 1) break;
+        if (this.isDocumentChild(child)) continue;
+        const leaf = this.leafOfGroup(child);
+        if (leaf) this.detachGroupOf(ls, leaf);
+      }
+      if (!ls.collapsed) ls.collapse();
+      this.applyEmptyStateHint(ls);
+      return;
     }
+    this.restoreEmptyStateHint();
+    const wasCollapsed = ls.collapsed;
+    if (ls.collapsed) ls.expand();
+    try {
+      if (ls.direction !== "horizontal" && typeof ls.setDirection === "function") {
+        ls.setDirection("horizontal");
+      }
+      for (const slot of slots) {
+        if (this.findSlotGroup(ls, slot.viewType)) continue;
+        const leaf = this.app.workspace.getLeftLeaf(true);
+        if (!leaf) continue;
+        try {
+          await leaf.setViewState({ type: slot.viewType, active: false });
+        } catch (err) {
+          console.error(`[minimalism-ui] left sidebar slot "${slot.viewType}" setViewState failed`, err);
+          this.detachGroupOf(ls, leaf);
+        }
+      }
+      const enabledTypes = new Set(slots.map((s) => s.viewType));
+      for (const child of [...(_d = ls.children) != null ? _d : []]) {
+        if (((_f = (_e = ls.children) == null ? void 0 : _e.length) != null ? _f : 0) <= 1) break;
+        if (this.isDocumentChild(child)) continue;
+        const leaf = this.leafOfGroup(child);
+        if (!leaf) continue;
+        if (!enabledTypes.has(this.viewTypeOf(leaf))) {
+          this.detachGroupOf(ls, leaf);
+        }
+      }
+      for (let i = 0; i < slots.length; i++) {
+        const group = this.findSlotGroup(ls, slots[i].viewType);
+        if (!group) continue;
+        const current = ls.children.indexOf(group);
+        if (current === i) continue;
+        ls.removeChild(group);
+        ls.insertChild(Math.min(i, ls.children.length), group);
+      }
+      (_g = ls.recomputeChildrenDimensions) == null ? void 0 : _g.call(ls);
+      this.slotLeaves.clear();
+      for (const slot of slots) {
+        const leaf = this.leafOfGroup(this.findSlotGroup(ls, slot.viewType));
+        if (leaf) this.slotLeaves.set(slot.viewType, leaf);
+      }
+      await this.leafMount.materializeDeferredLeaves([...this.slotLeaves.values()]);
+      const activeFile = this.app.workspace.getActiveFile();
+      if (activeFile) this.app.workspace.trigger("file-open", activeFile);
+      const graphLeaf = this.slotLeaves.get("localgraph");
+      if (graphLeaf) window.setTimeout(() => this.applyGraphColors(graphLeaf), 200);
+    } finally {
+      if (wasCollapsed) ls.collapse();
+      else if (ls.collapsed) ls.expand();
+    }
+  }
+  // ── workspace-item 树辅助 ─────────────────────────────────────────────────
+  // leftSplit 里承载指定 viewType 的直接子节点（通常是 WorkspaceTabs，也可能是裸 leaf）。
+  findSlotGroup(ls, viewType) {
+    var _a;
+    for (const child of (_a = ls.children) != null ? _a : []) {
+      const leaf = this.leafOfGroup(child);
+      if (leaf && this.viewTypeOf(leaf) === viewType) return child;
+    }
+    return null;
+  }
+  // 一个 leftSplit 直接子节点对应的 leaf：child 本身是 leaf，或 child 是只含一个 leaf 的 tab 组。
+  leafOfGroup(group) {
+    if (!group || typeof group !== "object") return null;
+    if (group instanceof import_obsidian5.WorkspaceLeaf) return group;
+    const kids = group.children;
+    if (Array.isArray(kids) && kids.length === 1 && kids[0] instanceof import_obsidian5.WorkspaceLeaf) {
+      return kids[0];
+    }
+    return null;
+  }
+  viewTypeOf(leaf) {
+    var _a, _b, _c;
+    try {
+      return (_c = (_b = (_a = leaf.view) == null ? void 0 : _a.getViewType) == null ? void 0 : _b.call(_a)) != null ? _c : leaf.getViewState().type;
+    } catch (e) {
+      return "";
+    }
+  }
+  // setViewState 失败时，把刚 getLeftLeaf 出来的 leaf 连同其 tab 组一起摘掉，不留半初始化条目。
+  detachGroupOf(ls, leaf) {
+    try {
+      this.pinManager.forceDetachLeaf(leaf);
+    } catch (e) {
+      try {
+        leaf.detach();
+      } catch (e2) {
+      }
+    }
+  }
+  // ── 关系图颜色重探（自 SidebarLayoutManager 迁移）─────────────────────────
+  applyGraphColors(graphLeaf) {
+    var _a;
+    const renderer = (_a = graphLeaf.view) == null ? void 0 : _a.renderer;
+    if (!(renderer == null ? void 0 : renderer.testCSS)) return;
+    this.restoreTestCSS();
     const orig = renderer.testCSS.bind(renderer);
     this.patchedRenderer = renderer;
     this.origTestCSS = orig;
@@ -2488,74 +2529,39 @@ var SidebarLayoutManager = class {
     };
     renderer.testCSS();
   }
-  // ── Public helpers ────────────────────────────────────────────────────────
-  /**
-   * Clears every leaf from the left sidebar using three complementary strategies:
-   *
-   *   A. Walk leftSplit's internal workspace-item tree directly.
-   *      Works regardless of DOM state (collapsed sidebar, mid-rebuild, etc.).
-   *
-   *   B. DOM traversal via containerEl.closest('.mod-left-split').
-   *      Catches leaves whose workspace-item tree position wasn't found in A
-   *      (e.g. floating / detached DOM fragments that still reference a split).
-   *
-   *   C. Full iterateAllLeaves sweep for the outline type.
-   *      Guards against leaves that survived A and B because their containerEl
-   *      was missing or not yet attached to the document.
-   *
-   * Results from all three are de-duplicated via a Set before detaching.
-   *
-   * NOTE: PinManager patches leaf.detach() for sidebar leaves when single-page
-   * mode (disableNoteTabs) is enabled. We bypass this via pinManager.forceDetachLeaf().
-   */
-  clearLeftSidebar() {
-    const { workspace } = this.app;
-    const all = /* @__PURE__ */ new Set();
-    const leftSplit = workspace.leftSplit;
-    for (const leaf of this.collectLeavesFromItem(leftSplit)) {
-      all.add(leaf);
+  restoreTestCSS() {
+    if (this.patchedRenderer && this.origTestCSS) {
+      this.patchedRenderer.testCSS = this.origTestCSS;
     }
-    workspace.iterateAllLeaves((leaf) => {
-      const el = leaf.containerEl;
-      if (el == null ? void 0 : el.closest(".workspace-split.mod-left-split")) {
-        all.add(leaf);
-      }
-    });
-    for (const leaf of all) {
-      try {
-        this.forceDetach(leaf);
-      } catch (e) {
-      }
-    }
-    const stragglers = [];
-    workspace.iterateAllLeaves((leaf) => {
-      const type = leaf.getViewState().type;
-      if (type === "outline") stragglers.push(leaf);
-    });
-    for (const leaf of stragglers) {
-      try {
-        this.forceDetach(leaf);
-      } catch (e) {
-      }
-    }
+    this.patchedRenderer = null;
+    this.origTestCSS = null;
   }
-  forceDetach(leaf) {
-    this.pinManager.forceDetachLeaf(leaf);
-  }
-  /**
-   * Recursively collects all WorkspaceLeaf instances from a workspace item
-   * (WorkspaceSplit / WorkspaceSidedock / WorkspaceTabs / WorkspaceLeaf).
-   */
-  collectLeavesFromItem(item) {
-    if (!item || typeof item !== "object") return [];
-    if (item instanceof import_obsidian5.WorkspaceLeaf) return [item];
-    const children = item.children;
-    if (!Array.isArray(children)) return [];
-    const leaves = [];
-    for (const child of children) {
-      leaves.push(...this.collectLeavesFromItem(child));
+  // ── 空侧栏提示改写 ────────────────────────────────────────────────────────
+  //
+  // Obsidian 原生的 .workspace-sidedock-empty-state 只有一行灰字（"The sidebar is empty…"）。
+  // 0 面板时把它替换成「去设置里配置侧栏面板」的引导文案，并加一个图标；居中排版交给
+  // styles.css 里的 .minimalism-ui-sidebar-empty-hint 规则。原生 <p class="u-muted"> 保留
+  // 在 DOM 里（用 CSS 隐藏），卸载时移除我们加的节点即可无痕还原。
+  applyEmptyStateHint(ls) {
+    var _a;
+    const host = ls.emptyStateEl;
+    if (!host) return;
+    host.classList.add(EMPTY_HINT_CLASS);
+    this.hintedEmptyStateEl = host;
+    if (!host.querySelector(`:scope > .${EMPTY_HINT_ICON_CLASS}`)) {
+      (0, import_obsidian5.setIcon)(host.createDiv({ cls: EMPTY_HINT_ICON_CLASS, prepend: true }), "panel-left");
     }
-    return leaves;
+    const textEl = (_a = host.querySelector(`:scope > .${EMPTY_HINT_TEXT_CLASS}`)) != null ? _a : host.createEl("p", { cls: EMPTY_HINT_TEXT_CLASS });
+    textEl.setText(t("sidebarEmptyHint"));
+  }
+  restoreEmptyStateHint() {
+    var _a, _b;
+    const host = this.hintedEmptyStateEl;
+    if (!host) return;
+    host.classList.remove(EMPTY_HINT_CLASS);
+    (_a = host.querySelector(`:scope > .${EMPTY_HINT_ICON_CLASS}`)) == null ? void 0 : _a.remove();
+    (_b = host.querySelector(`:scope > .${EMPTY_HINT_TEXT_CLASS}`)) == null ? void 0 : _b.remove();
+    this.hintedEmptyStateEl = null;
   }
 };
 
@@ -2926,10 +2932,10 @@ var POPOVER_WIDTH = 265;
 var POPOVER_GAP = 8;
 var VIEWPORT_MARGIN = 8;
 var StatusBarMenuManager = class {
-  constructor(app, plugin, rightSidebar) {
+  constructor(app, plugin, rsbLauncher) {
     this.app = app;
     this.plugin = plugin;
-    this.rightSidebar = rightSidebar;
+    this.rsbLauncher = rsbLauncher;
     this.statusBarItem = null;
     this.popoverEl = null;
     this.outsideClickHandler = null;
@@ -2938,10 +2944,9 @@ var StatusBarMenuManager = class {
     this.leftSidebarToggle = null;
     this.rightSidebarToggle = null;
     // ToggleComponent.setValue() 会触发 onChange，程序化同步开关显示值时用此标记屏蔽回调，
-    // 否则 refreshSidebarToggles → setValue → onChange → togglePanel → 状态变化 → refreshSidebarToggles 无限递归。
+    // 否则 refreshSidebarToggles → setValue → onChange → collapse/expand → 状态变化 → refreshSidebarToggles 无限递归。
     this.syncingToggles = false;
     this.resizeEventRef = null;
-    this.unsubscribeRightSidebar = null;
   }
   apply() {
     this.remove();
@@ -2962,7 +2967,6 @@ var StatusBarMenuManager = class {
       this.toggle();
     });
     this.resizeEventRef = this.app.workspace.on("resize", () => this.refreshSidebarToggles());
-    this.unsubscribeRightSidebar = this.rightSidebar.onStateChange(() => this.refreshSidebarToggles());
   }
   remove() {
     this.close();
@@ -2970,17 +2974,13 @@ var StatusBarMenuManager = class {
       this.app.workspace.offref(this.resizeEventRef);
       this.resizeEventRef = null;
     }
-    if (this.unsubscribeRightSidebar) {
-      this.unsubscribeRightSidebar();
-      this.unsubscribeRightSidebar = null;
-    }
     if (this.statusBarItem) {
       this.statusBarItem.remove();
       this.statusBarItem = null;
     }
   }
   // 面板开着时，把左右两个开关的显示值刷新为当前真实状态。setValue() 会触发 onChange，
-  // 故用 syncingToggles 屏蔽回调（避免 collapse()/expand()/togglePanel() 被反向调用形成回路），
+  // 故用 syncingToggles 屏蔽回调（避免 collapse()/expand()/setVisible() 被反向调用形成回路），
   // 也不走 renderContent() 整体重建，避免打断用户正在操作的笔记三态分段控件。
   refreshSidebarToggles() {
     var _a, _b, _c;
@@ -2989,7 +2989,7 @@ var StatusBarMenuManager = class {
     this.syncingToggles = true;
     try {
       (_b = this.leftSidebarToggle) == null ? void 0 : _b.setValue(leftSplit ? !leftSplit.collapsed : false);
-      (_c = this.rightSidebarToggle) == null ? void 0 : _c.setValue(this.rightSidebar.isPanelOpen());
+      (_c = this.rightSidebarToggle) == null ? void 0 : _c.setValue(this.rsbLauncher.getVisible());
     } finally {
       this.syncingToggles = false;
     }
@@ -3231,9 +3231,9 @@ var StatusBarMenuManager = class {
     (0, import_obsidian8.setIcon)(rightIcon, "panel-right");
     rightRow.createSpan({ cls: "minimalism-ui-status-popover-row-label", text: t("statusBarMenuToggleRightSidebar") });
     const rightToggleEl = rightRow.createDiv();
-    this.rightSidebarToggle = new import_obsidian8.ToggleComponent(rightToggleEl).setValue(this.rightSidebar.isPanelOpen()).onChange(() => {
+    this.rightSidebarToggle = new import_obsidian8.ToggleComponent(rightToggleEl).setValue(this.rsbLauncher.getVisible()).onChange((value) => {
       if (this.syncingToggles) return;
-      this.rightSidebar.togglePanel();
+      this.rsbLauncher.setVisible(value);
     });
   }
   // ─── 插件设置入口 ───────────────────────────────────────────────────────
@@ -3437,19 +3437,7 @@ var import_obsidian10 = require("obsidian");
 
 // src/right-sidebar/RightSidebarViewStack.ts
 var import_obsidian9 = require("obsidian");
-var MANAGED_LEFT_VIEW_TYPES = /* @__PURE__ */ new Set(["outline", "localgraph", "file-properties"]);
-var DOCUMENT_VIEW_TYPES = /* @__PURE__ */ new Set([
-  "markdown",
-  "canvas",
-  "pdf",
-  "image",
-  "audio",
-  "video",
-  "empty",
-  "release-notes",
-  "webviewer",
-  "bases"
-]);
+var DEFAULT_MANAGED_LEFT_VIEW_TYPES = /* @__PURE__ */ new Set(["outline", "localgraph", "file-properties"]);
 var DEFAULT_ICON = "panel-right";
 var STACK_ICON_CLASS = "minimalism-ui-rsb-stack-icon";
 var STACK_ICON_ACTIVE_CLASS = "minimalism-ui-rsb-stack-icon-active";
@@ -3461,10 +3449,11 @@ var STACK_ICON_HIDDEN_CLASS = "minimalism-ui-rsb-stack-icon-hidden";
 var STACK_ICON_STOWED_CLASS = "minimalism-ui-rsb-stack-icon-stowed";
 var STOW_KEY = "minimalism-ui-rsb-stow";
 var RightSidebarViewStack = class {
-  constructor(app, getSettings, save) {
+  constructor(app, getSettings, save, leafMount) {
     this.app = app;
     this.getSettings = getSettings;
     this.save = save;
+    this.leafMount = leafMount;
     this.stackEl = null;
     this.contentEl = null;
     this.buttonEl = null;
@@ -3491,6 +3480,12 @@ var RightSidebarViewStack = class {
     // 收纳图标是否处于展开态（显示分界左侧的隐藏图标）；跨重启持久化于 settings，
     // 只由用户点击哨兵图标改变——切视图、堆叠自动收起等操作不再连带重置它（见类注释）。
     this.stowExpanded = false;
+    // 左侧栏独占的 view type 提供者：默认三件套，可被外部（LeftSidebarManager）覆盖为动态查询。
+    this.getManagedLeftViewTypes = () => DEFAULT_MANAGED_LEFT_VIEW_TYPES;
+  }
+  // Phase 1 起由 main.ts 接线：让"左侧栏独占哪些 view type"成为两模块的单一事实源。
+  setManagedLeftViewTypesProvider(fn) {
+    this.getManagedLeftViewTypes = fn;
   }
   // 双向引用只能在两者都构造完之后接上（见 RightSidebarButtonManager 的构造顺序）。
   bindIconDrag(iconDrag) {
@@ -3548,74 +3543,27 @@ var RightSidebarViewStack = class {
       const root = leaf.getRoot();
       if (rightSplit && root === rightSplit) {
         leaves.push(leaf);
-      } else if (leftSplit && root === leftSplit && !MANAGED_LEFT_VIEW_TYPES.has(leaf.getViewState().type)) {
+      } else if (leftSplit && root === leftSplit && !this.getManagedLeftViewTypes().has(leaf.getViewState().type)) {
         leaves.push(leaf);
       }
     });
     return leaves;
   }
-  // 全部已注册的"工具类" view type：viewByType 里排除文档类（DOCUMENT_VIEW_TYPES）和
-  // 已被 SidebarLayoutManager 合并管理的三种（MANAGED_LEFT_VIEW_TYPES）。
-  // viewByType 是内部 API（未出现在官方类型声明中），随 Obsidian 插件注册 registerView 时写入，
-  // 与是否有 leaf 打开无关 —— 这正是探测"已关闭但曾注册过"的 view 所需要的入口。
-  allRegisteredToolViewTypes() {
-    var _a;
-    const registry = this.app.viewRegistry;
-    const types = Object.keys((_a = registry == null ? void 0 : registry.viewByType) != null ? _a : {});
-    return types.filter((type) => !DOCUMENT_VIEW_TYPES.has(type) && !MANAGED_LEFT_VIEW_TYPES.has(type));
-  }
   // 为每个尚无 leaf 的工具类 view type 在（CSS 整体隐藏的）右侧栏静默创建一个 leaf 占位，
-  // 使其之后能被 collectSwitchableLeaves 发现。逐个 await 而非 Promise.all，避免并发调用
-  // getRightLeaf/setViewState 在 Obsidian 工作区内部产生竞态。
-  // 某个类型探测失败（第三方 view 在无文件上下文下抛错）不影响其余类型，失败时把刚创建的
-  // 空/半初始化 leaf 一并 detach 掉，不留垃圾条目。
-  // 共享同一个 tab 组而非每个 type 各 split 一块分屏：getRightLeaf(true) 的 split 语义是
-  // "把现有分栏再拆一个新的"，若每个 type 都调它，右侧栏会被拆成几十个分屏（虽然整体 CSS
-  // 隐藏，但仍是几十个 WorkspaceTabs/split 节点的 DOM 与内部状态开销）。优先复用右侧栏里
-  // 已存在的某个 leaf 所在的组；侧栏全空时才靠 getRightLeaf(true) 建第一个组，之后一律
-  // createLeafInParent 把新 leaf 挂到同一组下（与 SingleTabGroupGuard 合并主区分屏同一手法）。
+  // 使其之后能被 collectSwitchableLeaves 发现。枚举 / 建 leaf / 竞态守卫的通用逻辑在
+  // LeafMountService；本类只提供右侧栏专属的"在哪里建"策略：优先复用右侧栏里已存在的某个
+  // leaf 所在的组，侧栏全空时才 getRightLeaf(true) 建第一个组。
   async ensureAllToolViewsExist() {
-    var _a, _b, _c, _d;
-    const ws = this.app.workspace;
-    let sharedParent = this.findExistingRightSidebarParent();
-    for (const type of this.allRegisteredToolViewTypes()) {
-      if (this.app.workspace.getLeavesOfType(type).length > 0) continue;
-      let leaf = null;
-      try {
-        if (sharedParent) {
-          const index = (_b = (_a = sharedParent.children) == null ? void 0 : _a.length) != null ? _b : 0;
-          leaf = ws.createLeafInParent(sharedParent, index);
-        } else {
-          leaf = this.app.workspace.getRightLeaf(true);
-          if (leaf) sharedParent = leaf.parent;
-        }
-        if (!leaf) continue;
-        await leaf.setViewState({ type, active: false });
-      } catch (err) {
-        console.error(`[minimalism-ui] probing view type "${type}" failed, skipping`, err);
-        leaf == null ? void 0 : leaf.detach();
-        if (sharedParent && ((_d = (_c = sharedParent.children) == null ? void 0 : _c.length) != null ? _d : 0) === 0) {
-          sharedParent = null;
-        }
-      }
-    }
+    await this.leafMount.ensureAllToolViewsExist({
+      excludedViewTypes: this.getManagedLeftViewTypes(),
+      findSharedParent: () => this.findExistingRightSidebarParent(),
+      createFallbackLeaf: () => this.app.workspace.getRightLeaf(true)
+    });
   }
-  // Obsidian 的 deferred leaf 只有在"第一次真正被用到"时才物化真正的 View 实例，物化过程
-  // 会触发一次它所在 tab group 的内部重渲染——这个重渲染不知道我们把某个 sibling leaf 的
-  // containerEl 偷偷搬进了悬浮面板，会把它当垃圾一并摘掉（表现为那个 leaf 的 containerEl
-  // parentElement 变 null，内容清空，且不会再恢复）。日志实测证实：切到一个还没被物化过
-  // 的视图时，触发的重渲染会把"当前挂在面板里的另一个视图"顺带摘掉。
-  // 把物化这一步提前到用户开始点选之前（面板里还什么都没挂的时候）做，就没有东西可误伤。
-  // 逐个 await 而非 Promise.all，理由同 ensureAllToolViewsExist：避免物化过程互相踩踏。
+  // 把 deferred leaf 物化提前到用户开始点选之前做，避免它触发的重渲染误伤此刻被搬进悬浮
+  // 面板的 sibling leaf（详见 LeafMountService.materializeDeferredLeaves）。
   async materializeDeferredLeaves() {
-    for (const leaf of this.collectSwitchableLeaves()) {
-      if (!leaf.isDeferred) continue;
-      try {
-        await leaf.loadIfDeferred();
-      } catch (err) {
-        console.error("[minimalism-ui] failed to materialize deferred leaf", leaf.view.getViewType(), err);
-      }
-    }
+    await this.leafMount.materializeDeferredLeaves(this.collectSwitchableLeaves());
   }
   // 右侧栏里任意一个已存在 leaf 所属的 tab 组（原生已打开的面板，或此前探测遗留的），
   // 用于把新探测出的 leaf 并入同一组，而不是各自新开一块分屏。
@@ -3825,31 +3773,10 @@ var RightSidebarViewStack = class {
     (_b = this.contentEl) == null ? void 0 : _b.createDiv({ cls: EMPTY_CLASS, text: t("rightSidebarPanelEmpty") });
     if (this.buttonEl) (0, import_obsidian9.setIcon)(this.buttonEl, DEFAULT_ICON);
   }
-  // onResize() 跑的是任意第三方/核心视图的代码，出错也不该拖垮我们自己的挂载逻辑。
-  //
-  // 核心的 All Properties / Tags / Backlinks 等面板内部用虚拟滚动实现列表，其 onResize()
-  // 只有在"测得的宽度与上次可见时缓存的宽度不同"时才会真正重新排布；宽度相同则只重放上次
-  // 的缓存布局。缓存宽度的初值是 0，所以第一次挂进面板（宽度从 0 变为真实值）一定会触发
-  // 真正的重排,看起来正常;但只要面板尺寸不变,之后每次切走再切回来,宽度都和缓存一致,
-  // 于是只重放旧布局——如果内容在切走期间失效（如属性列表变化）就会一直空着，不会再重新
-  // 计算。这是 Obsidian 内部实现的私有细节，各视图的虚拟滚动字段名不通用，没法针对性调用；
-  // 索性手动把宽度先改一格再改回真实值，逼它认为"宽度变了"从而完整重排一次。
+  // 虚拟滚动视图（文件树 / 搜索 / 标签 / 反链）在 DOM 被裸搬进悬浮面板后不会自动重新
+  // measure，需显式骗一次宽度变化触发完整重排（详见 LeafMountService.notifyResize）。
   notifyResize(leaf) {
-    const el = leaf.view.containerEl;
-    const originalWidth = el.style.width;
-    try {
-      el.setCssStyles({ width: `${el.clientWidth + 1}px` });
-      leaf.onResize();
-    } catch (err) {
-      console.error("[minimalism-ui] right sidebar view onResize() failed", err);
-    } finally {
-      el.setCssStyles({ width: originalWidth });
-    }
-    try {
-      leaf.onResize();
-    } catch (err) {
-      console.error("[minimalism-ui] right sidebar view onResize() failed", err);
-    }
+    this.leafMount.notifyResize(leaf);
   }
   // 把当前挂载的 leaf 视图移回它原本所在的 DOM 位置（隐藏的右侧栏内）。
   restoreMounted() {
@@ -4082,7 +4009,7 @@ var STACK_AUTO_COLLAPSE_DELAY = 2e3;
 var STACK_HOVER_LEAVE_DELAY = 300;
 var TOGGLE_RIGHT_SIDEBAR_COMMAND_ID = "app:toggle-right-sidebar";
 var RightSidebarButtonManager = class {
-  constructor(app, getSettings, save) {
+  constructor(app, getSettings, save, leafMount) {
     this.app = app;
     this.getSettings = getSettings;
     this.save = save;
@@ -4109,11 +4036,6 @@ var RightSidebarButtonManager = class {
     this.stackExpanded = false;
     // 面板是否被 pin 住；跨重启持久化于设置，见类注释。
     this.isPinned = false;
-    // 面板开关态（isOpen）的订阅者——供 StatusBarMenuManager 之类的外部消费方在自己的
-    // 悬浮面板打开期间，实时感知"用户直接点了右下角悬浮按钮"这类不经过它的触发路径。
-    // 不随 remove()/apply() 的内部重建清空：订阅关系属于调用方，与本管理器的 DOM 重建
-    // 生命周期无关（详见 apply() 里 wasOpen/restoreOpenState 的重建保活注释）。
-    this.stateChangeListeners = /* @__PURE__ */ new Set();
     // 鼠标是否停留在 launcher（按钮 + 堆叠）范围内——决定自动收起定时器要不要暂停。
     this.isHovering = false;
     this.autoExpandTimer = null;
@@ -4199,9 +4121,14 @@ var RightSidebarButtonManager = class {
         void this.save();
       }
     };
-    this.viewStack = new RightSidebarViewStack(app, getSettings, save);
+    this.viewStack = new RightSidebarViewStack(app, getSettings, save, leafMount);
     this.iconDrag = new RightSidebarIconDrag(this.viewStack, getSettings, save, () => this.suppressOutsideClickOnce());
     this.viewStack.bindIconDrag(this.iconDrag);
+  }
+  // Phase 1 起由 main.ts 接线：把"左侧栏当前独占哪些 view type"变成两模块的单一事实源，
+  // 使右侧栏悬浮面板不再显示已被左侧栏 slot 占用的视图。
+  setManagedLeftViewTypesProvider(fn) {
+    this.viewStack.setManagedLeftViewTypesProvider(fn);
   }
   apply() {
     const wasOpen = this.isOpen;
@@ -4311,29 +4238,11 @@ var RightSidebarButtonManager = class {
     if (this.isOpen) this.close();
     else this.open();
   }
-  // 供外部（StatusBarMenuManager）触发的公开入口，与直接点击右下角悬浮按钮等价。
-  // launcherEl 为 null 说明 showRightSidebarButton 关闭、面板未注入，直接 no-op。
-  togglePanel() {
-    if (!this.launcherEl) return;
-    this.toggle();
-  }
-  isPanelOpen() {
-    return this.isOpen;
-  }
-  // 订阅 isOpen 变化（见字段注释）。返回取消订阅函数。
-  onStateChange(cb) {
-    this.stateChangeListeners.add(cb);
-    return () => this.stateChangeListeners.delete(cb);
-  }
-  notifyStateChange() {
-    for (const cb of this.stateChangeListeners) cb();
-  }
   open() {
     var _a, _b;
     this.isOpen = true;
     (_a = this.panelEl) == null ? void 0 : _a.addClass(OPEN_CLASS);
     (_b = this.buttonEl) == null ? void 0 : _b.addClass(BUTTON_ACTIVE_CLASS);
-    this.notifyStateChange();
     this.viewStack.refreshStack();
     this.clearStackTimers();
     this.autoExpandTimer = window.setTimeout(() => {
@@ -4356,7 +4265,6 @@ var RightSidebarButtonManager = class {
     this.setStackExpanded(false);
     (_a = this.panelEl) == null ? void 0 : _a.removeClass(OPEN_CLASS);
     (_b = this.buttonEl) == null ? void 0 : _b.removeClass(BUTTON_ACTIVE_CLASS);
-    this.notifyStateChange();
   }
   setStackExpanded(expanded) {
     var _a;
@@ -4758,6 +4666,9 @@ var FileSuggest = class extends import_obsidian12.AbstractInputSuggest {
 var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
+    // ── 左侧栏面板列表（用户添加任意 view，最多 4 个，可拖拽排序）──────────────
+    // 拖拽排序进行中的源行下标；drop 时读取，结束即清空。
+    this.slotDragIndex = null;
     this.plugin = plugin;
   }
   isCollapsed(key) {
@@ -4787,6 +4698,7 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
       this.plugin.settings.language = v;
       setLang(v);
       await this.plugin.saveSettings();
+      void this.plugin.applyMacSidebarLayout();
       this.display();
     }));
   }
@@ -4836,25 +4748,97 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
       text.inputEl.addEventListener("change", () => applyHomePage(text.inputEl.value.trim()));
     });
   }
-  configureHideTabBar(setting) {
-    setting.setName(t("hideTabBar")).addToggle((toggle) => toggle.setValue(this.plugin.settings.hideTabBar).onChange(async (v) => {
-      this.plugin.settings.hideTabBar = v;
-      await this.plugin.saveSettings();
-    }));
+  async persistSlots() {
+    await this.plugin.saveSettings();
+    await this.plugin.applyMacSidebarLayout();
+    this.display();
   }
-  configureShowProperties(setting) {
-    setting.setName(t("showProperties")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showProperties).onChange(async (v) => {
-      this.plugin.settings.showProperties = v;
-      await this.plugin.saveSettings();
-      await this.plugin.applyMacSidebarLayout();
-    }));
+  configureLeftSidebarSlots(sectionEl) {
+    var _a, _b;
+    const slots = this.plugin.settings.leftSidebarSlots;
+    const options = this.plugin.listSidebarViewOptions();
+    const atLimit = slots.length >= MAX_LEFT_SIDEBAR_SLOTS;
+    const used = new Set(slots.map((s) => s.viewType));
+    const preferred = ["outline", "file-properties", "localgraph"];
+    const nextFree = (_b = preferred.filter((tp) => options.some((o) => o.type === tp)).find((tp) => !used.has(tp))) != null ? _b : (_a = options.find((o) => !used.has(o.type))) == null ? void 0 : _a.type;
+    const header = new import_obsidian12.Setting(sectionEl).setName(t("leftSidebarPanels")).setDesc(atLimit ? t("leftSidebarPanelsFull") : t("leftSidebarPanelsDesc"));
+    header.addButton((btn) => {
+      btn.setButtonText(t("addPanel"));
+      if (atLimit || !nextFree) {
+        btn.setDisabled(true);
+      } else {
+        btn.setCta();
+        btn.onClick(async () => {
+          slots.push({ id: `slot-${Date.now()}`, viewType: nextFree, enabled: true, height: null });
+          await this.persistSlots();
+        });
+      }
+    });
+    const listEl = sectionEl.createDiv({ cls: "minimalism-ui-slot-list" });
+    if (slots.length === 0) {
+      listEl.createDiv({ cls: "minimalism-ui-slot-empty", text: t("leftSidebarPanelsEmpty") });
+      return;
+    }
+    slots.forEach((_, index) => this.renderSlotRow(listEl, index, options));
   }
-  configureShowLocalGraph(setting) {
-    setting.setName(t("showLocalGraph")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showLocalGraph).onChange(async (v) => {
-      this.plugin.settings.showLocalGraph = v;
-      await this.plugin.saveSettings();
-      await this.plugin.applyMacSidebarLayout();
-    }));
+  renderSlotRow(listEl, index, options) {
+    const slots = this.plugin.settings.leftSidebarSlots;
+    const slot = slots[index];
+    const row = listEl.createDiv({ cls: "minimalism-ui-slot-row", attr: { draggable: "true" } });
+    row.createSpan({
+      cls: "minimalism-ui-slot-handle",
+      text: "\u283F",
+      attr: { "aria-label": t("dragToReorder") }
+    });
+    const select = row.createEl("select", { cls: "dropdown minimalism-ui-slot-select" });
+    const usedElsewhere = new Set(slots.filter((_, i) => i !== index).map((s) => s.viewType));
+    let hasCurrent = false;
+    for (const opt of options) {
+      if (usedElsewhere.has(opt.type)) continue;
+      select.createEl("option", { value: opt.type, text: opt.label });
+      if (opt.type === slot.viewType) hasCurrent = true;
+    }
+    if (!hasCurrent) select.createEl("option", { value: slot.viewType, text: slot.viewType });
+    select.value = slot.viewType;
+    select.addEventListener("change", async () => {
+      slot.viewType = select.value;
+      await this.persistSlots();
+    });
+    const removeBtn = row.createEl("button", {
+      cls: "minimalism-ui-slot-remove clickable-icon",
+      text: "\u2715",
+      attr: { "aria-label": t("removePanel") }
+    });
+    removeBtn.addEventListener("click", async () => {
+      slots.splice(index, 1);
+      await this.persistSlots();
+    });
+    row.addEventListener("dragstart", (ev) => {
+      var _a;
+      this.slotDragIndex = index;
+      row.addClass("is-dragging");
+      (_a = ev.dataTransfer) == null ? void 0 : _a.setData("text/plain", String(index));
+    });
+    row.addEventListener("dragend", () => {
+      this.slotDragIndex = null;
+      row.removeClass("is-dragging");
+    });
+    row.addEventListener("dragover", (ev) => {
+      if (this.slotDragIndex === null || this.slotDragIndex === index) return;
+      ev.preventDefault();
+      row.addClass("is-drop-target");
+    });
+    row.addEventListener("dragleave", () => row.removeClass("is-drop-target"));
+    row.addEventListener("drop", async (ev) => {
+      ev.preventDefault();
+      row.removeClass("is-drop-target");
+      const from = this.slotDragIndex;
+      this.slotDragIndex = null;
+      if (from === null || from === index) return;
+      const [moved] = slots.splice(from, 1);
+      slots.splice(index, 0, moved);
+      await this.persistSlots();
+    });
   }
   configureShowVaultProfile(setting) {
     setting.setName(t("showVaultProfile")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showVaultProfile).onChange(async (v) => {
@@ -4862,6 +4846,7 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
       await this.plugin.saveSettings();
     }));
   }
+  // 目前未在 display() 中调用——该开关已从设置页移除，仅保留实现以便日后恢复。
   configureShowRightSidebarButton(setting) {
     setting.setName(t("showRightSidebarButton")).setDesc(t("showRightSidebarButtonDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showRightSidebarButton).onChange(async (v) => {
       this.plugin.settings.showRightSidebarButton = v;
@@ -4911,11 +4896,8 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
     this.configureSinglePage(new import_obsidian12.Setting(interactionEl));
     this.configureHomePage(new import_obsidian12.Setting(interactionEl));
     const appearanceEl = this.addCollapsibleSection("appearance", t("headingAppearance"));
-    this.configureHideTabBar(new import_obsidian12.Setting(appearanceEl));
-    this.configureShowProperties(new import_obsidian12.Setting(appearanceEl));
-    this.configureShowLocalGraph(new import_obsidian12.Setting(appearanceEl));
+    this.configureLeftSidebarSlots(appearanceEl);
     this.configureShowVaultProfile(new import_obsidian12.Setting(appearanceEl));
-    this.configureShowRightSidebarButton(new import_obsidian12.Setting(appearanceEl));
     const animationEl = this.addCollapsibleSection("animation", t("headingAnimation"));
     this.configureNavAnimation(new import_obsidian12.Setting(animationEl));
     const advancedEl = this.addCollapsibleSection("advanced", t("headingAdvanced"));
@@ -4941,6 +4923,7 @@ var MinimalismUIPlugin = class extends import_obsidian13.Plugin {
     await this.loadSettings();
     setLang(this.settings.language);
     const settings = () => this.settings;
+    this.leafMount = new LeafMountService(this.app);
     this.bodyClasses = new BodyClassController(settings);
     this.fontLoader = new FontLoader(settings);
     this.themeLoader = new ThemeLoader(settings);
@@ -4961,15 +4944,22 @@ var MinimalismUIPlugin = class extends import_obsidian13.Plugin {
       () => this.engine.canGoForward()
     );
     this.engine.setNavChangeListener((leaf) => this.dragBar.notifyNavChange(leaf));
-    this.sidebarLayout = new SidebarLayoutManager(this.app, settings, this.pinManager);
+    this.leftSidebar = new LeftSidebarManager(this.app, settings, this.leafMount, this.pinManager);
     this.sidebarSuggestFocus = new SidebarSuggestFocusTracker();
     this.responsiveSidebar = new ResponsiveSidebarManager(this.app);
     this.propertyKeyResizer = new PropertyKeyResizer(settings, () => this.saveData(this.settings));
     this.ribbonPanel = new RibbonPanelManager(settings, () => this.saveSettings());
     this.editorStatus = new EditorStatusManager(this.app, this);
     this.mermaidZoom = new MermaidZoomManager(this.app);
-    this.rightSidebarButton = new RightSidebarButtonManager(this.app, settings, () => this.saveData(this.settings));
-    this.statusBarMenu = new StatusBarMenuManager(this.app, this, this.rightSidebarButton);
+    this.rightSidebarButton = new RightSidebarButtonManager(this.app, settings, () => this.saveData(this.settings), this.leafMount);
+    this.rightSidebarButton.setManagedLeftViewTypesProvider(() => this.leftSidebar.getOwnedViewTypes());
+    this.statusBarMenu = new StatusBarMenuManager(this.app, this, {
+      getVisible: () => this.settings.showRightSidebarButton,
+      setVisible: (visible) => {
+        this.settings.showRightSidebarButton = visible;
+        void this.saveSettings();
+      }
+    });
     this.onboarding = new OnboardingManager(this.app, settings, () => this.saveData(this.settings));
     this.firstRunCleanup = new FirstRunCleanup(this.app, async () => {
       this.settings.firstRunCleanupDone = true;
@@ -4985,7 +4975,7 @@ var MinimalismUIPlugin = class extends import_obsidian13.Plugin {
       this.homePage,
       this.emptyViewButton,
       this.dragBar,
-      this.sidebarLayout,
+      this.leftSidebar,
       this.sidebarSuggestFocus,
       this.responsiveSidebar,
       this.propertyKeyResizer,
@@ -5017,7 +5007,7 @@ var MinimalismUIPlugin = class extends import_obsidian13.Plugin {
       this.tabGroupGuard.apply();
       if (!this.settings.firstRunCleanupDone) void this.firstRunCleanup.run();
       void this.homePage.openHomePageOnStartup();
-      void this.sidebarLayout.apply();
+      void this.leftSidebar.apply();
       this.responsiveSidebar.apply();
       this.ribbonPanel.apply();
     });
@@ -5030,7 +5020,7 @@ var MinimalismUIPlugin = class extends import_obsidian13.Plugin {
   }
   // ─── Sidebar Layout ───────────────────────────────────────────────────────
   async applyMacSidebarLayout() {
-    await this.sidebarLayout.apply();
+    await this.leftSidebar.apply();
   }
   // 设置里更换首页后：把主区收拢为只剩首页一个 tab，面包屑也只剩首页。
   // 仅在首页路径真正变化时由 SettingTab 调用，避免每次保存设置都误关标签。
@@ -5053,16 +5043,39 @@ var MinimalismUIPlugin = class extends import_obsidian13.Plugin {
   async applyTheme() {
     this.themeLoader.apply();
     await this.fontLoader.apply();
-    this.sidebarLayout.reapplyGraphColors();
+    this.leftSidebar.reapplyGraphColors();
   }
   // 列出所有可选主题名（内嵌清单），供设置面板下拉框使用。
   listThemes() {
     return this.themeLoader.listThemes();
   }
+  // 左侧栏 slot 下拉框的候选：全部已注册的工具类 view type + 人类可读标签。
+  // 标签优先取当前已打开的同类型 leaf 的 getDisplayText()（Obsidian 已本地化）；没有已打开
+  // leaf 时把 type 字符串转成词组兜底。按标签排序。见 SettingTab 的左侧栏面板列表 UI。
+  listSidebarViewOptions() {
+    const humanize = (s) => s.replace(/[-_]+/g, " ").replace(/^./, (c) => c.toUpperCase());
+    return this.leafMount.allRegisteredToolViewTypes().map((type) => {
+      var _a, _b;
+      let label = "";
+      try {
+        label = (_b = (_a = this.app.workspace.getLeavesOfType(type)[0]) == null ? void 0 : _a.getDisplayText()) != null ? _b : "";
+      } catch (e) {
+        label = "";
+      }
+      return { type, label: label || humanize(type) };
+    }).sort((a, b) => a.label.localeCompare(b.label));
+  }
   // ─── Settings ─────────────────────────────────────────────────────────────
   async loadSettings() {
     const saved = await this.loadData();
     this.settings = Object.assign({}, DEFAULT_SETTINGS, saved);
+    this.settings.hideTabBar = true;
+    if (saved && !Array.isArray(saved.leftSidebarSlots)) {
+      this.settings.leftSidebarSlots = [];
+      this.settings.showProperties = false;
+      this.settings.showLocalGraph = false;
+      await this.saveData(this.settings);
+    }
     if (saved && saved.firstRunCleanupDone === void 0) {
       this.settings.firstRunCleanupDone = true;
       await this.saveData(this.settings);

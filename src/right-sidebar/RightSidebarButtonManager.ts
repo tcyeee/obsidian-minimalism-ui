@@ -1,5 +1,6 @@
 import { App, setIcon, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
+import { LeafMountService } from '../core/LeafMountService';
 import { Feature } from '../core/Feature';
 import { t } from '../core/i18n';
 import { patchExecuteCommand } from '../core/obsidianCommands';
@@ -117,12 +118,6 @@ export class RightSidebarButtonManager implements Feature {
 	private readonly viewStack: RightSidebarViewStack;
 	private readonly iconDrag: RightSidebarIconDrag;
 
-	// 面板开关态（isOpen）的订阅者——供 StatusBarMenuManager 之类的外部消费方在自己的
-	// 悬浮面板打开期间，实时感知"用户直接点了右下角悬浮按钮"这类不经过它的触发路径。
-	// 不随 remove()/apply() 的内部重建清空：订阅关系属于调用方，与本管理器的 DOM 重建
-	// 生命周期无关（详见 apply() 里 wasOpen/restoreOpenState 的重建保活注释）。
-	private stateChangeListeners = new Set<() => void>();
-
 	// 鼠标是否停留在 launcher（按钮 + 堆叠）范围内——决定自动收起定时器要不要暂停。
 	private isHovering = false;
 	private autoExpandTimer: number | null = null;
@@ -140,10 +135,17 @@ export class RightSidebarButtonManager implements Feature {
 		private app: App,
 		private getSettings: () => MinimalismUISettings,
 		private save: () => Promise<void>,
+		leafMount: LeafMountService,
 	) {
-		this.viewStack = new RightSidebarViewStack(app, getSettings, save);
+		this.viewStack = new RightSidebarViewStack(app, getSettings, save, leafMount);
 		this.iconDrag = new RightSidebarIconDrag(this.viewStack, getSettings, save, () => this.suppressOutsideClickOnce());
 		this.viewStack.bindIconDrag(this.iconDrag);
+	}
+
+	// Phase 1 起由 main.ts 接线：把"左侧栏当前独占哪些 view type"变成两模块的单一事实源，
+	// 使右侧栏悬浮面板不再显示已被左侧栏 slot 占用的视图。
+	setManagedLeftViewTypesProvider(fn: () => ReadonlySet<string>) {
+		this.viewStack.setManagedLeftViewTypesProvider(fn);
 	}
 
 	apply() {
@@ -304,32 +306,10 @@ export class RightSidebarButtonManager implements Feature {
 		else this.open();
 	}
 
-	// 供外部（StatusBarMenuManager）触发的公开入口，与直接点击右下角悬浮按钮等价。
-	// launcherEl 为 null 说明 showRightSidebarButton 关闭、面板未注入，直接 no-op。
-	togglePanel(): void {
-		if (!this.launcherEl) return;
-		this.toggle();
-	}
-
-	isPanelOpen(): boolean {
-		return this.isOpen;
-	}
-
-	// 订阅 isOpen 变化（见字段注释）。返回取消订阅函数。
-	onStateChange(cb: () => void): () => void {
-		this.stateChangeListeners.add(cb);
-		return () => this.stateChangeListeners.delete(cb);
-	}
-
-	private notifyStateChange() {
-		for (const cb of this.stateChangeListeners) cb();
-	}
-
 	private open() {
 		this.isOpen = true;
 		this.panelEl?.addClass(OPEN_CLASS);
 		this.buttonEl?.addClass(BUTTON_ACTIVE_CLASS);
-		this.notifyStateChange();
 		this.viewStack.refreshStack();
 
 		// 面板打开 500ms 后堆叠自动滑出亮相；到点时面板可能已经被关掉了，需要重新判断 isOpen。
@@ -359,7 +339,6 @@ export class RightSidebarButtonManager implements Feature {
 		this.setStackExpanded(false);
 		this.panelEl?.removeClass(OPEN_CLASS);
 		this.buttonEl?.removeClass(BUTTON_ACTIVE_CLASS);
-		this.notifyStateChange();
 	}
 
 	private setStackExpanded(expanded: boolean) {

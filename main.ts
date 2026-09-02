@@ -1,6 +1,7 @@
 import { Plugin } from 'obsidian';
 import { MinimalismUISettings, DEFAULT_SETTINGS } from './src/core/settings';
 import { Feature } from './src/core/Feature';
+import { LeafMountService } from './src/core/LeafMountService';
 import { FontLoader } from './src/core/FontLoader';
 import { ThemeLoader } from './src/core/ThemeLoader';
 import { BodyClassController } from './src/core/BodyClassController';
@@ -10,7 +11,7 @@ import { PinManager } from './src/tabs/PinManager';
 import { HomePageManager } from './src/single-page/HomePageManager';
 import { EmptyViewButtonManager } from './src/single-page/EmptyViewButtonManager';
 import { DragBarManager } from './src/layout/DragBarManager';
-import { SidebarLayoutManager } from './src/layout/SidebarLayoutManager';
+import { LeftSidebarManager } from './src/layout/LeftSidebarManager';
 import { SidebarSuggestFocusTracker } from './src/layout/SidebarSuggestFocusTracker';
 import { ResponsiveSidebarManager } from './src/layout/ResponsiveSidebarManager';
 import { PropertyKeyResizer } from './src/layout/PropertyKeyResizer';
@@ -31,6 +32,7 @@ export type { MinimalismUISettings };
 export default class MinimalismUIPlugin extends Plugin {
 	settings: MinimalismUISettings;
 
+	private leafMount: LeafMountService;
 	private bodyClasses: BodyClassController;
 	private fontLoader: FontLoader;
 	private themeLoader: ThemeLoader;
@@ -40,7 +42,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	private homePage: HomePageManager;
 	private emptyViewButton: EmptyViewButtonManager;
 	private dragBar: DragBarManager;
-	private sidebarLayout: SidebarLayoutManager;
+	private leftSidebar: LeftSidebarManager;
 	private sidebarSuggestFocus: SidebarSuggestFocusTracker;
 	private responsiveSidebar: ResponsiveSidebarManager;
 	private propertyKeyResizer: PropertyKeyResizer;
@@ -65,6 +67,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		setLang(this.settings.language);
 
 		const settings = () => this.settings;
+		this.leafMount = new LeafMountService(this.app);
 		this.bodyClasses = new BodyClassController(settings);
 		this.fontLoader = new FontLoader(settings);
 		this.themeLoader = new ThemeLoader(settings);
@@ -87,15 +90,25 @@ export default class MinimalismUIPlugin extends Plugin {
 		// active-leaf-change 未触发时（如 deferred 视图经 revealLeaf 显示），引擎记录导航后
 		// 直接驱动面包屑刷新，使其与历史栈保持同步。
 		this.engine.setNavChangeListener((leaf) => this.dragBar.notifyNavChange(leaf));
-		this.sidebarLayout = new SidebarLayoutManager(this.app, settings, this.pinManager);
+		this.leftSidebar = new LeftSidebarManager(this.app, settings, this.leafMount, this.pinManager);
 		this.sidebarSuggestFocus = new SidebarSuggestFocusTracker();
 		this.responsiveSidebar = new ResponsiveSidebarManager(this.app);
 		this.propertyKeyResizer = new PropertyKeyResizer(settings, () => this.saveData(this.settings));
 		this.ribbonPanel = new RibbonPanelManager(settings, () => this.saveSettings());
 		this.editorStatus = new EditorStatusManager(this.app, this);
 		this.mermaidZoom = new MermaidZoomManager(this.app);
-		this.rightSidebarButton = new RightSidebarButtonManager(this.app, settings, () => this.saveData(this.settings));
-		this.statusBarMenu = new StatusBarMenuManager(this.app, this, this.rightSidebarButton);
+		this.rightSidebarButton = new RightSidebarButtonManager(this.app, settings, () => this.saveData(this.settings), this.leafMount);
+		// 左侧栏 slot 当前占用的 view type 是右侧栏悬浮面板避让的单一事实源。
+		this.rightSidebarButton.setManagedLeftViewTypesProvider(() => this.leftSidebar.getOwnedViewTypes());
+		// 状态栏菜单里的「右侧边栏」开关现在控制右下角悬浮框（minimalism-ui-rsb-launcher）的显隐，
+		// 即 showRightSidebarButton 设置；saveSettings() 会触发 rightSidebarButton.apply() 注入/拆除 DOM。
+		this.statusBarMenu = new StatusBarMenuManager(this.app, this, {
+			getVisible: () => this.settings.showRightSidebarButton,
+			setVisible: (visible) => {
+				this.settings.showRightSidebarButton = visible;
+				void this.saveSettings();
+			},
+		});
 		this.onboarding = new OnboardingManager(this.app, settings, () => this.saveData(this.settings));
 		this.firstRunCleanup = new FirstRunCleanup(this.app, async () => {
 			this.settings.firstRunCleanupDone = true;
@@ -112,7 +125,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			this.homePage,
 			this.emptyViewButton,
 			this.dragBar,
-			this.sidebarLayout,
+			this.leftSidebar,
 			this.sidebarSuggestFocus,
 			this.responsiveSidebar,
 			this.propertyKeyResizer,
@@ -151,7 +164,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			if (!this.settings.firstRunCleanupDone) void this.firstRunCleanup.run();
 			// 启动专用入口：主区域已由 workspace 恢复出笔记时不跳首页，只把首页钉进面包屑。
 			void this.homePage.openHomePageOnStartup();
-			void this.sidebarLayout.apply();
+			void this.leftSidebar.apply();
 			// 窗口宽度自适应收起左侧栏：依赖 leftSplit 与窗口尺寸就绪。
 			this.responsiveSidebar.apply();
 			// 将 .side-dock-actions 迁移至侧边栏内嵌可折叠面板。
@@ -170,7 +183,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	// ─── Sidebar Layout ───────────────────────────────────────────────────────
 
 	async applyMacSidebarLayout() {
-		await this.sidebarLayout.apply();
+		await this.leftSidebar.apply();
 	}
 
 	// 设置里更换首页后：把主区收拢为只剩首页一个 tab，面包屑也只剩首页。
@@ -203,7 +216,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		await this.fontLoader.apply();
 		// 主题切换后，注入的本地关系图（canvas）颜色仍是旧主题——它只在注入时
 		// 通过 renderer.testCSS() 探测一次 CSS 颜色。这里就地重新探测，无需重建侧边栏。
-		this.sidebarLayout.reapplyGraphColors();
+		this.leftSidebar.reapplyGraphColors();
 	}
 
 	// 列出所有可选主题名（内嵌清单），供设置面板下拉框使用。
@@ -211,11 +224,42 @@ export default class MinimalismUIPlugin extends Plugin {
 		return this.themeLoader.listThemes();
 	}
 
+	// 左侧栏 slot 下拉框的候选：全部已注册的工具类 view type + 人类可读标签。
+	// 标签优先取当前已打开的同类型 leaf 的 getDisplayText()（Obsidian 已本地化）；没有已打开
+	// leaf 时把 type 字符串转成词组兜底。按标签排序。见 SettingTab 的左侧栏面板列表 UI。
+	listSidebarViewOptions(): { type: string; label: string }[] {
+		const humanize = (s: string): string =>
+			s.replace(/[-_]+/g, ' ').replace(/^./, c => c.toUpperCase());
+		return this.leafMount.allRegisteredToolViewTypes()
+			.map(type => {
+				let label = '';
+				try {
+					label = this.app.workspace.getLeavesOfType(type)[0]?.getDisplayText() ?? '';
+				} catch {
+					label = '';
+				}
+				return { type, label: label || humanize(type) };
+			})
+			.sort((a, b) => a.label.localeCompare(b.label));
+	}
+
 	// ─── Settings ─────────────────────────────────────────────────────────────
 
 	async loadSettings() {
 		const saved = (await this.loadData()) as Partial<MinimalismUISettings> | null;
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, saved);
+
+		// 「隐藏大纲按钮」已不再提供开关，恒为开启：覆盖老用户可能关掉的旧值。
+		this.settings.hideTabBar = true;
+
+		// 迁移旧 data.json（没有 leftSidebarSlots 字段）：新形态下左侧栏默认完全空白，老用户升级后
+		// 也一并清空——旧的固定三面板全部移除，用户可在设置页自行添加。旧开关值一并归零。
+		if (saved && !Array.isArray(saved.leftSidebarSlots)) {
+			this.settings.leftSidebarSlots = [];
+			this.settings.showProperties = false;
+			this.settings.showLocalGraph = false;
+			await this.saveData(this.settings);
+		}
 		// 区分全新安装与老用户升级：data.json 已存在但没有 firstRunCleanupDone 字段 → 老用户，
 		// 标记为已完成并落盘，避免在其既有布局上误关标签页。全新安装（saved 为空）保持默认
 		// false，由 onLayoutReady 触发一次收拢。
