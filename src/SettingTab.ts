@@ -164,7 +164,8 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 
 	private async persistSlots(): Promise<void> {
 		await this.plugin.saveSettings();
-		await this.plugin.applyMacSidebarLayout();
+		// 添加 / 更换面板会新建 leaf，触发时让侧栏展开露出新面板（纯排序 / 删除不会新建，故无副作用）。
+		await this.plugin.applyMacSidebarLayout({ revealNewPanels: true });
 		this.display();
 	}
 
