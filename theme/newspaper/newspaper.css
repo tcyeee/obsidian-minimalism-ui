@@ -132,7 +132,7 @@ body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-ribb
    这些 ::before / span 不走变量，需对位覆盖各自的颜色规则。 */
 body.minimalism-ui-theme-newspaper.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"]::before,
 body.minimalism-ui-theme-newspaper.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="file-properties"]::before,
-body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-graph-header > span {
+body.minimalism-ui-theme-newspaper.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="localgraph"]::before {
 	color: #1f0909;
 }
 
@@ -144,7 +144,7 @@ body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-leaf-con
 }
 
 /* 侧边栏局部关系图设置面板展开态：背景与侧边栏奶白底一致（styles.css 里设为 transparent，主题专属背景在此补齐） */
-body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="localgraph"].minimalism-ui-injected-graph .graph-controls:not(.is-close) {
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-leaf-content[data-type="localgraph"] .graph-controls:not(.is-close) {
 	background: #f3f2ee;
 }
 
@@ -975,7 +975,7 @@ body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimal
 
 body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="outline"]::before,
 body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="file-properties"]::before,
-body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .minimalism-ui-graph-header > span {
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-simplify-panel .workspace-leaf-content[data-type="localgraph"]::before {
 	color: #ddd8cc;
 }
 
@@ -985,7 +985,7 @@ body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspa
 }
 
 /* 侧边栏局部关系图设置面板展开态：背景与侧边栏深色底一致 */
-body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-leaf-content[data-type="localgraph"].minimalism-ui-injected-graph .graph-controls:not(.is-close) {
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .workspace-leaf-content[data-type="localgraph"] .graph-controls:not(.is-close) {
 	background: #1c1b18;
 }
 
