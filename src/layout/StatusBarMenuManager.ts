@@ -317,23 +317,14 @@ export class StatusBarMenuManager implements Feature {
 			onClick: () => { this.openWithDefaultApp(file!); this.close(); },
 		});
 
-		// 「编辑器 → 可读行长度」关闭时正文本就撑满窗口，动态宽度开关没有意义 —— 整行不渲染。
-		if (this.isReadableLineLength()) this.renderDynamicWidthRow(container, file);
+		this.renderDynamicWidthRow(container, file);
 	}
 
 	// ─── 动态宽度（写当前笔记 frontmatter 的 cssclasses） ─────────────────────
 
-	// 判定「编辑器 → 可读行长度」是否开启：优先读 vault 配置，配置缺省（从未显式设置）时
-	// 回落到 body 上的 is-readable-line-length class —— 后者直接反映当前渲染状态。
-	private isReadableLineLength(): boolean {
-		const cfg = (this.app.vault as unknown as { getConfig(key: string): unknown }).getConfig('readableLineLength');
-		if (cfg === true) return true;
-		if (cfg === false) return false;
-		return uiDoc().body.classList.contains('is-readable-line-length');
-	}
-
 	// 开启后往当前笔记 frontmatter 的 cssclasses 写入 minimalism-dynamic-width 标记，
-	// styles.css 据此把正文最大宽度撑满窗口（减两侧内边距），覆盖「可读行长」的居中窄栏。
+	// styles.css 据此直接给正文文本列设 max-width（两侧各留 10vw），与「可读行长」
+	// 核心开关状态无关——用户即使关闭了可读行长，也能单独用这个开关收窄正文。
 	// 面板每次打开都重建，故开关初值直接读 metadataCache，无需保活刷新。
 	private renderDynamicWidthRow(container: HTMLElement, file: TFile | null): void {
 		const row = container.createDiv({ cls: 'minimalism-ui-status-popover-row is-static' });
