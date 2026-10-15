@@ -139,7 +139,7 @@ body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split > .workspace-tabs
 /* ── 左侧 ribbon（活动栏）结构样式 ─────────────────────────────────────
    ribbon 紧贴左侧边栏：去掉默认右边框形成的缝隙，与侧边栏融为一体。
    背景色与图标色属主题专属，见 theme/<主题>/<主题>.css。 */
-body.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left {
+body.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary) {
 	border-right: none;
 }
 
@@ -147,7 +147,7 @@ body.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left {
    让出交通灯角落，再用 ::before 把该角落填成 var(--titlebar-background)——所以
    ribbon 自身 background-color 填不到这块（margin 不可着色，由 ::before 接管）。
    这里去掉 ::before 的底部分隔线，颜色由各主题覆盖成与侧边栏一致。 */
-body.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left::before {
+body.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary)::before {
 	border-bottom: none;
 }
 
@@ -2705,24 +2705,24 @@ body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-l
 }
 
 /* 左侧 ribbon（活动栏）背景与侧边栏一致，融为同一块面板 */
-body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left,
-body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left::before {
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary),
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary)::before {
 	background-color: #123342;
 }
 
-body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left,
-body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left::before {
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary),
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary)::before {
 	background-color: #2E3033;
 }
 
 /* ribbon 图标浅色适配深底 */
-body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action,
-body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon {
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary) .side-dock-ribbon-action,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary) .clickable-icon {
 	color: rgba(196, 196, 196, 0.7);
 }
 
-body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action:hover,
-body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon:hover {
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary) .side-dock-ribbon-action:hover,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary) .clickable-icon:hover {
 	color: rgba(255, 255, 255, 0.95);
 	background-color: rgba(255, 255, 255, 0.08);
 }
@@ -2957,19 +2957,19 @@ body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-split.mo
 
 /* 左侧 ribbon（活动栏）：奶白纸底，与侧边栏连成同一片版块。
    ::before 是顶部交通灯角落（Obsidian 默认填 titlebar 色），一并刷成纸色 */
-body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left,
-body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left::before {
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary),
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary)::before {
 	background-color: #f3f2ee;
 }
 
 /* ribbon 图标：报刊深墨，hover 加深 + 暖灰底 */
-body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action,
-body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon {
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary) .side-dock-ribbon-action,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary) .clickable-icon {
 	color: #4a3838;
 }
 
-body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action:hover,
-body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon:hover {
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary) .side-dock-ribbon-action:hover,
+body.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary) .clickable-icon:hover {
 	color: #1f0909;
 	background-color: #e8e7e7;
 }
@@ -3819,18 +3819,18 @@ body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspa
 	color: #a09890;
 }
 
-body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left,
-body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left::before {
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary),
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary)::before {
 	background-color: #1c1b18;
 }
 
-body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action,
-body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon {
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary) .side-dock-ribbon-action,
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary) .clickable-icon {
 	color: #a09890;
 }
 
-body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action:hover,
-body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon:hover {
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary) .side-dock-ribbon-action:hover,
+body.theme-dark.minimalism-ui-theme-newspaper.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary) .clickable-icon:hover {
 	color: #ddd8cc;
 	background-color: #2a2925;
 }

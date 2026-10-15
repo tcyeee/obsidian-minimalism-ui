@@ -837,24 +837,24 @@ body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-l
 }
 
 /* 左侧 ribbon（活动栏）背景与侧边栏一致，融为同一块面板 */
-body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left,
-body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left::before {
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary),
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary)::before {
 	background-color: #123342;
 }
 
-body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left,
-body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left::before {
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary),
+body.theme-dark.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary)::before {
 	background-color: #2E3033;
 }
 
 /* ribbon 图标浅色适配深底 */
-body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action,
-body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon {
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary) .side-dock-ribbon-action,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary) .clickable-icon {
 	color: rgba(196, 196, 196, 0.7);
 }
 
-body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .side-dock-ribbon-action:hover,
-body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon.mod-left .clickable-icon:hover {
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary) .side-dock-ribbon-action:hover,
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary) .clickable-icon:hover {
 	color: rgba(255, 255, 255, 0.95);
 	background-color: rgba(255, 255, 255, 0.08);
 }
