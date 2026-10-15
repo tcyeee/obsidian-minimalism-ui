@@ -5,6 +5,16 @@
 
 ---
 
+## Version 1.3.24
+
+- Fixed: the embedded left ribbon panel silently stopped engaging (and the native ribbon stayed visible) on recent Obsidian versions, because the ribbon's side class is now computed dynamically (`mod-primary`/`mod-secondary`) instead of the old fixed `mod-left`/`mod-right` literals — all affected selectors now match either class
+- Internal: fixed three lint findings ahead of submission review — unhandled promises in three settings-panel event listeners now use fire-and-forget `void`, and two further dependency vulnerabilities in the dev toolchain (`js-yaml`, `brace-expansion`) were patched; all dev-only, no effect on the shipped plugin
+
+- 修复：近期 Obsidian 版本中，左侧嵌入式 ribbon 面板会静默失效（原生 ribbon 也不会被隐藏），原因是 ribbon 的方位 class 改为动态计算（`mod-primary`/`mod-secondary`），不再是旧的固定 `mod-left`/`mod-right`——现在所有相关选择器都同时匹配两种 class
+- 内部修复：发布审核前修复了三处 lint 问题——设置面板中三个事件监听器里悬空的 Promise 改为显式 `void` 的 fire-and-forget 写法，并修复了开发工具链中另外两处依赖漏洞（`js-yaml`、`brace-expansion`）；均仅影响开发工具链，不影响已发布插件
+
+---
+
 ## Version 1.3.23
 
 - Added: the left sidebar is now built from native Obsidian stacked leaves with up to four configurable panel slots — add, remove, and reorder panels from settings, with an empty-state hint that links straight to the "左侧边栏样式" section, and panel heights that persist across reloads via a draggable dashed separator between stacked panels
