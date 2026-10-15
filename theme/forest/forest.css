@@ -185,6 +185,17 @@ body.minimalism-ui-theme-forest .markdown-reading-view pre code {
 	overflow-wrap: normal;
 }
 
+/* 阅读视图：纯文本代码块（无语言标注，或标注为 text/txt）保留正常换行，不强制横向滚动。
+   选择器多一层 class/伪类，特异性高于上面的通用 pre code 规则，天然覆盖。 */
+body.minimalism-ui-theme-forest .markdown-reading-view pre > code:not([class*="language-"]),
+body.minimalism-ui-theme-forest .markdown-reading-view pre > code.language-text,
+body.minimalism-ui-theme-forest .markdown-reading-view pre > code.language-txt {
+	overflow-x: visible;
+	white-space: pre-wrap;
+	word-break: break-word;
+	overflow-wrap: anywhere;
+}
+
 /* 阅读视图：分割线 */
 body.minimalism-ui-theme-forest .markdown-reading-view hr {
 	border: none;
