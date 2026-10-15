@@ -3068,7 +3068,7 @@ var RibbonPanelManager = class {
   apply() {
     this.remove();
     const sideDocActions = uiDoc().querySelector(
-      ".workspace-ribbon.side-dock-ribbon.mod-left .side-dock-actions"
+      ".workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary) .side-dock-actions"
     );
     const vaultProfile = uiDoc().querySelector(
       ".workspace-split.mod-left-split .workspace-sidedock-vault-profile"

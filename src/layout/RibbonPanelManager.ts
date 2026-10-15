@@ -41,7 +41,7 @@ export class RibbonPanelManager implements Feature {
 		this.remove();
 
 		const sideDocActions = uiDoc().querySelector<HTMLElement>(
-			'.workspace-ribbon.side-dock-ribbon.mod-left .side-dock-actions',
+			'.workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary) .side-dock-actions',
 		);
 		const vaultProfile = uiDoc().querySelector<HTMLElement>(
 			'.workspace-split.mod-left-split .workspace-sidedock-vault-profile',
