@@ -231,9 +231,9 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		// 当前 slot 的 view type 未注册（插件已卸载等）时仍列出，避免下拉框回退到别的项。
 		if (!hasCurrent) select.createEl('option', { value: slot.viewType, text: slot.viewType });
 		select.value = slot.viewType;
-		select.addEventListener('change', async () => {
+		select.addEventListener('change', () => {
 			slot.viewType = select.value;
-			await this.persistSlots();
+			void this.persistSlots();
 		});
 
 		const removeBtn = row.createEl('button', {
@@ -241,9 +241,9 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 			text: '✕',
 			attr: { 'aria-label': t('removePanel') },
 		});
-		removeBtn.addEventListener('click', async () => {
+		removeBtn.addEventListener('click', () => {
 			slots.splice(index, 1);
-			await this.persistSlots();
+			void this.persistSlots();
 		});
 
 		row.addEventListener('dragstart', ev => {
@@ -261,7 +261,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 			row.addClass('is-drop-target');
 		});
 		row.addEventListener('dragleave', () => row.removeClass('is-drop-target'));
-		row.addEventListener('drop', async ev => {
+		row.addEventListener('drop', ev => {
 			ev.preventDefault();
 			row.removeClass('is-drop-target');
 			const from = this.slotDragIndex;
@@ -269,7 +269,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 			if (from === null || from === index) return;
 			const [moved] = slots.splice(from, 1);
 			slots.splice(index, 0, moved);
-			await this.persistSlots();
+			void this.persistSlots();
 		});
 	}
 
