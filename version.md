@@ -5,6 +5,22 @@
 
 ---
 
+## Version 1.3.23
+
+- Added: the left sidebar is now built from native Obsidian stacked leaves with up to four configurable panel slots — add, remove, and reorder panels from settings, with an empty-state hint that links straight to the "左侧边栏样式" section, and panel heights that persist across reloads via a draggable dashed separator between stacked panels
+- Changed: the Local Graph panel in the left sidebar now lives as a native stacked leaf instead of being DOM-injected into the outline leaf, matching the new panel architecture and removing a source of layout fragility
+- Added: the right sidebar panel gained an "在主区打开" button that opens its currently mounted view as a real tab in the main editor area, copying the view state without disturbing the original sidebar leaf
+- Added: the status bar menu gained a "动态宽度" toggle that widens a note's text column on wide screens by writing a marker into its frontmatter — now works independently of Obsidian's own "Readable line length" setting rather than silently doing nothing when it's off
+- Fixed: in the Forest and Newspaper themes, reading view forced horizontal scrolling on code blocks with no language tag (or tagged `text`/`txt`) instead of wrapping like other code blocks
+
+- 新增：左侧边栏改为基于 Obsidian 原生 stacked leaf 构建，最多支持 4 个可配置面板槽位——可在设置中添加、删除、拖拽排序面板，空侧栏会提示直接跳转到"左侧边栏样式"分区，面板之间的虚线分隔条可拖拽调整高度，并在重启后保持
+- 变更：左侧边栏中的关系图面板现在作为原生 stacked leaf 存在，不再 DOM 注入到大纲面板中，与新的面板架构保持一致，并消除了一类布局脆弱性
+- 新增：右侧栏面板新增"在主区打开"按钮，可将面板当前展示的视图克隆为主编辑区的真实标签页，且不影响原侧栏面板本身
+- 新增：状态栏菜单新增"动态宽度"开关，通过写入笔记 frontmatter 标记来在宽屏上拓宽正文列宽——现在不再依赖 Obsidian 自身的"可读行长度"设置，该设置关闭时开关也能正常生效（此前会静默失效）
+- 修复：Forest 与 Newspaper 主题下，阅读视图中未标注语言（或标注为 `text`/`txt`）的代码块会被强制横向滚动，而不是像其他代码块一样正常换行
+
+---
+
 ## Version 1.3.22
 
 - Added: the status bar menu gained a "Plugin settings" entry for quick access to the plugin's configuration
