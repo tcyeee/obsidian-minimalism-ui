@@ -5,6 +5,14 @@
 
 ---
 
+## Version 1.3.25
+
+- Fixed: dynamic width only narrowed `.cm-sizer` in Live Preview/source mode, leaving `.cm-content` and `.cm-line` full-width so text still stretched edge to edge — now mirrors Obsidian core's own readable-line-width rule, constraining all three layers in the edit view, with a HyperMD table-row exemption so tables aren't squeezed
+
+- 修复：动态宽度此前在编辑模式（Live Preview / source mode）下只收窄了 `.cm-sizer`，`.cm-content` 与 `.cm-line` 仍是满宽，导致文字依然贴边铺满——现在仿照 Obsidian 原生可读行宽规则，同时约束编辑视图中的三层容器，并对 HyperMD 表格行保留豁免，避免表格被压窄
+
+---
+
 ## Version 1.3.24
 
 - Fixed: the embedded left ribbon panel silently stopped engaging (and the native ribbon stayed visible) on recent Obsidian versions, because the ribbon's side class is now computed dynamically (`mod-primary`/`mod-secondary`) instead of the old fixed `mod-left`/`mod-right` literals — all affected selectors now match either class
