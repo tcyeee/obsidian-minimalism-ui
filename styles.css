@@ -68,15 +68,25 @@
    空白，其余撑满。由状态栏操作菜单的「动态宽度」开关写入当前笔记 frontmatter 的
    cssclasses 触发（见 src/layout/StatusBarMenuManager.ts）。阅读视图的 cssclasses
    落在 .markdown-preview-view，编辑视图落在 .markdown-source-view。
-   直接给文本列本身（.cm-sizer / .markdown-preview-sizer）设 max-width 并居中，
-   不经由 --file-line-width 中转——那条路径只在 Obsidian 核心「可读行长」开启时
-   才被 sizer 消费，关闭时会让这条规则整个失效；这里绕开它，使动态宽度开关与
-   核心「可读行长」开关状态解耦，无论其开关与否都生效。 */
+   直接给文本列本身设 max-width 并居中，不经由 --file-line-width 中转——那条路径
+   只在 Obsidian 核心「可读行长」开启时才被消费，关闭时会让这条规则整个失效；
+   这里绕开它，使动态宽度开关与核心「可读行长」开关状态解耦，无论其开关与否都生效。
+   编辑视图（CM6）比阅读视图多一层：.cm-sizer 收窄外框后，.cm-content / .cm-line
+   仍各自撑满（Obsidian 核心「可读行长」对编辑视图同样要分别约束这三层，见
+   app.css 的 .is-readable-line-width 规则），故三者都要设，否则只有外框变窄、
+   文字仍顶到窗口边缘。表格行（HyperMD-table-row）豁免，避免表格被挤变形。 */
 .markdown-source-view.minimalism-dynamic-width .cm-sizer,
 .markdown-preview-view.minimalism-dynamic-width .markdown-preview-sizer {
 	max-width: calc(100vw - 2 * var(--minimalism-dynamic-width-padding, 10vw));
 	margin-left: auto;
 	margin-right: auto;
+}
+.markdown-source-view.minimalism-dynamic-width .cm-content,
+.markdown-source-view.minimalism-dynamic-width .cm-line {
+	max-width: calc(100vw - 2 * var(--minimalism-dynamic-width-padding, 10vw));
+}
+.markdown-source-view.minimalism-dynamic-width .cm-line.HyperMD-table-row {
+	max-width: 100%;
 }
 
 /* ── macOS Finder 侧边栏风格（纯 CSS，不修改 DOM） ───────────────────── */
