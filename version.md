@@ -5,6 +5,14 @@
 
 ---
 
+## Version 1.3.26
+
+- Fixed: in edit mode (Live Preview / source), Obsidian 1.14.x's core readable-line-width rule outranked the dynamic-width rule, silently pinning text to a fixed 700px column — dynamic-width selectors now include `.mod-cm6` to match the core rule's specificity again, so the edit view width follows the setting as intended
+
+- 修复：编辑模式（Live Preview / source mode）下，Obsidian 1.14.x 的核心可读行宽规则优先级高于动态宽度规则，导致文字被悄悄固定在 700px 列宽——动态宽度选择器补上 `.mod-cm6`，恢复与核心规则相同的优先级，编辑视图宽度重新按设置生效
+
+---
+
 ## Version 1.3.25
 
 - Fixed: dynamic width only narrowed `.cm-sizer` in Live Preview/source mode, leaving `.cm-content` and `.cm-line` full-width so text still stretched edge to edge — now mirrors Obsidian core's own readable-line-width rule, constraining all three layers in the edit view, with a HyperMD table-row exemption so tables aren't squeezed
