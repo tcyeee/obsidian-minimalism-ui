@@ -1,4 +1,4 @@
-import { AbstractInputSuggest, App, PluginSettingTab, Setting, SettingDefinitionItem, SettingGroupItem, TFile } from 'obsidian';
+import { AbstractInputSuggest, App, PluginSettingTab, Setting, SettingDefinitionItem, SettingGroupItem, setIcon, TFile } from 'obsidian';
 import type MinimalismUIPlugin from '../main';
 import { t, setLang } from './core/i18n';
 import { MAX_LEFT_SIDEBAR_SLOTS } from './core/settings';
@@ -179,25 +179,23 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		const header = new Setting(sectionEl)
 			.setName(t('leftSidebarPanels'))
 			.setDesc(atLimit ? t('leftSidebarPanelsFull') : t('leftSidebarPanelsDesc'));
-		header.addButton(btn => {
-			btn.setButtonText(t('addPanel'));
-			if (atLimit || !nextFree) {
-				btn.setDisabled(true);
-			} else {
-				btn.setCta();
-				btn.onClick(async () => {
-					slots.push({ id: `slot-${Date.now()}`, viewType: nextFree, enabled: true, height: null });
-					await this.persistSlots();
-				});
-			}
-		});
 
 		const listEl = sectionEl.createDiv({ cls: 'minimalism-ui-slot-list' });
 		if (slots.length === 0) {
 			listEl.createDiv({ cls: 'minimalism-ui-slot-empty', text: t('leftSidebarPanelsEmpty') });
-			return;
 		}
 		slots.forEach((_, index) => this.renderSlotRow(listEl, index, options));
+		const addButton = listEl.createEl('button', {
+			cls: `minimalism-ui-slot-add${atLimit || !nextFree ? '' : ' mod-cta'}`,
+			attr: { 'aria-label': t('addPanel'), title: t('addPanel') },
+		});
+		setIcon(addButton, 'plus');
+		addButton.disabled = atLimit || !nextFree;
+		addButton.addEventListener('click', async () => {
+			if (addButton.disabled || !nextFree) return;
+			slots.push({ id: `slot-${Date.now()}`, viewType: nextFree, enabled: true, height: null });
+			await this.persistSlots();
+		});
 	}
 
 	private renderSlotRow(
@@ -335,19 +333,6 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 
 	getSettingDefinitions(): SettingDefinitionItem[] {
 		return [
-			{
-				name: t('introTitle'),
-				searchable: false,
-				render: (setting) => {
-					const el = setting.settingEl;
-					el.empty();
-					el.className = 'minimalism-ui-intro';
-					el.createDiv({ cls: 'minimalism-ui-intro-title', text: t('introTitle') });
-					el.createEl('p', { text: t('introDesc1') });
-					el.createEl('p', { text: t('introDesc2') });
-				},
-			},
-
 			...this.section('general', t('headingGeneral'), [
 				{ name: t('language'), render: (setting) => this.configureLanguage(setting) },
 				{ name: t('theme'), render: (setting) => this.configureTheme(setting) },
@@ -371,11 +356,8 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				// 「右侧栏悬浮按钮」不在设置页展示；开关仍可通过状态栏菜单切换（见 StatusBarMenuManager）。
 			]),
 
-			...this.section('animation', t('headingAnimation'), [
-				{ name: t('navAnimation'), render: (setting) => this.configureNavAnimation(setting) },
-			]),
-
 			...this.section('advanced', t('headingAdvanced'), [
+				{ name: t('navAnimation'), render: (setting) => this.configureNavAnimation(setting) },
 				{ name: t('filenamePrefixManual'), render: (setting) => this.configureFilenamePrefixManual(setting) },
 				// 仅当手动隐藏开启时才显示长度设置。
 				{

@@ -7,14 +7,9 @@ const translations = {
 		languageZh: '中文',
 		languageEn: 'English',
 
-		introTitle: '使用前必读',
-		introDesc1: '本插件是一款"做减法"的工具,设计理念与主流用法相悖:它只保留左侧边栏(默认空白,可自行添加大纲、属性、本地关系图等面板,最多 4 个),并裁剪掉了大量核心功能,甚至包括"文件夹"。安装前请先确认你认同这套极简理念。',
-		introDesc2: '请指定一篇笔记作为首页。它如同一棵树的主干,你在其上用双链不断新建笔记,让知识开枝散叶,最终长成参天大树。',
-
 		headingGeneral: '通用设置',
 		headingAppearance: '左侧边栏样式',
 		headingInteraction: '交互设置',
-		headingAnimation: '动画设置 (beta)',
 		headingAdvanced: '高级设置',
 
 		showProperties: '属性面板',
@@ -111,14 +106,9 @@ const translations = {
 		languageZh: '中文',
 		languageEn: 'English',
 
-		introTitle: 'Read this before you start',
-		introDesc1: 'This plugin is all about subtraction, and its philosophy runs against mainstream usage: it keeps only the left sidebar (empty by default — add up to 4 panels such as Outline, Properties, and Local Graph yourself) and strips away many core features, including Folders. Make sure this minimalist philosophy suits you before installing.',
-		introDesc2: 'Pick one note as your home page. Think of it as the trunk of a tree: keep creating notes from it through backlinks, letting your knowledge branch out until it grows into a towering tree.',
-
 		headingGeneral: 'General',
 		headingAppearance: 'Left sidebar',
 		headingInteraction: 'Interaction',
-		headingAnimation: 'Animation (beta)',
 		headingAdvanced: 'Advanced',
 
 		showProperties: 'Properties',
