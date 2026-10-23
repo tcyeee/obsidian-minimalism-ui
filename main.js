@@ -1026,6 +1026,9 @@ var SinglePageEngine = class {
     this.historyPatches = /* @__PURE__ */ new Map();
     // root leaf detach 补丁：触发时通知 nav 并清理 patch 注册表，覆盖所有关闭路径（CMD+W、右键、X 按钮）
     this.rootDetachPatches = /* @__PURE__ */ new Map();
+    // 常驻导航补丁：拦截被管理 root leaf 上的原地重定向（openFile / setViewState 换成另一内容），
+    // 收口到与普通跳转一致的去重 + 导航记录逻辑。与一次性拦截器不同，它常驻且幂等（见 patchLeafNavigation）。
+    this.navPatches = /* @__PURE__ */ new Map();
     // 由 getLeaf patch 新建、尚未调用 openFile 的空 leaf
     this.pendingInterceptLeaves = /* @__PURE__ */ new Set();
     // 首页打开期间为 true，避免 getLeaf 拦截器介入
@@ -1137,6 +1140,7 @@ var SinglePageEngine = class {
     this.nav.unpatchCommands();
     this.resizeErrSuppressor.remove();
     this.unpatchAllLeafHistories();
+    this.unpatchAllLeafNavigations();
     this.unpatchAllRootLeafDetaches();
     if (this.renameHandler) {
       this.app.vault.off("rename", this.renameHandler);
@@ -1482,6 +1486,7 @@ var SinglePageEngine = class {
   }
   patchLeafHistory(leaf) {
     var _a, _b;
+    this.patchLeafNavigation(leaf);
     const history = leaf.history;
     if (!history || this.historyPatches.has(leaf)) return;
     const origBack = history.back.bind(history);
@@ -1493,6 +1498,97 @@ var SinglePageEngine = class {
     history.canGoBack = () => this.nav.canGoBack();
     history.canGoForward = () => this.nav.canGoForward();
     this.historyPatches.set(leaf, { back: origBack, forward: origForward, canGoBack: origCanGoBack, canGoForward: origCanGoForward });
+  }
+  // 常驻导航补丁：拦截被管理 root leaf 上的原地重定向（同一 leaf 被 openFile / setViewState
+  // 换成另一文件 / 另一视图）。单页模式的 one-file-one-leaf 不变量只覆盖了「新建 leaf」路径
+  // （getLeaf patch + 一次性拦截器）；第三方插件 / Obsidian 内部直接在已有 leaf 上重定向会绕开
+  // 查重与导航记录，造成重复 leaf、面包屑 / 前进后退错乱。此补丁把这些重定向收口到与普通跳转
+  // 一致的去重 + 记录逻辑。与一次性拦截器不同，它是常驻的（幂等，Map 去重）。
+  patchLeafNavigation(leaf) {
+    if (this.navPatches.has(leaf)) return;
+    const origOpenFile = leaf.openFile.bind(leaf);
+    const origSetViewState = leaf.setViewState.bind(leaf);
+    leaf.openFile = async (file, state) => {
+      const currentKey = this.navKeyForLeaf(leaf);
+      if (currentKey === null || currentKey === file.path) {
+        return origOpenFile(file, state);
+      }
+      return this.redirectOpenFile(leaf, file, state, origOpenFile);
+    };
+    leaf.setViewState = async (viewState, eState) => {
+      const currentKey = this.navKeyForLeaf(leaf);
+      const targetKey = this.navKeyForViewState(viewState);
+      if (currentKey === null || targetKey === null || currentKey === targetKey) {
+        return origSetViewState(viewState, eState);
+      }
+      return this.redirectSetViewState(leaf, viewState, eState, targetKey, origSetViewState);
+    };
+    this.navPatches.set(leaf, { openFile: origOpenFile, setViewState: origSetViewState });
+  }
+  // 把 setViewState 的 viewState 映射为导航键：有 file 用文件路径，否则按 type 编码为无文件视图键；
+  // 空 / 瞬时（empty）视图返回 null（不参与重定向判定）。
+  navKeyForViewState(viewState) {
+    var _a;
+    const file = (_a = viewState.state) == null ? void 0 : _a.file;
+    if (file) return file;
+    const type = viewState.type;
+    if (!type || type === "empty") return null;
+    return filelessViewKey(type);
+  }
+  // 在 root leaf 中查找显示指定导航键（文件路径或视图合成键）的 leaf，排除 exclude 与正在关闭的 leaf。
+  findExistingRootLeaf(key, exclude) {
+    let existingLeaf = null;
+    this.app.workspace.iterateRootLeaves((l) => {
+      if (existingLeaf || l === exclude || l === this.closingLeaf) return;
+      if (this.navKeyForLeaf(l) === key) existingLeaf = l;
+    });
+    return existingLeaf;
+  }
+  // 原地重定向 openFile：目标已是一个不同的文件。等价于「普通跳转到该文件」——先查重（目标已开
+  // 则激活复用、重放 state），否则在原 leaf 上原地加载并记录导航。source leaf 保持原内容（与普通
+  // 跳转「开新 tab、旧笔记留在后台」一致），不 detach（detach 会触发关 tab 流程跳回前驱）。
+  async redirectOpenFile(leaf, file, state, origOpenFile) {
+    const existingLeaf = this.findExistingRootLeaf(file.path, leaf);
+    if (existingLeaf) {
+      this.leafCache.touch(existingLeaf);
+      this.app.workspace.setActiveLeaf(existingLeaf, { focus: true });
+      if (state !== void 0) {
+        void existingLeaf.openFile(file, state);
+      }
+      return;
+    }
+    this.leafCache.touch(leaf);
+    await origOpenFile(file, state);
+    if (leaf.parent) {
+      this.handleNavTrack(leaf);
+    }
+  }
+  // 原地重定向 setViewState：目标是一个不同的视图 / 文件。仅全局关系图与带 file 的目标做单实例
+  // 去重（与一次性拦截器一致：关系图一份只开一个 tab、文件 one-file-one-leaf），其余无文件视图
+  // 允许多开，原地创建并记录导航。
+  async redirectSetViewState(leaf, viewState, eState, targetKey, origSetViewState) {
+    var _a;
+    const isFileTarget = ((_a = viewState.state) == null ? void 0 : _a.file) != null;
+    if (isFileTarget || targetKey === GLOBAL_GRAPH_KEY) {
+      const existingLeaf = this.findExistingRootLeaf(targetKey, leaf);
+      if (existingLeaf) {
+        this.leafCache.touch(existingLeaf);
+        this.app.workspace.setActiveLeaf(existingLeaf, { focus: true });
+        return;
+      }
+    }
+    this.leafCache.touch(leaf);
+    await origSetViewState(viewState, eState);
+    if (leaf.parent) {
+      this.handleNavTrack(leaf);
+    }
+  }
+  unpatchAllLeafNavigations() {
+    for (const [leaf, orig] of this.navPatches) {
+      leaf.openFile = orig.openFile;
+      leaf.setViewState = orig.setViewState;
+    }
+    this.navPatches.clear();
   }
   unpatchAllLeafHistories() {
     for (const [leaf, orig] of this.historyPatches) {

@@ -85,6 +85,11 @@ type HistoryPatch = {
 	canGoForward: (() => boolean) | undefined;
 };
 
+type NavigationPatch = {
+	openFile: (file: TFile, state?: unknown) => Promise<void>;
+	setViewState: (state: { type: string; [k: string]: unknown }, eState?: unknown) => Promise<void>;
+};
+
 export class SinglePageEngine {
 	private isReusingLeaf = false;
 	private originalGetLeaf: ((newLeaf?: boolean | string) => WorkspaceLeaf) | null = null;
@@ -97,6 +102,9 @@ export class SinglePageEngine {
 	private historyPatches = new Map<WorkspaceLeaf, HistoryPatch>();
 	// root leaf detach 补丁：触发时通知 nav 并清理 patch 注册表，覆盖所有关闭路径（CMD+W、右键、X 按钮）
 	private rootDetachPatches = new Map<WorkspaceLeaf, () => void>();
+	// 常驻导航补丁：拦截被管理 root leaf 上的原地重定向（openFile / setViewState 换成另一内容），
+	// 收口到与普通跳转一致的去重 + 导航记录逻辑。与一次性拦截器不同，它常驻且幂等（见 patchLeafNavigation）。
+	private navPatches = new Map<WorkspaceLeaf, NavigationPatch>();
 	// 由 getLeaf patch 新建、尚未调用 openFile 的空 leaf
 	private pendingInterceptLeaves = new Set<WorkspaceLeaf>();
 	// 首页打开期间为 true，避免 getLeaf 拦截器介入
@@ -264,6 +272,7 @@ export class SinglePageEngine {
 		this.nav.unpatchCommands();
 		this.resizeErrSuppressor.remove();
 		this.unpatchAllLeafHistories();
+		this.unpatchAllLeafNavigations();
 		this.unpatchAllRootLeafDetaches();
 		if (this.renameHandler) {
 			this.app.vault.off('rename', this.renameHandler);
@@ -686,6 +695,9 @@ export class SinglePageEngine {
 	}
 
 	patchLeafHistory(leaf: WorkspaceLeaf) {
+		// 常驻导航补丁与 history 补丁同生命周期：每个被纳入管理的 root leaf 都要拦截原地重定向。
+		// 独立幂等，且放在 history 判空之前，确保 deferred（尚未实例化）的 leaf 也补上。
+		this.patchLeafNavigation(leaf);
 		const history = (leaf as LeafInternal).history;
 		if (!history || this.historyPatches.has(leaf)) return;
 		const origBack = history.back.bind(history);
@@ -698,6 +710,119 @@ export class SinglePageEngine {
 		history.canGoBack = () => this.nav.canGoBack();
 		history.canGoForward = () => this.nav.canGoForward();
 		this.historyPatches.set(leaf, { back: origBack, forward: origForward, canGoBack: origCanGoBack, canGoForward: origCanGoForward });
+	}
+
+	// 常驻导航补丁：拦截被管理 root leaf 上的原地重定向（同一 leaf 被 openFile / setViewState
+	// 换成另一文件 / 另一视图）。单页模式的 one-file-one-leaf 不变量只覆盖了「新建 leaf」路径
+	// （getLeaf patch + 一次性拦截器）；第三方插件 / Obsidian 内部直接在已有 leaf 上重定向会绕开
+	// 查重与导航记录，造成重复 leaf、面包屑 / 前进后退错乱。此补丁把这些重定向收口到与普通跳转
+	// 一致的去重 + 记录逻辑。与一次性拦截器不同，它是常驻的（幂等，Map 去重）。
+	private patchLeafNavigation(leaf: WorkspaceLeaf) {
+		if (this.navPatches.has(leaf)) return;
+		const origOpenFile = (leaf as LeafInternal).openFile.bind(leaf);
+		const origSetViewState = (leaf as LeafInternal).setViewState.bind(leaf);
+
+		(leaf as LeafInternal).openFile = async (file: TFile, state?: unknown) => {
+			const currentKey = this.navKeyForLeaf(leaf);
+			// 空 leaf（内部首次加载）或同文件重放（锚点 / 模式切换）：透传，不改变导航栈。
+			if (currentKey === null || currentKey === file.path) {
+				return origOpenFile(file, state);
+			}
+			return this.redirectOpenFile(leaf, file, state, origOpenFile);
+		};
+
+		(leaf as LeafInternal).setViewState = async (viewState: { type: string; [k: string]: unknown }, eState?: unknown) => {
+			const currentKey = this.navKeyForLeaf(leaf);
+			const targetKey = this.navKeyForViewState(viewState);
+			// 空 leaf（内部首次加载）、空 / 瞬时目标（type 为 empty）、或同内容重放：透传。
+			if (currentKey === null || targetKey === null || currentKey === targetKey) {
+				return origSetViewState(viewState, eState);
+			}
+			return this.redirectSetViewState(leaf, viewState, eState, targetKey, origSetViewState);
+		};
+
+		this.navPatches.set(leaf, { openFile: origOpenFile, setViewState: origSetViewState });
+	}
+
+	// 把 setViewState 的 viewState 映射为导航键：有 file 用文件路径，否则按 type 编码为无文件视图键；
+	// 空 / 瞬时（empty）视图返回 null（不参与重定向判定）。
+	private navKeyForViewState(viewState: { type?: string; [k: string]: unknown }): string | null {
+		const file = (viewState as { state?: { file?: string } }).state?.file;
+		if (file) return file;
+		const type = viewState.type;
+		if (!type || type === 'empty') return null;
+		return filelessViewKey(type);
+	}
+
+	// 在 root leaf 中查找显示指定导航键（文件路径或视图合成键）的 leaf，排除 exclude 与正在关闭的 leaf。
+	private findExistingRootLeaf(key: string, exclude: WorkspaceLeaf): WorkspaceLeaf | null {
+		let existingLeaf: WorkspaceLeaf | null = null;
+		this.app.workspace.iterateRootLeaves(l => {
+			if (existingLeaf || l === exclude || l === this.closingLeaf) return;
+			if (this.navKeyForLeaf(l) === key) existingLeaf = l;
+		});
+		return existingLeaf;
+	}
+
+	// 原地重定向 openFile：目标已是一个不同的文件。等价于「普通跳转到该文件」——先查重（目标已开
+	// 则激活复用、重放 state），否则在原 leaf 上原地加载并记录导航。source leaf 保持原内容（与普通
+	// 跳转「开新 tab、旧笔记留在后台」一致），不 detach（detach 会触发关 tab 流程跳回前驱）。
+	private async redirectOpenFile(
+		leaf: WorkspaceLeaf,
+		file: TFile,
+		state: unknown,
+		origOpenFile: (file: TFile, state?: unknown) => Promise<void>,
+	): Promise<void> {
+		const existingLeaf = this.findExistingRootLeaf(file.path, leaf);
+		if (existingLeaf) {
+			this.leafCache.touch(existingLeaf);
+			this.app.workspace.setActiveLeaf(existingLeaf, { focus: true });
+			// 重放 state（锚点 / 滚动）。existingLeaf 的同文件 openFile 会走其自身常驻补丁的「同文件」分支透传，不会递归。
+			if (state !== undefined) {
+				void (existingLeaf as LeafInternal).openFile(file, state);
+			}
+			return;
+		}
+		// 目标未打开：原地重定向 + 记录导航（同 leaf 换内容不触发 active-leaf-change，须手动记录）。
+		this.leafCache.touch(leaf);
+		await origOpenFile(file, state);
+		if ((leaf as LeafInternal).parent) {
+			this.handleNavTrack(leaf);
+		}
+	}
+
+	// 原地重定向 setViewState：目标是一个不同的视图 / 文件。仅全局关系图与带 file 的目标做单实例
+	// 去重（与一次性拦截器一致：关系图一份只开一个 tab、文件 one-file-one-leaf），其余无文件视图
+	// 允许多开，原地创建并记录导航。
+	private async redirectSetViewState(
+		leaf: WorkspaceLeaf,
+		viewState: { type: string; [k: string]: unknown },
+		eState: unknown,
+		targetKey: string,
+		origSetViewState: (state: { type: string; [k: string]: unknown }, eState?: unknown) => Promise<void>,
+	): Promise<void> {
+		const isFileTarget = (viewState as { state?: { file?: string } }).state?.file != null;
+		if (isFileTarget || targetKey === GLOBAL_GRAPH_KEY) {
+			const existingLeaf = this.findExistingRootLeaf(targetKey, leaf);
+			if (existingLeaf) {
+				this.leafCache.touch(existingLeaf);
+				this.app.workspace.setActiveLeaf(existingLeaf, { focus: true });
+				return;
+			}
+		}
+		this.leafCache.touch(leaf);
+		await origSetViewState(viewState, eState);
+		if ((leaf as LeafInternal).parent) {
+			this.handleNavTrack(leaf);
+		}
+	}
+
+	private unpatchAllLeafNavigations() {
+		for (const [leaf, orig] of this.navPatches) {
+			(leaf as LeafInternal).openFile = orig.openFile;
+			(leaf as LeafInternal).setViewState = orig.setViewState;
+		}
+		this.navPatches.clear();
 	}
 
 	private unpatchAllLeafHistories() {
