@@ -5,6 +5,7 @@ import { PinManager } from '../tabs/PinManager';
 import { uiDoc } from '../core/appDom';
 import { t } from '../core/i18n';
 import { openPluginSettings } from '../core/obsidianCommands';
+import { getDailyNotesFolder } from '../core/utils';
 
 // Obsidian 内部 workspace-item 树的最小结构约定（官方类型声明里没有 children/insertChild 等）。
 // spike 结论（2026-09-01，见记忆 project-configurable-left-sidebar-slots）：
@@ -92,6 +93,9 @@ export class LeftSidebarManager {
 	// 订阅 layout-change，每次只做一次廉价的 hasDrift() 判定，发现漂移才触发一次完整 reconcile。
 	// 思路同 SingleTabGroupGuard / PinManager 的侧栏 layout-change 兜底。
 	private layoutChangeHandler: (() => void) | null = null;
+	private activeLeafHandler: (() => void) | null = null;
+	private fileOpenHandler: (() => void) | null = null;
+	private lastProfileKey = '';
 
 	// Phase 2：面板高度持久化。用户拖面板之间的虚线分隔条 → Obsidian 更新各 WorkspaceTabs 的
 	// dimension（flex-grow 百分比）并触发 workspace 'resize'。这里防抖读回、写进 slot.height。
@@ -124,6 +128,7 @@ export class LeftSidebarManager {
 	async apply(opts?: { revealNewPanels?: boolean }): Promise<void> {
 		this.ensureLayoutGuard();
 		this.ensureResizeGuard();
+		this.lastProfileKey = this.activeProfileKey();
 		if (opts?.revealNewPanels) this.revealNewPanels = true;
 		if (this.applyRun) {
 			this.rerunRequested = true;
@@ -160,6 +165,14 @@ export class LeftSidebarManager {
 			this.app.workspace.off('resize', this.resizeHandler);
 			this.resizeHandler = null;
 		}
+		if (this.activeLeafHandler) {
+			this.app.workspace.off('active-leaf-change', this.activeLeafHandler);
+			this.activeLeafHandler = null;
+		}
+		if (this.fileOpenHandler) {
+			this.app.workspace.off('file-open', this.fileOpenHandler);
+			this.fileOpenHandler = null;
+		}
 		if (this.persistTimer != null) {
 			window.clearTimeout(this.persistTimer);
 			this.persistTimer = null;
@@ -172,6 +185,20 @@ export class LeftSidebarManager {
 	// ── 持续守卫 ──────────────────────────────────────────────────────────────
 
 	private ensureLayoutGuard(): void {
+		const refreshProfile = () => {
+			const key = this.activeProfileKey();
+			if (key === this.lastProfileKey) return;
+			this.lastProfileKey = key;
+			void this.apply();
+		};
+		if (!this.activeLeafHandler) {
+			this.activeLeafHandler = refreshProfile;
+			this.app.workspace.on('active-leaf-change', this.activeLeafHandler);
+		}
+		if (!this.fileOpenHandler) {
+			this.fileOpenHandler = refreshProfile;
+			this.app.workspace.on('file-open', this.fileOpenHandler);
+		}
 		if (this.layoutChangeHandler) return;
 		this.layoutChangeHandler = () => {
 			if (this.isReconciling || this.applyRun) return;
@@ -207,7 +234,7 @@ export class LeftSidebarManager {
 		const ls = this.leftSplit();
 		if (!ls) return false;
 		let changed = false;
-		for (const slot of this.getSettings().leftSidebarSlots) {
+		for (const slot of this.activeSlots()) {
 			if (!slot.enabled) continue;
 			if (slot.viewType === GRAPH_VIEW_TYPE) continue; // 关系图高度不持久化
 			const leaf = this.slotLeaves.get(slot.viewType);
@@ -330,7 +357,24 @@ export class LeftSidebarManager {
 	// ── Reconcile ─────────────────────────────────────────────────────────────
 
 	private enabledSlots(): SidebarSlot[] {
-		return this.getSettings().leftSidebarSlots.filter(s => s.enabled).slice(0, MAX_LEFT_SIDEBAR_SLOTS);
+		return this.activeSlots().filter(s => s.enabled).slice(0, MAX_LEFT_SIDEBAR_SLOTS);
+	}
+
+	private activeProfileKey(): 'home' | 'diary' | 'other' {
+		const settings = this.getSettings();
+		const path = this.app.workspace.getActiveFile()?.path;
+		if (path && settings.homePage.trim() && path === settings.homePage.trim()) return 'home';
+		const folder = getDailyNotesFolder(this.app);
+		if (path && folder && (path.startsWith(`${folder}/`) || path === folder)) return 'diary';
+		return 'other';
+	}
+
+	private activeSlots(): SidebarSlot[] {
+		const settings = this.getSettings();
+		const profile = this.activeProfileKey();
+		const slots = profile === 'home' ? settings.homeSidebarSlots
+			: profile === 'diary' ? settings.diarySidebarSlots : null;
+		return slots ?? settings.leftSidebarSlots;
 	}
 
 	private leftSplit(): SidedockLike | null {

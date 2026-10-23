@@ -1457,34 +1457,77 @@ body.minimalism-ui-rsb-icon-dragging {
 	border-top: none;
 }
 
+.minimalism-ui-slot-workspace {
+	display: grid;
+	grid-template-columns: 112px minmax(0, 1fr);
+	align-items: start;
+	gap: 16px;
+}
+
+.minimalism-ui-slot-profiles {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding-top: 8px;
+	padding-right: 10px;
+	border-right: 1px solid var(--background-modifier-border);
+}
+
+.minimalism-ui-slot-profile {
+	width: 100%;
+	padding: 8px 10px;
+	text-align: left;
+	border-radius: var(--radius-s);
+	color: var(--text-muted);
+	background: transparent;
+	box-shadow: none;
+}
+
+.minimalism-ui-slot-profile.is-active {
+	color: var(--text-normal);
+	background: var(--background-modifier-active-hover);
+}
+
+.minimalism-ui-slot-content {
+	min-width: 0;
+}
+
+.minimalism-ui-slot-notice {
+	margin: 8px 0 12px;
+	padding: 10px 12px;
+	border-radius: var(--radius-s);
+	background: var(--background-secondary);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+@media (max-width: 650px) {
+	.minimalism-ui-slot-workspace {
+		grid-template-columns: 88px minmax(0, 1fr);
+		gap: 10px;
+	}
+}
+
 .minimalism-ui-slot-list {
 	display: flex;
-	flex-direction: row;
-	flex-wrap: nowrap;
-	align-items: center;
+	flex-direction: column;
 	gap: 6px;
 	margin: 4px 0 12px 0;
-	overflow-x: auto;
 }
 
 .minimalism-ui-slot-empty {
-	flex: 1 0 200px;
 	color: var(--text-muted);
 	font-size: var(--font-ui-small);
-	padding: 6px 8px;
+	padding: 10px 12px;
 	border: 1px dashed var(--background-modifier-border);
 	border-radius: var(--radius-m);
 }
 
 .minimalism-ui-slot-row {
 	display: flex;
-	flex-direction: row;
 	align-items: center;
-	flex: 1 0 112px;
-	min-width: 112px;
-	min-height: 42px;
-	gap: 6px;
-	padding: 4px 6px;
+	gap: 8px;
+	padding: 6px 10px;
 	border: 1px solid var(--background-modifier-border);
 	border-radius: var(--radius-m);
 	background: var(--background-secondary);
@@ -1516,18 +1559,8 @@ body.minimalism-ui-rsb-icon-dragging {
 	color: var(--text-muted);
 	background: transparent;
 	box-shadow: none;
-	padding: 4px;
+	padding: 4px 8px;
 	cursor: pointer;
-}
-
-.minimalism-ui-slot-add {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	flex: 0 0 auto;
-	width: 42px;
-	height: 42px;
-	padding: 0;
 }
 
 .minimalism-ui-slot-remove:hover {

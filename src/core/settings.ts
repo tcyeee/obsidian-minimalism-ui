@@ -30,6 +30,9 @@ export interface MinimalismUISettings {
 	// 左侧栏面板列表。用户在设置页添加 / 删除 / 拖拽排序，最多 4 项；顺序即纵向 split 中
 	// 自上而下的顺序。默认空 = 空白侧栏。
 	leftSidebarSlots: SidebarSlot[];
+	// null 表示跟随 leftSidebarSlots（默认）；数组表示该类别的独立配置。
+	homeSidebarSlots: SidebarSlot[] | null;
+	diarySidebarSlots: SidebarSlot[] | null;
 	ribbonPanelExpanded: boolean;
 	hideTabBar: boolean;
 	disableNoteTabs: boolean;
@@ -76,6 +79,8 @@ export const DEFAULT_SETTINGS: MinimalismUISettings = {
 	showLocalGraph: false,
 	showVaultProfile: true,
 	leftSidebarSlots: DEFAULT_LEFT_SIDEBAR_SLOTS.map(s => ({ ...s })),
+	homeSidebarSlots: null,
+	diarySidebarSlots: null,
 	// 默认展开：首次安装即可看到 ribbon 图标
 	ribbonPanelExpanded: true,
 	hideTabBar: true,

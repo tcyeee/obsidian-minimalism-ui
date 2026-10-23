@@ -1,14 +1,21 @@
 import { App } from 'obsidian';
 import { uiDoc } from './appDom';
 
-// Obsidian「唯一笔记创建器」(zk-prefixer) 内部插件形态——未文档化，本地 cast 取用。
-type ZkPrefixerPlugin = {
+// Obsidian 内部插件实例形态——未文档化，本地 cast 取用。
+type InternalPluginWithOptions = {
 	enabled: boolean;
-	instance?: { options?: { format?: string } };
+	instance?: { options?: { format?: string; folder?: string } };
 };
 type InternalPluginsApp = App & {
-	internalPlugins?: { getPluginById(id: string): ZkPrefixerPlugin | null };
+	internalPlugins?: { getPluginById(id: string): InternalPluginWithOptions | null };
 };
+
+// 读取 Obsidian 核心「日记」插件的目标文件夹。内部插件接口未公开，缺失或未启用时返回 null。
+export function getDailyNotesFolder(app: App): string | null {
+	const plugin = (app as InternalPluginsApp).internalPlugins?.getPluginById('daily-notes');
+	if (!plugin?.enabled) return null;
+	return plugin.instance?.options?.folder?.trim().replace(/^\/|\/$/g, '') ?? '';
+}
 
 // 裸 pointerdown→move→up 拖拽的公共骨架：PropertyKeyResizer（1D 列宽）与
 // RightSidebarButtonManager（2D 面板尺寸）各自的 resize 拖拽都是这套捕获阶段监听器

@@ -38,6 +38,8 @@ var DEFAULT_SETTINGS = {
   showLocalGraph: false,
   showVaultProfile: true,
   leftSidebarSlots: DEFAULT_LEFT_SIDEBAR_SLOTS.map((s) => ({ ...s })),
+  homeSidebarSlots: null,
+  diarySidebarSlots: null,
   // 默认展开：首次安装即可看到 ribbon 图标
   ribbonPanelExpanded: true,
   hideTabBar: true,
@@ -295,9 +297,14 @@ var translations = {
     showLocalGraph: "\u672C\u5730\u5173\u7CFB\u56FE",
     showVaultProfile: "\u5E95\u90E8\u7528\u6237\u8BBE\u7F6E\u533A\u57DF",
     leftSidebarPanels: "\u9762\u677F\u914D\u7F6E",
-    leftSidebarPanelsDesc: "\u9009\u62E9\u8981\u663E\u793A\u5728\u5DE6\u4FA7\u680F\u7684\u9762\u677F\uFF0C\u6700\u591A 4 \u4E2A\uFF0C\u53EF\u62D6\u62FD\u6392\u5E8F\u3002\u9ED8\u8BA4\u7A7A\u767D\u3002",
+    leftSidebarPanelsDesc: "\u9009\u62E9\u8981\u663E\u793A\u5728'{profile}'\u5DE6\u4FA7\u8FB9\u680F\u7684\u9762\u677F\uFF0C\u6700\u591A 4 \u4E2A\uFF0C\u53EF\u62D6\u62FD\u6392\u5E8F\u3002",
     leftSidebarPanelsEmpty: "\u5DE6\u4FA7\u680F\u5F53\u524D\u4E3A\u7A7A\u767D\u3002\u70B9\u51FB\u300C\u6DFB\u52A0\u9762\u677F\u300D\u9009\u62E9\u8981\u663E\u793A\u7684\u5185\u5BB9\u3002",
     leftSidebarPanelsFull: "\u5DF2\u8FBE\u5230 4 \u4E2A\u9762\u677F\u4E0A\u9650\u3002",
+    sidebarProfileHome: "\u9996\u9875",
+    sidebarProfileDiary: "\u65E5\u8BB0",
+    sidebarProfileOther: "\u9ED8\u8BA4",
+    sidebarProfileHomeUnavailable: "\u8BF7\u5148\u5728\u4E0A\u65B9\u8BBE\u7F6E\u9996\u9875\uFF0C\u914D\u7F6E\u9996\u9875\u9762\u677F\u3002",
+    sidebarProfileDiaryUnavailable: "\u8BF7\u5148\u542F\u7528 Obsidian \u6838\u5FC3\u63D2\u4EF6\u300C\u65E5\u8BB0\u300D\uFF0C\u518D\u914D\u7F6E\u65E5\u8BB0\u9762\u677F\u3002",
     sidebarEmptyHint: "\u5DE6\u4FA7\u680F\u8FD8\u6CA1\u6709\u9762\u677F\uFF0C{link}\u5373\u53EF\u6DFB\u52A0\u5927\u7EB2\u3001\u5C5E\u6027\u3001\u672C\u5730\u5173\u7CFB\u56FE\u7B49\u9762\u677F\u3002",
     sidebarEmptyHintLink: "\u524D\u5F80\u300C\u5DE6\u4FA7\u8FB9\u680F\u6837\u5F0F\u300D\u8BBE\u7F6E",
     addPanel: "\u6DFB\u52A0\u9762\u677F",
@@ -380,9 +387,14 @@ var translations = {
     showLocalGraph: "Local Graph",
     showVaultProfile: "Bottom settings area",
     leftSidebarPanels: "Panel configuration",
-    leftSidebarPanelsDesc: "Choose which panels appear in the left sidebar. Up to 4, drag to reorder. Empty by default.",
+    leftSidebarPanelsDesc: "Choose panels to show in the '{profile}' left sidebar, up to 4; drag to reorder.",
     leftSidebarPanelsEmpty: 'The left sidebar is empty. Click "Add panel" to choose what to show.',
     leftSidebarPanelsFull: "Panel limit of 4 reached.",
+    sidebarProfileHome: "Home",
+    sidebarProfileDiary: "Daily notes",
+    sidebarProfileOther: "Default",
+    sidebarProfileHomeUnavailable: "Set the home page above before configuring its panels.",
+    sidebarProfileDiaryUnavailable: "Enable Obsidian\u2019s Daily notes core plugin before configuring its panels.",
     sidebarEmptyHint: "No panels in the left sidebar yet \u2014 {link} to add panels like Outline, Properties, or Local Graph.",
     sidebarEmptyHintLink: "open Left sidebar settings",
     addPanel: "Add panel",
@@ -1903,6 +1915,12 @@ var import_obsidian4 = require("obsidian");
 var import_obsidian3 = require("obsidian");
 
 // src/core/utils.ts
+function getDailyNotesFolder(app) {
+  var _a, _b, _c, _d, _e;
+  const plugin = (_a = app.internalPlugins) == null ? void 0 : _a.getPluginById("daily-notes");
+  if (!(plugin == null ? void 0 : plugin.enabled)) return null;
+  return (_e = (_d = (_c = (_b = plugin.instance) == null ? void 0 : _b.options) == null ? void 0 : _c.folder) == null ? void 0 : _d.trim().replace(/^\/|\/$/g, "")) != null ? _e : "";
+}
 function trackPointerDrag(handlers) {
   const onMove = (e) => handlers.onMove(e);
   const detach = () => {
@@ -2404,6 +2422,9 @@ var LeftSidebarManager = class {
     // 订阅 layout-change，每次只做一次廉价的 hasDrift() 判定，发现漂移才触发一次完整 reconcile。
     // 思路同 SingleTabGroupGuard / PinManager 的侧栏 layout-change 兜底。
     this.layoutChangeHandler = null;
+    this.activeLeafHandler = null;
+    this.fileOpenHandler = null;
+    this.lastProfileKey = "";
     // Phase 2：面板高度持久化。用户拖面板之间的虚线分隔条 → Obsidian 更新各 WorkspaceTabs 的
     // dimension（flex-grow 百分比）并触发 workspace 'resize'。这里防抖读回、写进 slot.height。
     // 面板被 reconcile 重建时 dimension 会丢，doReconcile 结尾按 slot.height 重新下发。
@@ -2424,6 +2445,7 @@ var LeftSidebarManager = class {
   async apply(opts) {
     this.ensureLayoutGuard();
     this.ensureResizeGuard();
+    this.lastProfileKey = this.activeProfileKey();
     if (opts == null ? void 0 : opts.revealNewPanels) this.revealNewPanels = true;
     if (this.applyRun) {
       this.rerunRequested = true;
@@ -2458,6 +2480,14 @@ var LeftSidebarManager = class {
       this.app.workspace.off("resize", this.resizeHandler);
       this.resizeHandler = null;
     }
+    if (this.activeLeafHandler) {
+      this.app.workspace.off("active-leaf-change", this.activeLeafHandler);
+      this.activeLeafHandler = null;
+    }
+    if (this.fileOpenHandler) {
+      this.app.workspace.off("file-open", this.fileOpenHandler);
+      this.fileOpenHandler = null;
+    }
     if (this.persistTimer != null) {
       window.clearTimeout(this.persistTimer);
       this.persistTimer = null;
@@ -2468,6 +2498,20 @@ var LeftSidebarManager = class {
   }
   // ── 持续守卫 ──────────────────────────────────────────────────────────────
   ensureLayoutGuard() {
+    const refreshProfile = () => {
+      const key = this.activeProfileKey();
+      if (key === this.lastProfileKey) return;
+      this.lastProfileKey = key;
+      void this.apply();
+    };
+    if (!this.activeLeafHandler) {
+      this.activeLeafHandler = refreshProfile;
+      this.app.workspace.on("active-leaf-change", this.activeLeafHandler);
+    }
+    if (!this.fileOpenHandler) {
+      this.fileOpenHandler = refreshProfile;
+      this.app.workspace.on("file-open", this.fileOpenHandler);
+    }
     if (this.layoutChangeHandler) return;
     this.layoutChangeHandler = () => {
       if (this.isReconciling || this.applyRun) return;
@@ -2500,7 +2544,7 @@ var LeftSidebarManager = class {
     const ls = this.leftSplit();
     if (!ls) return false;
     let changed = false;
-    for (const slot of this.getSettings().leftSidebarSlots) {
+    for (const slot of this.activeSlots()) {
       if (!slot.enabled) continue;
       if (slot.viewType === GRAPH_VIEW_TYPE) continue;
       const leaf = this.slotLeaves.get(slot.viewType);
@@ -2611,7 +2655,22 @@ var LeftSidebarManager = class {
   }
   // ── Reconcile ─────────────────────────────────────────────────────────────
   enabledSlots() {
-    return this.getSettings().leftSidebarSlots.filter((s) => s.enabled).slice(0, MAX_LEFT_SIDEBAR_SLOTS);
+    return this.activeSlots().filter((s) => s.enabled).slice(0, MAX_LEFT_SIDEBAR_SLOTS);
+  }
+  activeProfileKey() {
+    var _a;
+    const settings = this.getSettings();
+    const path = (_a = this.app.workspace.getActiveFile()) == null ? void 0 : _a.path;
+    if (path && settings.homePage.trim() && path === settings.homePage.trim()) return "home";
+    const folder = getDailyNotesFolder(this.app);
+    if (path && folder && (path.startsWith(`${folder}/`) || path === folder)) return "diary";
+    return "other";
+  }
+  activeSlots() {
+    const settings = this.getSettings();
+    const profile = this.activeProfileKey();
+    const slots = profile === "home" ? settings.homeSidebarSlots : profile === "diary" ? settings.diarySidebarSlots : null;
+    return slots != null ? slots : settings.leftSidebarSlots;
   }
   leftSplit() {
     const ls = this.app.workspace.leftSplit;
@@ -4973,6 +5032,7 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
     // ── 左侧栏面板列表（用户添加任意 view，最多 4 个，可拖拽排序）──────────────
     // 拖拽排序进行中的源行下标；drop 时读取，结束即清空。
     this.slotDragIndex = null;
+    this.sidebarProfile = "other";
     this.plugin = plugin;
   }
   isCollapsed(key) {
@@ -5052,13 +5112,27 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
       const applyHomePage = (value) => {
         const changed = this.plugin.settings.homePage !== value;
         this.plugin.settings.homePage = value;
-        void this.plugin.saveSettings().then(() => {
+        void this.plugin.saveSettings().then(async () => {
+          if (changed) await this.plugin.applyMacSidebarLayout();
           if (changed && value) void this.plugin.resetToHomePage();
         });
       };
       new FileSuggest(this.app, text.inputEl).onPick((path) => applyHomePage(path));
       text.inputEl.addEventListener("change", () => applyHomePage(text.inputEl.value.trim()));
     });
+  }
+  profileOverride() {
+    const s = this.plugin.settings;
+    return this.sidebarProfile === "home" ? s.homeSidebarSlots : this.sidebarProfile === "diary" ? s.diarySidebarSlots : s.leftSidebarSlots;
+  }
+  displayedSlots() {
+    const override = this.profileOverride();
+    return (override != null ? override : this.plugin.settings.leftSidebarSlots).map((slot) => ({ ...slot }));
+  }
+  setProfileSlots(slots) {
+    if (this.sidebarProfile === "home") this.plugin.settings.homeSidebarSlots = slots;
+    else if (this.sidebarProfile === "diary") this.plugin.settings.diarySidebarSlots = slots;
+    else this.plugin.settings.leftSidebarSlots = slots != null ? slots : [];
   }
   async persistSlots() {
     await this.plugin.saveSettings();
@@ -5068,34 +5142,59 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
   configureLeftSidebarSlots(parentEl) {
     var _a, _b;
     const sectionEl = parentEl.createDiv({ cls: "minimalism-ui-slot-section" });
-    const slots = this.plugin.settings.leftSidebarSlots;
+    const slots = this.displayedSlots();
     const options = this.plugin.listSidebarViewOptions();
     const atLimit = slots.length >= MAX_LEFT_SIDEBAR_SLOTS;
     const used = new Set(slots.map((s) => s.viewType));
+    const workspaceEl = sectionEl.createDiv({ cls: "minimalism-ui-slot-workspace" });
+    const tabs = workspaceEl.createDiv({ cls: "minimalism-ui-slot-profiles" });
+    const contentEl = workspaceEl.createDiv({ cls: "minimalism-ui-slot-content" });
+    const profileLabels = {
+      home: t("sidebarProfileHome"),
+      diary: t("sidebarProfileDiary"),
+      other: t("sidebarProfileOther")
+    };
+    for (const profile of ["home", "diary", "other"]) {
+      const tab = tabs.createEl("button", {
+        cls: `minimalism-ui-slot-profile${this.sidebarProfile === profile ? " is-active" : ""}`,
+        text: profileLabels[profile],
+        attr: { "aria-pressed": String(this.sidebarProfile === profile) }
+      });
+      tab.addEventListener("click", () => {
+        this.sidebarProfile = profile;
+        this.update();
+      });
+    }
+    const unavailableReason = this.sidebarProfile === "home" ? this.plugin.settings.homePage.trim() ? "" : t("sidebarProfileHomeUnavailable") : this.sidebarProfile === "diary" ? getDailyNotesFolder(this.app) === null ? t("sidebarProfileDiaryUnavailable") : "" : "";
+    if (unavailableReason) contentEl.createDiv({ cls: "minimalism-ui-slot-notice", text: unavailableReason });
+    const editable = !unavailableReason;
     const preferred = ["outline", "file-properties", "localgraph"];
     const nextFree = (_b = preferred.filter((tp) => options.some((o) => o.type === tp)).find((tp) => !used.has(tp))) != null ? _b : (_a = options.find((o) => !used.has(o.type))) == null ? void 0 : _a.type;
-    const header = new import_obsidian12.Setting(sectionEl).setName(t("leftSidebarPanels")).setDesc(atLimit ? t("leftSidebarPanelsFull") : t("leftSidebarPanelsDesc"));
-    const listEl = sectionEl.createDiv({ cls: "minimalism-ui-slot-list" });
-    if (slots.length === 0) {
+    const header = new import_obsidian12.Setting(contentEl).setName(t("leftSidebarPanels")).setDesc(atLimit ? t("leftSidebarPanelsFull") : t("leftSidebarPanelsDesc").replace("{profile}", profileLabels[this.sidebarProfile]));
+    header.addButton((btn) => {
+      btn.setButtonText(t("addPanel"));
+      if (!editable || atLimit || !nextFree) {
+        btn.setDisabled(true);
+      } else {
+        btn.setCta();
+        btn.onClick(async () => {
+          slots.push({ id: `slot-${Date.now()}`, viewType: nextFree, enabled: true, height: null });
+          this.setProfileSlots(slots);
+          await this.persistSlots();
+        });
+      }
+    });
+    const listEl = contentEl.createDiv({ cls: "minimalism-ui-slot-list" });
+    if (slots.length === 0 && editable) {
       listEl.createDiv({ cls: "minimalism-ui-slot-empty", text: t("leftSidebarPanelsEmpty") });
+    } else if (slots.length > 0) {
+      slots.forEach((_, index) => this.renderSlotRow(listEl, index, options, editable));
     }
-    slots.forEach((_, index) => this.renderSlotRow(listEl, index, options));
-    const addButton = listEl.createEl("button", {
-      cls: `minimalism-ui-slot-add${atLimit || !nextFree ? "" : " mod-cta"}`,
-      attr: { "aria-label": t("addPanel"), title: t("addPanel") }
-    });
-    (0, import_obsidian12.setIcon)(addButton, "plus");
-    addButton.disabled = atLimit || !nextFree;
-    addButton.addEventListener("click", async () => {
-      if (addButton.disabled || !nextFree) return;
-      slots.push({ id: `slot-${Date.now()}`, viewType: nextFree, enabled: true, height: null });
-      await this.persistSlots();
-    });
   }
-  renderSlotRow(listEl, index, options) {
-    const slots = this.plugin.settings.leftSidebarSlots;
+  renderSlotRow(listEl, index, options, editable = true) {
+    const slots = this.displayedSlots();
     const slot = slots[index];
-    const row = listEl.createDiv({ cls: "minimalism-ui-slot-row", attr: { draggable: "true" } });
+    const row = listEl.createDiv({ cls: "minimalism-ui-slot-row", attr: { draggable: String(editable) } });
     row.createSpan({
       cls: "minimalism-ui-slot-handle",
       text: "\u283F",
@@ -5111,8 +5210,11 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
     }
     if (!hasCurrent) select.createEl("option", { value: slot.viewType, text: slot.viewType });
     select.value = slot.viewType;
+    select.disabled = !editable;
     select.addEventListener("change", () => {
+      if (!editable) return;
       slot.viewType = select.value;
+      this.setProfileSlots(slots);
       void this.persistSlots();
     });
     const removeBtn = row.createEl("button", {
@@ -5120,10 +5222,14 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
       text: "\u2715",
       attr: { "aria-label": t("removePanel") }
     });
+    removeBtn.disabled = !editable;
     removeBtn.addEventListener("click", () => {
+      if (!editable) return;
       slots.splice(index, 1);
+      this.setProfileSlots(slots);
       void this.persistSlots();
     });
+    if (!editable) return;
     row.addEventListener("dragstart", (ev) => {
       var _a;
       this.slotDragIndex = index;
@@ -5148,6 +5254,7 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
       if (from === null || from === index) return;
       const [moved] = slots.splice(from, 1);
       slots.splice(index, 0, moved);
+      this.setProfileSlots(slots);
       void this.persistSlots();
     });
   }
