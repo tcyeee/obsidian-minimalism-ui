@@ -74,18 +74,24 @@
    编辑视图（CM6）比阅读视图多一层：.cm-sizer 收窄外框后，.cm-content / .cm-line
    仍各自撑满（Obsidian 核心「可读行长」对编辑视图同样要分别约束这三层，见
    app.css 的 .is-readable-line-width 规则），故三者都要设，否则只有外框变窄、
-   文字仍顶到窗口边缘。表格行（HyperMD-table-row）豁免，避免表格被挤变形。 */
-.markdown-source-view.minimalism-dynamic-width .cm-sizer,
+   文字仍顶到窗口边缘。表格行（HyperMD-table-row）豁免，避免表格被挤变形。
+   选择器里的 .mod-cm6 看似多余（当前 Obsidian 已不存在 CM5 编辑器），实际是为了
+   凑够和 app.css 同款规则相同的类选择器数量（.markdown-source-view.mod-cm6
+   .is-readable-line-width ...，4 个类）——CSS 优先级只看类选择器数量不看先后，
+   少一个类就会被核心规则的固定 --file-line-width 压过去，这里的 max-width
+   calc() 整条失效。1.14.5 验证过：少了 .mod-cm6 时编辑模式仍按核心的只读行宽
+   700px 显示，和阅读模式各自撑满的效果不一致。 */
+.markdown-source-view.mod-cm6.minimalism-dynamic-width .cm-sizer,
 .markdown-preview-view.minimalism-dynamic-width .markdown-preview-sizer {
 	max-width: calc(100vw - 2 * var(--minimalism-dynamic-width-padding, 10vw));
 	margin-left: auto;
 	margin-right: auto;
 }
-.markdown-source-view.minimalism-dynamic-width .cm-content,
-.markdown-source-view.minimalism-dynamic-width .cm-line {
+.markdown-source-view.mod-cm6.minimalism-dynamic-width .cm-content,
+.markdown-source-view.mod-cm6.minimalism-dynamic-width .cm-line {
 	max-width: calc(100vw - 2 * var(--minimalism-dynamic-width-padding, 10vw));
 }
-.markdown-source-view.minimalism-dynamic-width .cm-line.HyperMD-table-row {
+.markdown-source-view.mod-cm6.minimalism-dynamic-width .cm-line.HyperMD-table-row {
 	max-width: 100%;
 }
 
