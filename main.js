@@ -4987,22 +4987,30 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
     var _a;
     return (_a = this.plugin.settings.collapsedSections[key]) != null ? _a : false;
   }
-  addCollapsibleSection(key, title) {
-    const { containerEl } = this;
-    const headingEl = containerEl.createDiv({
-      cls: "setting-item setting-item-heading minimalism-ui-collapsible-heading" + (this.isCollapsed(key) ? " minimalism-ui-collapsible-heading-collapsed" : "")
-    });
-    const nameEl = headingEl.createDiv({ cls: "setting-item-info" }).createDiv({ cls: "setting-item-name" });
-    nameEl.createSpan({ cls: "minimalism-ui-section-arrow" });
-    nameEl.createSpan({ text: title });
-    const contentEl = containerEl.createDiv({ cls: "minimalism-ui-collapsible-content" });
-    headingEl.addEventListener("click", () => {
-      const nowCollapsed = !this.isCollapsed(key);
-      this.plugin.settings.collapsedSections[key] = nowCollapsed;
-      headingEl.toggleClass("minimalism-ui-collapsible-heading-collapsed", nowCollapsed);
-      void this.plugin.saveSettings();
-    });
-    return contentEl;
+  // 可折叠分组标题：点击只切换 collapsedSections[key] + refreshDomState()，
+  // 不做整体重渲染——分组内容的显隐交给下面 group 定义的 visible 谓词。
+  renderSectionHeading(key, title) {
+    return (setting) => {
+      const headingEl = setting.settingEl;
+      headingEl.empty();
+      headingEl.className = "setting-item setting-item-heading minimalism-ui-collapsible-heading" + (this.isCollapsed(key) ? " minimalism-ui-collapsible-heading-collapsed" : "");
+      const nameEl = headingEl.createDiv({ cls: "setting-item-info" }).createDiv({ cls: "setting-item-name" });
+      nameEl.createSpan({ cls: "minimalism-ui-section-arrow" });
+      nameEl.createSpan({ text: title });
+      headingEl.addEventListener("click", () => {
+        const nowCollapsed = !this.isCollapsed(key);
+        this.plugin.settings.collapsedSections[key] = nowCollapsed;
+        headingEl.toggleClass("minimalism-ui-collapsible-heading-collapsed", nowCollapsed);
+        void this.plugin.saveSettings();
+        this.refreshDomState();
+      });
+    };
+  }
+  section(key, title, items) {
+    return [
+      { name: title, searchable: false, render: this.renderSectionHeading(key, title) },
+      { type: "group", visible: () => !this.isCollapsed(key), items }
+    ];
   }
   // ── Shared per-setting configuration ──
   configureLanguage(setting) {
@@ -5011,7 +5019,7 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
       setLang(v);
       await this.plugin.saveSettings();
       void this.plugin.applyMacSidebarLayout();
-      this.display();
+      this.update();
     }));
   }
   configureTheme(setting) {
@@ -5063,7 +5071,7 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
   async persistSlots() {
     await this.plugin.saveSettings();
     await this.plugin.applyMacSidebarLayout({ revealNewPanels: true });
-    this.display();
+    this.update();
   }
   configureLeftSidebarSlots(parentEl) {
     var _a, _b;
@@ -5159,7 +5167,7 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
       await this.plugin.saveSettings();
     }));
   }
-  // 目前未在 display() 中调用——该开关已从设置页移除，仅保留实现以便日后恢复。
+  // 目前未在 getSettingDefinitions() 中调用——该开关已从设置页移除，仅保留实现以便日后恢复。
   configureShowRightSidebarButton(setting) {
     setting.setName(t("showRightSidebarButton")).setDesc(t("showRightSidebarButtonDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showRightSidebarButton).onChange(async (v) => {
       this.plugin.settings.showRightSidebarButton = v;
@@ -5176,7 +5184,7 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
     setting.setName(t("filenamePrefixManual")).setDesc(t("filenamePrefixManualDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.filenamePrefixManual).onChange((value) => {
       this.plugin.settings.filenamePrefixManual = value;
       void this.plugin.saveSettings();
-      this.display();
+      this.refreshDomState();
     }));
   }
   configureFilenamePrefixLength(setting) {
@@ -5195,29 +5203,53 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
       });
     });
   }
-  display() {
-    const { containerEl } = this;
-    containerEl.empty();
-    const intro = containerEl.createDiv({ cls: "minimalism-ui-intro" });
-    intro.createDiv({ cls: "minimalism-ui-intro-title", text: t("introTitle") });
-    intro.createEl("p", { text: t("introDesc1") });
-    intro.createEl("p", { text: t("introDesc2") });
-    const generalEl = this.addCollapsibleSection("general", t("headingGeneral"));
-    this.configureLanguage(new import_obsidian12.Setting(generalEl));
-    this.configureTheme(new import_obsidian12.Setting(generalEl));
-    const interactionEl = this.addCollapsibleSection("interaction", t("headingInteraction"));
-    this.configureSinglePage(new import_obsidian12.Setting(interactionEl));
-    this.configureHomePage(new import_obsidian12.Setting(interactionEl));
-    const appearanceEl = this.addCollapsibleSection("appearance", t("headingAppearance"));
-    this.configureLeftSidebarSlots(appearanceEl);
-    this.configureShowVaultProfile(new import_obsidian12.Setting(appearanceEl));
-    const animationEl = this.addCollapsibleSection("animation", t("headingAnimation"));
-    this.configureNavAnimation(new import_obsidian12.Setting(animationEl));
-    const advancedEl = this.addCollapsibleSection("advanced", t("headingAdvanced"));
-    this.configureFilenamePrefixManual(new import_obsidian12.Setting(advancedEl));
-    if (this.plugin.settings.filenamePrefixManual) {
-      this.configureFilenamePrefixLength(new import_obsidian12.Setting(advancedEl));
-    }
+  getSettingDefinitions() {
+    return [
+      {
+        name: t("introTitle"),
+        searchable: false,
+        render: (setting) => {
+          const el = setting.settingEl;
+          el.empty();
+          el.className = "minimalism-ui-intro";
+          el.createDiv({ cls: "minimalism-ui-intro-title", text: t("introTitle") });
+          el.createEl("p", { text: t("introDesc1") });
+          el.createEl("p", { text: t("introDesc2") });
+        }
+      },
+      ...this.section("general", t("headingGeneral"), [
+        { name: t("language"), render: (setting) => this.configureLanguage(setting) },
+        { name: t("theme"), render: (setting) => this.configureTheme(setting) }
+      ]),
+      ...this.section("interaction", t("headingInteraction"), [
+        { name: t("singlePage"), render: (setting) => this.configureSinglePage(setting) },
+        { name: t("homePage"), render: (setting) => this.configureHomePage(setting) }
+      ]),
+      ...this.section("appearance", t("headingAppearance"), [
+        {
+          name: t("leftSidebarPanels"),
+          render: (setting) => {
+            setting.settingEl.empty();
+            setting.settingEl.className = "minimalism-ui-slot-setting-wrapper";
+            this.configureLeftSidebarSlots(setting.settingEl);
+          }
+        },
+        { name: t("showVaultProfile"), render: (setting) => this.configureShowVaultProfile(setting) }
+        // 「右侧栏悬浮按钮」不在设置页展示；开关仍可通过状态栏菜单切换（见 StatusBarMenuManager）。
+      ]),
+      ...this.section("animation", t("headingAnimation"), [
+        { name: t("navAnimation"), render: (setting) => this.configureNavAnimation(setting) }
+      ]),
+      ...this.section("advanced", t("headingAdvanced"), [
+        { name: t("filenamePrefixManual"), render: (setting) => this.configureFilenamePrefixManual(setting) },
+        // 仅当手动隐藏开启时才显示长度设置。
+        {
+          name: t("filenamePrefixLength"),
+          visible: () => this.plugin.settings.filenamePrefixManual,
+          render: (setting) => this.configureFilenamePrefixLength(setting)
+        }
+      ])
+    ];
   }
 };
 

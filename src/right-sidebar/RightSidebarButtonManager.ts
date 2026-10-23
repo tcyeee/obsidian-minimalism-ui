@@ -1,4 +1,4 @@
-import { App, setIcon, WorkspaceLeaf } from 'obsidian';
+import { App, setIcon } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
 import { LeafMountService } from '../core/LeafMountService';
 import { Feature } from '../core/Feature';

@@ -1,4 +1,4 @@
-import { AbstractInputSuggest, App, PluginSettingTab, Setting, TFile } from 'obsidian';
+import { AbstractInputSuggest, App, PluginSettingTab, Setting, SettingDefinitionItem, SettingGroupItem, TFile } from 'obsidian';
 import type MinimalismUIPlugin from '../main';
 import { t, setLang } from './core/i18n';
 import { MAX_LEFT_SIDEBAR_SLOTS } from './core/settings';
@@ -31,17 +31,6 @@ export class FileSuggest extends AbstractInputSuggest<TFile> {
 }
 
 // ─── Settings Tab ─────────────────────────────────────────────────────────────
-//
-// Stays on the imperative display() API only. A getSettingDefinitions() +
-// display() dual-path version (guarding this.update()/refreshDomState() calls
-// behind a `typeof this.update === 'function'` runtime check) was tried and
-// submitted for review: Obsidian's submission checker flags any reference to
-// update()/refreshDomState() as `obsidianmd/no-unsupported-api` — a blocking
-// Error — purely from the static call site, regardless of a runtime guard
-// around it. There is no way to call those APIs anywhere in the file without
-// bumping minAppVersion to 1.13.0, which this plugin has already reverted once
-// (commit f56f8f0) specifically to keep supporting 1.7.2. So the "does not
-// implement getSettingDefinitions()" Warning is accepted as permanently open.
 
 export class MinimalismUISettingTab extends PluginSettingTab {
 	plugin: MinimalismUIPlugin;
@@ -55,28 +44,34 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		return this.plugin.settings.collapsedSections[key] ?? false;
 	}
 
-	private addCollapsibleSection(key: string, title: string): HTMLElement {
-		const { containerEl } = this;
+	// 可折叠分组标题：点击只切换 collapsedSections[key] + refreshDomState()，
+	// 不做整体重渲染——分组内容的显隐交给下面 group 定义的 visible 谓词。
+	private renderSectionHeading(key: string, title: string) {
+		return (setting: Setting): void => {
+			const headingEl = setting.settingEl;
+			headingEl.empty();
+			headingEl.className = 'setting-item setting-item-heading minimalism-ui-collapsible-heading'
+				+ (this.isCollapsed(key) ? ' minimalism-ui-collapsible-heading-collapsed' : '');
+			const nameEl = headingEl.createDiv({ cls: 'setting-item-info' })
+				.createDiv({ cls: 'setting-item-name' });
+			nameEl.createSpan({ cls: 'minimalism-ui-section-arrow' });
+			nameEl.createSpan({ text: title });
 
-		const headingEl = containerEl.createDiv({
-			cls: 'setting-item setting-item-heading minimalism-ui-collapsible-heading'
-				+ (this.isCollapsed(key) ? ' minimalism-ui-collapsible-heading-collapsed' : ''),
-		});
-		const nameEl = headingEl.createDiv({ cls: 'setting-item-info' })
-			.createDiv({ cls: 'setting-item-name' });
-		nameEl.createSpan({ cls: 'minimalism-ui-section-arrow' });
-		nameEl.createSpan({ text: title });
+			headingEl.addEventListener('click', () => {
+				const nowCollapsed = !this.isCollapsed(key);
+				this.plugin.settings.collapsedSections[key] = nowCollapsed;
+				headingEl.toggleClass('minimalism-ui-collapsible-heading-collapsed', nowCollapsed);
+				void this.plugin.saveSettings();
+				this.refreshDomState();
+			});
+		};
+	}
 
-		const contentEl = containerEl.createDiv({ cls: 'minimalism-ui-collapsible-content' });
-
-		headingEl.addEventListener('click', () => {
-			const nowCollapsed = !this.isCollapsed(key);
-			this.plugin.settings.collapsedSections[key] = nowCollapsed;
-			headingEl.toggleClass('minimalism-ui-collapsible-heading-collapsed', nowCollapsed);
-			void this.plugin.saveSettings();
-		});
-
-		return contentEl;
+	private section(key: string, title: string, items: SettingGroupItem[]): SettingDefinitionItem[] {
+		return [
+			{ name: title, searchable: false, render: this.renderSectionHeading(key, title) },
+			{ type: 'group', visible: () => !this.isCollapsed(key), items },
+		];
 	}
 
 	// ── Shared per-setting configuration ──
@@ -94,7 +89,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					// 空侧栏提示文案由 LeftSidebarManager 注入，语言切换后重新应用一次以刷新
 					void this.plugin.applyMacSidebarLayout();
-					this.display();
+					this.update();
 				}));
 	}
 
@@ -166,7 +161,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		await this.plugin.saveSettings();
 		// 添加 / 更换面板会新建 leaf，触发时让侧栏展开露出新面板（纯排序 / 删除不会新建，故无副作用）。
 		await this.plugin.applyMacSidebarLayout({ revealNewPanels: true });
-		this.display();
+		this.update();
 	}
 
 	private configureLeftSidebarSlots(parentEl: HTMLElement): void {
@@ -283,7 +278,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				}));
 	}
 
-	// 目前未在 display() 中调用——该开关已从设置页移除，仅保留实现以便日后恢复。
+	// 目前未在 getSettingDefinitions() 中调用——该开关已从设置页移除，仅保留实现以便日后恢复。
 	private configureShowRightSidebarButton(setting: Setting): void {
 		setting.setName(t('showRightSidebarButton'))
 			.setDesc(t('showRightSidebarButtonDesc'))
@@ -314,7 +309,8 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				.onChange(value => {
 					this.plugin.settings.filenamePrefixManual = value;
 					void this.plugin.saveSettings();
-					this.display(); // 重渲染以同步长度数字框的显隐
+					// 仅需重估下面这一行的 visible 谓词，无需整体重渲染。
+					this.refreshDomState();
 				}));
 	}
 
@@ -337,37 +333,57 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 			});
 	}
 
-	display(): void {
-		const { containerEl } = this;
-		containerEl.empty();
+	getSettingDefinitions(): SettingDefinitionItem[] {
+		return [
+			{
+				name: t('introTitle'),
+				searchable: false,
+				render: (setting) => {
+					const el = setting.settingEl;
+					el.empty();
+					el.className = 'minimalism-ui-intro';
+					el.createDiv({ cls: 'minimalism-ui-intro-title', text: t('introTitle') });
+					el.createEl('p', { text: t('introDesc1') });
+					el.createEl('p', { text: t('introDesc2') });
+				},
+			},
 
-		const intro = containerEl.createDiv({ cls: 'minimalism-ui-intro' });
-		intro.createDiv({ cls: 'minimalism-ui-intro-title', text: t('introTitle') });
-		intro.createEl('p', { text: t('introDesc1') });
-		intro.createEl('p', { text: t('introDesc2') });
+			...this.section('general', t('headingGeneral'), [
+				{ name: t('language'), render: (setting) => this.configureLanguage(setting) },
+				{ name: t('theme'), render: (setting) => this.configureTheme(setting) },
+			]),
 
-		const generalEl = this.addCollapsibleSection('general', t('headingGeneral'));
-		this.configureLanguage(new Setting(generalEl));
-		this.configureTheme(new Setting(generalEl));
+			...this.section('interaction', t('headingInteraction'), [
+				{ name: t('singlePage'), render: (setting) => this.configureSinglePage(setting) },
+				{ name: t('homePage'), render: (setting) => this.configureHomePage(setting) },
+			]),
 
-		const interactionEl = this.addCollapsibleSection('interaction', t('headingInteraction'));
-		this.configureSinglePage(new Setting(interactionEl));
-		this.configureHomePage(new Setting(interactionEl));
+			...this.section('appearance', t('headingAppearance'), [
+				{
+					name: t('leftSidebarPanels'),
+					render: (setting) => {
+						setting.settingEl.empty();
+						setting.settingEl.className = 'minimalism-ui-slot-setting-wrapper';
+						this.configureLeftSidebarSlots(setting.settingEl);
+					},
+				},
+				{ name: t('showVaultProfile'), render: (setting) => this.configureShowVaultProfile(setting) },
+				// 「右侧栏悬浮按钮」不在设置页展示；开关仍可通过状态栏菜单切换（见 StatusBarMenuManager）。
+			]),
 
-		const appearanceEl = this.addCollapsibleSection('appearance', t('headingAppearance'));
-		this.configureLeftSidebarSlots(appearanceEl);
-		this.configureShowVaultProfile(new Setting(appearanceEl));
-		// 「右侧栏悬浮按钮」不在设置页展示；开关仍可通过状态栏菜单切换（见 StatusBarMenuManager）。
+			...this.section('animation', t('headingAnimation'), [
+				{ name: t('navAnimation'), render: (setting) => this.configureNavAnimation(setting) },
+			]),
 
-		const animationEl = this.addCollapsibleSection('animation', t('headingAnimation'));
-		this.configureNavAnimation(new Setting(animationEl));
-
-		const advancedEl = this.addCollapsibleSection('advanced', t('headingAdvanced'));
-		this.configureFilenamePrefixManual(new Setting(advancedEl));
-
-		// 仅当手动隐藏开启时才显示长度设置。
-		if (this.plugin.settings.filenamePrefixManual) {
-			this.configureFilenamePrefixLength(new Setting(advancedEl));
-		}
+			...this.section('advanced', t('headingAdvanced'), [
+				{ name: t('filenamePrefixManual'), render: (setting) => this.configureFilenamePrefixManual(setting) },
+				// 仅当手动隐藏开启时才显示长度设置。
+				{
+					name: t('filenamePrefixLength'),
+					visible: () => this.plugin.settings.filenamePrefixManual,
+					render: (setting) => this.configureFilenamePrefixLength(setting),
+				},
+			]),
+		];
 	}
 }

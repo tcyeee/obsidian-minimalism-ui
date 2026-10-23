@@ -528,7 +528,7 @@ export class LeftSidebarManager {
 	// ── workspace-item 树辅助 ─────────────────────────────────────────────────
 
 	// leftSplit 里承载指定 viewType 的直接子节点（通常是 WorkspaceTabs，也可能是裸 leaf）。
-	private findSlotGroup(ls: SidedockLike, viewType: string): unknown | null {
+	private findSlotGroup(ls: SidedockLike, viewType: string): unknown {
 		for (const child of ls.children ?? []) {
 			const leaf = this.leafOfGroup(child);
 			if (leaf && this.viewTypeOf(leaf) === viewType) return child;

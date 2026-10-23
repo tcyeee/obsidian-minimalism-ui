@@ -388,7 +388,6 @@ body.minimalism-ui-disable-note-tabs .workspace-split.mod-root .workspace-leaf-c
 	cursor: pointer;
 	font-weight: var(--font-medium);
 	text-decoration: underline;
-	text-underline-offset: 2px;
 }
 
 .minimalism-ui-sidebar-empty-hint-text .minimalism-ui-sidebar-empty-hint-link:hover {
@@ -1575,14 +1574,6 @@ body.minimalism-ui-rsb-icon-dragging {
 	margin-bottom: 0;
 }
 
-/* 声明式设置页（Obsidian 1.13+）里，intro 作为一个 setting-item 行渲染，
-   需要去掉框架自带的行内边距/边框，避免和 .minimalism-ui-intro 自身的框重叠 */
-.minimalism-ui-intro-wrapper {
-	display: block;
-	border: none;
-	padding: 0;
-}
-
 .minimalism-ui-single-page-setting {
 	align-items: flex-start;
 	padding-top: 12px;
@@ -1649,10 +1640,6 @@ body.is-mac.minimalism-ui-mac-sidebar .titlebar-button-container.mod-left {
 
 .minimalism-ui-collapsible-heading-collapsed .minimalism-ui-section-arrow::before {
 	transform: rotate(0deg);
-}
-
-.minimalism-ui-collapsible-heading-collapsed + .minimalism-ui-collapsible-content {
-	display: none;
 }
 
 /* ── 新手引导悬浮框 ───────────────────────────────────────────────────── */
