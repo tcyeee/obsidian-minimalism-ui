@@ -2782,7 +2782,10 @@ var LeftSidebarManager = class {
       const activeFile = this.app.workspace.getActiveFile();
       if (activeFile) this.app.workspace.trigger("file-open", activeFile);
       const graphLeaf = this.slotLeaves.get("localgraph");
-      if (graphLeaf) window.setTimeout(() => this.applyGraphColors(graphLeaf), 200);
+      if (graphLeaf) {
+        this.closeGraphControls(graphLeaf);
+        window.setTimeout(() => this.applyGraphColors(graphLeaf), 200);
+      }
     } finally {
       const keepExpanded = createdLeaf && this.revealNewPanels;
       this.enforceCollapsed(ls, wasCollapsed && !keepExpanded);
@@ -2862,6 +2865,21 @@ var LeftSidebarManager = class {
       uiDoc().body.classList.remove("minimalism-ui-sidebar-graph-reading");
     };
     renderer.testCSS();
+  }
+  /**
+   * 关系图设置面板（.graph-controls）Obsidian 原生默认展开；每次新建 / 重建 localgraph leaf
+   * （重启 Obsidian 恢复 workspace.json、切换 home / diary / other profile 触发 reconcile
+   * 重建，或 slot 增删）都会重新展开，遮挡侧栏里的关系图 canvas。
+   * 这里把它默认收起：给 .graph-controls 加 is-close，与原生「关闭」按钮同款行为
+   * （只切面板开合，不碰 data-ignore-swipe）。
+   */
+  closeGraphControls(graphLeaf) {
+    var _a;
+    const containerEl = (_a = graphLeaf.view) == null ? void 0 : _a.containerEl;
+    const controlsEl = containerEl == null ? void 0 : containerEl.querySelector(".graph-controls");
+    if (controlsEl && !controlsEl.classList.contains("is-close")) {
+      controlsEl.classList.add("is-close");
+    }
   }
   restoreTestCSS() {
     if (this.patchedRenderer && this.origTestCSS) {
