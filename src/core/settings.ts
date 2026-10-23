@@ -89,8 +89,8 @@ export const DEFAULT_SETTINGS: MinimalismUISettings = {
 	// 默认 100px，与历史固定列宽一致
 	propertyKeyWidth: 100,
 	language: 'auto',
-	// 动画与高级设置区块默认折叠
-	collapsedSections: { animation: true, advanced: true },
+	// 高级设置区块默认折叠
+	collapsedSections: { advanced: true },
 	onboarding: true,
 	// 默认无已完成任务；loadSettings 合并后老用户也会得到空数组。
 	onboardingDone: [],

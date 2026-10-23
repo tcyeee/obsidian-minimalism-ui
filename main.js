@@ -51,8 +51,8 @@ var DEFAULT_SETTINGS = {
   // 默认 100px，与历史固定列宽一致
   propertyKeyWidth: 100,
   language: "auto",
-  // 动画与高级设置区块默认折叠
-  collapsedSections: { animation: true, advanced: true },
+  // 高级设置区块默认折叠
+  collapsedSections: { advanced: true },
   onboarding: true,
   // 默认无已完成任务；loadSettings 合并后老用户也会得到空数组。
   onboardingDone: [],
@@ -287,13 +287,9 @@ var translations = {
     languageAuto: "\u8DDF\u968F\u7CFB\u7EDF",
     languageZh: "\u4E2D\u6587",
     languageEn: "English",
-    introTitle: "\u4F7F\u7528\u524D\u5FC5\u8BFB",
-    introDesc1: '\u672C\u63D2\u4EF6\u662F\u4E00\u6B3E"\u505A\u51CF\u6CD5"\u7684\u5DE5\u5177,\u8BBE\u8BA1\u7406\u5FF5\u4E0E\u4E3B\u6D41\u7528\u6CD5\u76F8\u6096:\u5B83\u53EA\u4FDD\u7559\u5DE6\u4FA7\u8FB9\u680F(\u9ED8\u8BA4\u7A7A\u767D,\u53EF\u81EA\u884C\u6DFB\u52A0\u5927\u7EB2\u3001\u5C5E\u6027\u3001\u672C\u5730\u5173\u7CFB\u56FE\u7B49\u9762\u677F,\u6700\u591A 4 \u4E2A),\u5E76\u88C1\u526A\u6389\u4E86\u5927\u91CF\u6838\u5FC3\u529F\u80FD,\u751A\u81F3\u5305\u62EC"\u6587\u4EF6\u5939"\u3002\u5B89\u88C5\u524D\u8BF7\u5148\u786E\u8BA4\u4F60\u8BA4\u540C\u8FD9\u5957\u6781\u7B80\u7406\u5FF5\u3002',
-    introDesc2: "\u8BF7\u6307\u5B9A\u4E00\u7BC7\u7B14\u8BB0\u4F5C\u4E3A\u9996\u9875\u3002\u5B83\u5982\u540C\u4E00\u68F5\u6811\u7684\u4E3B\u5E72,\u4F60\u5728\u5176\u4E0A\u7528\u53CC\u94FE\u4E0D\u65AD\u65B0\u5EFA\u7B14\u8BB0,\u8BA9\u77E5\u8BC6\u5F00\u679D\u6563\u53F6,\u6700\u7EC8\u957F\u6210\u53C2\u5929\u5927\u6811\u3002",
     headingGeneral: "\u901A\u7528\u8BBE\u7F6E",
     headingAppearance: "\u5DE6\u4FA7\u8FB9\u680F\u6837\u5F0F",
     headingInteraction: "\u4EA4\u4E92\u8BBE\u7F6E",
-    headingAnimation: "\u52A8\u753B\u8BBE\u7F6E (beta)",
     headingAdvanced: "\u9AD8\u7EA7\u8BBE\u7F6E",
     showProperties: "\u5C5E\u6027\u9762\u677F",
     showLocalGraph: "\u672C\u5730\u5173\u7CFB\u56FE",
@@ -376,13 +372,9 @@ var translations = {
     languageAuto: "Follow system",
     languageZh: "\u4E2D\u6587",
     languageEn: "English",
-    introTitle: "Read this before you start",
-    introDesc1: "This plugin is all about subtraction, and its philosophy runs against mainstream usage: it keeps only the left sidebar (empty by default \u2014 add up to 4 panels such as Outline, Properties, and Local Graph yourself) and strips away many core features, including Folders. Make sure this minimalist philosophy suits you before installing.",
-    introDesc2: "Pick one note as your home page. Think of it as the trunk of a tree: keep creating notes from it through backlinks, letting your knowledge branch out until it grows into a towering tree.",
     headingGeneral: "General",
     headingAppearance: "Left sidebar",
     headingInteraction: "Interaction",
-    headingAnimation: "Animation (beta)",
     headingAdvanced: "Advanced",
     showProperties: "Properties",
     showLocalGraph: "Local Graph",
@@ -5083,24 +5075,22 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
     const preferred = ["outline", "file-properties", "localgraph"];
     const nextFree = (_b = preferred.filter((tp) => options.some((o) => o.type === tp)).find((tp) => !used.has(tp))) != null ? _b : (_a = options.find((o) => !used.has(o.type))) == null ? void 0 : _a.type;
     const header = new import_obsidian12.Setting(sectionEl).setName(t("leftSidebarPanels")).setDesc(atLimit ? t("leftSidebarPanelsFull") : t("leftSidebarPanelsDesc"));
-    header.addButton((btn) => {
-      btn.setButtonText(t("addPanel"));
-      if (atLimit || !nextFree) {
-        btn.setDisabled(true);
-      } else {
-        btn.setCta();
-        btn.onClick(async () => {
-          slots.push({ id: `slot-${Date.now()}`, viewType: nextFree, enabled: true, height: null });
-          await this.persistSlots();
-        });
-      }
-    });
     const listEl = sectionEl.createDiv({ cls: "minimalism-ui-slot-list" });
     if (slots.length === 0) {
       listEl.createDiv({ cls: "minimalism-ui-slot-empty", text: t("leftSidebarPanelsEmpty") });
-      return;
     }
     slots.forEach((_, index) => this.renderSlotRow(listEl, index, options));
+    const addButton = listEl.createEl("button", {
+      cls: `minimalism-ui-slot-add${atLimit || !nextFree ? "" : " mod-cta"}`,
+      attr: { "aria-label": t("addPanel"), title: t("addPanel") }
+    });
+    (0, import_obsidian12.setIcon)(addButton, "plus");
+    addButton.disabled = atLimit || !nextFree;
+    addButton.addEventListener("click", async () => {
+      if (addButton.disabled || !nextFree) return;
+      slots.push({ id: `slot-${Date.now()}`, viewType: nextFree, enabled: true, height: null });
+      await this.persistSlots();
+    });
   }
   renderSlotRow(listEl, index, options) {
     const slots = this.plugin.settings.leftSidebarSlots;
@@ -5205,18 +5195,6 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
   }
   getSettingDefinitions() {
     return [
-      {
-        name: t("introTitle"),
-        searchable: false,
-        render: (setting) => {
-          const el = setting.settingEl;
-          el.empty();
-          el.className = "minimalism-ui-intro";
-          el.createDiv({ cls: "minimalism-ui-intro-title", text: t("introTitle") });
-          el.createEl("p", { text: t("introDesc1") });
-          el.createEl("p", { text: t("introDesc2") });
-        }
-      },
       ...this.section("general", t("headingGeneral"), [
         { name: t("language"), render: (setting) => this.configureLanguage(setting) },
         { name: t("theme"), render: (setting) => this.configureTheme(setting) }
@@ -5237,10 +5215,8 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
         { name: t("showVaultProfile"), render: (setting) => this.configureShowVaultProfile(setting) }
         // 「右侧栏悬浮按钮」不在设置页展示；开关仍可通过状态栏菜单切换（见 StatusBarMenuManager）。
       ]),
-      ...this.section("animation", t("headingAnimation"), [
-        { name: t("navAnimation"), render: (setting) => this.configureNavAnimation(setting) }
-      ]),
       ...this.section("advanced", t("headingAdvanced"), [
+        { name: t("navAnimation"), render: (setting) => this.configureNavAnimation(setting) },
         { name: t("filenamePrefixManual"), render: (setting) => this.configureFilenamePrefixManual(setting) },
         // 仅当手动隐藏开启时才显示长度设置。
         {

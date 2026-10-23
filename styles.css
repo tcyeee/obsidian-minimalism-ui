@@ -1459,24 +1459,32 @@ body.minimalism-ui-rsb-icon-dragging {
 
 .minimalism-ui-slot-list {
 	display: flex;
-	flex-direction: column;
+	flex-direction: row;
+	flex-wrap: nowrap;
+	align-items: center;
 	gap: 6px;
 	margin: 4px 0 12px 0;
+	overflow-x: auto;
 }
 
 .minimalism-ui-slot-empty {
+	flex: 1 0 200px;
 	color: var(--text-muted);
 	font-size: var(--font-ui-small);
-	padding: 10px 12px;
+	padding: 6px 8px;
 	border: 1px dashed var(--background-modifier-border);
 	border-radius: var(--radius-m);
 }
 
 .minimalism-ui-slot-row {
 	display: flex;
+	flex-direction: row;
 	align-items: center;
-	gap: 8px;
-	padding: 6px 10px;
+	flex: 1 0 112px;
+	min-width: 112px;
+	min-height: 42px;
+	gap: 6px;
+	padding: 4px 6px;
 	border: 1px solid var(--background-modifier-border);
 	border-radius: var(--radius-m);
 	background: var(--background-secondary);
@@ -1508,8 +1516,18 @@ body.minimalism-ui-rsb-icon-dragging {
 	color: var(--text-muted);
 	background: transparent;
 	box-shadow: none;
-	padding: 4px 8px;
+	padding: 4px;
 	cursor: pointer;
+}
+
+.minimalism-ui-slot-add {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+	width: 42px;
+	height: 42px;
+	padding: 0;
 }
 
 .minimalism-ui-slot-remove:hover {
@@ -1544,35 +1562,6 @@ body.minimalism-ui-rsb-icon-dragging {
 }
 
 /* ── 单页模式：多行说明与其他单行设置项对齐 ─────────────────────────── */
-
-/* ── 设置页顶部理念说明 ───────────────────────────────────────────────── */
-
-.minimalism-ui-intro {
-	margin-bottom: 18px;
-	padding: 14px 16px;
-	border: 1px solid var(--background-modifier-border);
-	border-left: 3px solid var(--interactive-accent);
-	border-radius: 8px;
-	background: var(--background-secondary);
-}
-
-.minimalism-ui-intro-title {
-	margin-bottom: 8px;
-	font-weight: 600;
-	font-size: var(--font-ui-medium);
-	color: var(--text-normal);
-}
-
-.minimalism-ui-intro p {
-	margin: 6px 0;
-	font-size: var(--font-ui-small);
-	line-height: 1.7;
-	color: var(--text-muted);
-}
-
-.minimalism-ui-intro p:last-child {
-	margin-bottom: 0;
-}
 
 .minimalism-ui-single-page-setting {
 	align-items: flex-start;
