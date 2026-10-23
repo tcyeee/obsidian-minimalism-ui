@@ -536,9 +536,13 @@ export class LeftSidebarManager {
 			const activeFile = this.app.workspace.getActiveFile();
 			if (activeFile) this.app.workspace.trigger('file-open', activeFile);
 
-			// 8. 关系图颜色首次探测。
+			// 8. 关系图：默认收起设置面板（Obsidian 原生默认展开，
+			//    否则每次新建 / 重建 leaf 都会展开遮挡 canvas），颜色首次探测延后到 CSS 就绪。
 			const graphLeaf = this.slotLeaves.get('localgraph');
-			if (graphLeaf) window.setTimeout(() => this.applyGraphColors(graphLeaf), 200);
+			if (graphLeaf) {
+				this.closeGraphControls(graphLeaf);
+				window.setTimeout(() => this.applyGraphColors(graphLeaf), 200);
+			}
 		} finally {
 			// 结尾的收起意图：进入前是收起的就还原收起 —— 唯一例外是这轮由设置里「添加 / 更换面板」
 			// 触发且确实新建了面板，那种情况用户是想立刻看到新面板，保持展开。
@@ -631,6 +635,21 @@ export class LeftSidebarManager {
 			uiDoc().body.classList.remove('minimalism-ui-sidebar-graph-reading');
 		};
 		renderer.testCSS();
+	}
+
+	/**
+	 * 关系图设置面板（.graph-controls）Obsidian 原生默认展开；每次新建 / 重建 localgraph leaf
+	 * （重启 Obsidian 恢复 workspace.json、切换 home / diary / other profile 触发 reconcile
+	 * 重建，或 slot 增删）都会重新展开，遮挡侧栏里的关系图 canvas。
+	 * 这里把它默认收起：给 .graph-controls 加 is-close，与原生「关闭」按钮同款行为
+	 * （只切面板开合，不碰 data-ignore-swipe）。
+	 */
+	private closeGraphControls(graphLeaf: WorkspaceLeaf): void {
+		const containerEl = (graphLeaf.view as unknown as { containerEl?: HTMLElement } | undefined)?.containerEl;
+		const controlsEl = containerEl?.querySelector('.graph-controls');
+		if (controlsEl && !controlsEl.classList.contains('is-close')) {
+			controlsEl.classList.add('is-close');
+		}
 	}
 
 	private restoreTestCSS(): void {
