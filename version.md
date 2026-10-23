@@ -5,6 +5,16 @@
 
 ---
 
+## Version 1.3.27
+
+- Changed: **minAppVersion raised to 1.13.0** — the settings tab now uses Obsidian's declarative `getSettingDefinitions()` API so its settings appear in Obsidian's in-app settings search; this is a breaking change for Obsidian versions older than 1.13.0, which will no longer receive plugin updates
+- Internal: fixed three remaining lint findings ahead of submission review — an unused `WorkspaceLeaf` import, a redundant `unknown | null` union type, and a `text-underline-offset` CSS property flagged as only partially supported by Obsidian's bundled Electron version
+
+- 变更：**minAppVersion 提升到 1.13.0**——设置页改用 Obsidian 声明式的 `getSettingDefinitions()` API，使设置项能被 Obsidian 内置设置搜索索引到；这是一次破坏性变更，低于 1.13.0 的 Obsidian 版本将不再收到插件更新
+- 内部修复：发布审核前修复了三处剩余的 lint 问题——一个未使用的 `WorkspaceLeaf` 导入、一个冗余的 `unknown | null` 联合类型，以及一个被判定为浏览器部分不支持的 `text-underline-offset` CSS 属性
+
+---
+
 ## Version 1.3.26
 
 - Fixed: in edit mode (Live Preview / source), Obsidian 1.14.x's core readable-line-width rule outranked the dynamic-width rule, silently pinning text to a fixed 700px column — dynamic-width selectors now include `.mod-cm6` to match the core rule's specificity again, so the edit view width follows the setting as intended
