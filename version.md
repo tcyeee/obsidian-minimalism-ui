@@ -5,6 +5,20 @@
 
 ---
 
+## Version 1.3.28
+
+- Fixed: in Single-Page Mode, redirecting an existing tab to a different file or view (e.g. via "open in same tab" links) bypassed the usual navigation handling, causing duplicate leaves and breadcrumb/back-forward desync — `openFile`/`setViewState` on managed root leaves are now patched so in-place redirects go through the same dedup and history recording as normal navigation
+- Added: the left sidebar can now use independent panel layouts for the home note, daily notes, and all other notes — configure each "profile" separately from settings, with contextual hints when the home page or Daily notes core plugin isn't set up yet
+- Changed: left sidebar panel settings got a more compact "add panel" control — an icon button inline with the panel list instead of a separate full-width button above it
+- Fixed: the Local Graph panel's built-in settings controls no longer pop open and cover the graph canvas every time the panel (re)builds — e.g. on startup, or when switching between home/diary/default sidebar profiles
+
+- 修复：单页模式下，将已有标签页重定向到另一篇笔记或视图（例如通过"在当前标签页打开"类链接）会绕过正常的导航处理，导致出现重复标签页及面包屑/前进后退历史错乱——现在对受管理的根标签页持久化 patch `openFile`/`setViewState`，使这类原地重定向也走与正常导航相同的去重与历史记录逻辑
+- 新增：左侧边栏现在可以为首页、日记笔记、以及其他笔记分别配置独立的面板布局——在设置中按"场景"单独配置，首页未设置或日记核心插件未启用时会有相应提示
+- 变更：左侧边栏面板设置的"添加面板"控件更紧凑——改为与面板列表同行的图标按钮，而不是列表上方单独的整行按钮
+- 修复：关系图面板自带的设置控件不再在每次面板（重新）构建时（如启动时，或切换首页/日记/默认侧栏场景时）自动展开并遮挡关系图画布
+
+---
+
 ## Version 1.3.27
 
 - Changed: **minAppVersion raised to 1.13.0** — the settings tab now uses Obsidian's declarative `getSettingDefinitions()` API so its settings appear in Obsidian's in-app settings search; this is a breaking change for Obsidian versions older than 1.13.0, which will no longer receive plugin updates
