@@ -1,7 +1,9 @@
-import { AbstractInputSuggest, App, PluginSettingTab, Setting, SettingDefinitionItem, SettingGroupItem, setIcon, TFile } from 'obsidian';
+import { AbstractInputSuggest, App, PluginSettingTab, Setting, SettingDefinitionItem, SettingGroupItem, TFile } from 'obsidian';
 import type MinimalismUIPlugin from '../main';
 import { t, setLang } from './core/i18n';
 import { MAX_LEFT_SIDEBAR_SLOTS } from './core/settings';
+import type { SidebarSlot } from './core/settings';
+import { getDailyNotesFolder } from './core/utils';
 
 // ─── File Suggester ───────────────────────────────────────────────────────────
 
@@ -143,7 +145,8 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				const applyHomePage = (value: string) => {
 					const changed = this.plugin.settings.homePage !== value;
 					this.plugin.settings.homePage = value;
-					void this.plugin.saveSettings().then(() => {
+					void this.plugin.saveSettings().then(async () => {
+						if (changed) await this.plugin.applyMacSidebarLayout();
 						if (changed && value) void this.plugin.resetToHomePage();
 					});
 				};
@@ -156,6 +159,24 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 
 	// 拖拽排序进行中的源行下标；drop 时读取，结束即清空。
 	private slotDragIndex: number | null = null;
+	private sidebarProfile: 'home' | 'diary' | 'other' = 'other';
+
+	private profileOverride(): SidebarSlot[] | null {
+		const s = this.plugin.settings;
+		return this.sidebarProfile === 'home' ? s.homeSidebarSlots
+			: this.sidebarProfile === 'diary' ? s.diarySidebarSlots : s.leftSidebarSlots;
+	}
+
+	private displayedSlots(): SidebarSlot[] {
+		const override = this.profileOverride();
+		return (override ?? this.plugin.settings.leftSidebarSlots).map(slot => ({ ...slot }));
+	}
+
+	private setProfileSlots(slots: SidebarSlot[] | null): void {
+		if (this.sidebarProfile === 'home') this.plugin.settings.homeSidebarSlots = slots;
+		else if (this.sidebarProfile === 'diary') this.plugin.settings.diarySidebarSlots = slots;
+		else this.plugin.settings.leftSidebarSlots = slots ?? [];
+	}
 
 	private async persistSlots(): Promise<void> {
 		await this.plugin.saveSettings();
@@ -167,45 +188,75 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 	private configureLeftSidebarSlots(parentEl: HTMLElement): void {
 		// 整个「面板配置」区域套一个 border，视觉上与其他设置项区分开
 		const sectionEl = parentEl.createDiv({ cls: 'minimalism-ui-slot-section' });
-		const slots = this.plugin.settings.leftSidebarSlots;
+		const slots = this.displayedSlots();
 		const options = this.plugin.listSidebarViewOptions();
 		const atLimit = slots.length >= MAX_LEFT_SIDEBAR_SLOTS;
 		const used = new Set(slots.map(s => s.viewType));
+		const workspaceEl = sectionEl.createDiv({ cls: 'minimalism-ui-slot-workspace' });
+		const tabs = workspaceEl.createDiv({ cls: 'minimalism-ui-slot-profiles' });
+		const contentEl = workspaceEl.createDiv({ cls: 'minimalism-ui-slot-content' });
+		const profileLabels: Record<typeof this.sidebarProfile, string> = {
+			home: t('sidebarProfileHome'), diary: t('sidebarProfileDiary'), other: t('sidebarProfileOther'),
+		};
+		for (const profile of ['home', 'diary', 'other'] as const) {
+			const tab = tabs.createEl('button', {
+				cls: `minimalism-ui-slot-profile${this.sidebarProfile === profile ? ' is-active' : ''}`,
+				text: profileLabels[profile],
+				attr: { 'aria-pressed': String(this.sidebarProfile === profile) },
+			});
+			tab.addEventListener('click', () => {
+				this.sidebarProfile = profile;
+				this.update();
+			});
+		}
+		const unavailableReason = this.sidebarProfile === 'home'
+			? (this.plugin.settings.homePage.trim() ? '' : t('sidebarProfileHomeUnavailable'))
+			: this.sidebarProfile === 'diary'
+				? (getDailyNotesFolder(this.app) === null ? t('sidebarProfileDiaryUnavailable') : '')
+				: '';
+		if (unavailableReason) contentEl.createDiv({ cls: 'minimalism-ui-slot-notice', text: unavailableReason });
+		const editable = !unavailableReason;
 		// 新增行默认选中：优先经典三面板，其次任意未占用的已注册 view。
 		const preferred = ['outline', 'file-properties', 'localgraph'];
 		const nextFree = preferred.filter(tp => options.some(o => o.type === tp)).find(tp => !used.has(tp))
 			?? options.find(o => !used.has(o.type))?.type;
 
-		const header = new Setting(sectionEl)
+		const header = new Setting(contentEl)
 			.setName(t('leftSidebarPanels'))
-			.setDesc(atLimit ? t('leftSidebarPanelsFull') : t('leftSidebarPanelsDesc'));
+			.setDesc(atLimit
+				? t('leftSidebarPanelsFull')
+				: t('leftSidebarPanelsDesc').replace('{profile}', profileLabels[this.sidebarProfile]));
+		header.addButton(btn => {
+			btn.setButtonText(t('addPanel'));
+			if (!editable || atLimit || !nextFree) {
+				btn.setDisabled(true);
+			} else {
+				btn.setCta();
+				btn.onClick(async () => {
+					slots.push({ id: `slot-${Date.now()}`, viewType: nextFree, enabled: true, height: null });
+					this.setProfileSlots(slots);
+					await this.persistSlots();
+				});
+			}
+		});
 
-		const listEl = sectionEl.createDiv({ cls: 'minimalism-ui-slot-list' });
-		if (slots.length === 0) {
+		const listEl = contentEl.createDiv({ cls: 'minimalism-ui-slot-list' });
+		if (slots.length === 0 && editable) {
 			listEl.createDiv({ cls: 'minimalism-ui-slot-empty', text: t('leftSidebarPanelsEmpty') });
+		} else if (slots.length > 0) {
+			slots.forEach((_, index) => this.renderSlotRow(listEl, index, options, editable));
 		}
-		slots.forEach((_, index) => this.renderSlotRow(listEl, index, options));
-		const addButton = listEl.createEl('button', {
-			cls: `minimalism-ui-slot-add${atLimit || !nextFree ? '' : ' mod-cta'}`,
-			attr: { 'aria-label': t('addPanel'), title: t('addPanel') },
-		});
-		setIcon(addButton, 'plus');
-		addButton.disabled = atLimit || !nextFree;
-		addButton.addEventListener('click', async () => {
-			if (addButton.disabled || !nextFree) return;
-			slots.push({ id: `slot-${Date.now()}`, viewType: nextFree, enabled: true, height: null });
-			await this.persistSlots();
-		});
 	}
 
 	private renderSlotRow(
 		listEl: HTMLElement,
 		index: number,
 		options: { type: string; label: string }[],
+		editable = true,
 	): void {
-		const slots = this.plugin.settings.leftSidebarSlots;
+		const slots = this.displayedSlots();
 		const slot = slots[index];
-		const row = listEl.createDiv({ cls: 'minimalism-ui-slot-row', attr: { draggable: 'true' } });
+		const row = listEl.createDiv({ cls: 'minimalism-ui-slot-row', attr: { draggable: String(editable) } });
 
 		row.createSpan({
 			cls: 'minimalism-ui-slot-handle',
@@ -224,8 +275,11 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		// 当前 slot 的 view type 未注册（插件已卸载等）时仍列出，避免下拉框回退到别的项。
 		if (!hasCurrent) select.createEl('option', { value: slot.viewType, text: slot.viewType });
 		select.value = slot.viewType;
+		select.disabled = !editable;
 		select.addEventListener('change', () => {
+			if (!editable) return;
 			slot.viewType = select.value;
+			this.setProfileSlots(slots);
 			void this.persistSlots();
 		});
 
@@ -234,11 +288,15 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 			text: '✕',
 			attr: { 'aria-label': t('removePanel') },
 		});
+		removeBtn.disabled = !editable;
 		removeBtn.addEventListener('click', () => {
+			if (!editable) return;
 			slots.splice(index, 1);
+			this.setProfileSlots(slots);
 			void this.persistSlots();
 		});
 
+		if (!editable) return;
 		row.addEventListener('dragstart', ev => {
 			this.slotDragIndex = index;
 			row.addClass('is-dragging');
@@ -262,6 +320,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 			if (from === null || from === index) return;
 			const [moved] = slots.splice(from, 1);
 			slots.splice(index, 0, moved);
+			this.setProfileSlots(slots);
 			void this.persistSlots();
 		});
 	}
