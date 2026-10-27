@@ -5,6 +5,26 @@
 
 ---
 
+## Version 1.3.29
+
+- Fixed: a same-leaf file swap (e.g. clicking a link from the home page) could briefly leave a view with no file but its old view type intact, which was mistaken for a genuine file-less view (graph, search, etc.) — this no longer pollutes the breadcrumb or corrupts back/forward navigation
+- Added: a new pinnable note-card sidebar panel that displays a single chosen note, with a note picker and an action to unbind it
+- Fixed: the note-card sidebar panel no longer flashes blank on re-render, and switching between home/diary/other profiles now reuses the same panel instance instead of rebuilding it from scratch
+- Fixed: embedded Bases card views in the dark sidebar no longer show as solid white tiles — the card background now matches the sidebar
+- Fixed: stacked left-sidebar panels no longer each get the extra top padding meant only for the topmost panel
+- Fixed: the right sidebar floating button setting, which had been accidentally disabled, works again
+- Fixed: the dynamic width row in the status bar popover is now hidden when Obsidian's readable line length setting is off, since dynamic width only makes sense as an override of it
+
+- 修复：同一标签页内切换文件（例如从首页点击链接）可能短暂地留下一个没有文件但仍保留旧视图类型的视图，被误判为真正的无文件视图（关系图、搜索等）——现在不再污染面包屑或破坏前进后退导航
+- 新增：新增可固定的笔记卡片侧栏面板，可选定并显示单篇笔记，附带笔记选择器和取消绑定操作
+- 修复：笔记卡片侧栏面板重新渲染时不再闪烁空白，切换首页/日记/其他场景时复用同一面板实例，而不是每次重新构建
+- 修复：深色侧栏中嵌入的 Bases 卡片视图不再显示为纯白色块——卡片背景现在与侧栏保持一致
+- 修复：堆叠的左侧栏面板不再各自叠加原本只应用于最上层面板的顶部留白
+- 修复：右侧栏悬浮按钮设置项此前被意外禁用，现已恢复可用
+- 修复：状态栏弹出面板中的动态宽度行，在 Obsidian 的可读行宽设置关闭时不再显示，因为动态宽度本来就只是对该设置的覆盖
+
+---
+
 ## Version 1.3.28
 
 - Fixed: in Single-Page Mode, redirecting an existing tab to a different file or view (e.g. via "open in same tab" links) bypassed the usual navigation handling, causing duplicate leaves and breadcrumb/back-forward desync — `openFile`/`setViewState` on managed root leaves are now patched so in-place redirects go through the same dedup and history recording as normal navigation
