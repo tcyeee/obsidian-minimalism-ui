@@ -395,8 +395,12 @@ body.minimalism-ui-disable-note-tabs .workspace-split.mod-root .workspace-leaf-c
 }
 
 /* ── 信息栏美化：左侧边栏顶部内边距 ─────────────────────────────────── */
+/* 隐藏 tab bar 后用这段 padding 补回顶部留白，但留白只属于整个侧边栏的最顶端——
+   侧边栏可被拆成多个堆叠面板（见下方 .mod-top-left-space 虚线分隔注释），原选择器
+   不限定面板，导致每个面板的 leaf-content 都补上 35px，层层叠加。改为只命中
+   Obsidian 原生标记的最顶部面板（.mod-top-left-space），其余面板不再重复补白。 */
 
-.minimalism-ui-simplify-panel .workspace-split.mod-left-split .workspace-leaf-content:not([data-type="localgraph"]) {
+.minimalism-ui-simplify-panel .workspace-split.mod-left-split > .workspace-tabs.mod-top-left-space .workspace-leaf-content:not([data-type="localgraph"]) {
 	padding-top: 35px;
 }
 
