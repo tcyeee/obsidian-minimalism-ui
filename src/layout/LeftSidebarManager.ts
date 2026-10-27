@@ -6,6 +6,7 @@ import { uiDoc } from '../core/appDom';
 import { t } from '../core/i18n';
 import { openPluginSettings } from '../core/obsidianCommands';
 import { getDailyNotesFolder } from '../core/utils';
+import { VIEW_TYPE_NOTE_CARD } from '../note-card/NoteCardView';
 
 // Obsidian 内部 workspace-item 树的最小结构约定（官方类型声明里没有 children/insertChild 等）。
 // spike 结论（2026-09-01，见记忆 project-configurable-left-sidebar-slots）：
@@ -43,6 +44,12 @@ type SidedockLike = ItemLike & {
 // 关系图有自己的一套自动高度逻辑（旧 SidebarLayoutManager 的 4:3 ResizeObserver，Phase 4 迁入），
 // 无论哪种架构它都是单独一条路径。persistSlotHeights 跳过它、applySlotHeights 给它补隐式值。
 const GRAPH_VIEW_TYPE = 'localgraph';
+
+// profile 切换时不走「detach + lastDetachedState 恢复」、而是整组摘下保活、原样插回的 view type。
+// 目前仅 note-card：它的渲染开销（cachedRead + MarkdownRenderer）用户肉眼可见，detach 重建
+// 会在切 profile 时闪一下；其余工具类面板（outline/properties/…）重建成本可忽略，不值得为
+// 它们背上「摘下的 leaf 永久不进 workspace 树」这份复杂度。见 parkedGroups 字段注释。
+const PARKABLE_VIEW_TYPES = new Set<string>([VIEW_TYPE_NOTE_CARD]);
 
 const EMPTY_HINT_CLASS = 'minimalism-ui-sidebar-empty-hint';
 const EMPTY_HINT_ICON_CLASS = 'minimalism-ui-sidebar-empty-hint-icon';
@@ -124,6 +131,16 @@ export class LeftSidebarManager {
 	// 立刻把它们刷新到当前文件，旧状态只是这一帧内的无害底噪。
 	private lastDetachedState = new Map<string, Record<string, unknown> | undefined>();
 
+	// PARKABLE_VIEW_TYPES 专用：viewType → 已从 leftSplit.children 摘下但未 detach() 的 group
+	// （WorkspaceTabs 或裸 leaf）。removeChild 只是工作区树的结构移除（同步 DOM），不会调
+	// view.onClose()/销毁 leaf —— 组内的 WorkspaceLeaf、View 实例、已渲染的 DOM 全部原样留在
+	// 内存里，只是暂时没有挂在任何 split 下、不出现在 iterateAllLeaves() 里。profile 切回来
+	// 需要它时直接 insertChild 插回，不重新 setViewState，不触发任何重渲染。
+	// 与 lastDetachedState 的关系：two 条路径互斥——走 park 就不进 lastDetachedState（没必要，
+	// leaf 本身没丢状态）；remove() 卸载时必须把残留的 parked group 插回 leftSplit，否则这些
+	// leaf 永久游离于工作区树之外、用户也没有 Tab 可以关它们。
+	private parkedGroups = new Map<string, unknown>();
+
 	constructor(
 		private app: App,
 		private getSettings: () => MinimalismUISettings,
@@ -189,6 +206,19 @@ export class LeftSidebarManager {
 		this.restoreTestCSS();
 		this.restoreEmptyStateHint();
 		this.slotLeaves.clear();
+		// 卸载前把 park 住的 group 插回 leftSplit —— 否则它们的 leaf 永久游离在工作区树外，
+		// 用户也没有 Tab 能关掉它。插回后就是一个普通 Tab，与「split 结构本身保留」的既有
+		// 卸载语义一致。
+		if (this.parkedGroups.size > 0) {
+			const ls = this.leftSplit();
+			if (ls) {
+				for (const group of this.parkedGroups.values()) {
+					ls.insertChild?.(ls.children?.length ?? 0, group);
+				}
+				ls.recomputeChildrenDimensions?.();
+			}
+			this.parkedGroups.clear();
+		}
 	}
 
 	// ── 持续守卫 ──────────────────────────────────────────────────────────────
@@ -423,7 +453,7 @@ export class LeftSidebarManager {
 		const desired = this.enabledSlots().map(s => s.viewType);
 
 		// slot 列表变了就重置「建不出来」黑名单：用户可能刚重装了某个提供 view 的插件。
-		const desiredKey = desired.join(' ');
+		const desiredKey = desired.join(' ');
 		if (desiredKey !== this.lastDesiredKey) {
 			this.unsatisfiableTypes.clear();
 			this.lastDesiredKey = desiredKey;
@@ -441,8 +471,17 @@ export class LeftSidebarManager {
 		if (desired.length === 0) {
 			this.slotLeaves.clear();
 			const wasCollapsed = ls.collapsed;
+			const parkedType = new Set<string>();
 			for (const leaf of this.leftLeaves()) {
-				if (!DOCUMENT_VIEW_TYPES.has(this.viewTypeOf(leaf))) this.detachLeaf(leaf);
+				const type = this.viewTypeOf(leaf);
+				if (DOCUMENT_VIEW_TYPES.has(type)) continue;
+				// PARKABLE_VIEW_TYPES 摘下保活而非 detach：0 slot profile 往返切换时同样不该闪一下。
+				if (PARKABLE_VIEW_TYPES.has(type) && !parkedType.has(type)) {
+					this.parkLeaf(ls, leaf, type);
+					parkedType.add(type);
+				} else {
+					this.detachLeaf(leaf);
+				}
 			}
 			// 原生「侧栏为空」提示：换成引导去设置配置面板的文案 + 图标（居中排版见 styles.css）。
 			this.applyEmptyStateHint(ls);
@@ -484,9 +523,17 @@ export class LeftSidebarManager {
 				}
 			}
 
-			// 3. 为每个尚无 leaf 的 desired viewType 建 leaf（末尾新建独立 tab 组），随后统一重排。
+			// 3. 为每个尚无 leaf 的 desired viewType 补齐：PARKABLE_VIEW_TYPES 之前被 park 住的组
+			//    直接插回原样复用（leaf/View 实例原封不动，不重新 setViewState，不触发任何重渲染）；
+			//    否则才新建 leaf（末尾新建独立 tab 组），随后统一重排。
 			for (const type of desired) {
 				if (this.findSlotGroup(ls, type)) continue;
+				const parked = this.parkedGroups.get(type);
+				if (parked) {
+					this.parkedGroups.delete(type);
+					ls.insertChild!(ls.children?.length ?? 0, parked);
+					continue;
+				}
 				if (this.unsatisfiableTypes.has(type)) continue;
 				const leaf = this.app.workspace.getLeftLeaf(true);
 				if (!leaf) continue;
@@ -501,14 +548,26 @@ export class LeftSidebarManager {
 			}
 
 			// 4. 清场（leaf 粒度、幂等）：不在 slot 列表里的工具 leaf（旧 slot、Obsidian 默认放进来
-			//    的文件浏览器 / 搜索 / 书签）以及同一 viewType 的重复 leaf 一律摘掉。文档类 leaf 不碰；
-			//    leftSplit 至少留 1 个子节点（第 3 步已放进 ≥1 个 desired 面板，这里恒成立，仍加保险）。
+			//    的文件浏览器 / 搜索 / 书签）以及同一 viewType 的重复 leaf 一律摘掉——除了
+			//    PARKABLE_VIEW_TYPES：第一个遇到的摘下保活（park），多出来的重复 leaf 仍直接摘掉。
+			//    文档类 leaf 不碰；leftSplit 至少留 1 个子节点（第 3 步已放进 ≥1 个 desired 面板，
+			//    这里恒成立，仍加保险）。
 			const seenType = new Set<string>();
+			const parkedType = new Set<string>();
 			for (const leaf of this.leftLeaves()) {
 				if ((ls.children?.length ?? 0) <= 1) break;
 				const type = this.viewTypeOf(leaf);
 				if (!type || DOCUMENT_VIEW_TYPES.has(type)) continue;
-				if (!desiredSet.has(type) || seenType.has(type)) {
+				if (!desiredSet.has(type)) {
+					if (PARKABLE_VIEW_TYPES.has(type) && !parkedType.has(type)) {
+						this.parkLeaf(ls, leaf, type);
+						parkedType.add(type);
+					} else {
+						this.detachLeaf(leaf);
+					}
+					continue;
+				}
+				if (seenType.has(type)) {
 					this.detachLeaf(leaf);
 					continue;
 				}
@@ -627,6 +686,30 @@ export class LeftSidebarManager {
 		} catch {
 			try { leaf.detach(); } catch { /* already gone */ }
 		}
+	}
+
+	// leaf 所在、且是 leftSplit 直接子节点的那一层节点（通常是 WorkspaceTabs，裸 leaf 时就是
+	// leaf 自身）——park / 还原整组时的操作粒度，与 findSlotGroup 的返回值同一层级。
+	private topLevelGroupOf(ls: SidedockLike, leaf: WorkspaceLeaf): unknown {
+		let node: unknown = leaf;
+		while (node) {
+			if ((ls.children ?? []).includes(node)) return node;
+			node = (node as { parent?: unknown } | null)?.parent;
+		}
+		return null;
+	}
+
+	// PARKABLE_VIEW_TYPES 专用：把 leaf 所在的组整个从 leftSplit.children 摘下但不 detach()——
+	// leaf / View 实例 / 已渲染的 DOM 全部留在内存里，只是暂时不出现在 leftSplit 里。找不到
+	// 顶层组（异常情况）时退化成普通 detachLeaf，不留半摘的子节点。
+	private parkLeaf(ls: SidedockLike, leaf: WorkspaceLeaf, type: string): void {
+		const group = this.topLevelGroupOf(ls, leaf);
+		if (!group) {
+			this.detachLeaf(leaf);
+			return;
+		}
+		ls.removeChild!(group);
+		this.parkedGroups.set(type, group);
 	}
 
 	// ── 关系图颜色重探（自 SidebarLayoutManager 迁移）─────────────────────────
