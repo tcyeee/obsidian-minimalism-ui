@@ -4,6 +4,10 @@ import { App, WorkspaceLeaf } from 'obsidian';
 // 文档类 view —— 这些 view 脱离文件上下文 setViewState 大概率报错或空白，且"切到 markdown/canvas
 // 视图"这个操作在悬浮面板 / 侧栏 slot 的语义下也没有意义。此处只列出 Obsidian 核心已知的文档类
 // type；第三方插件注册的未知类型一律放行，由 ensureAllToolViewsExist 的 try/catch 兜底探测失败。
+//
+// minimalism-ui-note-card（见 note-card/）故意**不在**这个集合里：它脱离文件上下文时展示的
+// 是有效的「选择笔记」空白态而非报错/空白，且就是要让用户通过左侧栏「添加面板」下拉框把它
+// 当成一个普通工具类 view 选中——留在 DOCUMENT_VIEW_TYPES 里会让它从下拉框里消失。
 export const DOCUMENT_VIEW_TYPES = new Set([
 	'markdown', 'canvas', 'pdf', 'image', 'audio', 'video',
 	'empty', 'release-notes', 'webviewer', 'bases',
