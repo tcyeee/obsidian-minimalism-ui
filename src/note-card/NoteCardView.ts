@@ -31,6 +31,9 @@ interface NoteCardState {
 export class NoteCardView extends ItemView {
 	private boundFile: TFile | null = null;
 	private renderToken = 0;
+	// 绑定文件 path + 内容的联合 key：render() 被重复调用但内容其实没变时据此整段跳过，
+	// 避免「先 empty() 清空、再 await 重排」这段必然出现的空白间隙在视觉上闪一下。
+	private lastRenderedKey: string | null = null;
 
 	constructor(leaf: WorkspaceLeaf) {
 		super(leaf);
@@ -120,19 +123,32 @@ export class NoteCardView extends ItemView {
 		// 渲染途中若又切换了文件（选择笔记 / 解绑连续触发、与 modify 事件竞态），
 		// 丢弃过期的异步结果，避免旧内容在新内容之后才落地覆盖回去。
 		const token = ++this.renderToken;
-		this.contentEl.empty();
 
 		if (!this.boundFile) {
-			this.renderEmptyState();
+			if (this.lastRenderedKey !== null) {
+				this.contentEl.empty();
+				this.renderEmptyState();
+			}
+			this.lastRenderedKey = null;
 			return;
 		}
 
 		const content = await this.app.vault.cachedRead(this.boundFile);
 		if (token !== this.renderToken) return;
 
-		const target = this.contentEl.createDiv({ cls: 'markdown-rendered' });
+		// render() 可能被重复调用（例如面板重新显示时的兜底刷新）但内容其实没变——
+		// 整段跳过，现有 DOM 原封不动，不产生任何可感知的闪烁。
+		const key = `${this.boundFile.path}\u0000${content}`;
+		if (key === this.lastRenderedKey) return;
+
+		// 离屏渲染完成后才整块替换当前 DOM，避免「先 empty() 清空再慢慢填回」的空白间隙。
+		const target = createDiv({ cls: 'markdown-rendered' });
 		await MarkdownRenderer.render(this.app, content, target, this.boundFile.path, this);
-		if (token !== this.renderToken) target.remove();
+		if (token !== this.renderToken) return;
+
+		this.contentEl.empty();
+		this.contentEl.appendChild(target);
+		this.lastRenderedKey = key;
 	}
 
 	private renderEmptyState(): void {

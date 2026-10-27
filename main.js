@@ -2461,7 +2461,7 @@ _DragBarManager.TRAFFIC_LIGHT_SAFE_WIDTH = 80;
 var DragBarManager = _DragBarManager;
 
 // src/layout/LeftSidebarManager.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 
 // src/core/obsidianCommands.ts
 function patchExecuteCommand(app, onExecuted) {
@@ -2504,8 +2504,140 @@ function openPluginSettings(app, sectionTitle) {
   });
 }
 
+// src/note-card/NoteCardView.ts
+var import_obsidian6 = require("obsidian");
+
+// src/note-card/NoteSuggestModal.ts
+var import_obsidian5 = require("obsidian");
+var NoteSuggestModal = class extends import_obsidian5.FuzzySuggestModal {
+  constructor(app, onChoose) {
+    super(app);
+    this.onChoose = onChoose;
+    this.setPlaceholder(t("noteCardSuggestPlaceholder"));
+  }
+  getItems() {
+    return this.app.vault.getMarkdownFiles();
+  }
+  getItemText(file) {
+    return file.path;
+  }
+  onChooseItem(file) {
+    this.onChoose(file);
+  }
+};
+
+// src/note-card/NoteCardView.ts
+var VIEW_TYPE_NOTE_CARD = "minimalism-ui-note-card";
+var NoteCardView = class extends import_obsidian6.ItemView {
+  constructor(leaf) {
+    super(leaf);
+    this.boundFile = null;
+    this.renderToken = 0;
+    // 绑定文件 path + 内容的联合 key：render() 被重复调用但内容其实没变时据此整段跳过，
+    // 避免「先 empty() 清空、再 await 重排」这段必然出现的空白间隙在视觉上闪一下。
+    this.lastRenderedKey = null;
+    this.addAction("ellipsis-vertical", t("noteCardMenuTooltip"), (evt) => this.showMenu(evt));
+  }
+  getViewType() {
+    return VIEW_TYPE_NOTE_CARD;
+  }
+  getDisplayText() {
+    return this.boundFile ? this.boundFile.basename : t("noteCard");
+  }
+  getIcon() {
+    return "file-text";
+  }
+  async onOpen() {
+    this.contentEl.addClass("minimalism-ui-note-card");
+    this.registerEvent(
+      this.app.vault.on("modify", (file) => {
+        if (this.boundFile && file.path === this.boundFile.path) void this.render();
+      })
+    );
+    this.registerEvent(
+      this.app.vault.on("rename", (file, oldPath) => {
+        if (this.boundFile && oldPath === this.boundFile.path && file instanceof import_obsidian6.TFile) {
+          this.boundFile = file;
+          void this.render();
+        }
+      })
+    );
+    await this.render();
+  }
+  async setFile(file) {
+    this.boundFile = file;
+    await this.render();
+    this.persistBinding();
+  }
+  async unbind() {
+    this.boundFile = null;
+    await this.render();
+    this.persistBinding();
+  }
+  // requestSaveLayout() 本身是 debounced：若用户绑定/解绑后立刻刷新 Obsidian（或插件被
+  // disable/enable），debounce 定时器还没触发，workspace.json 里存的还是上一次的旧绑定，
+  // 刷新后看起来「绑定消失了」。.run() 是 Debouncer 公开 API，跳过等待立即落盘。
+  persistBinding() {
+    this.app.workspace.requestSaveLayout();
+    void this.app.workspace.requestSaveLayout.run();
+  }
+  getState() {
+    var _a, _b;
+    const state = { file: (_b = (_a = this.boundFile) == null ? void 0 : _a.path) != null ? _b : null };
+    return state;
+  }
+  async setState(state, result) {
+    var _a;
+    const path = (_a = state == null ? void 0 : state.file) != null ? _a : null;
+    const restored = path ? this.app.vault.getAbstractFileByPath(path) : null;
+    this.boundFile = restored instanceof import_obsidian6.TFile ? restored : null;
+    await this.render();
+    await super.setState(state, result);
+  }
+  showMenu(evt) {
+    const menu = new import_obsidian6.Menu();
+    menu.addItem(
+      (item) => item.setTitle(t("noteCardUnbind")).setIcon("unlink").setDisabled(!this.boundFile).onClick(() => void this.unbind())
+    );
+    menu.showAtMouseEvent(evt);
+  }
+  async render() {
+    const token = ++this.renderToken;
+    if (!this.boundFile) {
+      if (this.lastRenderedKey !== null) {
+        this.contentEl.empty();
+        this.renderEmptyState();
+      }
+      this.lastRenderedKey = null;
+      return;
+    }
+    const content = await this.app.vault.cachedRead(this.boundFile);
+    if (token !== this.renderToken) return;
+    const key = `${this.boundFile.path}\0${content}`;
+    if (key === this.lastRenderedKey) return;
+    const target = createDiv({ cls: "markdown-rendered" });
+    await import_obsidian6.MarkdownRenderer.render(this.app, content, target, this.boundFile.path, this);
+    if (token !== this.renderToken) return;
+    this.contentEl.empty();
+    this.contentEl.appendChild(target);
+    this.lastRenderedKey = key;
+  }
+  renderEmptyState() {
+    const empty = this.contentEl.createDiv({ cls: "minimalism-ui-note-card-empty" });
+    empty.createDiv({ cls: "minimalism-ui-note-card-empty-desc", text: t("noteCardEmptyDesc") });
+    const button = empty.createEl("button", {
+      cls: "minimalism-ui-note-card-choose mod-cta",
+      text: t("noteCardChooseNote")
+    });
+    button.addEventListener("click", () => {
+      new NoteSuggestModal(this.app, (file) => void this.setFile(file)).open();
+    });
+  }
+};
+
 // src/layout/LeftSidebarManager.ts
 var GRAPH_VIEW_TYPE = "localgraph";
+var PARKABLE_VIEW_TYPES = /* @__PURE__ */ new Set([VIEW_TYPE_NOTE_CARD]);
 var EMPTY_HINT_CLASS = "minimalism-ui-sidebar-empty-hint";
 var EMPTY_HINT_ICON_CLASS = "minimalism-ui-sidebar-empty-hint-icon";
 var EMPTY_HINT_TEXT_CLASS = "minimalism-ui-sidebar-empty-hint-text";
@@ -2565,6 +2697,15 @@ var LeftSidebarManager = class {
     // 对 outline/file-properties 等本就跟随 activeFile 的面板无害：第 7 步的 file-open 兜底会
     // 立刻把它们刷新到当前文件，旧状态只是这一帧内的无害底噪。
     this.lastDetachedState = /* @__PURE__ */ new Map();
+    // PARKABLE_VIEW_TYPES 专用：viewType → 已从 leftSplit.children 摘下但未 detach() 的 group
+    // （WorkspaceTabs 或裸 leaf）。removeChild 只是工作区树的结构移除（同步 DOM），不会调
+    // view.onClose()/销毁 leaf —— 组内的 WorkspaceLeaf、View 实例、已渲染的 DOM 全部原样留在
+    // 内存里，只是暂时没有挂在任何 split 下、不出现在 iterateAllLeaves() 里。profile 切回来
+    // 需要它时直接 insertChild 插回，不重新 setViewState，不触发任何重渲染。
+    // 与 lastDetachedState 的关系：two 条路径互斥——走 park 就不进 lastDetachedState（没必要，
+    // leaf 本身没丢状态）；remove() 卸载时必须把残留的 parked group 插回 leftSplit，否则这些
+    // leaf 永久游离于工作区树之外、用户也没有 Tab 可以关它们。
+    this.parkedGroups = /* @__PURE__ */ new Map();
   }
   // ── Public ────────────────────────────────────────────────────────────────
   async apply(opts) {
@@ -2597,6 +2738,7 @@ var LeftSidebarManager = class {
   }
   /** 卸载：解绑 layout-change 守卫，还原 testCSS patch + 原生空侧栏提示。split 结构本身保留（多 stacked leaf 是 Obsidian 可接受状态）。 */
   remove() {
+    var _a, _b, _c, _d;
     if (this.layoutChangeHandler) {
       this.app.workspace.off("layout-change", this.layoutChangeHandler);
       this.layoutChangeHandler = null;
@@ -2620,6 +2762,16 @@ var LeftSidebarManager = class {
     this.restoreTestCSS();
     this.restoreEmptyStateHint();
     this.slotLeaves.clear();
+    if (this.parkedGroups.size > 0) {
+      const ls = this.leftSplit();
+      if (ls) {
+        for (const group of this.parkedGroups.values()) {
+          (_c = ls.insertChild) == null ? void 0 : _c.call(ls, (_b = (_a = ls.children) == null ? void 0 : _a.length) != null ? _b : 0, group);
+        }
+        (_d = ls.recomputeChildrenDimensions) == null ? void 0 : _d.call(ls);
+      }
+      this.parkedGroups.clear();
+    }
   }
   // ── 持续守卫 ──────────────────────────────────────────────────────────────
   ensureLayoutGuard() {
@@ -2826,11 +2978,11 @@ var LeftSidebarManager = class {
     return map;
   }
   async doReconcile() {
-    var _a, _b, _c, _d, _e, _f;
+    var _a, _b, _c, _d, _e, _f, _g, _h;
     const ls = this.leftSplit();
     if (!ls) return;
     const desired = this.enabledSlots().map((s) => s.viewType);
-    const desiredKey = desired.join("\0");
+    const desiredKey = desired.join(" ");
     if (desiredKey !== this.lastDesiredKey) {
       this.unsatisfiableTypes.clear();
       this.lastDesiredKey = desiredKey;
@@ -2838,8 +2990,16 @@ var LeftSidebarManager = class {
     if (desired.length === 0) {
       this.slotLeaves.clear();
       const wasCollapsed2 = ls.collapsed;
+      const parkedType = /* @__PURE__ */ new Set();
       for (const leaf of this.leftLeaves()) {
-        if (!DOCUMENT_VIEW_TYPES.has(this.viewTypeOf(leaf))) this.detachLeaf(leaf);
+        const type = this.viewTypeOf(leaf);
+        if (DOCUMENT_VIEW_TYPES.has(type)) continue;
+        if (PARKABLE_VIEW_TYPES.has(type) && !parkedType.has(type)) {
+          this.parkLeaf(ls, leaf, type);
+          parkedType.add(type);
+        } else {
+          this.detachLeaf(leaf);
+        }
       }
       this.applyEmptyStateHint(ls);
       this.persistCollapsedState(ls, wasCollapsed2);
@@ -2864,6 +3024,12 @@ var LeftSidebarManager = class {
       }
       for (const type of desired) {
         if (this.findSlotGroup(ls, type)) continue;
+        const parked = this.parkedGroups.get(type);
+        if (parked) {
+          this.parkedGroups.delete(type);
+          ls.insertChild((_d = (_c = ls.children) == null ? void 0 : _c.length) != null ? _d : 0, parked);
+          continue;
+        }
         if (this.unsatisfiableTypes.has(type)) continue;
         const leaf = this.app.workspace.getLeftLeaf(true);
         if (!leaf) continue;
@@ -2877,11 +3043,21 @@ var LeftSidebarManager = class {
         }
       }
       const seenType = /* @__PURE__ */ new Set();
+      const parkedType = /* @__PURE__ */ new Set();
       for (const leaf of this.leftLeaves()) {
-        if (((_d = (_c = ls.children) == null ? void 0 : _c.length) != null ? _d : 0) <= 1) break;
+        if (((_f = (_e = ls.children) == null ? void 0 : _e.length) != null ? _f : 0) <= 1) break;
         const type = this.viewTypeOf(leaf);
         if (!type || DOCUMENT_VIEW_TYPES.has(type)) continue;
-        if (!desiredSet.has(type) || seenType.has(type)) {
+        if (!desiredSet.has(type)) {
+          if (PARKABLE_VIEW_TYPES.has(type) && !parkedType.has(type)) {
+            this.parkLeaf(ls, leaf, type);
+            parkedType.add(type);
+          } else {
+            this.detachLeaf(leaf);
+          }
+          continue;
+        }
+        if (seenType.has(type)) {
           this.detachLeaf(leaf);
           continue;
         }
@@ -2895,11 +3071,11 @@ var LeftSidebarManager = class {
         ls.removeChild(group);
         ls.insertChild(Math.min(i, ls.children.length), group);
       }
-      (_e = ls.recomputeChildrenDimensions) == null ? void 0 : _e.call(ls);
+      (_g = ls.recomputeChildrenDimensions) == null ? void 0 : _g.call(ls);
       this.slotLeaves.clear();
       const finalByType = this.toolLeavesByType();
       for (const type of desired) {
-        const leaf = (_f = finalByType.get(type)) == null ? void 0 : _f[0];
+        const leaf = (_h = finalByType.get(type)) == null ? void 0 : _h[0];
         if (leaf) this.slotLeaves.set(type, leaf);
       }
       await this.leafMount.materializeDeferredLeaves([...this.slotLeaves.values()]);
@@ -2949,9 +3125,9 @@ var LeftSidebarManager = class {
   // 一个 leftSplit 直接子节点对应的 leaf：child 本身是 leaf，或 child 是只含一个 leaf 的 tab 组。
   leafOfGroup(group) {
     if (!group || typeof group !== "object") return null;
-    if (group instanceof import_obsidian5.WorkspaceLeaf) return group;
+    if (group instanceof import_obsidian7.WorkspaceLeaf) return group;
     const kids = group.children;
-    if (Array.isArray(kids) && kids.length === 1 && kids[0] instanceof import_obsidian5.WorkspaceLeaf) {
+    if (Array.isArray(kids) && kids.length === 1 && kids[0] instanceof import_obsidian7.WorkspaceLeaf) {
       return kids[0];
     }
     return null;
@@ -2980,6 +3156,29 @@ var LeftSidebarManager = class {
       } catch (e2) {
       }
     }
+  }
+  // leaf 所在、且是 leftSplit 直接子节点的那一层节点（通常是 WorkspaceTabs，裸 leaf 时就是
+  // leaf 自身）——park / 还原整组时的操作粒度，与 findSlotGroup 的返回值同一层级。
+  topLevelGroupOf(ls, leaf) {
+    var _a;
+    let node = leaf;
+    while (node) {
+      if (((_a = ls.children) != null ? _a : []).includes(node)) return node;
+      node = node == null ? void 0 : node.parent;
+    }
+    return null;
+  }
+  // PARKABLE_VIEW_TYPES 专用：把 leaf 所在的组整个从 leftSplit.children 摘下但不 detach()——
+  // leaf / View 实例 / 已渲染的 DOM 全部留在内存里，只是暂时不出现在 leftSplit 里。找不到
+  // 顶层组（异常情况）时退化成普通 detachLeaf，不留半摘的子节点。
+  parkLeaf(ls, leaf, type) {
+    const group = this.topLevelGroupOf(ls, leaf);
+    if (!group) {
+      this.detachLeaf(leaf);
+      return;
+    }
+    ls.removeChild(group);
+    this.parkedGroups.set(type, group);
   }
   // ── 关系图颜色重探（自 SidebarLayoutManager 迁移）─────────────────────────
   applyGraphColors(graphLeaf) {
@@ -3035,7 +3234,7 @@ var LeftSidebarManager = class {
     host.classList.add(EMPTY_HINT_CLASS);
     this.hintedEmptyStateEl = host;
     if (!host.querySelector(`:scope > .${EMPTY_HINT_ICON_CLASS}`)) {
-      (0, import_obsidian5.setIcon)(host.createDiv({ cls: EMPTY_HINT_ICON_CLASS, prepend: true }), "panel-left");
+      (0, import_obsidian7.setIcon)(host.createDiv({ cls: EMPTY_HINT_ICON_CLASS, prepend: true }), "panel-left");
     }
     const textEl = (_a = host.querySelector(`:scope > .${EMPTY_HINT_TEXT_CLASS}`)) != null ? _a : host.createEl("p", { cls: EMPTY_HINT_TEXT_CLASS });
     textEl.empty();
@@ -3254,7 +3453,7 @@ var PropertyKeyResizer = class {
 };
 
 // src/layout/RibbonPanelManager.ts
-var import_obsidian6 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 var RibbonPanelManager = class {
   constructor(getSettings, saveSettings) {
     this.getSettings = getSettings;
@@ -3303,7 +3502,7 @@ var RibbonPanelManager = class {
     const expanded = this.getSettings().ribbonPanelExpanded;
     if (!expanded) this.panel.classList.add("is-collapsed");
     this.toggleBtn = createDiv({ cls: "minimalism-ui-ribbon-toggle clickable-icon" });
-    (0, import_obsidian6.setIcon)(this.toggleBtn, expanded ? "chevron-down" : "chevron-up");
+    (0, import_obsidian8.setIcon)(this.toggleBtn, expanded ? "chevron-down" : "chevron-up");
     this.toggleBtn.addEventListener("click", () => this.toggle());
     vaultActions.prepend(this.toggleBtn);
   }
@@ -3335,13 +3534,13 @@ var RibbonPanelManager = class {
     const s = this.getSettings();
     s.ribbonPanelExpanded = !s.ribbonPanelExpanded;
     this.panel.classList.toggle("is-collapsed", !s.ribbonPanelExpanded);
-    (0, import_obsidian6.setIcon)(this.toggleBtn, s.ribbonPanelExpanded ? "chevron-down" : "chevron-up");
+    (0, import_obsidian8.setIcon)(this.toggleBtn, s.ribbonPanelExpanded ? "chevron-down" : "chevron-up");
     void this.saveSettings();
   }
 };
 
 // src/layout/EditorStatusManager.ts
-var import_obsidian7 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 var LOCK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
 var LOCK_SVG_EL = new DOMParser().parseFromString(LOCK_SVG, "image/svg+xml").documentElement;
 var EditorStatusManager = class {
@@ -3367,7 +3566,7 @@ var EditorStatusManager = class {
   }
   updateState() {
     if (!this.statusBarItem) return;
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian7.MarkdownView);
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian9.MarkdownView);
     const isReading = (view == null ? void 0 : view.getState().mode) === "preview";
     this.statusBarItem.toggleClass("is-reading", isReading);
     if (isReading) {
@@ -3393,7 +3592,7 @@ var EditorStatusManager = class {
 };
 
 // src/layout/StatusBarMenuManager.ts
-var import_obsidian8 = require("obsidian");
+var import_obsidian10 = require("obsidian");
 var TRIGGER_ICON = "ellipsis-vertical";
 var DYNAMIC_WIDTH_CSS_CLASS = "minimalism-dynamic-width";
 var POPOVER_CLASS = "minimalism-ui-status-popover";
@@ -3421,7 +3620,7 @@ var StatusBarMenuManager = class {
     this.remove();
     this.statusBarItem = this.plugin.addStatusBarItem();
     this.statusBarItem.addClass("minimalism-ui-status-menu");
-    (0, import_obsidian8.setIcon)(this.statusBarItem, TRIGGER_ICON);
+    (0, import_obsidian10.setIcon)(this.statusBarItem, TRIGGER_ICON);
     this.statusBarItem.setAttribute("aria-label", t("statusBarMenuLabel"));
     this.statusBarItem.setAttribute("data-tooltip-position", "top");
     this.statusBarItem.setAttribute("tabindex", "0");
@@ -3531,7 +3730,7 @@ var StatusBarMenuManager = class {
     var _a, _b;
     if (!this.popoverEl) return;
     this.popoverEl.empty();
-    const leaf = (_b = (_a = this.app.workspace.getActiveViewOfType(import_obsidian8.MarkdownView)) == null ? void 0 : _a.leaf) != null ? _b : null;
+    const leaf = (_b = (_a = this.app.workspace.getActiveViewOfType(import_obsidian10.MarkdownView)) == null ? void 0 : _a.leaf) != null ? _b : null;
     const file = this.app.workspace.getActiveFile();
     this.renderModeSegment(this.popoverEl, leaf);
     this.popoverEl.createDiv({ cls: "minimalism-ui-status-popover-divider" });
@@ -3572,7 +3771,7 @@ var StatusBarMenuManager = class {
           tabindex: disabled ? "-1" : "0"
         }
       });
-      (0, import_obsidian8.setIcon)(btn, opt.icon);
+      (0, import_obsidian10.setIcon)(btn, opt.icon);
       return { btn, opt };
     });
     const updateActiveState = () => {
@@ -3657,10 +3856,10 @@ var StatusBarMenuManager = class {
   renderDynamicWidthRow(container, file) {
     const row = container.createDiv({ cls: "minimalism-ui-status-popover-row is-static" });
     const iconEl = row.createDiv({ cls: "minimalism-ui-status-popover-row-icon" });
-    (0, import_obsidian8.setIcon)(iconEl, "move-horizontal");
+    (0, import_obsidian10.setIcon)(iconEl, "move-horizontal");
     row.createSpan({ cls: "minimalism-ui-status-popover-row-label", text: t("statusBarMenuDynamicWidth") });
     const toggleEl = row.createDiv();
-    new import_obsidian8.ToggleComponent(toggleEl).setValue(this.hasDynamicWidth(file)).setDisabled(!file).onChange((value) => {
+    new import_obsidian10.ToggleComponent(toggleEl).setValue(this.hasDynamicWidth(file)).setDisabled(!file).onChange((value) => {
       if (!file) return;
       void this.setDynamicWidth(file, value);
     });
@@ -3688,7 +3887,7 @@ var StatusBarMenuManager = class {
         else delete fm.cssclasses;
       });
     } catch (err) {
-      new import_obsidian8.Notice(t("statusBarMenuDynamicWidthFailed"));
+      new import_obsidian10.Notice(t("statusBarMenuDynamicWidthFailed"));
       console.error("[minimalism-ui] toggle dynamic width failed", err);
     }
   }
@@ -3699,7 +3898,7 @@ var StatusBarMenuManager = class {
       attr: { role: "menuitem", tabindex: opts.disabled ? "-1" : "0" }
     });
     const iconEl = row.createDiv({ cls: "minimalism-ui-status-popover-row-icon" });
-    (0, import_obsidian8.setIcon)(iconEl, opts.icon);
+    (0, import_obsidian10.setIcon)(iconEl, opts.icon);
     row.createSpan({ cls: "minimalism-ui-status-popover-row-label", text: opts.label });
     if (opts.disabled) return;
     row.addEventListener("click", (e) => {
@@ -3716,12 +3915,12 @@ var StatusBarMenuManager = class {
   // Obsidian 内置的"导出为 PDF"命令（不在公开类型声明里，见 core/obsidianCommands.ts）。
   exportToPdf() {
     const ok = executeCommandById(this.app, "workspace:export-pdf");
-    if (!ok) new import_obsidian8.Notice(t("statusBarMenuExportPdfFailed"));
+    if (!ok) new import_obsidian10.Notice(t("statusBarMenuExportPdfFailed"));
   }
   // 桌面端（isDesktopOnly）用 Electron shell 调起系统默认程序打开文件的绝对路径。
   openWithDefaultApp(file) {
     const adapter = this.app.vault.adapter;
-    if (!(adapter instanceof import_obsidian8.FileSystemAdapter)) return;
+    if (!(adapter instanceof import_obsidian10.FileSystemAdapter)) return;
     const fullPath = adapter.getFullPath(file.path);
     const req = uiWin().require;
     if (!req) return;
@@ -3733,20 +3932,20 @@ var StatusBarMenuManager = class {
     const leftSplit = (_a = this.app.workspace.leftSplit) != null ? _a : null;
     const leftRow = container.createDiv({ cls: "minimalism-ui-status-popover-row is-static" });
     const leftIcon = leftRow.createDiv({ cls: "minimalism-ui-status-popover-row-icon" });
-    (0, import_obsidian8.setIcon)(leftIcon, "panel-left");
+    (0, import_obsidian10.setIcon)(leftIcon, "panel-left");
     leftRow.createSpan({ cls: "minimalism-ui-status-popover-row-label", text: t("statusBarMenuToggleLeftSidebar") });
     const leftToggleEl = leftRow.createDiv();
-    this.leftSidebarToggle = new import_obsidian8.ToggleComponent(leftToggleEl).setValue(leftSplit ? !leftSplit.collapsed : false).setDisabled(!leftSplit).onChange((value) => {
+    this.leftSidebarToggle = new import_obsidian10.ToggleComponent(leftToggleEl).setValue(leftSplit ? !leftSplit.collapsed : false).setDisabled(!leftSplit).onChange((value) => {
       if (this.syncingToggles || !leftSplit) return;
       if (value) leftSplit.expand();
       else leftSplit.collapse();
     });
     const rightRow = container.createDiv({ cls: "minimalism-ui-status-popover-row is-static" });
     const rightIcon = rightRow.createDiv({ cls: "minimalism-ui-status-popover-row-icon" });
-    (0, import_obsidian8.setIcon)(rightIcon, "panel-right");
+    (0, import_obsidian10.setIcon)(rightIcon, "panel-right");
     rightRow.createSpan({ cls: "minimalism-ui-status-popover-row-label", text: t("statusBarMenuToggleRightSidebar") });
     const rightToggleEl = rightRow.createDiv();
-    this.rightSidebarToggle = new import_obsidian8.ToggleComponent(rightToggleEl).setValue(this.rsbLauncher.getVisible()).onChange((value) => {
+    this.rightSidebarToggle = new import_obsidian10.ToggleComponent(rightToggleEl).setValue(this.rsbLauncher.getVisible()).onChange((value) => {
       if (this.syncingToggles) return;
       this.rsbLauncher.setVisible(value);
     });
@@ -3777,7 +3976,7 @@ function createModalButtonRow(contentEl, opts) {
   const confirmBtn = buttonRow.createEl("button", { text: opts.confirmLabel, cls: opts.confirmCls });
   confirmBtn.addEventListener("click", opts.onConfirm);
 }
-var RenameModal = class extends import_obsidian8.Modal {
+var RenameModal = class extends import_obsidian10.Modal {
   constructor(app, file) {
     super(app);
     this.file = file;
@@ -3818,12 +4017,12 @@ var RenameModal = class extends import_obsidian8.Modal {
       return;
     }
     const parentPath = (_a = this.file.parent) == null ? void 0 : _a.path;
-    const newPath = (0, import_obsidian8.normalizePath)(parentPath ? `${parentPath}/${trimmed}.${this.file.extension}` : `${trimmed}.${this.file.extension}`);
+    const newPath = (0, import_obsidian10.normalizePath)(parentPath ? `${parentPath}/${trimmed}.${this.file.extension}` : `${trimmed}.${this.file.extension}`);
     try {
       await this.app.fileManager.renameFile(this.file, newPath);
       this.close();
     } catch (err) {
-      new import_obsidian8.Notice(t("renameModalFailed"));
+      new import_obsidian10.Notice(t("renameModalFailed"));
       console.error("[minimalism-ui] rename failed", err);
     }
   }
@@ -3831,7 +4030,7 @@ var RenameModal = class extends import_obsidian8.Modal {
     this.contentEl.empty();
   }
 };
-var ConfirmDeleteModal = class extends import_obsidian8.Modal {
+var ConfirmDeleteModal = class extends import_obsidian10.Modal {
   constructor(app, file) {
     super(app);
     this.file = file;
@@ -3846,7 +4045,7 @@ var ConfirmDeleteModal = class extends import_obsidian8.Modal {
       onCancel: () => this.close(),
       onConfirm: () => {
         this.app.fileManager.trashFile(this.file).then(() => this.close()).catch((err) => {
-          new import_obsidian8.Notice(t("deleteModalFailed"));
+          new import_obsidian10.Notice(t("deleteModalFailed"));
           console.error("[minimalism-ui] delete failed", err);
         });
       }
@@ -3953,10 +4152,10 @@ var MermaidZoomManager = class {
 };
 
 // src/right-sidebar/RightSidebarButtonManager.ts
-var import_obsidian10 = require("obsidian");
+var import_obsidian12 = require("obsidian");
 
 // src/right-sidebar/RightSidebarViewStack.ts
-var import_obsidian9 = require("obsidian");
+var import_obsidian11 = require("obsidian");
 var DEFAULT_MANAGED_LEFT_VIEW_TYPES = /* @__PURE__ */ new Set(["outline", "localgraph", "file-properties"]);
 var DEFAULT_ICON = "panel-right";
 var STACK_ICON_CLASS = "minimalism-ui-rsb-stack-icon";
@@ -4192,7 +4391,7 @@ var RightSidebarViewStack = class {
           }
         });
         stowEl.toggleClass(STOW_ICON_EXPANDED_CLASS, this.stowExpanded);
-        (0, import_obsidian9.setIcon)(stowEl, STOW_ICON_GLYPH);
+        (0, import_obsidian11.setIcon)(stowEl, STOW_ICON_GLYPH);
         stowEl.addEventListener("click", (e) => {
           e.stopPropagation();
           this.dispatchIconClick(() => this.toggleStowExpanded());
@@ -4212,7 +4411,7 @@ var RightSidebarViewStack = class {
       iconEl.toggleClass(STACK_ICON_ACTIVE_CLASS, leaf === this.activeLeaf);
       iconEl.toggleClass(STACK_ICON_HIDDEN_CLASS, !this.stowExpanded && idx < stowIndex);
       iconEl.toggleClass(STACK_ICON_STOWED_CLASS, idx < stowIndex);
-      (0, import_obsidian9.setIcon)(iconEl, leaf.getIcon());
+      (0, import_obsidian11.setIcon)(iconEl, leaf.getIcon());
       iconEl.addEventListener("click", (e) => {
         e.stopPropagation();
         this.dispatchIconClick(() => this.selectLeaf(leaf));
@@ -4283,7 +4482,7 @@ var RightSidebarViewStack = class {
     (_a = this.contentEl) == null ? void 0 : _a.empty();
     (_b = this.contentEl) == null ? void 0 : _b.appendChild(viewEl);
     this.mountedLeaf = leaf;
-    if (this.buttonEl) (0, import_obsidian9.setIcon)(this.buttonEl, leaf.getIcon());
+    if (this.buttonEl) (0, import_obsidian11.setIcon)(this.buttonEl, leaf.getIcon());
     this.notifyResize(leaf);
   }
   showEmpty() {
@@ -4291,7 +4490,7 @@ var RightSidebarViewStack = class {
     this.restoreMounted();
     (_a = this.contentEl) == null ? void 0 : _a.empty();
     (_b = this.contentEl) == null ? void 0 : _b.createDiv({ cls: EMPTY_CLASS, text: t("rightSidebarPanelEmpty") });
-    if (this.buttonEl) (0, import_obsidian9.setIcon)(this.buttonEl, DEFAULT_ICON);
+    if (this.buttonEl) (0, import_obsidian11.setIcon)(this.buttonEl, DEFAULT_ICON);
   }
   // 虚拟滚动视图（文件树 / 搜索 / 标签 / 反链）在 DOM 被裸搬进悬浮面板后不会自动重新
   // measure，需显式骗一次宽度变化触发完整重排（详见 LeafMountService.notifyResize）。
@@ -4682,7 +4881,7 @@ var RightSidebarButtonManager = class {
       cls: PIN_CLASS,
       attr: { "aria-label": t(this.isPinned ? "rightSidebarPanelUnpin" : "rightSidebarPanelPin") }
     });
-    (0, import_obsidian10.setIcon)(this.pinEl, PIN_ICON);
+    (0, import_obsidian12.setIcon)(this.pinEl, PIN_ICON);
     this.pinEl.toggleClass(PIN_ACTIVE_CLASS, this.isPinned);
     this.pinEl.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -4692,7 +4891,7 @@ var RightSidebarButtonManager = class {
       cls: EXPAND_CLASS,
       attr: { "aria-label": t("rightSidebarPanelExpand") }
     });
-    (0, import_obsidian10.setIcon)(this.expandEl, EXPAND_ICON);
+    (0, import_obsidian12.setIcon)(this.expandEl, EXPAND_ICON);
     this.expandEl.addEventListener("click", (e) => {
       e.stopPropagation();
       void this.viewStack.openMountedInMainArea().then((ok) => {
@@ -4709,7 +4908,7 @@ var RightSidebarButtonManager = class {
       cls: BUTTON_CLASS,
       attr: { "aria-label": t("rightSidebarButtonLabel") }
     });
-    (0, import_obsidian10.setIcon)(this.buttonEl, DEFAULT_ICON2);
+    (0, import_obsidian12.setIcon)(this.buttonEl, DEFAULT_ICON2);
     this.buttonEl.addEventListener("click", (e) => {
       e.stopPropagation();
       this.setStackExpanded(false);
@@ -4898,126 +5097,6 @@ var RightSidebarButtonManager = class {
     this.isOpen = false;
     this.stackExpanded = false;
     this.isPinned = false;
-  }
-};
-
-// src/note-card/NoteCardView.ts
-var import_obsidian12 = require("obsidian");
-
-// src/note-card/NoteSuggestModal.ts
-var import_obsidian11 = require("obsidian");
-var NoteSuggestModal = class extends import_obsidian11.FuzzySuggestModal {
-  constructor(app, onChoose) {
-    super(app);
-    this.onChoose = onChoose;
-    this.setPlaceholder(t("noteCardSuggestPlaceholder"));
-  }
-  getItems() {
-    return this.app.vault.getMarkdownFiles();
-  }
-  getItemText(file) {
-    return file.path;
-  }
-  onChooseItem(file) {
-    this.onChoose(file);
-  }
-};
-
-// src/note-card/NoteCardView.ts
-var VIEW_TYPE_NOTE_CARD = "minimalism-ui-note-card";
-var NoteCardView = class extends import_obsidian12.ItemView {
-  constructor(leaf) {
-    super(leaf);
-    this.boundFile = null;
-    this.renderToken = 0;
-    this.addAction("ellipsis-vertical", t("noteCardMenuTooltip"), (evt) => this.showMenu(evt));
-  }
-  getViewType() {
-    return VIEW_TYPE_NOTE_CARD;
-  }
-  getDisplayText() {
-    return this.boundFile ? this.boundFile.basename : t("noteCard");
-  }
-  getIcon() {
-    return "file-text";
-  }
-  async onOpen() {
-    this.contentEl.addClass("minimalism-ui-note-card");
-    this.registerEvent(
-      this.app.vault.on("modify", (file) => {
-        if (this.boundFile && file.path === this.boundFile.path) void this.render();
-      })
-    );
-    this.registerEvent(
-      this.app.vault.on("rename", (file, oldPath) => {
-        if (this.boundFile && oldPath === this.boundFile.path && file instanceof import_obsidian12.TFile) {
-          this.boundFile = file;
-          void this.render();
-        }
-      })
-    );
-    await this.render();
-  }
-  async setFile(file) {
-    this.boundFile = file;
-    await this.render();
-    this.persistBinding();
-  }
-  async unbind() {
-    this.boundFile = null;
-    await this.render();
-    this.persistBinding();
-  }
-  // requestSaveLayout() 本身是 debounced：若用户绑定/解绑后立刻刷新 Obsidian（或插件被
-  // disable/enable），debounce 定时器还没触发，workspace.json 里存的还是上一次的旧绑定，
-  // 刷新后看起来「绑定消失了」。.run() 是 Debouncer 公开 API，跳过等待立即落盘。
-  persistBinding() {
-    this.app.workspace.requestSaveLayout();
-    void this.app.workspace.requestSaveLayout.run();
-  }
-  getState() {
-    var _a, _b;
-    const state = { file: (_b = (_a = this.boundFile) == null ? void 0 : _a.path) != null ? _b : null };
-    return state;
-  }
-  async setState(state, result) {
-    var _a;
-    const path = (_a = state == null ? void 0 : state.file) != null ? _a : null;
-    const restored = path ? this.app.vault.getAbstractFileByPath(path) : null;
-    this.boundFile = restored instanceof import_obsidian12.TFile ? restored : null;
-    await this.render();
-    await super.setState(state, result);
-  }
-  showMenu(evt) {
-    const menu = new import_obsidian12.Menu();
-    menu.addItem(
-      (item) => item.setTitle(t("noteCardUnbind")).setIcon("unlink").setDisabled(!this.boundFile).onClick(() => void this.unbind())
-    );
-    menu.showAtMouseEvent(evt);
-  }
-  async render() {
-    const token = ++this.renderToken;
-    this.contentEl.empty();
-    if (!this.boundFile) {
-      this.renderEmptyState();
-      return;
-    }
-    const content = await this.app.vault.cachedRead(this.boundFile);
-    if (token !== this.renderToken) return;
-    const target = this.contentEl.createDiv({ cls: "markdown-rendered" });
-    await import_obsidian12.MarkdownRenderer.render(this.app, content, target, this.boundFile.path, this);
-    if (token !== this.renderToken) target.remove();
-  }
-  renderEmptyState() {
-    const empty = this.contentEl.createDiv({ cls: "minimalism-ui-note-card-empty" });
-    empty.createDiv({ cls: "minimalism-ui-note-card-empty-desc", text: t("noteCardEmptyDesc") });
-    const button = empty.createEl("button", {
-      cls: "minimalism-ui-note-card-choose mod-cta",
-      text: t("noteCardChooseNote")
-    });
-    button.addEventListener("click", () => {
-      new NoteSuggestModal(this.app, (file) => void this.setFile(file)).open();
-    });
   }
 };
 
