@@ -20,10 +20,12 @@ import { EditorStatusManager } from './src/layout/EditorStatusManager';
 import { StatusBarMenuManager } from './src/layout/StatusBarMenuManager';
 import { MermaidZoomManager } from './src/mermaid/MermaidZoomManager';
 import { RightSidebarButtonManager } from './src/right-sidebar/RightSidebarButtonManager';
+import { NoteCardManager } from './src/note-card/NoteCardManager';
+import { VIEW_TYPE_NOTE_CARD } from './src/note-card/NoteCardView';
 import { OnboardingManager } from './src/onboarding/OnboardingManager';
 import { FirstRunCleanup } from './src/onboarding/FirstRunCleanup';
 import { MinimalismUISettingTab } from './src/SettingTab';
-import { setLang } from './src/core/i18n';
+import { setLang, t } from './src/core/i18n';
 
 export type { MinimalismUISettings };
 
@@ -51,6 +53,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	private statusBarMenu: StatusBarMenuManager;
 	private mermaidZoom: MermaidZoomManager;
 	private rightSidebarButton: RightSidebarButtonManager;
+	private noteCard: NoteCardManager;
 	private onboarding: OnboardingManager;
 	// 一次性首次启用收拢；无持久副作用，不进 features[]。
 	private firstRunCleanup: FirstRunCleanup;
@@ -98,6 +101,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.editorStatus = new EditorStatusManager(this.app, this);
 		this.mermaidZoom = new MermaidZoomManager(this.app);
 		this.rightSidebarButton = new RightSidebarButtonManager(this.app, settings, () => this.saveData(this.settings), this.leafMount);
+		this.noteCard = new NoteCardManager(this);
 		// 左侧栏 slot 当前占用的 view type 是右侧栏悬浮面板避让的单一事实源。
 		this.rightSidebarButton.setManagedLeftViewTypesProvider(() => this.leftSidebar.getOwnedViewTypes());
 		// 状态栏菜单里的「右侧边栏」开关现在控制右下角悬浮框（minimalism-ui-rsb-launcher）的显隐，
@@ -132,6 +136,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			this.mermaidZoom,
 			this.onboarding,
 			this.rightSidebarButton,
+			this.noteCard,
 			this.ribbonPanel,
 			this.editorStatus,
 			this.statusBarMenu,
@@ -150,6 +155,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.mermaidZoom.apply();
 		this.onboarding.apply();
 		this.rightSidebarButton.apply();
+		this.noteCard.apply();
 		this.statusBarMenu.apply();
 
 		// 依赖 workspace 布局就绪的部分
@@ -238,6 +244,11 @@ export default class MinimalismUIPlugin extends Plugin {
 				} catch {
 					label = '';
 				}
+				// minimalism-ui-note-card 自己的 view type 字符串带插件前缀，humanize 兜底出来
+				// 很难看；在还没有任何一个该类型 leaf 打开过之前（因此没有 getDisplayText()
+				// 可读）直接用 i18n 文案，这是我们自己的 view，不是 TODO.md 里说的"不自维护
+				// 映射"的第三方/核心类型。
+				if (!label && type === VIEW_TYPE_NOTE_CARD) label = t('noteCard');
 				return { type, label: label || humanize(type) };
 			})
 			.sort((a, b) => a.label.localeCompare(b.label));

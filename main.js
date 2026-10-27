@@ -27,7 +27,7 @@ __export(main_exports, {
   default: () => MinimalismUIPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian13 = require("obsidian");
+var import_obsidian15 = require("obsidian");
 
 // src/core/settings.ts
 var MAX_LEFT_SIDEBAR_SLOTS = 4;
@@ -372,7 +372,13 @@ var translations = {
     deleteModalMessage: "\u786E\u5B9A\u8981\u5220\u9664\u8FD9\u7BC7\u7B14\u8BB0\u5417\uFF1F",
     deleteModalConfirm: "\u5220\u9664",
     deleteModalCancel: "\u53D6\u6D88",
-    deleteModalFailed: "\u5220\u9664\u5931\u8D25"
+    deleteModalFailed: "\u5220\u9664\u5931\u8D25",
+    noteCard: "\u7B14\u8BB0\u5361\u7247",
+    noteCardEmptyDesc: "\u8FD9\u662F\u4E00\u5F20\u7B14\u8BB0\u5361\u7247\uFF0C\u53EF\u4EE5\u56FA\u5B9A\u5C55\u793A\u4E00\u7BC7\u7B14\u8BB0\u3002",
+    noteCardChooseNote: "\u9009\u62E9\u7B14\u8BB0",
+    noteCardSuggestPlaceholder: "\u641C\u7D22\u7B14\u8BB0\u2026",
+    noteCardMenuTooltip: "\u66F4\u591A\u64CD\u4F5C",
+    noteCardUnbind: "\u89E3\u7ED1\u7B14\u8BB0"
   },
   en: {
     language: "Language",
@@ -462,7 +468,13 @@ var translations = {
     deleteModalMessage: "Are you sure you want to delete this note?",
     deleteModalConfirm: "Delete",
     deleteModalCancel: "Cancel",
-    deleteModalFailed: "Delete failed"
+    deleteModalFailed: "Delete failed",
+    noteCard: "Note card",
+    noteCardEmptyDesc: "This card can pin and display one note.",
+    noteCardChooseNote: "Choose note",
+    noteCardSuggestPlaceholder: "Search notes\u2026",
+    noteCardMenuTooltip: "More options",
+    noteCardUnbind: "Unbind note"
   }
 };
 var langOverride = null;
@@ -2083,6 +2095,7 @@ var BreadcrumbRenderer = class {
     parent.appendChild(this.el);
     this.update();
     this.activeLeafHandler = (leaf) => {
+      if (leaf && !this.isRootLeaf(leaf)) return;
       this.currentLeaf = leaf;
       this.update();
     };
@@ -2097,6 +2110,13 @@ var BreadcrumbRenderer = class {
   notifyActiveLeaf(leaf) {
     this.currentLeaf = leaf;
     this.update();
+  }
+  isRootLeaf(leaf) {
+    let found = false;
+    this.app.workspace.iterateRootLeaves((l) => {
+      if (l === leaf) found = true;
+    });
+    return found;
   }
   unmount() {
     if (this.activeLeafHandler) {
@@ -2146,8 +2166,9 @@ var BreadcrumbRenderer = class {
   // Obsidian 的 FileView(markdown / canvas / pdf 等)有 view.file,无 file 即视为无文件视图,
   // 这样所有插件视图无需逐个登记都能正确显示。空视图(empty)不挂文件但也无内容可标注,排除。
   activeFilelessViewLabel() {
-    var _a, _b;
-    const view = (_b = (_a = this.currentLeaf) != null ? _a : this.app.workspace.getMostRecentLeaf()) == null ? void 0 : _b.view;
+    var _a;
+    const recent = (_a = this.currentLeaf) != null ? _a : this.app.workspace.getMostRecentLeaf();
+    const view = recent && this.isRootLeaf(recent) ? recent.view : null;
     if (!view || view.getViewType() === "empty") return null;
     if (view.file) return null;
     return view.getDisplayText() || view.getViewType();
@@ -2536,6 +2557,14 @@ var LeftSidebarManager = class {
     // slot 列表一变（用户可能重装了插件）即清空重试，signature 存在 lastDesiredKey。
     this.unsatisfiableTypes = /* @__PURE__ */ new Set();
     this.lastDesiredKey = "";
+    // viewType → 最近一次被摘掉前的 getViewState().state。home / diary / other 三套 profile
+    // 可各配不同 slot 列表：切换 profile 时不在新 profile 里的面板会被第 4 步整个 detach 掉，
+    // 其持有的状态（如笔记卡片绑定的笔记路径）随之丢失——Obsidian 的 workspace.json 持久化
+    // 只在应用退出/刷新时生效，救不了这种纯内存里的 profile 切换。detachLeaf 摘之前在此留一份
+    // 底，第 3 步新建同类型 leaf 时原样传回 setViewState，使切回该 profile 时能恢复原状态。
+    // 对 outline/file-properties 等本就跟随 activeFile 的面板无害：第 7 步的 file-open 兜底会
+    // 立刻把它们刷新到当前文件，旧状态只是这一帧内的无害底噪。
+    this.lastDetachedState = /* @__PURE__ */ new Map();
   }
   // ── Public ────────────────────────────────────────────────────────────────
   async apply(opts) {
@@ -2839,7 +2868,7 @@ var LeftSidebarManager = class {
         const leaf = this.app.workspace.getLeftLeaf(true);
         if (!leaf) continue;
         try {
-          await leaf.setViewState({ type, active: false });
+          await leaf.setViewState({ type, state: this.lastDetachedState.get(type), active: false });
           createdLeaf = true;
         } catch (err) {
           console.error(`[minimalism-ui] left sidebar slot "${type}" setViewState failed`, err);
@@ -2935,8 +2964,14 @@ var LeftSidebarManager = class {
       return "";
     }
   }
-  // 把一个 leaf 连同（若因此清空的）tab 组一起摘掉，不留半初始化条目。
+  // 把一个 leaf 连同（若因此清空的）tab 组一起摘掉，不留半初始化条目。摘之前留一份
+  // state 底（见 lastDetachedState 字段注释），供同类型 slot 日后重建时找回。
   detachLeaf(leaf) {
+    try {
+      const vs = leaf.getViewState();
+      if (vs == null ? void 0 : vs.type) this.lastDetachedState.set(vs.type, vs.state);
+    } catch (e) {
+    }
     try {
       this.pinManager.forceDetachLeaf(leaf);
     } catch (e) {
@@ -4866,8 +4901,140 @@ var RightSidebarButtonManager = class {
   }
 };
 
-// src/onboarding/OnboardingManager.ts
+// src/note-card/NoteCardView.ts
+var import_obsidian12 = require("obsidian");
+
+// src/note-card/NoteSuggestModal.ts
 var import_obsidian11 = require("obsidian");
+var NoteSuggestModal = class extends import_obsidian11.FuzzySuggestModal {
+  constructor(app, onChoose) {
+    super(app);
+    this.onChoose = onChoose;
+    this.setPlaceholder(t("noteCardSuggestPlaceholder"));
+  }
+  getItems() {
+    return this.app.vault.getMarkdownFiles();
+  }
+  getItemText(file) {
+    return file.path;
+  }
+  onChooseItem(file) {
+    this.onChoose(file);
+  }
+};
+
+// src/note-card/NoteCardView.ts
+var VIEW_TYPE_NOTE_CARD = "minimalism-ui-note-card";
+var NoteCardView = class extends import_obsidian12.ItemView {
+  constructor(leaf) {
+    super(leaf);
+    this.boundFile = null;
+    this.renderToken = 0;
+    this.addAction("ellipsis-vertical", t("noteCardMenuTooltip"), (evt) => this.showMenu(evt));
+  }
+  getViewType() {
+    return VIEW_TYPE_NOTE_CARD;
+  }
+  getDisplayText() {
+    return this.boundFile ? this.boundFile.basename : t("noteCard");
+  }
+  getIcon() {
+    return "file-text";
+  }
+  async onOpen() {
+    this.contentEl.addClass("minimalism-ui-note-card");
+    this.registerEvent(
+      this.app.vault.on("modify", (file) => {
+        if (this.boundFile && file.path === this.boundFile.path) void this.render();
+      })
+    );
+    this.registerEvent(
+      this.app.vault.on("rename", (file, oldPath) => {
+        if (this.boundFile && oldPath === this.boundFile.path && file instanceof import_obsidian12.TFile) {
+          this.boundFile = file;
+          void this.render();
+        }
+      })
+    );
+    await this.render();
+  }
+  async setFile(file) {
+    this.boundFile = file;
+    await this.render();
+    this.persistBinding();
+  }
+  async unbind() {
+    this.boundFile = null;
+    await this.render();
+    this.persistBinding();
+  }
+  // requestSaveLayout() 本身是 debounced：若用户绑定/解绑后立刻刷新 Obsidian（或插件被
+  // disable/enable），debounce 定时器还没触发，workspace.json 里存的还是上一次的旧绑定，
+  // 刷新后看起来「绑定消失了」。.run() 是 Debouncer 公开 API，跳过等待立即落盘。
+  persistBinding() {
+    this.app.workspace.requestSaveLayout();
+    void this.app.workspace.requestSaveLayout.run();
+  }
+  getState() {
+    var _a, _b;
+    const state = { file: (_b = (_a = this.boundFile) == null ? void 0 : _a.path) != null ? _b : null };
+    return state;
+  }
+  async setState(state, result) {
+    var _a;
+    const path = (_a = state == null ? void 0 : state.file) != null ? _a : null;
+    const restored = path ? this.app.vault.getAbstractFileByPath(path) : null;
+    this.boundFile = restored instanceof import_obsidian12.TFile ? restored : null;
+    await this.render();
+    await super.setState(state, result);
+  }
+  showMenu(evt) {
+    const menu = new import_obsidian12.Menu();
+    menu.addItem(
+      (item) => item.setTitle(t("noteCardUnbind")).setIcon("unlink").setDisabled(!this.boundFile).onClick(() => void this.unbind())
+    );
+    menu.showAtMouseEvent(evt);
+  }
+  async render() {
+    const token = ++this.renderToken;
+    this.contentEl.empty();
+    if (!this.boundFile) {
+      this.renderEmptyState();
+      return;
+    }
+    const content = await this.app.vault.cachedRead(this.boundFile);
+    if (token !== this.renderToken) return;
+    const target = this.contentEl.createDiv({ cls: "markdown-rendered" });
+    await import_obsidian12.MarkdownRenderer.render(this.app, content, target, this.boundFile.path, this);
+    if (token !== this.renderToken) target.remove();
+  }
+  renderEmptyState() {
+    const empty = this.contentEl.createDiv({ cls: "minimalism-ui-note-card-empty" });
+    empty.createDiv({ cls: "minimalism-ui-note-card-empty-desc", text: t("noteCardEmptyDesc") });
+    const button = empty.createEl("button", {
+      cls: "minimalism-ui-note-card-choose mod-cta",
+      text: t("noteCardChooseNote")
+    });
+    button.addEventListener("click", () => {
+      new NoteSuggestModal(this.app, (file) => void this.setFile(file)).open();
+    });
+  }
+};
+
+// src/note-card/NoteCardManager.ts
+var NoteCardManager = class {
+  constructor(plugin) {
+    this.plugin = plugin;
+  }
+  apply() {
+    this.plugin.registerView(VIEW_TYPE_NOTE_CARD, (leaf) => new NoteCardView(leaf));
+  }
+  remove() {
+  }
+};
+
+// src/onboarding/OnboardingManager.ts
+var import_obsidian13 = require("obsidian");
 var PANEL_CLASS2 = "minimalism-ui-onboarding";
 var ALL_DONE_HIDE_DELAY = 2500;
 var EXIT_DURATION = 320;
@@ -4877,8 +5044,8 @@ function hasIndexNote(app) {
 function homeNoteHasLink(app, settings) {
   const path = settings.homePage.trim();
   if (!path) return false;
-  const file = app.vault.getAbstractFileByPath((0, import_obsidian11.normalizePath)(path));
-  if (!(file instanceof import_obsidian11.TFile)) return false;
+  const file = app.vault.getAbstractFileByPath((0, import_obsidian13.normalizePath)(path));
+  if (!(file instanceof import_obsidian13.TFile)) return false;
   const links = app.metadataCache.resolvedLinks[file.path];
   return links != null && Object.keys(links).length > 0;
 }
@@ -4889,7 +5056,7 @@ var TASKS = [
   { label: "onboardingGoBack", commandId: "app:go-back" },
   { label: "onboardingGoForward", commandId: "app:go-forward" }
 ];
-var MOD_SYMBOLS = import_obsidian11.Platform.isMacOS ? { Mod: "\u2318", Ctrl: "\u2303", Meta: "\u2318", Alt: "\u2325", Shift: "\u21E7" } : { Mod: "Ctrl", Ctrl: "Ctrl", Meta: "Win", Alt: "Alt", Shift: "Shift" };
+var MOD_SYMBOLS = import_obsidian13.Platform.isMacOS ? { Mod: "\u2318", Ctrl: "\u2303", Meta: "\u2318", Alt: "\u2325", Shift: "\u21E7" } : { Mod: "Ctrl", Ctrl: "Ctrl", Meta: "Win", Alt: "Alt", Shift: "Shift" };
 var MOD_ORDER = ["Ctrl", "Alt", "Shift", "Meta", "Mod"];
 var KEY_LABELS = {
   ArrowLeft: "\u2190",
@@ -5125,8 +5292,8 @@ var FirstRunCleanup = class {
 };
 
 // src/SettingTab.ts
-var import_obsidian12 = require("obsidian");
-var FileSuggest = class extends import_obsidian12.AbstractInputSuggest {
+var import_obsidian14 = require("obsidian");
+var FileSuggest = class extends import_obsidian14.AbstractInputSuggest {
   constructor() {
     super(...arguments);
     this.onPickCb = null;
@@ -5148,7 +5315,7 @@ var FileSuggest = class extends import_obsidian12.AbstractInputSuggest {
     this.close();
   }
 };
-var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
+var MinimalismUISettingTab = class extends import_obsidian14.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     // ── 左侧栏面板列表（用户添加任意 view，最多 4 个，可拖拽排序）──────────────
@@ -5292,7 +5459,7 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
     const editable = !unavailableReason;
     const preferred = ["outline", "file-properties", "localgraph"];
     const nextFree = (_b = preferred.filter((tp) => options.some((o) => o.type === tp)).find((tp) => !used.has(tp))) != null ? _b : (_a = options.find((o) => !used.has(o.type))) == null ? void 0 : _a.type;
-    const header = new import_obsidian12.Setting(contentEl).setName(t("leftSidebarPanels")).setDesc(atLimit ? t("leftSidebarPanelsFull") : t("leftSidebarPanelsDesc").replace("{profile}", profileLabels[this.sidebarProfile]));
+    const header = new import_obsidian14.Setting(contentEl).setName(t("leftSidebarPanels")).setDesc(atLimit ? t("leftSidebarPanelsFull") : t("leftSidebarPanelsDesc").replace("{profile}", profileLabels[this.sidebarProfile]));
     header.addButton((btn) => {
       btn.setButtonText(t("addPanel"));
       if (!editable || atLimit || !nextFree) {
@@ -5458,7 +5625,7 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
 };
 
 // main.ts
-var MinimalismUIPlugin = class extends import_obsidian13.Plugin {
+var MinimalismUIPlugin = class extends import_obsidian15.Plugin {
   constructor() {
     super(...arguments);
     // 所有功能单元，统一用于卸载，避免逐个手写 remove() 时遗漏。
@@ -5501,6 +5668,7 @@ var MinimalismUIPlugin = class extends import_obsidian13.Plugin {
     this.editorStatus = new EditorStatusManager(this.app, this);
     this.mermaidZoom = new MermaidZoomManager(this.app);
     this.rightSidebarButton = new RightSidebarButtonManager(this.app, settings, () => this.saveData(this.settings), this.leafMount);
+    this.noteCard = new NoteCardManager(this);
     this.rightSidebarButton.setManagedLeftViewTypesProvider(() => this.leftSidebar.getOwnedViewTypes());
     this.statusBarMenu = new StatusBarMenuManager(this.app, this, {
       getVisible: () => this.settings.showRightSidebarButton,
@@ -5531,6 +5699,7 @@ var MinimalismUIPlugin = class extends import_obsidian13.Plugin {
       this.mermaidZoom,
       this.onboarding,
       this.rightSidebarButton,
+      this.noteCard,
       this.ribbonPanel,
       this.editorStatus,
       this.statusBarMenu
@@ -5547,6 +5716,7 @@ var MinimalismUIPlugin = class extends import_obsidian13.Plugin {
     this.mermaidZoom.apply();
     this.onboarding.apply();
     this.rightSidebarButton.apply();
+    this.noteCard.apply();
     this.statusBarMenu.apply();
     this.app.workspace.onLayoutReady(() => {
       if (this.unloaded) return;
@@ -5611,6 +5781,7 @@ var MinimalismUIPlugin = class extends import_obsidian13.Plugin {
       } catch (e) {
         label = "";
       }
+      if (!label && type === VIEW_TYPE_NOTE_CARD) label = t("noteCard");
       return { type, label: label || humanize(type) };
     }).sort((a, b) => a.label.localeCompare(b.label));
   }

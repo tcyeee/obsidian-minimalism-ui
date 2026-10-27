@@ -1252,6 +1252,44 @@ body.minimalism-ui-mac-sidebar .workspace-tab-header-tab-list {
 	padding: 16px;
 }
 
+/* ── 笔记卡片面板（note-card/NoteCardView）────────────────────────────────── */
+
+.minimalism-ui-note-card {
+	overflow-y: auto;
+	padding: var(--size-4-3);
+}
+
+.minimalism-ui-note-card-empty {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--size-4-3);
+	color: var(--text-faint);
+	font-size: 13px;
+	text-align: center;
+	padding: 16px;
+}
+
+.minimalism-ui-note-card-empty-desc {
+	max-width: 220px;
+}
+
+/* 菜单图标（右上角「更多操作」）默认隐藏，只在 leaf 悬浮时淡入——保持卡片干净，
+   未绑定笔记时也没有可解绑的内容，不需要常驻占一个图标位置。 */
+.workspace-leaf-content[data-type="minimalism-ui-note-card"] .view-action {
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 120ms ease;
+}
+
+.workspace-leaf:hover .workspace-leaf-content[data-type="minimalism-ui-note-card"] .view-action,
+.workspace-leaf-content[data-type="minimalism-ui-note-card"] .view-action:focus-visible {
+	opacity: 1;
+	pointer-events: auto;
+}
+
 .minimalism-ui-rsb-resize-handle {
 	position: absolute;
 	top: 0;

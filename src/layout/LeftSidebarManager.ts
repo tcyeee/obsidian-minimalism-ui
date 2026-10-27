@@ -115,6 +115,15 @@ export class LeftSidebarManager {
 	private unsatisfiableTypes = new Set<string>();
 	private lastDesiredKey = '';
 
+	// viewType → 最近一次被摘掉前的 getViewState().state。home / diary / other 三套 profile
+	// 可各配不同 slot 列表：切换 profile 时不在新 profile 里的面板会被第 4 步整个 detach 掉，
+	// 其持有的状态（如笔记卡片绑定的笔记路径）随之丢失——Obsidian 的 workspace.json 持久化
+	// 只在应用退出/刷新时生效，救不了这种纯内存里的 profile 切换。detachLeaf 摘之前在此留一份
+	// 底，第 3 步新建同类型 leaf 时原样传回 setViewState，使切回该 profile 时能恢复原状态。
+	// 对 outline/file-properties 等本就跟随 activeFile 的面板无害：第 7 步的 file-open 兜底会
+	// 立刻把它们刷新到当前文件，旧状态只是这一帧内的无害底噪。
+	private lastDetachedState = new Map<string, Record<string, unknown> | undefined>();
+
 	constructor(
 		private app: App,
 		private getSettings: () => MinimalismUISettings,
@@ -482,7 +491,7 @@ export class LeftSidebarManager {
 				const leaf = this.app.workspace.getLeftLeaf(true);
 				if (!leaf) continue;
 				try {
-					await leaf.setViewState({ type, active: false });
+					await leaf.setViewState({ type, state: this.lastDetachedState.get(type), active: false });
 					createdLeaf = true;
 				} catch (err: unknown) {
 					console.error(`[minimalism-ui] left sidebar slot "${type}" setViewState failed`, err);
@@ -606,8 +615,13 @@ export class LeftSidebarManager {
 		}
 	}
 
-	// 把一个 leaf 连同（若因此清空的）tab 组一起摘掉，不留半初始化条目。
+	// 把一个 leaf 连同（若因此清空的）tab 组一起摘掉，不留半初始化条目。摘之前留一份
+	// state 底（见 lastDetachedState 字段注释），供同类型 slot 日后重建时找回。
 	private detachLeaf(leaf: WorkspaceLeaf): void {
+		try {
+			const vs = leaf.getViewState();
+			if (vs?.type) this.lastDetachedState.set(vs.type, vs.state);
+		} catch { /* 取不到就不缓存，不影响摘除本身 */ }
 		try {
 			this.pinManager.forceDetachLeaf(leaf);
 		} catch {

@@ -47,6 +47,10 @@ export class BreadcrumbRenderer {
 		this.update();
 
 		this.activeLeafHandler = (leaf: WorkspaceLeaf | null) => {
+			// 只认主区域 root leaf 的激活：左 / 右侧栏面板（笔记卡片、大纲……）被点击聚焦也会触发
+			// active-leaf-change，但它们不是"当前显示的页面"，不该被当成面包屑末项或无文件视图标签
+			// （否则点一下侧栏笔记卡片，面包屑会把它绑定的笔记错当成当前页跟着冒出来）。
+			if (leaf && !this.isRootLeaf(leaf)) return;
 			this.currentLeaf = leaf;
 			this.update();
 		};
@@ -63,6 +67,12 @@ export class BreadcrumbRenderer {
 	notifyActiveLeaf(leaf: WorkspaceLeaf | null) {
 		this.currentLeaf = leaf;
 		this.update();
+	}
+
+	private isRootLeaf(leaf: WorkspaceLeaf): boolean {
+		let found = false;
+		this.app.workspace.iterateRootLeaves((l) => { if (l === leaf) found = true; });
+		return found;
 	}
 
 	unmount() {
@@ -121,7 +131,11 @@ export class BreadcrumbRenderer {
 	// Obsidian 的 FileView(markdown / canvas / pdf 等)有 view.file,无 file 即视为无文件视图,
 	// 这样所有插件视图无需逐个登记都能正确显示。空视图(empty)不挂文件但也无内容可标注,排除。
 	private activeFilelessViewLabel(): string | null {
-		const view = (this.currentLeaf ?? this.app.workspace.getMostRecentLeaf())?.view;
+		// mount() 之后、首次（root leaf 的）active-leaf-change 之前 currentLeaf 可能仍是 null：
+		// 退回 getMostRecentLeaf()，但同样要求其是 root leaf——否则它可能是侧栏面板（笔记卡片等），
+		// 把侧栏绑定的笔记错当成"当前显示的无文件视图"标签显示出来。
+		const recent = this.currentLeaf ?? this.app.workspace.getMostRecentLeaf();
+		const view = recent && this.isRootLeaf(recent) ? recent.view : null;
 		if (!view || view.getViewType() === 'empty') return null;
 		if ((view as { file?: unknown }).file) return null;
 		return view.getDisplayText() || view.getViewType();
