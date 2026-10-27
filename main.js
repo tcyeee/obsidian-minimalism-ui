@@ -1288,6 +1288,7 @@ var SinglePageEngine = class {
     const filePath = this.filePathForLeaf(leaf);
     if (filePath) return filePath;
     const li = leaf;
+    if (li.view && "file" in li.view) return null;
     const vs = leaf.getViewState();
     const viewType = (_c = vs == null ? void 0 : vs.type) != null ? _c : (_b = (_a = li.view) == null ? void 0 : _a.getViewType) == null ? void 0 : _b.call(_a);
     if (!viewType || viewType === "empty") return null;
@@ -2170,7 +2171,7 @@ var BreadcrumbRenderer = class {
     const recent = (_a = this.currentLeaf) != null ? _a : this.app.workspace.getMostRecentLeaf();
     const view = recent && this.isRootLeaf(recent) ? recent.view : null;
     if (!view || view.getViewType() === "empty") return null;
-    if (view.file) return null;
+    if ("file" in view) return null;
     return view.getDisplayText() || view.getViewType();
   }
   // 路径是稳定字符串,直接从 vault 查文件名,无需过滤关闭的 leaf。

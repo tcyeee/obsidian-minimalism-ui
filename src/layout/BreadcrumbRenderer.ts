@@ -137,7 +137,11 @@ export class BreadcrumbRenderer {
 		const recent = this.currentLeaf ?? this.app.workspace.getMostRecentLeaf();
 		const view = recent && this.isRootLeaf(recent) ? recent.view : null;
 		if (!view || view.getViewType() === 'empty') return null;
-		if ((view as { file?: unknown }).file) return null;
+		// 用 'file' in view 而非真值判断：挂文件的视图(markdown/canvas 等)在同一 leaf 原地切换文件时
+		// file 会短暂为 null,但它仍声明了 file 属性,不是真正的无文件视图,此时不该把它当成无文件视图
+		// 标签(否则会显示 Obsidian 原生的 "No file" 过渡态文本)。真正的无文件视图(全局关系图、搜索等)
+		// 从未声明过 file 属性。
+		if ('file' in view) return null;
 		return view.getDisplayText() || view.getViewType();
 	}
 
