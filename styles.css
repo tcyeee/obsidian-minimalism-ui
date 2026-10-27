@@ -2941,6 +2941,16 @@ body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .minimalism-ui-ribbon-
 	background-color: rgba(255, 255, 255, 0.08);
 }
 
+/* Bases 卡片视图（笔记卡片面板里嵌入 .base 时会出现）：卡面默认继承
+   --bases-cards-background（即 --background-primary，浅色），在侧边栏的深色面板
+   （#123342 / 暗色 #2E3033）上成了一块刺眼的纯白。只在侧边栏作用域内把卡面换成
+   贴底色的半透明白（与上面 ribbon-panel-inner 图标底同色），描边环同步调浅，
+   不动主内容区——那里 --background-primary 本就浅色，默认卡面已经合适。 */
+body.minimalism-ui-theme-forest.minimalism-ui-mac-sidebar .workspace-split.mod-left-split .bases-view[data-view-type="cards"] {
+	--bases-cards-background: rgba(255, 255, 255, 0.06);
+	--bases-cards-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
 /* =============================================================================
    Newspaper — Minimalism UI 笔记主题
    移植自 Typora "Newsprint" 主题：奶白纸张 + 近黑衬线 + 报刊排版
