@@ -317,14 +317,18 @@ export class StatusBarMenuManager implements Feature {
 			onClick: () => { this.openWithDefaultApp(file!); this.close(); },
 		});
 
-		this.renderDynamicWidthRow(container, file);
+		// 「可读行长」关闭时不展示本行：此时正文本就撑满窗口，这个开关在语义上
+		// 是「覆盖可读行长的约束」，核心约束不存在就没有东西可覆盖（见 isReadableLineLengthEnabled()）。
+		if (this.isReadableLineLengthEnabled()) this.renderDynamicWidthRow(container, file);
 	}
 
 	// ─── 动态宽度（写当前笔记 frontmatter 的 cssclasses） ─────────────────────
 
 	// 开启后往当前笔记 frontmatter 的 cssclasses 写入 minimalism-dynamic-width 标记，
-	// styles.css 据此直接给正文文本列设 max-width（两侧各留 10vw），与「可读行长」
-	// 核心开关状态无关——用户即使关闭了可读行长，也能单独用这个开关收窄正文。
+	// styles.css 据此直接给正文文本列设 max-width（两侧各留 10vw）。本行入口仅在核心
+	// 「可读行长」开启时展示（见 renderFileRows），但 CSS 规则本身不读取该开关状态，
+	// 只看 cssclasses 是否命中——这是故意的：避免用户先开启动态宽度、再去关闭可读行长，
+	// 导致已经生效的样式无声跳变。
 	// 面板每次打开都重建，故开关初值直接读 metadataCache，无需保活刷新。
 	private renderDynamicWidthRow(container: HTMLElement, file: TFile | null): void {
 		const row = container.createDiv({ cls: 'minimalism-ui-status-popover-row is-static' });
@@ -339,6 +343,13 @@ export class StatusBarMenuManager implements Feature {
 				if (!file) return;
 				void this.setDynamicWidth(file, value);
 			});
+	}
+
+	// 核心「可读行长」开关状态：app.vault.getConfig 是未公开类型的内部 API（同仓库其余
+	// 内部 API 访问也一律 as unknown as 断言，见 DragBarManager.ts 等），读取失败按关闭处理。
+	private isReadableLineLengthEnabled(): boolean {
+		const getConfig = (this.app.vault as unknown as { getConfig?(key: string): unknown }).getConfig;
+		return getConfig?.call(this.app.vault, 'readableLineLength') === true;
 	}
 
 	private hasDynamicWidth(file: TFile | null): boolean {
