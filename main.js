@@ -5386,7 +5386,6 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
       await this.plugin.saveSettings();
     }));
   }
-  // 目前未在 getSettingDefinitions() 中调用——该开关已从设置页移除，仅保留实现以便日后恢复。
   configureShowRightSidebarButton(setting) {
     setting.setName(t("showRightSidebarButton")).setDesc(t("showRightSidebarButtonDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showRightSidebarButton).onChange(async (v) => {
       this.plugin.settings.showRightSidebarButton = v;
@@ -5441,8 +5440,8 @@ var MinimalismUISettingTab = class extends import_obsidian12.PluginSettingTab {
             this.configureLeftSidebarSlots(setting.settingEl);
           }
         },
-        { name: t("showVaultProfile"), render: (setting) => this.configureShowVaultProfile(setting) }
-        // 「右侧栏悬浮按钮」不在设置页展示；开关仍可通过状态栏菜单切换（见 StatusBarMenuManager）。
+        { name: t("showVaultProfile"), render: (setting) => this.configureShowVaultProfile(setting) },
+        { name: t("showRightSidebarButton"), render: (setting) => this.configureShowRightSidebarButton(setting) }
       ]),
       ...this.section("advanced", t("headingAdvanced"), [
         { name: t("navAnimation"), render: (setting) => this.configureNavAnimation(setting) },

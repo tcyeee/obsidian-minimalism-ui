@@ -335,7 +335,6 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				}));
 	}
 
-	// 目前未在 getSettingDefinitions() 中调用——该开关已从设置页移除，仅保留实现以便日后恢复。
 	private configureShowRightSidebarButton(setting: Setting): void {
 		setting.setName(t('showRightSidebarButton'))
 			.setDesc(t('showRightSidebarButtonDesc'))
@@ -412,7 +411,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 					},
 				},
 				{ name: t('showVaultProfile'), render: (setting) => this.configureShowVaultProfile(setting) },
-				// 「右侧栏悬浮按钮」不在设置页展示；开关仍可通过状态栏菜单切换（见 StatusBarMenuManager）。
+				{ name: t('showRightSidebarButton'), render: (setting) => this.configureShowRightSidebarButton(setting) },
 			]),
 
 			...this.section('advanced', t('headingAdvanced'), [
