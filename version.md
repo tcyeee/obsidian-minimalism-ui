@@ -5,6 +5,16 @@
 
 ---
 
+## Version 1.3.30
+
+- Fixed: the note-card sidebar panel no longer stays permanently blank with no way to rebind when first rendered with no bound file (fresh panel, or a restart that couldn't resolve the saved path)
+- Fixed: a leaf mid-transition between view types (during creation, or an in-place view-type switch) could be misdetected as a file-less view, surfacing Obsidian's native "No file" breadcrumb label and corrupting back/forward navigation history
+
+- 修复：笔记卡片侧栏面板首次渲染且没有绑定笔记时（全新面板，或重启后无法解析已保存路径）会永久保持空白且无法重新绑定
+- 修复：处于视图类型切换过程中的标签页（创建过程中，或原地切换视图类型）可能被误判为无文件视图，导致出现 Obsidian 原生的"无文件"面包屑标签并破坏前进后退导航历史
+
+---
+
 ## Version 1.3.29
 
 - Fixed: a same-leaf file swap (e.g. clicking a link from the home page) could briefly leave a view with no file but its old view type intact, which was mistaken for a genuine file-less view (graph, search, etc.) — this no longer pollutes the breadcrumb or corrupts back/forward navigation
