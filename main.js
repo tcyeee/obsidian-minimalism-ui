@@ -546,6 +546,7 @@ function viewTypeFromKey(key) {
   if (key.startsWith(FILELESS_VIEW_KEY_PREFIX)) return key.slice(FILELESS_VIEW_KEY_PREFIX.length);
   return null;
 }
+var FILE_BACKED_VIEW_TYPES = /* @__PURE__ */ new Set(["markdown", "canvas", "pdf", "image", "audio", "video", "bases"]);
 var NavigationHistory = class {
   constructor(app, getSettings, activateOrOpen) {
     this.app = app;
@@ -1288,10 +1289,11 @@ var SinglePageEngine = class {
     const filePath = this.filePathForLeaf(leaf);
     if (filePath) return filePath;
     const li = leaf;
-    if (li.view && "file" in li.view) return null;
     const vs = leaf.getViewState();
     const viewType = (_c = vs == null ? void 0 : vs.type) != null ? _c : (_b = (_a = li.view) == null ? void 0 : _a.getViewType) == null ? void 0 : _b.call(_a);
     if (!viewType || viewType === "empty") return null;
+    if (FILE_BACKED_VIEW_TYPES.has(viewType)) return null;
+    if (li.view && "file" in li.view) return null;
     return filelessViewKey(viewType);
   }
   // ───────────────────────────────────────────────────────────────────────────────
@@ -2170,9 +2172,12 @@ var BreadcrumbRenderer = class {
     var _a;
     const recent = (_a = this.currentLeaf) != null ? _a : this.app.workspace.getMostRecentLeaf();
     const view = recent && this.isRootLeaf(recent) ? recent.view : null;
-    if (!view || view.getViewType() === "empty") return null;
+    if (!view) return null;
+    const viewType = view.getViewType();
+    if (viewType === "empty") return null;
+    if (FILE_BACKED_VIEW_TYPES.has(viewType)) return null;
     if ("file" in view) return null;
-    return view.getDisplayText() || view.getViewType();
+    return view.getDisplayText() || viewType;
   }
   // 路径是稳定字符串,直接从 vault 查文件名,无需过滤关闭的 leaf。
   // 无文件视图的合成键不是文件路径:关系图映射为本地化 graph 标签;其余视图若正是当前末项则用实时
@@ -2605,11 +2610,11 @@ var NoteCardView = class extends import_obsidian6.ItemView {
   async render() {
     const token = ++this.renderToken;
     if (!this.boundFile) {
-      if (this.lastRenderedKey !== null) {
+      if (this.lastRenderedKey !== "") {
         this.contentEl.empty();
         this.renderEmptyState();
       }
-      this.lastRenderedKey = null;
+      this.lastRenderedKey = "";
       return;
     }
     const content = await this.app.vault.cachedRead(this.boundFile);

@@ -125,11 +125,14 @@ export class NoteCardView extends ItemView {
 		const token = ++this.renderToken;
 
 		if (!this.boundFile) {
-			if (this.lastRenderedKey !== null) {
+			// '' 是「已显示空态」的哨兵值，与初始值 null（「从未渲染过」）区分开——否则首次以
+			// boundFile=null 调用（新建面板 / 重启后 setState() 解析不到旧路径）时，null !== null
+			// 判假，空态被错误跳过，面板真正空白、连「选择笔记」按钮都画不出来，无法再绑定。
+			if (this.lastRenderedKey !== '') {
 				this.contentEl.empty();
 				this.renderEmptyState();
 			}
-			this.lastRenderedKey = null;
+			this.lastRenderedKey = '';
 			return;
 		}
 
