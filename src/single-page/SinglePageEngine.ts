@@ -35,7 +35,7 @@
 import { App, TAbstractFile, TFile, WorkspaceLeaf, normalizePath } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
 import { uiDoc } from '../core/appDom';
-import { AnimationClass, GLOBAL_GRAPH_KEY, NavigationHistory, filelessViewKey, isFilelessViewKey, viewTypeFromKey } from './NavigationHistory';
+import { AnimationClass, FILE_BACKED_VIEW_TYPES, GLOBAL_GRAPH_KEY, NavigationHistory, filelessViewKey, isFilelessViewKey, viewTypeFromKey } from './NavigationHistory';
 import { ResizeObserverErrorSuppressor } from './ResizeObserverErrorSuppressor';
 import { LeafCache } from './LeafCache';
 import { GraphSidebarManager } from './GraphSidebarManager';
@@ -430,17 +430,23 @@ export class SinglePageEngine {
 		const filePath = this.filePathForLeaf(leaf);
 		if (filePath) return filePath;
 		const li = leaf as LeafInternal;
-		// 挂文件的视图(markdown/canvas/pdf 等 FileView 子类)在同一 leaf 原地切换文件时会短暂经过
+		// getViewState() 对 deferred 视图仍返回真实 type，而此时 view.getViewType() 可能返回 'empty'。优先用前者兜底。
+		const vs = leaf.getViewState() as { type?: string } | undefined;
+		const viewType = vs?.type ?? li.view?.getViewType?.();
+		if (!viewType || viewType === 'empty') return null;
+		// 核心内置、真正挂文件的 viewType（markdown/canvas/pdf 等）一律不当无文件视图，不管
+		// 'file' in view 判断的结果——leaf 刚新建或原地切换 viewType 时有一个过渡窗口：
+		// leaf.getViewState().type 已经报告了新 viewType，但 leaf.view 还没被换成对应的新视图
+		// 实例（仍是旧视图，可能是从未声明过 file 属性的 'empty' 视图），此时 'file' in li.view
+		// 会误判为假。按 viewType 直接兜底排除，不依赖 view 实例是否已经换好。
+		if (FILE_BACKED_VIEW_TYPES.has(viewType)) return null;
+		// 挂文件的第三方 / 非内置视图在同一 leaf 原地切换文件时会短暂经过
 		// "file 为 null 但 viewType 仍是旧类型"的过渡态(redirectOpenFile 在 await origOpenFile 期间
 		// 若恰好被一次多余的 active-leaf-change 撞上)。这种视图仍声明了 file 属性(只是暂时为 null)，
 		// 和真正无文件的视图(全局关系图、搜索等,从未有过 file 属性)不同,必须和 empty 视图一样排除，
 		// 否则会被误判成一个按旧 viewType 编码的合成 key,污染导航历史——面包屑冒出 Obsidian 原生的
 		// "No file" 标签，且该假条目会被 isReopenable 当作永久可重开的无文件视图卡住后续前进/后退。
 		if (li.view && 'file' in li.view) return null;
-		// getViewState() 对 deferred 视图仍返回真实 type，而此时 view.getViewType() 可能返回 'empty'。优先用前者兜底。
-		const vs = leaf.getViewState() as { type?: string } | undefined;
-		const viewType = vs?.type ?? li.view?.getViewType?.();
-		if (!viewType || viewType === 'empty') return null;
 		return filelessViewKey(viewType);
 	}
 

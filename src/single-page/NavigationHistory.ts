@@ -43,6 +43,14 @@ export function viewTypeFromKey(key: string): string | null {
 	return null;
 }
 
+// Obsidian 核心内置、真正挂文件的 FileView 子类 viewType（与 LeafMountService.DOCUMENT_VIEW_TYPES
+// 不同——那个集合还含 release-notes / webviewer 等无 file 属性的视图，不能直接复用）。
+// navKeyForLeaf / activeFilelessViewLabel 用它兜底："'file' in view" 结构性判断在新建 / 原地切换
+// viewType 的过渡窗口里会读到旧 view 实例（leaf.getViewState().type 已报告新 viewType，但
+// leaf.view 尚未替换成新视图，见 SinglePageEngine.filePathForLeaf 的同类注释），导致误判成
+// 无文件视图。按 viewType 直接兜底排除，不依赖 view 实例是否已经就位。
+export const FILE_BACKED_VIEW_TYPES = new Set(['markdown', 'canvas', 'pdf', 'image', 'audio', 'video', 'bases']);
+
 type LeafView = WorkspaceLeaf & {
 	view?: { contentEl?: HTMLElement };
 };
