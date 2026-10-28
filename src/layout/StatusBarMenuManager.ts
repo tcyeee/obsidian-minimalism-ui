@@ -348,7 +348,7 @@ export class StatusBarMenuManager implements Feature {
 	// 核心「可读行长」开关状态：app.vault.getConfig 是未公开类型的内部 API（同仓库其余
 	// 内部 API 访问也一律 as unknown as 断言，见 DragBarManager.ts 等），读取失败按关闭处理。
 	private isReadableLineLengthEnabled(): boolean {
-		const getConfig = (this.app.vault as unknown as { getConfig?(key: string): unknown }).getConfig;
+		const getConfig = (this.app.vault as unknown as { getConfig?: (key: string) => unknown }).getConfig;
 		return getConfig?.call(this.app.vault, 'readableLineLength') === true;
 	}
 
