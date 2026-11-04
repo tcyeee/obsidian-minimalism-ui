@@ -101,7 +101,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.editorStatus = new EditorStatusManager(this.app, this);
 		this.mermaidZoom = new MermaidZoomManager(this.app);
 		this.rightSidebarButton = new RightSidebarButtonManager(this.app, settings, () => this.saveData(this.settings), this.leafMount);
-		this.noteCard = new NoteCardManager(this);
+		this.noteCard = new NoteCardManager(this, settings, () => this.saveSettings());
 		// 左侧栏 slot 当前占用的 view type 是右侧栏悬浮面板避让的单一事实源。
 		this.rightSidebarButton.setManagedLeftViewTypesProvider(() => this.leftSidebar.getOwnedViewTypes());
 		// 状态栏菜单里的「右侧边栏」开关现在控制右下角悬浮框（minimalism-ui-rsb-launcher）的显隐，

@@ -1,10 +1,14 @@
 // 左侧栏的一个用户添加的面板。整个列表最多 4 项，顺序即纵向 split 自上而下的顺序。
 // 详见仓库根 TODO.md 的目标数据模型一节。
 export interface SidebarSlot {
-	// 稳定 id：供设置页列表渲染 / 拖拽排序做 key。新增用 `slot-<时间戳>`。
+	// 稳定 id：供设置页列表渲染 / 拖拽排序做 key，笔记卡片还用它区分多份实例（见
+	// MULTI_INSTANCE_VIEW_TYPES）。新增用 `slot-<时间戳>-<随机后缀>`——纯时间戳在同一毫秒内
+	// 连续两次添加会撞车，对笔记卡片这种允许同列表多份的类型是真实风险。
 	id: string;
 	// 任意已注册的工具类 view type（'outline' / 'file-properties' / 'localgraph' / 'backlink' …）。
-	// 同一列表内不重复（设置页下拉框会排除已占用的类型）。
+	// 同一列表内不重复，唯一例外是 MULTI_INSTANCE_VIEW_TYPES 里的 type（目前仅笔记卡片）：
+	// 它允许在同一列表甚至不同 profile 列表里重复出现多份，每份各自独立绑定一篇笔记，靠这个
+	// `id` 字段区分彼此。
 	viewType: string;
 	// 预留：列表里的每一项都视为启用（添加即启用、移除即删除）。LeftSidebarManager 仍按此字段
 	// 过滤，故新增项一律置 true。
@@ -17,6 +21,19 @@ export interface SidebarSlot {
 
 // 上限：整个列表最多 4 项。
 export const MAX_LEFT_SIDEBAR_SLOTS = 4;
+
+// 允许在同一个 slot 列表（甚至跨 home/diary/other 多套列表）里重复出现多份的 view type。
+// 目前仅笔记卡片：每一份各自独立绑定一篇笔记，靠 SidebarSlot.id 区分彼此——其它工具类面板
+// （outline/properties/关系图……）全局只反映 activeFile，多份毫无意义，故不开放。这是 schema
+// 层的约束（决定设置页允不允许重复添加），放在这里而非 LeftSidebarManager，好让 SettingTab
+// 与 LeftSidebarManager 都从这同一个权威定义读，不必互相 import。
+// LeftSidebarManager 里对应的 leaf 匹配逻辑见该文件的 slotKeyOf / leafSlotKey。
+//
+// 字符串硬编码而不是 import NoteCardView.VIEW_TYPE_NOTE_CARD：core/ 不依赖任何 feature 目录
+// 是这个代码库的既有分层约定（反过来——feature 依赖 core——到处都是），这里不该开这个例外。
+// 这个值本身也不会变：它是持久化进用户 workspace.json 的 view type id，改名等于让所有老用户
+// 现有的笔记卡片 leaf 全部认不出来，实质已经和字面量一样「冻结」。
+export const MULTI_INSTANCE_VIEW_TYPES = new Set<string>(['minimalism-ui-note-card']);
 
 // 默认空列表：全新安装时左侧栏完全空白，由用户在设置页自行添加面板。
 // 老用户升级的迁移见 main.ts loadSettings。
@@ -71,6 +88,22 @@ export interface MinimalismUISettings {
 	// 跨重启持久化，使下次打开面板时默认展示这一项，而不是 activeLeaf 缺失时随意回退到
 	// leafOrder 里最早发现的那个。空字符串表示尚无记录（沿用原有回退逻辑）。
 	rightSidebarLastActiveView: string;
+	// 每张笔记卡片当前绑定的笔记路径，按 SidebarSlot.id 存（null = 未绑定）。
+	//
+	// 这是笔记卡片绑定状态的第三层持久化，与另外两层各自堵一个不同的失效窗口（NoteCardView /
+	// NoteCardManager 只需知道有这一层兜底、不重复这段推理，遇到细节请回链到这里）：
+	//   1. 内存里的 NoteCardView.boundFile —— leaf 存活期间（含被 park 摘下、未 detach）的
+	//      唯一真源，profile 切换、面板重新显示都不会动它。
+	//   2. leaf.getState() → Obsidian 落盘的 workspace.json —— 跨重启持久化，但只在该 leaf
+	//      当时确实挂在 workspace 树上才会被存下。LeftSidebarManager 的 PARKABLE_VIEW_TYPES
+	//      机制在 home/diary/other 三套 profile 切换时会把不在当前 profile 内的笔记卡片 leaf
+	//      整组从树上摘下保活（parkLeaf）而不 detach，那段时间它完全不出现在 workspace.json 里。
+	//   3. 这个字段 —— 若恰好在上面「摘下保活」期间退出 Obsidian，重启后这个 leaf 整个消失
+	//      （第 2 层救不了），连「上次绑定的是哪篇笔记」都无从查起；这份独立存在 settings 里、
+	//      每次绑定都跟着落盘，不随 leaf 在不在树上而定，专门兜底这一种情况（见
+	//      NoteCardView.setState 对 state 里缺 `file` key 时的兜底读取）。
+	// 按 slot.id 分开存：现在允许多张卡片同时存在、各自独立绑定，不能再共用一个全局值。
+	noteCardBindings: Record<string, string | null>;
 }
 
 export const DEFAULT_SETTINGS: MinimalismUISettings = {
@@ -108,4 +141,5 @@ export const DEFAULT_SETTINGS: MinimalismUISettings = {
 	rightSidebarStackOrder: [],
 	rightSidebarStowExpanded: false,
 	rightSidebarLastActiveView: '',
+	noteCardBindings: {},
 };

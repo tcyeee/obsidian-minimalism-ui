@@ -1276,20 +1276,6 @@ body.minimalism-ui-mac-sidebar .workspace-tab-header-tab-list {
 	max-width: 220px;
 }
 
-/* 菜单图标（右上角「更多操作」）默认隐藏，只在 leaf 悬浮时淡入——保持卡片干净，
-   未绑定笔记时也没有可解绑的内容，不需要常驻占一个图标位置。 */
-.workspace-leaf-content[data-type="minimalism-ui-note-card"] .view-action {
-	opacity: 0;
-	pointer-events: none;
-	transition: opacity 120ms ease;
-}
-
-.workspace-leaf:hover .workspace-leaf-content[data-type="minimalism-ui-note-card"] .view-action,
-.workspace-leaf-content[data-type="minimalism-ui-note-card"] .view-action:focus-visible {
-	opacity: 1;
-	pointer-events: auto;
-}
-
 .minimalism-ui-rsb-resize-handle {
 	position: absolute;
 	top: 0;

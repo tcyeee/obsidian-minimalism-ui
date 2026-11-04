@@ -1,9 +1,10 @@
 import { AbstractInputSuggest, App, PluginSettingTab, Setting, SettingDefinitionItem, SettingGroupItem, TFile } from 'obsidian';
 import type MinimalismUIPlugin from '../main';
 import { t, setLang } from './core/i18n';
-import { MAX_LEFT_SIDEBAR_SLOTS } from './core/settings';
+import { MAX_LEFT_SIDEBAR_SLOTS, MULTI_INSTANCE_VIEW_TYPES } from './core/settings';
 import type { SidebarSlot } from './core/settings';
 import { getDailyNotesFolder } from './core/utils';
+import { VIEW_TYPE_NOTE_CARD } from './note-card/NoteCardView';
 
 // ─── File Suggester ───────────────────────────────────────────────────────────
 
@@ -192,6 +193,9 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		const options = this.plugin.listSidebarViewOptions();
 		const atLimit = slots.length >= MAX_LEFT_SIDEBAR_SLOTS;
 		const used = new Set(slots.map(s => s.viewType));
+		// 笔记卡片允许在同一列表里重复添加（每份各自独立绑定一篇笔记），其它 view type 仍是
+		// 「已占用即排除」。
+		const isAvailable = (type: string): boolean => !used.has(type) || MULTI_INSTANCE_VIEW_TYPES.has(type);
 		const workspaceEl = sectionEl.createDiv({ cls: 'minimalism-ui-slot-workspace' });
 		const tabs = workspaceEl.createDiv({ cls: 'minimalism-ui-slot-profiles' });
 		const contentEl = workspaceEl.createDiv({ cls: 'minimalism-ui-slot-content' });
@@ -218,8 +222,8 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		const editable = !unavailableReason;
 		// 新增行默认选中：优先经典三面板，其次任意未占用的已注册 view。
 		const preferred = ['outline', 'file-properties', 'localgraph'];
-		const nextFree = preferred.filter(tp => options.some(o => o.type === tp)).find(tp => !used.has(tp))
-			?? options.find(o => !used.has(o.type))?.type;
+		const nextFree = preferred.filter(tp => options.some(o => o.type === tp)).find(isAvailable)
+			?? options.find(o => isAvailable(o.type))?.type;
 
 		const header = new Setting(contentEl)
 			.setName(t('leftSidebarPanels'))
@@ -233,7 +237,11 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 			} else {
 				btn.setCta();
 				btn.onClick(async () => {
-					slots.push({ id: `slot-${Date.now()}`, viewType: nextFree, enabled: true, height: null });
+					// Date.now() 单独做 id 在「Add 按钮被连续快速触发两次、落在同一毫秒」时会撞车——
+					// 对笔记卡片这种允许同列表多份的 type 尤其致命（撞车的两个 slot 会算出同一个
+					// slotKey，LeftSidebarManager 里互相顶替）。加一段随机后缀，不依赖单一时间戳。
+					const id = `slot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+					slots.push({ id, viewType: nextFree, enabled: true, height: null });
 					this.setProfileSlots(slots);
 					await this.persistSlots();
 				});
@@ -268,7 +276,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		const usedElsewhere = new Set(slots.filter((_, i) => i !== index).map(s => s.viewType));
 		let hasCurrent = false;
 		for (const opt of options) {
-			if (usedElsewhere.has(opt.type)) continue;
+			if (usedElsewhere.has(opt.type) && !MULTI_INSTANCE_VIEW_TYPES.has(opt.type)) continue;
 			select.createEl('option', { value: opt.type, text: opt.label });
 			if (opt.type === slot.viewType) hasCurrent = true;
 		}
@@ -278,6 +286,12 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		select.disabled = !editable;
 		select.addEventListener('change', () => {
 			if (!editable) return;
+			// 从笔记卡片切到别的类型：这个 slot.id 以后再也不会被笔记卡片认领，顺手清掉它在
+			// settings.noteCardBindings 里的残留，否则这条绑定会永久留在 data.json 里（同removeBtn
+			// 下面的清理逻辑）。
+			if (slot.viewType === VIEW_TYPE_NOTE_CARD && select.value !== VIEW_TYPE_NOTE_CARD) {
+				delete this.plugin.settings.noteCardBindings[slot.id];
+			}
 			slot.viewType = select.value;
 			this.setProfileSlots(slots);
 			void this.persistSlots();
@@ -291,7 +305,10 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		removeBtn.disabled = !editable;
 		removeBtn.addEventListener('click', () => {
 			if (!editable) return;
-			slots.splice(index, 1);
+			const [removed] = slots.splice(index, 1);
+			// 笔记卡片删了就彻底清掉它那份持久化绑定——不然 settings.noteCardBindings 里会
+			// 永久留着一个再也用不到的 slot.id（slot.id 用时间戳生成，理论上不会被复用）。
+			if (removed?.viewType === VIEW_TYPE_NOTE_CARD) delete this.plugin.settings.noteCardBindings[removed.id];
 			this.setProfileSlots(slots);
 			void this.persistSlots();
 		});
