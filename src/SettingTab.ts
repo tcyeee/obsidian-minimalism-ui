@@ -159,7 +159,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 
 	// 拖拽排序进行中的源行下标；drop 时读取，结束即清空。
 	private slotDragIndex: number | null = null;
-	private sidebarProfile: 'home' | 'diary' | 'other' = 'other';
+	private sidebarProfile: 'home' | 'diary' | 'other' = 'home';
 
 	private profileOverride(): SidebarSlot[] | null {
 		const s = this.plugin.settings;
