@@ -109,8 +109,6 @@ const translations = {
 		noteCardEmptyDesc: '这是一张笔记卡片，可以固定展示一篇笔记。',
 		noteCardChooseNote: '选择笔记',
 		noteCardSuggestPlaceholder: '搜索笔记…',
-		noteCardMenuTooltip: '更多操作',
-		noteCardUnbind: '解绑笔记',
 	},
 	en: {
 		language: 'Language',
@@ -220,8 +218,6 @@ const translations = {
 		noteCardEmptyDesc: 'This card can pin and display one note.',
 		noteCardChooseNote: 'Choose note',
 		noteCardSuggestPlaceholder: 'Search notes…',
-		noteCardMenuTooltip: 'More options',
-		noteCardUnbind: 'Unbind note',
 	},
 } as const;
 

@@ -31,6 +31,7 @@ var import_obsidian15 = require("obsidian");
 
 // src/core/settings.ts
 var MAX_LEFT_SIDEBAR_SLOTS = 4;
+var MULTI_INSTANCE_VIEW_TYPES = /* @__PURE__ */ new Set(["minimalism-ui-note-card"]);
 var DEFAULT_LEFT_SIDEBAR_SLOTS = [];
 var DEFAULT_SETTINGS = {
   // 左侧栏面板默认全关（新装即空白侧栏）；showVaultProfile 是独立的 vault profile 开关，保持默认开。
@@ -66,7 +67,8 @@ var DEFAULT_SETTINGS = {
   rightSidebarPanelPinned: false,
   rightSidebarStackOrder: [],
   rightSidebarStowExpanded: false,
-  rightSidebarLastActiveView: ""
+  rightSidebarLastActiveView: "",
+  noteCardBindings: {}
 };
 
 // src/core/LeafMountService.ts
@@ -376,9 +378,7 @@ var translations = {
     noteCard: "\u7B14\u8BB0\u5361\u7247",
     noteCardEmptyDesc: "\u8FD9\u662F\u4E00\u5F20\u7B14\u8BB0\u5361\u7247\uFF0C\u53EF\u4EE5\u56FA\u5B9A\u5C55\u793A\u4E00\u7BC7\u7B14\u8BB0\u3002",
     noteCardChooseNote: "\u9009\u62E9\u7B14\u8BB0",
-    noteCardSuggestPlaceholder: "\u641C\u7D22\u7B14\u8BB0\u2026",
-    noteCardMenuTooltip: "\u66F4\u591A\u64CD\u4F5C",
-    noteCardUnbind: "\u89E3\u7ED1\u7B14\u8BB0"
+    noteCardSuggestPlaceholder: "\u641C\u7D22\u7B14\u8BB0\u2026"
   },
   en: {
     language: "Language",
@@ -472,9 +472,7 @@ var translations = {
     noteCard: "Note card",
     noteCardEmptyDesc: "This card can pin and display one note.",
     noteCardChooseNote: "Choose note",
-    noteCardSuggestPlaceholder: "Search notes\u2026",
-    noteCardMenuTooltip: "More options",
-    noteCardUnbind: "Unbind note"
+    noteCardSuggestPlaceholder: "Search notes\u2026"
   }
 };
 var langOverride = null;
@@ -2535,14 +2533,18 @@ var NoteSuggestModal = class extends import_obsidian5.FuzzySuggestModal {
 // src/note-card/NoteCardView.ts
 var VIEW_TYPE_NOTE_CARD = "minimalism-ui-note-card";
 var NoteCardView = class extends import_obsidian6.ItemView {
-  constructor(leaf) {
+  constructor(leaf, persist) {
     super(leaf);
+    this.persist = persist;
     this.boundFile = null;
+    // LeftSidebarManager 在 setViewState 的 state.slotId 里告知的 slot id；setState() 收到后
+    // 记下，之后 getState() 原样带回去（否则重启后这个 leaf 在 LeftSidebarManager 眼里就是
+    // 「没带 slotId 的孤儿」，匹配不到任何 slot，见 LeftSidebarManager.leafSlotKey）。
+    this.slotId = null;
     this.renderToken = 0;
     // 绑定文件 path + 内容的联合 key：render() 被重复调用但内容其实没变时据此整段跳过，
     // 避免「先 empty() 清空、再 await 重排」这段必然出现的空白间隙在视觉上闪一下。
     this.lastRenderedKey = null;
-    this.addAction("ellipsis-vertical", t("noteCardMenuTooltip"), (evt) => this.showMenu(evt));
   }
   getViewType() {
     return VIEW_TYPE_NOTE_CARD;
@@ -2574,13 +2576,9 @@ var NoteCardView = class extends import_obsidian6.ItemView {
     this.boundFile = file;
     await this.render();
     this.persistBinding();
+    if (this.slotId) this.persist.setLastFile(this.slotId, file.path);
   }
-  async unbind() {
-    this.boundFile = null;
-    await this.render();
-    this.persistBinding();
-  }
-  // requestSaveLayout() 本身是 debounced：若用户绑定/解绑后立刻刷新 Obsidian（或插件被
+  // requestSaveLayout() 本身是 debounced：若用户绑定后立刻刷新 Obsidian（或插件被
   // disable/enable），debounce 定时器还没触发，workspace.json 里存的还是上一次的旧绑定，
   // 刷新后看起来「绑定消失了」。.run() 是 Debouncer 公开 API，跳过等待立即落盘。
   persistBinding() {
@@ -2590,22 +2588,17 @@ var NoteCardView = class extends import_obsidian6.ItemView {
   getState() {
     var _a, _b;
     const state = { file: (_b = (_a = this.boundFile) == null ? void 0 : _a.path) != null ? _b : null };
+    if (this.slotId) state.slotId = this.slotId;
     return state;
   }
   async setState(state, result) {
-    var _a;
-    const path = (_a = state == null ? void 0 : state.file) != null ? _a : null;
+    const s = state;
+    if (s && typeof s.slotId === "string" && s.slotId) this.slotId = s.slotId;
+    const path = s && "file" in s ? s.file : this.slotId ? this.persist.getLastFile(this.slotId) : null;
     const restored = path ? this.app.vault.getAbstractFileByPath(path) : null;
     this.boundFile = restored instanceof import_obsidian6.TFile ? restored : null;
     await this.render();
     await super.setState(state, result);
-  }
-  showMenu(evt) {
-    const menu = new import_obsidian6.Menu();
-    menu.addItem(
-      (item) => item.setTitle(t("noteCardUnbind")).setIcon("unlink").setDisabled(!this.boundFile).onClick(() => void this.unbind())
-    );
-    menu.showAtMouseEvent(evt);
   }
   async render() {
     const token = ++this.renderToken;
@@ -2664,8 +2657,10 @@ var LeftSidebarManager = class {
     // 本轮 apply 是否由设置里「添加 / 更换面板」触发：若这轮确实新建了面板，即便进入前侧栏是
     // 收起态也保持展开 —— 用户刚加的面板要能看到，不能开一下又收回去。跨 rerun 保持，循环结束清零。
     this.revealNewPanels = false;
-    // 当前各 slot viewType → 其 leaf 的引用（关系图颜色重探、owned 查询用；显式持有引用而非
-    // getLeavesOfType，以隔离多窗口 / 弹出窗口，见记忆 project-sidebar-local-graph-rewrite）。
+    // 当前各 slot 的 slotKey（单实例面板即裸 viewType；MULTI_INSTANCE_VIEW_TYPES 则是
+    // `${viewType}::${slot.id}`，见 slotKeyOf）→ 其 leaf 的引用（关系图颜色重探、owned 查询
+    // 用；显式持有引用而非 getLeavesOfType，以隔离多窗口 / 弹出窗口，见记忆
+    // project-sidebar-local-graph-rewrite）。
     this.slotLeaves = /* @__PURE__ */ new Map();
     // 被 monkey-patch 的关系图 renderer.testCSS，remove() 时还原。
     this.patchedRenderer = null;
@@ -2695,7 +2690,7 @@ var LeftSidebarManager = class {
     // slot 列表一变（用户可能重装了插件）即清空重试，signature 存在 lastDesiredKey。
     this.unsatisfiableTypes = /* @__PURE__ */ new Set();
     this.lastDesiredKey = "";
-    // viewType → 最近一次被摘掉前的 getViewState().state。home / diary / other 三套 profile
+    // slotKey → 最近一次被摘掉前的 getViewState().state。home / diary / other 三套 profile
     // 可各配不同 slot 列表：切换 profile 时不在新 profile 里的面板会被第 4 步整个 detach 掉，
     // 其持有的状态（如笔记卡片绑定的笔记路径）随之丢失——Obsidian 的 workspace.json 持久化
     // 只在应用退出/刷新时生效，救不了这种纯内存里的 profile 切换。detachLeaf 摘之前在此留一份
@@ -2703,11 +2698,13 @@ var LeftSidebarManager = class {
     // 对 outline/file-properties 等本就跟随 activeFile 的面板无害：第 7 步的 file-open 兜底会
     // 立刻把它们刷新到当前文件，旧状态只是这一帧内的无害底噪。
     this.lastDetachedState = /* @__PURE__ */ new Map();
-    // PARKABLE_VIEW_TYPES 专用：viewType → 已从 leftSplit.children 摘下但未 detach() 的 group
+    // PARKABLE_VIEW_TYPES 专用：slotKey → 已从 leftSplit.children 摘下但未 detach() 的 group
     // （WorkspaceTabs 或裸 leaf）。removeChild 只是工作区树的结构移除（同步 DOM），不会调
     // view.onClose()/销毁 leaf —— 组内的 WorkspaceLeaf、View 实例、已渲染的 DOM 全部原样留在
     // 内存里，只是暂时没有挂在任何 split 下、不出现在 iterateAllLeaves() 里。profile 切回来
-    // 需要它时直接 insertChild 插回，不重新 setViewState，不触发任何重渲染。
+    // 需要它时直接 insertChild 插回，不重新 setViewState，不触发任何重渲染。按 slotKey 而非裸
+    // viewType 存，使得同一 viewType 的多份笔记卡片（MULTI_INSTANCE_VIEW_TYPES）各自独立
+    // park / 还原，不会互相顶替。
     // 与 lastDetachedState 的关系：two 条路径互斥——走 park 就不进 lastDetachedState（没必要，
     // leaf 本身没丢状态）；remove() 卸载时必须把残留的 parked group 插回 leftSplit，否则这些
     // leaf 永久游离于工作区树之外、用户也没有 Tab 可以关它们。
@@ -2830,7 +2827,7 @@ var LeftSidebarManager = class {
     for (const slot of this.activeSlots()) {
       if (!slot.enabled) continue;
       if (slot.viewType === GRAPH_VIEW_TYPE) continue;
-      const leaf = this.slotLeaves.get(slot.viewType);
+      const leaf = this.slotLeaves.get(this.slotKeyOf(slot));
       if (!leaf || leaf.getRoot() !== this.app.workspace.leftSplit) continue;
       const group = this.groupOf(leaf);
       if (!group) continue;
@@ -2874,7 +2871,7 @@ var LeftSidebarManager = class {
     const fill = unknownCount > 0 ? Math.max(5, remainder / unknownCount) : 0;
     let touched = false;
     for (const slot of slots) {
-      const leaf = this.slotLeaves.get(slot.viewType);
+      const leaf = this.slotLeaves.get(this.slotKeyOf(slot));
       const group = leaf ? this.groupOf(leaf) : null;
       if (!(group == null ? void 0 : group.setDimension)) continue;
       group.setDimension((_a = this.storedHeight(slot)) != null ? _a : fill);
@@ -2892,8 +2889,8 @@ var LeftSidebarManager = class {
     const ls = this.leftSplit();
     if (!ls || ls.collapsed) return;
     const root = this.app.workspace.leftSplit;
-    for (const [type, leaf] of this.slotLeaves) {
-      if (type === GRAPH_VIEW_TYPE) continue;
+    for (const [key, leaf] of this.slotLeaves) {
+      if (key === GRAPH_VIEW_TYPE) continue;
       if (leaf.getRoot() !== root) continue;
       this.leafMount.notifyResize(leaf);
     }
@@ -2906,20 +2903,20 @@ var LeftSidebarManager = class {
     var _a, _b, _c, _d;
     const ls = this.leftSplit();
     if (!ls) return false;
-    const desired = this.enabledSlots().map((s) => s.viewType);
-    const byType = this.toolLeavesByType();
+    const desired = this.enabledSlots().map((s) => this.slotKeyOf(s));
+    const byKey = this.toolLeavesBySlotKey();
     if (desired.length === 0) {
       let toolLeaves = 0;
-      for (const leaves of byType.values()) toolLeaves += leaves.length;
+      for (const leaves of byKey.values()) toolLeaves += leaves.length;
       return toolLeaves > 0 && ((_b = (_a = ls.children) == null ? void 0 : _a.length) != null ? _b : 0) > 1;
     }
     const desiredSet = new Set(desired);
-    for (const type of byType.keys()) {
-      if (!desiredSet.has(type)) return true;
+    for (const key of byKey.keys()) {
+      if (!desiredSet.has(key)) return true;
     }
-    for (const type of desired) {
-      if (this.unsatisfiableTypes.has(type)) continue;
-      if (((_d = (_c = byType.get(type)) == null ? void 0 : _c.length) != null ? _d : 0) !== 1) return true;
+    for (const key of desired) {
+      if (this.unsatisfiableTypes.has(key)) continue;
+      if (((_d = (_c = byKey.get(key)) == null ? void 0 : _c.length) != null ? _d : 0) !== 1) return true;
     }
     return false;
   }
@@ -2971,15 +2968,16 @@ var LeftSidebarManager = class {
     });
     return out;
   }
-  // leftSplit 里的工具类 leaf 按 viewType 分桶（文档类 leaf 不参与，reconcile 不碰）。
-  toolLeavesByType() {
+  // leftSplit 里的工具类 leaf 按 slotKey 分桶（文档类 leaf 不参与，reconcile 不碰）。
+  toolLeavesBySlotKey() {
     const map = /* @__PURE__ */ new Map();
     for (const leaf of this.leftLeaves()) {
       const type = this.viewTypeOf(leaf);
       if (!type || DOCUMENT_VIEW_TYPES.has(type)) continue;
-      const bucket = map.get(type);
+      const key = this.leafSlotKey(leaf);
+      const bucket = map.get(key);
       if (bucket) bucket.push(leaf);
-      else map.set(type, [leaf]);
+      else map.set(key, [leaf]);
     }
     return map;
   }
@@ -2987,7 +2985,8 @@ var LeftSidebarManager = class {
     var _a, _b, _c, _d, _e, _f, _g, _h;
     const ls = this.leftSplit();
     if (!ls) return;
-    const desired = this.enabledSlots().map((s) => s.viewType);
+    const desiredSlots = this.enabledSlots();
+    const desired = desiredSlots.map((s) => this.slotKeyOf(s));
     const desiredKey = desired.join(" ");
     if (desiredKey !== this.lastDesiredKey) {
       this.unsatisfiableTypes.clear();
@@ -2996,13 +2995,14 @@ var LeftSidebarManager = class {
     if (desired.length === 0) {
       this.slotLeaves.clear();
       const wasCollapsed2 = ls.collapsed;
-      const parkedType = /* @__PURE__ */ new Set();
+      const parkedKeys = /* @__PURE__ */ new Set();
       for (const leaf of this.leftLeaves()) {
         const type = this.viewTypeOf(leaf);
         if (DOCUMENT_VIEW_TYPES.has(type)) continue;
-        if (PARKABLE_VIEW_TYPES.has(type) && !parkedType.has(type)) {
-          this.parkLeaf(ls, leaf, type);
-          parkedType.add(type);
+        const key = this.leafSlotKey(leaf);
+        if (PARKABLE_VIEW_TYPES.has(type) && !parkedKeys.has(key)) {
+          this.parkLeaf(ls, leaf, key);
+          parkedKeys.add(key);
         } else {
           this.detachLeaf(leaf);
         }
@@ -3021,53 +3021,56 @@ var LeftSidebarManager = class {
       }
       const desiredSet = new Set(desired);
       for (const leaf of this.leftLeaves()) {
-        const type = this.viewTypeOf(leaf);
-        if (!desiredSet.has(type)) continue;
+        if (!desiredSet.has(this.leafSlotKey(leaf))) continue;
         const group = leaf.parent;
         if (group && group !== this.app.workspace.leftSplit && ((_b = (_a = group.children) == null ? void 0 : _a.length) != null ? _b : 1) > 1) {
           this.detachLeaf(leaf);
         }
       }
-      for (const type of desired) {
-        if (this.findSlotGroup(ls, type)) continue;
-        const parked = this.parkedGroups.get(type);
+      for (const slot of desiredSlots) {
+        const key = this.slotKeyOf(slot);
+        if (this.findSlotGroup(ls, key)) continue;
+        const parked = this.parkedGroups.get(key);
         if (parked) {
-          this.parkedGroups.delete(type);
+          this.parkedGroups.delete(key);
           ls.insertChild((_d = (_c = ls.children) == null ? void 0 : _c.length) != null ? _d : 0, parked);
           continue;
         }
-        if (this.unsatisfiableTypes.has(type)) continue;
+        if (this.unsatisfiableTypes.has(key)) continue;
         const leaf = this.app.workspace.getLeftLeaf(true);
         if (!leaf) continue;
         try {
-          await leaf.setViewState({ type, state: this.lastDetachedState.get(type), active: false });
+          const baseState = this.lastDetachedState.get(key);
+          const state = MULTI_INSTANCE_VIEW_TYPES.has(slot.viewType) ? { ...baseState != null ? baseState : {}, slotId: slot.id } : baseState;
+          await leaf.setViewState({ type: slot.viewType, state, active: false });
           createdLeaf = true;
         } catch (err) {
-          console.error(`[minimalism-ui] left sidebar slot "${type}" setViewState failed`, err);
-          this.unsatisfiableTypes.add(type);
+          console.error(`[minimalism-ui] left sidebar slot "${slot.viewType}" setViewState failed`, err);
+          this.unsatisfiableTypes.add(key);
           this.detachLeaf(leaf);
         }
       }
-      const seenType = /* @__PURE__ */ new Set();
-      const parkedType = /* @__PURE__ */ new Set();
+      const seenKeys = /* @__PURE__ */ new Set();
+      const parkedKeys = /* @__PURE__ */ new Set();
       for (const leaf of this.leftLeaves()) {
         if (((_f = (_e = ls.children) == null ? void 0 : _e.length) != null ? _f : 0) <= 1) break;
         const type = this.viewTypeOf(leaf);
         if (!type || DOCUMENT_VIEW_TYPES.has(type)) continue;
-        if (!desiredSet.has(type)) {
-          if (PARKABLE_VIEW_TYPES.has(type) && !parkedType.has(type)) {
-            this.parkLeaf(ls, leaf, type);
-            parkedType.add(type);
+        const key = this.leafSlotKey(leaf);
+        if (!desiredSet.has(key)) {
+          if (PARKABLE_VIEW_TYPES.has(type) && !parkedKeys.has(key)) {
+            this.parkLeaf(ls, leaf, key);
+            parkedKeys.add(key);
           } else {
             this.detachLeaf(leaf);
           }
           continue;
         }
-        if (seenType.has(type)) {
+        if (seenKeys.has(key)) {
           this.detachLeaf(leaf);
           continue;
         }
-        seenType.add(type);
+        seenKeys.add(key);
       }
       for (let i = 0; i < desired.length; i++) {
         const group = this.findSlotGroup(ls, desired[i]);
@@ -3079,10 +3082,10 @@ var LeftSidebarManager = class {
       }
       (_g = ls.recomputeChildrenDimensions) == null ? void 0 : _g.call(ls);
       this.slotLeaves.clear();
-      const finalByType = this.toolLeavesByType();
-      for (const type of desired) {
-        const leaf = (_h = finalByType.get(type)) == null ? void 0 : _h[0];
-        if (leaf) this.slotLeaves.set(type, leaf);
+      const finalByKey = this.toolLeavesBySlotKey();
+      for (const key of desired) {
+        const leaf = (_h = finalByKey.get(key)) == null ? void 0 : _h[0];
+        if (leaf) this.slotLeaves.set(key, leaf);
       }
       await this.leafMount.materializeDeferredLeaves([...this.slotLeaves.values()]);
       this.applySlotHeights(ls);
@@ -3119,12 +3122,12 @@ var LeftSidebarManager = class {
     for (const delay of [0, 60, 150, 300, 500]) window.setTimeout(sync, delay);
   }
   // ── workspace-item 树辅助 ─────────────────────────────────────────────────
-  // leftSplit 里承载指定 viewType 的直接子节点（通常是 WorkspaceTabs，也可能是裸 leaf）。
-  findSlotGroup(ls, viewType) {
+  // leftSplit 里承载指定 slotKey 的直接子节点（通常是 WorkspaceTabs，也可能是裸 leaf）。
+  findSlotGroup(ls, slotKey) {
     var _a;
     for (const child of (_a = ls.children) != null ? _a : []) {
       const leaf = this.leafOfGroup(child);
-      if (leaf && this.viewTypeOf(leaf) === viewType) return child;
+      if (leaf && this.leafSlotKey(leaf) === slotKey) return child;
     }
     return null;
   }
@@ -3146,12 +3149,45 @@ var LeftSidebarManager = class {
       return "";
     }
   }
+  // 单实例 view type 的 slotKey 就是裸 viewType（行为与改造前完全一致）；MULTI_INSTANCE_
+  // VIEW_TYPES 则带上 slot.id，使同一 viewType 的多份 slot 互不覆盖。没有 id 时用空字符串
+  // 占位——这个 key 不会与任何真实 desired slot 相等，于是被当作"外来"摘掉（正常情况下
+  // 不会发生：新建 leaf 时 doReconcile 总会立刻带上 slotId，见下方第 3 步）。
+  slotKeyFor(viewType, slotId) {
+    if (!MULTI_INSTANCE_VIEW_TYPES.has(viewType)) return viewType;
+    return `${viewType}::${slotId != null ? slotId : ""}`;
+  }
+  /** 某个配置好的 slot 对应的 slotKey（见 slotKeyFor）。 */
+  slotKeyOf(slot) {
+    return this.slotKeyFor(slot.viewType, slot.id);
+  }
+  // 从已存在 leaf 的当前 view state 里读出它的 slotId（没有就是 null）——leafSlotKey 据此
+  // 算出该 leaf 当前对应的 slotKey。
+  slotIdOfLeaf(leaf) {
+    try {
+      const state = leaf.getViewState().state;
+      const id = state == null ? void 0 : state.slotId;
+      return typeof id === "string" && id ? id : null;
+    } catch (e) {
+      return null;
+    }
+  }
+  /** 已存在 leaf 当前对应的 slotKey（见 slotKeyFor）。 */
+  leafSlotKey(leaf) {
+    const type = this.viewTypeOf(leaf);
+    if (!type) return "";
+    return this.slotKeyFor(type, this.slotIdOfLeaf(leaf));
+  }
   // 把一个 leaf 连同（若因此清空的）tab 组一起摘掉，不留半初始化条目。摘之前留一份
-  // state 底（见 lastDetachedState 字段注释），供同类型 slot 日后重建时找回。
+  // state 底（见 lastDetachedState 字段注释），按 slotKey 存，供同一 slot 日后重建时找回。
   detachLeaf(leaf) {
+    var _a;
     try {
       const vs = leaf.getViewState();
-      if (vs == null ? void 0 : vs.type) this.lastDetachedState.set(vs.type, vs.state);
+      if (vs == null ? void 0 : vs.type) {
+        const slotId = (_a = vs.state) == null ? void 0 : _a.slotId;
+        this.lastDetachedState.set(this.slotKeyFor(vs.type, typeof slotId === "string" ? slotId : null), vs.state);
+      }
     } catch (e) {
     }
     try {
@@ -3176,15 +3212,16 @@ var LeftSidebarManager = class {
   }
   // PARKABLE_VIEW_TYPES 专用：把 leaf 所在的组整个从 leftSplit.children 摘下但不 detach()——
   // leaf / View 实例 / 已渲染的 DOM 全部留在内存里，只是暂时不出现在 leftSplit 里。找不到
-  // 顶层组（异常情况）时退化成普通 detachLeaf，不留半摘的子节点。
-  parkLeaf(ls, leaf, type) {
+  // 顶层组（异常情况）时退化成普通 detachLeaf，不留半摘的子节点。key 是 slotKey（见
+  // slotKeyFor），不是裸 viewType，使多份同类型 slot 各自独立 park。
+  parkLeaf(ls, leaf, key) {
     const group = this.topLevelGroupOf(ls, leaf);
     if (!group) {
       this.detachLeaf(leaf);
       return;
     }
     ls.removeChild(group);
-    this.parkedGroups.set(type, group);
+    this.parkedGroups.set(key, group);
   }
   // ── 关系图颜色重探（自 SidebarLayoutManager 迁移）─────────────────────────
   applyGraphColors(graphLeaf) {
@@ -5108,11 +5145,24 @@ var RightSidebarButtonManager = class {
 
 // src/note-card/NoteCardManager.ts
 var NoteCardManager = class {
-  constructor(plugin) {
+  constructor(plugin, getSettings, saveSettings) {
     this.plugin = plugin;
+    this.getSettings = getSettings;
+    this.saveSettings = saveSettings;
   }
   apply() {
-    this.plugin.registerView(VIEW_TYPE_NOTE_CARD, (leaf) => new NoteCardView(leaf));
+    this.plugin.registerView(VIEW_TYPE_NOTE_CARD, (leaf) => new NoteCardView(leaf, {
+      getLastFile: (slotId) => {
+        var _a;
+        return (_a = this.getSettings().noteCardBindings[slotId]) != null ? _a : null;
+      },
+      setLastFile: (slotId, path) => {
+        const settings = this.getSettings();
+        if (path) settings.noteCardBindings[slotId] = path;
+        else delete settings.noteCardBindings[slotId];
+        void this.saveSettings();
+      }
+    }));
   }
   remove() {
   }
@@ -5520,6 +5570,7 @@ var MinimalismUISettingTab = class extends import_obsidian14.PluginSettingTab {
     const options = this.plugin.listSidebarViewOptions();
     const atLimit = slots.length >= MAX_LEFT_SIDEBAR_SLOTS;
     const used = new Set(slots.map((s) => s.viewType));
+    const isAvailable = (type) => !used.has(type) || MULTI_INSTANCE_VIEW_TYPES.has(type);
     const workspaceEl = sectionEl.createDiv({ cls: "minimalism-ui-slot-workspace" });
     const tabs = workspaceEl.createDiv({ cls: "minimalism-ui-slot-profiles" });
     const contentEl = workspaceEl.createDiv({ cls: "minimalism-ui-slot-content" });
@@ -5543,7 +5594,7 @@ var MinimalismUISettingTab = class extends import_obsidian14.PluginSettingTab {
     if (unavailableReason) contentEl.createDiv({ cls: "minimalism-ui-slot-notice", text: unavailableReason });
     const editable = !unavailableReason;
     const preferred = ["outline", "file-properties", "localgraph"];
-    const nextFree = (_b = preferred.filter((tp) => options.some((o) => o.type === tp)).find((tp) => !used.has(tp))) != null ? _b : (_a = options.find((o) => !used.has(o.type))) == null ? void 0 : _a.type;
+    const nextFree = (_b = preferred.filter((tp) => options.some((o) => o.type === tp)).find(isAvailable)) != null ? _b : (_a = options.find((o) => isAvailable(o.type))) == null ? void 0 : _a.type;
     const header = new import_obsidian14.Setting(contentEl).setName(t("leftSidebarPanels")).setDesc(atLimit ? t("leftSidebarPanelsFull") : t("leftSidebarPanelsDesc").replace("{profile}", profileLabels[this.sidebarProfile]));
     header.addButton((btn) => {
       btn.setButtonText(t("addPanel"));
@@ -5552,7 +5603,8 @@ var MinimalismUISettingTab = class extends import_obsidian14.PluginSettingTab {
       } else {
         btn.setCta();
         btn.onClick(async () => {
-          slots.push({ id: `slot-${Date.now()}`, viewType: nextFree, enabled: true, height: null });
+          const id = `slot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          slots.push({ id, viewType: nextFree, enabled: true, height: null });
           this.setProfileSlots(slots);
           await this.persistSlots();
         });
@@ -5578,7 +5630,7 @@ var MinimalismUISettingTab = class extends import_obsidian14.PluginSettingTab {
     const usedElsewhere = new Set(slots.filter((_, i) => i !== index).map((s) => s.viewType));
     let hasCurrent = false;
     for (const opt of options) {
-      if (usedElsewhere.has(opt.type)) continue;
+      if (usedElsewhere.has(opt.type) && !MULTI_INSTANCE_VIEW_TYPES.has(opt.type)) continue;
       select.createEl("option", { value: opt.type, text: opt.label });
       if (opt.type === slot.viewType) hasCurrent = true;
     }
@@ -5587,6 +5639,9 @@ var MinimalismUISettingTab = class extends import_obsidian14.PluginSettingTab {
     select.disabled = !editable;
     select.addEventListener("change", () => {
       if (!editable) return;
+      if (slot.viewType === VIEW_TYPE_NOTE_CARD && select.value !== VIEW_TYPE_NOTE_CARD) {
+        delete this.plugin.settings.noteCardBindings[slot.id];
+      }
       slot.viewType = select.value;
       this.setProfileSlots(slots);
       void this.persistSlots();
@@ -5599,7 +5654,8 @@ var MinimalismUISettingTab = class extends import_obsidian14.PluginSettingTab {
     removeBtn.disabled = !editable;
     removeBtn.addEventListener("click", () => {
       if (!editable) return;
-      slots.splice(index, 1);
+      const [removed] = slots.splice(index, 1);
+      if ((removed == null ? void 0 : removed.viewType) === VIEW_TYPE_NOTE_CARD) delete this.plugin.settings.noteCardBindings[removed.id];
       this.setProfileSlots(slots);
       void this.persistSlots();
     });
@@ -5753,7 +5809,7 @@ var MinimalismUIPlugin = class extends import_obsidian15.Plugin {
     this.editorStatus = new EditorStatusManager(this.app, this);
     this.mermaidZoom = new MermaidZoomManager(this.app);
     this.rightSidebarButton = new RightSidebarButtonManager(this.app, settings, () => this.saveData(this.settings), this.leafMount);
-    this.noteCard = new NoteCardManager(this);
+    this.noteCard = new NoteCardManager(this, settings, () => this.saveSettings());
     this.rightSidebarButton.setManagedLeftViewTypesProvider(() => this.leftSidebar.getOwnedViewTypes());
     this.statusBarMenu = new StatusBarMenuManager(this.app, this, {
       getVisible: () => this.settings.showRightSidebarButton,

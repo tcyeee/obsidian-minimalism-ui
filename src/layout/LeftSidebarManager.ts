@@ -1,5 +1,5 @@
 import { App, WorkspaceLeaf, setIcon } from 'obsidian';
-import { MinimalismUISettings, SidebarSlot, MAX_LEFT_SIDEBAR_SLOTS } from '../core/settings';
+import { MinimalismUISettings, SidebarSlot, MAX_LEFT_SIDEBAR_SLOTS, MULTI_INSTANCE_VIEW_TYPES } from '../core/settings';
 import { LeafMountService, DOCUMENT_VIEW_TYPES } from '../core/LeafMountService';
 import { PinManager } from '../tabs/PinManager';
 import { uiDoc } from '../core/appDom';
@@ -51,6 +51,10 @@ const GRAPH_VIEW_TYPE = 'localgraph';
 // 它们背上「摘下的 leaf 永久不进 workspace 树」这份复杂度。见 parkedGroups 字段注释。
 const PARKABLE_VIEW_TYPES = new Set<string>([VIEW_TYPE_NOTE_CARD]);
 
+// MULTI_INSTANCE_VIEW_TYPES（schema 层约束，定义见 settings.ts）的 leaf 不按裸 viewType
+// 匹配/去重，而是按 slotKeyOf() 算出的复合 key（`${viewType}::${slot.id}`）匹配，见下方
+// slotKeyOf / leafSlotKey。
+
 const EMPTY_HINT_CLASS = 'minimalism-ui-sidebar-empty-hint';
 const EMPTY_HINT_ICON_CLASS = 'minimalism-ui-sidebar-empty-hint-icon';
 const EMPTY_HINT_TEXT_CLASS = 'minimalism-ui-sidebar-empty-hint-text';
@@ -84,8 +88,10 @@ export class LeftSidebarManager {
 	// 收起态也保持展开 —— 用户刚加的面板要能看到，不能开一下又收回去。跨 rerun 保持，循环结束清零。
 	private revealNewPanels = false;
 
-	// 当前各 slot viewType → 其 leaf 的引用（关系图颜色重探、owned 查询用；显式持有引用而非
-	// getLeavesOfType，以隔离多窗口 / 弹出窗口，见记忆 project-sidebar-local-graph-rewrite）。
+	// 当前各 slot 的 slotKey（单实例面板即裸 viewType；MULTI_INSTANCE_VIEW_TYPES 则是
+	// `${viewType}::${slot.id}`，见 slotKeyOf）→ 其 leaf 的引用（关系图颜色重探、owned 查询
+	// 用；显式持有引用而非 getLeavesOfType，以隔离多窗口 / 弹出窗口，见记忆
+	// project-sidebar-local-graph-rewrite）。
 	private slotLeaves = new Map<string, WorkspaceLeaf>();
 
 	// 被 monkey-patch 的关系图 renderer.testCSS，remove() 时还原。
@@ -122,7 +128,7 @@ export class LeftSidebarManager {
 	private unsatisfiableTypes = new Set<string>();
 	private lastDesiredKey = '';
 
-	// viewType → 最近一次被摘掉前的 getViewState().state。home / diary / other 三套 profile
+	// slotKey → 最近一次被摘掉前的 getViewState().state。home / diary / other 三套 profile
 	// 可各配不同 slot 列表：切换 profile 时不在新 profile 里的面板会被第 4 步整个 detach 掉，
 	// 其持有的状态（如笔记卡片绑定的笔记路径）随之丢失——Obsidian 的 workspace.json 持久化
 	// 只在应用退出/刷新时生效，救不了这种纯内存里的 profile 切换。detachLeaf 摘之前在此留一份
@@ -131,11 +137,13 @@ export class LeftSidebarManager {
 	// 立刻把它们刷新到当前文件，旧状态只是这一帧内的无害底噪。
 	private lastDetachedState = new Map<string, Record<string, unknown> | undefined>();
 
-	// PARKABLE_VIEW_TYPES 专用：viewType → 已从 leftSplit.children 摘下但未 detach() 的 group
+	// PARKABLE_VIEW_TYPES 专用：slotKey → 已从 leftSplit.children 摘下但未 detach() 的 group
 	// （WorkspaceTabs 或裸 leaf）。removeChild 只是工作区树的结构移除（同步 DOM），不会调
 	// view.onClose()/销毁 leaf —— 组内的 WorkspaceLeaf、View 实例、已渲染的 DOM 全部原样留在
 	// 内存里，只是暂时没有挂在任何 split 下、不出现在 iterateAllLeaves() 里。profile 切回来
-	// 需要它时直接 insertChild 插回，不重新 setViewState，不触发任何重渲染。
+	// 需要它时直接 insertChild 插回，不重新 setViewState，不触发任何重渲染。按 slotKey 而非裸
+	// viewType 存，使得同一 viewType 的多份笔记卡片（MULTI_INSTANCE_VIEW_TYPES）各自独立
+	// park / 还原，不会互相顶替。
 	// 与 lastDetachedState 的关系：two 条路径互斥——走 park 就不进 lastDetachedState（没必要，
 	// leaf 本身没丢状态）；remove() 卸载时必须把残留的 parked group 插回 leftSplit，否则这些
 	// leaf 永久游离于工作区树之外、用户也没有 Tab 可以关它们。
@@ -276,7 +284,7 @@ export class LeftSidebarManager {
 		for (const slot of this.activeSlots()) {
 			if (!slot.enabled) continue;
 			if (slot.viewType === GRAPH_VIEW_TYPE) continue; // 关系图高度不持久化
-			const leaf = this.slotLeaves.get(slot.viewType);
+			const leaf = this.slotLeaves.get(this.slotKeyOf(slot));
 			if (!leaf || leaf.getRoot() !== (this.app.workspace.leftSplit as unknown)) continue;
 			const group = this.groupOf(leaf);
 			if (!group) continue;
@@ -324,7 +332,7 @@ export class LeftSidebarManager {
 		const fill = unknownCount > 0 ? Math.max(5, remainder / unknownCount) : 0;
 		let touched = false;
 		for (const slot of slots) {
-			const leaf = this.slotLeaves.get(slot.viewType);
+			const leaf = this.slotLeaves.get(this.slotKeyOf(slot));
 			const group = leaf ? this.groupOf(leaf) : null;
 			if (!group?.setDimension) continue;
 			group.setDimension(this.storedHeight(slot) ?? fill);
@@ -343,8 +351,8 @@ export class LeftSidebarManager {
 		const ls = this.leftSplit();
 		if (!ls || ls.collapsed) return;
 		const root = this.app.workspace.leftSplit as unknown;
-		for (const [type, leaf] of this.slotLeaves) {
-			if (type === GRAPH_VIEW_TYPE) continue;
+		for (const [key, leaf] of this.slotLeaves) {
+			if (key === GRAPH_VIEW_TYPE) continue;
 			if (leaf.getRoot() !== root) continue;
 			this.leafMount.notifyResize(leaf);
 		}
@@ -357,23 +365,23 @@ export class LeftSidebarManager {
 	private hasDrift(): boolean {
 		const ls = this.leftSplit();
 		if (!ls) return false;
-		const desired = this.enabledSlots().map(s => s.viewType);
-		const byType = this.toolLeavesByType();
+		const desired = this.enabledSlots().map(s => this.slotKeyOf(s));
+		const byKey = this.toolLeavesBySlotKey();
 
 		if (desired.length === 0) {
 			let toolLeaves = 0;
-			for (const leaves of byType.values()) toolLeaves += leaves.length;
+			for (const leaves of byKey.values()) toolLeaves += leaves.length;
 			// 0 slot：侧栏应为空（仅保留 1 个 keep-alive 子节点）。多于此即漂移。
 			return toolLeaves > 0 && (ls.children?.length ?? 0) > 1;
 		}
 
 		const desiredSet = new Set(desired);
-		for (const type of byType.keys()) {
-			if (!desiredSet.has(type)) return true; // 外来工具面板
+		for (const key of byKey.keys()) {
+			if (!desiredSet.has(key)) return true; // 外来工具面板 / 没有 slotId 的孤儿笔记卡片
 		}
-		for (const type of desired) {
-			if (this.unsatisfiableTypes.has(type)) continue; // 建不出来的类型不算漂移，避免无限重入
-			if ((byType.get(type)?.length ?? 0) !== 1) return true; // 缺失或重复
+		for (const key of desired) {
+			if (this.unsatisfiableTypes.has(key)) continue; // 建不出来的类型不算漂移，避免无限重入
+			if ((byKey.get(key)?.length ?? 0) !== 1) return true; // 缺失或重复
 		}
 		return false;
 	}
@@ -434,15 +442,16 @@ export class LeftSidebarManager {
 		return out;
 	}
 
-	// leftSplit 里的工具类 leaf 按 viewType 分桶（文档类 leaf 不参与，reconcile 不碰）。
-	private toolLeavesByType(): Map<string, WorkspaceLeaf[]> {
+	// leftSplit 里的工具类 leaf 按 slotKey 分桶（文档类 leaf 不参与，reconcile 不碰）。
+	private toolLeavesBySlotKey(): Map<string, WorkspaceLeaf[]> {
 		const map = new Map<string, WorkspaceLeaf[]>();
 		for (const leaf of this.leftLeaves()) {
 			const type = this.viewTypeOf(leaf);
 			if (!type || DOCUMENT_VIEW_TYPES.has(type)) continue;
-			const bucket = map.get(type);
+			const key = this.leafSlotKey(leaf);
+			const bucket = map.get(key);
 			if (bucket) bucket.push(leaf);
-			else map.set(type, [leaf]);
+			else map.set(key, [leaf]);
 		}
 		return map;
 	}
@@ -450,7 +459,8 @@ export class LeftSidebarManager {
 	private async doReconcile(): Promise<void> {
 		const ls = this.leftSplit();
 		if (!ls) return;
-		const desired = this.enabledSlots().map(s => s.viewType);
+		const desiredSlots = this.enabledSlots();
+		const desired = desiredSlots.map(s => this.slotKeyOf(s));
 
 		// slot 列表变了就重置「建不出来」黑名单：用户可能刚重装了某个提供 view 的插件。
 		const desiredKey = desired.join(' ');
@@ -471,14 +481,16 @@ export class LeftSidebarManager {
 		if (desired.length === 0) {
 			this.slotLeaves.clear();
 			const wasCollapsed = ls.collapsed;
-			const parkedType = new Set<string>();
+			const parkedKeys = new Set<string>();
 			for (const leaf of this.leftLeaves()) {
 				const type = this.viewTypeOf(leaf);
 				if (DOCUMENT_VIEW_TYPES.has(type)) continue;
+				const key = this.leafSlotKey(leaf);
 				// PARKABLE_VIEW_TYPES 摘下保活而非 detach：0 slot profile 往返切换时同样不该闪一下。
-				if (PARKABLE_VIEW_TYPES.has(type) && !parkedType.has(type)) {
-					this.parkLeaf(ls, leaf, type);
-					parkedType.add(type);
+				// 按 slotKey（非裸 type）去重，使多份同类型的笔记卡片各自独立 park，不互相顶替。
+				if (PARKABLE_VIEW_TYPES.has(type) && !parkedKeys.has(key)) {
+					this.parkLeaf(ls, leaf, key);
+					parkedKeys.add(key);
 				} else {
 					this.detachLeaf(leaf);
 				}
@@ -515,63 +527,70 @@ export class LeftSidebarManager {
 			//    第 3 步的 findSlotGroup 会漏看它、反复建重复 leaf，与 layout-change 守卫来回拉锯。
 			//    每组按遍历序保留一个 —— 组内至少留 1 个 leaf，leftSplit 子节点数不会因此归零。
 			for (const leaf of this.leftLeaves()) {
-				const type = this.viewTypeOf(leaf);
-				if (!desiredSet.has(type)) continue;
+				if (!desiredSet.has(this.leafSlotKey(leaf))) continue;
 				const group = (leaf as unknown as { parent?: { children?: unknown[] } }).parent;
 				if (group && (group as unknown) !== this.app.workspace.leftSplit && (group.children?.length ?? 1) > 1) {
 					this.detachLeaf(leaf);
 				}
 			}
 
-			// 3. 为每个尚无 leaf 的 desired viewType 补齐：PARKABLE_VIEW_TYPES 之前被 park 住的组
-			//    直接插回原样复用（leaf/View 实例原封不动，不重新 setViewState，不触发任何重渲染）；
-			//    否则才新建 leaf（末尾新建独立 tab 组），随后统一重排。
-			for (const type of desired) {
-				if (this.findSlotGroup(ls, type)) continue;
-				const parked = this.parkedGroups.get(type);
+			// 3. 为每个尚无 leaf 的 desired slot 补齐：PARKABLE_VIEW_TYPES 之前被 park 住的组直接
+			//    插回原样复用（leaf/View 实例原封不动，不重新 setViewState，不触发任何重渲染）；
+			//    否则才新建 leaf（末尾新建独立 tab 组，MULTI_INSTANCE_VIEW_TYPES 会在 state 里带上
+			//    slot.id），随后统一重排。
+			for (const slot of desiredSlots) {
+				const key = this.slotKeyOf(slot);
+				if (this.findSlotGroup(ls, key)) continue;
+
+				const parked = this.parkedGroups.get(key);
 				if (parked) {
-					this.parkedGroups.delete(type);
+					this.parkedGroups.delete(key);
 					ls.insertChild!(ls.children?.length ?? 0, parked);
 					continue;
 				}
-				if (this.unsatisfiableTypes.has(type)) continue;
+				if (this.unsatisfiableTypes.has(key)) continue;
 				const leaf = this.app.workspace.getLeftLeaf(true);
 				if (!leaf) continue;
 				try {
-					await leaf.setViewState({ type, state: this.lastDetachedState.get(type), active: false });
+					const baseState = this.lastDetachedState.get(key);
+					const state = MULTI_INSTANCE_VIEW_TYPES.has(slot.viewType)
+						? { ...(baseState ?? {}), slotId: slot.id }
+						: baseState;
+					await leaf.setViewState({ type: slot.viewType, state, active: false });
 					createdLeaf = true;
 				} catch (err: unknown) {
-					console.error(`[minimalism-ui] left sidebar slot "${type}" setViewState failed`, err);
-					this.unsatisfiableTypes.add(type);
+					console.error(`[minimalism-ui] left sidebar slot "${slot.viewType}" setViewState failed`, err);
+					this.unsatisfiableTypes.add(key);
 					this.detachLeaf(leaf);
 				}
 			}
 
 			// 4. 清场（leaf 粒度、幂等）：不在 slot 列表里的工具 leaf（旧 slot、Obsidian 默认放进来
-			//    的文件浏览器 / 搜索 / 书签）以及同一 viewType 的重复 leaf 一律摘掉——除了
+			//    的文件浏览器 / 搜索 / 书签）以及同一 slotKey 的重复 leaf 一律摘掉——除了
 			//    PARKABLE_VIEW_TYPES：第一个遇到的摘下保活（park），多出来的重复 leaf 仍直接摘掉。
 			//    文档类 leaf 不碰；leftSplit 至少留 1 个子节点（第 3 步已放进 ≥1 个 desired 面板，
 			//    这里恒成立，仍加保险）。
-			const seenType = new Set<string>();
-			const parkedType = new Set<string>();
+			const seenKeys = new Set<string>();
+			const parkedKeys = new Set<string>();
 			for (const leaf of this.leftLeaves()) {
 				if ((ls.children?.length ?? 0) <= 1) break;
 				const type = this.viewTypeOf(leaf);
 				if (!type || DOCUMENT_VIEW_TYPES.has(type)) continue;
-				if (!desiredSet.has(type)) {
-					if (PARKABLE_VIEW_TYPES.has(type) && !parkedType.has(type)) {
-						this.parkLeaf(ls, leaf, type);
-						parkedType.add(type);
+				const key = this.leafSlotKey(leaf);
+				if (!desiredSet.has(key)) {
+					if (PARKABLE_VIEW_TYPES.has(type) && !parkedKeys.has(key)) {
+						this.parkLeaf(ls, leaf, key);
+						parkedKeys.add(key);
 					} else {
 						this.detachLeaf(leaf);
 					}
 					continue;
 				}
-				if (seenType.has(type)) {
+				if (seenKeys.has(key)) {
 					this.detachLeaf(leaf);
 					continue;
 				}
-				seenType.add(type);
+				seenKeys.add(key);
 			}
 
 			// 5. 重排：期望顺序 = slot 顺序，占据 leftSplit 子节点列表的前段；
@@ -590,10 +609,10 @@ export class LeftSidebarManager {
 
 			// 6. 记录 slot leaf 引用 + 物化 deferred（关系图等虚拟/canvas 视图尤其需要）。
 			this.slotLeaves.clear();
-			const finalByType = this.toolLeavesByType();
-			for (const type of desired) {
-				const leaf = finalByType.get(type)?.[0];
-				if (leaf) this.slotLeaves.set(type, leaf);
+			const finalByKey = this.toolLeavesBySlotKey();
+			for (const key of desired) {
+				const leaf = finalByKey.get(key)?.[0];
+				if (leaf) this.slotLeaves.set(key, leaf);
 			}
 			await this.leafMount.materializeDeferredLeaves([...this.slotLeaves.values()]);
 
@@ -643,11 +662,11 @@ export class LeftSidebarManager {
 
 	// ── workspace-item 树辅助 ─────────────────────────────────────────────────
 
-	// leftSplit 里承载指定 viewType 的直接子节点（通常是 WorkspaceTabs，也可能是裸 leaf）。
-	private findSlotGroup(ls: SidedockLike, viewType: string): unknown {
+	// leftSplit 里承载指定 slotKey 的直接子节点（通常是 WorkspaceTabs，也可能是裸 leaf）。
+	private findSlotGroup(ls: SidedockLike, slotKey: string): unknown {
 		for (const child of ls.children ?? []) {
 			const leaf = this.leafOfGroup(child);
-			if (leaf && this.viewTypeOf(leaf) === viewType) return child;
+			if (leaf && this.leafSlotKey(leaf) === slotKey) return child;
 		}
 		return null;
 	}
@@ -674,12 +693,48 @@ export class LeftSidebarManager {
 		}
 	}
 
+	// 单实例 view type 的 slotKey 就是裸 viewType（行为与改造前完全一致）；MULTI_INSTANCE_
+	// VIEW_TYPES 则带上 slot.id，使同一 viewType 的多份 slot 互不覆盖。没有 id 时用空字符串
+	// 占位——这个 key 不会与任何真实 desired slot 相等，于是被当作"外来"摘掉（正常情况下
+	// 不会发生：新建 leaf 时 doReconcile 总会立刻带上 slotId，见下方第 3 步）。
+	private slotKeyFor(viewType: string, slotId?: string | null): string {
+		if (!MULTI_INSTANCE_VIEW_TYPES.has(viewType)) return viewType;
+		return `${viewType}::${slotId ?? ''}`;
+	}
+
+	/** 某个配置好的 slot 对应的 slotKey（见 slotKeyFor）。 */
+	private slotKeyOf(slot: SidebarSlot): string {
+		return this.slotKeyFor(slot.viewType, slot.id);
+	}
+
+	// 从已存在 leaf 的当前 view state 里读出它的 slotId（没有就是 null）——leafSlotKey 据此
+	// 算出该 leaf 当前对应的 slotKey。
+	private slotIdOfLeaf(leaf: WorkspaceLeaf): string | null {
+		try {
+			const state = leaf.getViewState().state as Record<string, unknown> | undefined;
+			const id = state?.slotId;
+			return typeof id === 'string' && id ? id : null;
+		} catch {
+			return null;
+		}
+	}
+
+	/** 已存在 leaf 当前对应的 slotKey（见 slotKeyFor）。 */
+	private leafSlotKey(leaf: WorkspaceLeaf): string {
+		const type = this.viewTypeOf(leaf);
+		if (!type) return '';
+		return this.slotKeyFor(type, this.slotIdOfLeaf(leaf));
+	}
+
 	// 把一个 leaf 连同（若因此清空的）tab 组一起摘掉，不留半初始化条目。摘之前留一份
-	// state 底（见 lastDetachedState 字段注释），供同类型 slot 日后重建时找回。
+	// state 底（见 lastDetachedState 字段注释），按 slotKey 存，供同一 slot 日后重建时找回。
 	private detachLeaf(leaf: WorkspaceLeaf): void {
 		try {
 			const vs = leaf.getViewState();
-			if (vs?.type) this.lastDetachedState.set(vs.type, vs.state);
+			if (vs?.type) {
+				const slotId = (vs.state as Record<string, unknown> | undefined)?.slotId;
+				this.lastDetachedState.set(this.slotKeyFor(vs.type, typeof slotId === 'string' ? slotId : null), vs.state);
+			}
 		} catch { /* 取不到就不缓存，不影响摘除本身 */ }
 		try {
 			this.pinManager.forceDetachLeaf(leaf);
@@ -701,15 +756,16 @@ export class LeftSidebarManager {
 
 	// PARKABLE_VIEW_TYPES 专用：把 leaf 所在的组整个从 leftSplit.children 摘下但不 detach()——
 	// leaf / View 实例 / 已渲染的 DOM 全部留在内存里，只是暂时不出现在 leftSplit 里。找不到
-	// 顶层组（异常情况）时退化成普通 detachLeaf，不留半摘的子节点。
-	private parkLeaf(ls: SidedockLike, leaf: WorkspaceLeaf, type: string): void {
+	// 顶层组（异常情况）时退化成普通 detachLeaf，不留半摘的子节点。key 是 slotKey（见
+	// slotKeyFor），不是裸 viewType，使多份同类型 slot 各自独立 park。
+	private parkLeaf(ls: SidedockLike, leaf: WorkspaceLeaf, key: string): void {
 		const group = this.topLevelGroupOf(ls, leaf);
 		if (!group) {
 			this.detachLeaf(leaf);
 			return;
 		}
 		ls.removeChild!(group);
-		this.parkedGroups.set(type, group);
+		this.parkedGroups.set(key, group);
 	}
 
 	// ── 关系图颜色重探（自 SidebarLayoutManager 迁移）─────────────────────────
