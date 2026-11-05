@@ -5456,7 +5456,7 @@ var MinimalismUISettingTab = class extends import_obsidian14.PluginSettingTab {
     // ── 左侧栏面板列表（用户添加任意 view，最多 4 个，可拖拽排序）──────────────
     // 拖拽排序进行中的源行下标；drop 时读取，结束即清空。
     this.slotDragIndex = null;
-    this.sidebarProfile = "other";
+    this.sidebarProfile = "home";
     this.plugin = plugin;
   }
   isCollapsed(key) {
