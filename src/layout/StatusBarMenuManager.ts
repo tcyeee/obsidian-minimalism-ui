@@ -7,7 +7,7 @@ import { uiDoc, uiWin } from '../core/appDom';
 
 // Electron 的 shell 模块：桌面端渲染进程可通过 window.require 拿到（isDesktopOnly 插件），
 // 用于调起系统默认程序打开文件；不引入 @types/electron，只声明用到的这一个方法。
-type ElectronShell = { openPath(path: string): Promise<string> };
+type ElectronShell = { openPath(path: string): Promise<string>; showItemInFolder(path: string): void };
 
 // 菜单图标：状态栏常驻的"更多操作"入口。
 const TRIGGER_ICON = 'ellipsis-vertical';
@@ -317,6 +317,13 @@ export class StatusBarMenuManager implements Feature {
 			onClick: () => { this.openWithDefaultApp(file!); this.close(); },
 		});
 
+		this.createActionRow(container, {
+			icon: 'folder-open',
+			label: t('statusBarMenuShowInFolder'),
+			disabled,
+			onClick: () => { this.showInFolder(file!); this.close(); },
+		});
+
 		// 「可读行长」关闭时不展示本行：此时正文本就撑满窗口，这个开关在语义上
 		// 是「覆盖可读行长的约束」，核心约束不存在就没有东西可覆盖（见 isReadableLineLengthEnabled()）。
 		if (this.isReadableLineLengthEnabled()) this.renderDynamicWidthRow(container, file);
@@ -414,6 +421,18 @@ export class StatusBarMenuManager implements Feature {
 		const req = (uiWin() as unknown as { require?: (id: string) => { shell: ElectronShell } }).require;
 		if (!req) return;
 		void req('electron').shell.openPath(fullPath);
+	}
+
+	// 桌面端：在系统文件管理器（Finder/Explorer/文件管理器）中定位并高亮该文件，
+	// 与 openWithDefaultApp 共用同一条「取 vault 内绝对路径」的路径，只是末端调用
+	// showItemInFolder 而非 openPath。
+	private showInFolder(file: TFile): void {
+		const adapter = this.app.vault.adapter;
+		if (!(adapter instanceof FileSystemAdapter)) return;
+		const fullPath = adapter.getFullPath(file.path);
+		const req = (uiWin() as unknown as { require?: (id: string) => { shell: ElectronShell } }).require;
+		if (!req) return;
+		req('electron').shell.showItemInFolder(fullPath);
 	}
 
 	// ─── 左右侧边栏显示/隐藏（原生风格开关） ─────────────────────────────────

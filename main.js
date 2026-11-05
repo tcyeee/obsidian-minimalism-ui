@@ -360,6 +360,7 @@ var translations = {
     statusBarMenuExportPdf: "\u5BFC\u51FA\u4E3A PDF",
     statusBarMenuExportPdfFailed: "\u5BFC\u51FA\u5931\u8D25\uFF1A\u547D\u4EE4\u4E0D\u53EF\u7528",
     statusBarMenuOpenDefaultApp: "\u4F7F\u7528\u9ED8\u8BA4\u8F6F\u4EF6\u6253\u5F00",
+    statusBarMenuShowInFolder: "\u5728\u6587\u4EF6\u7BA1\u7406\u5668\u4E2D\u6253\u5F00",
     statusBarMenuDynamicWidth: "\u52A8\u6001\u5BBD\u5EA6",
     statusBarMenuDynamicWidthFailed: "\u5207\u6362\u5931\u8D25\uFF1A\u65E0\u6CD5\u5199\u5165\u7B14\u8BB0\u5C5E\u6027",
     statusBarMenuToggleLeftSidebar: "\u5DE6\u4FA7\u8FB9\u680F",
@@ -454,6 +455,7 @@ var translations = {
     statusBarMenuExportPdf: "Export to PDF",
     statusBarMenuExportPdfFailed: "Export failed: command unavailable",
     statusBarMenuOpenDefaultApp: "Open with default app",
+    statusBarMenuShowInFolder: "Show in file manager",
     statusBarMenuDynamicWidth: "Dynamic width",
     statusBarMenuDynamicWidthFailed: "Toggle failed: could not write note properties",
     statusBarMenuToggleLeftSidebar: "Left sidebar",
@@ -3887,6 +3889,15 @@ var StatusBarMenuManager = class {
         this.close();
       }
     });
+    this.createActionRow(container, {
+      icon: "folder-open",
+      label: t("statusBarMenuShowInFolder"),
+      disabled,
+      onClick: () => {
+        this.showInFolder(file);
+        this.close();
+      }
+    });
     if (this.isReadableLineLengthEnabled()) this.renderDynamicWidthRow(container, file);
   }
   // ─── 动态宽度（写当前笔记 frontmatter 的 cssclasses） ─────────────────────
@@ -3968,6 +3979,17 @@ var StatusBarMenuManager = class {
     const req = uiWin().require;
     if (!req) return;
     void req("electron").shell.openPath(fullPath);
+  }
+  // 桌面端：在系统文件管理器（Finder/Explorer/文件管理器）中定位并高亮该文件，
+  // 与 openWithDefaultApp 共用同一条「取 vault 内绝对路径」的路径，只是末端调用
+  // showItemInFolder 而非 openPath。
+  showInFolder(file) {
+    const adapter = this.app.vault.adapter;
+    if (!(adapter instanceof import_obsidian10.FileSystemAdapter)) return;
+    const fullPath = adapter.getFullPath(file.path);
+    const req = uiWin().require;
+    if (!req) return;
+    req("electron").shell.showItemInFolder(fullPath);
   }
   // ─── 左右侧边栏显示/隐藏（原生风格开关） ─────────────────────────────────
   renderSidebarRows(container) {
