@@ -711,7 +711,7 @@ export class LeftSidebarManager {
 	// 算出该 leaf 当前对应的 slotKey。
 	private slotIdOfLeaf(leaf: WorkspaceLeaf): string | null {
 		try {
-			const state = leaf.getViewState().state as Record<string, unknown> | undefined;
+			const state = leaf.getViewState().state;
 			const id = state?.slotId;
 			return typeof id === 'string' && id ? id : null;
 		} catch {
@@ -732,7 +732,7 @@ export class LeftSidebarManager {
 		try {
 			const vs = leaf.getViewState();
 			if (vs?.type) {
-				const slotId = (vs.state as Record<string, unknown> | undefined)?.slotId;
+				const slotId = vs.state?.slotId;
 				this.lastDetachedState.set(this.slotKeyFor(vs.type, typeof slotId === 'string' ? slotId : null), vs.state);
 			}
 		} catch { /* 取不到就不缓存，不影响摘除本身 */ }
