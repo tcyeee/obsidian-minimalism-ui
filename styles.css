@@ -1487,6 +1487,11 @@ body.minimalism-ui-rsb-icon-dragging {
 	margin: 12px 0;
 }
 
+/* 面板配置与「底部设置区域 / 右侧栏按钮」拆成两个设置组，中间留出间距 */
+.minimalism-ui-sidebar-secondary-group {
+	margin-top: 16px;
+}
+
 .minimalism-ui-slot-section .setting-item {
 	border-top: none;
 }
@@ -1515,11 +1520,19 @@ body.minimalism-ui-rsb-icon-dragging {
 	color: var(--text-muted);
 	background: transparent;
 	box-shadow: none;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .minimalism-ui-slot-profile.is-active {
 	color: var(--text-normal);
 	background: var(--background-modifier-active-hover);
+}
+
+.minimalism-ui-slot-profile-add {
+	text-align: center;
+	color: var(--text-faint);
 }
 
 .minimalism-ui-slot-content {
@@ -1540,6 +1553,43 @@ body.minimalism-ui-rsb-icon-dragging {
 		grid-template-columns: 88px minmax(0, 1fr);
 		gap: 10px;
 	}
+}
+
+/* ── 自定义规则的筛选条件列表（弹窗内，纯 AND） ───────────────────────────── */
+
+.minimalism-ui-condition-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin: 4px 0 12px 0;
+}
+
+.minimalism-ui-condition-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.minimalism-ui-condition-field {
+	flex: 0 0 auto;
+}
+
+.minimalism-ui-condition-property {
+	flex: 1;
+	min-width: 0;
+}
+
+.minimalism-ui-condition-operator {
+	flex: 0 0 auto;
+}
+
+.minimalism-ui-condition-value {
+	flex: 1;
+	min-width: 0;
+}
+
+.minimalism-ui-condition-value.is-hidden {
+	visibility: hidden;
 }
 
 .minimalism-ui-slot-list {
@@ -1670,6 +1720,11 @@ body.is-mac.minimalism-ui-mac-sidebar .titlebar-button-container.mod-left {
 	cursor: pointer;
 	user-select: none;
 	padding-left: 0;
+}
+
+/* 原生 setting-items 卡片包裹层会给标题行套一个独立的圆角灰底，这里单独摘掉 */
+.setting-items:has(> .minimalism-ui-collapsible-heading) {
+	background-color: transparent;
 }
 
 .minimalism-ui-collapsible-heading:hover .setting-item-name {

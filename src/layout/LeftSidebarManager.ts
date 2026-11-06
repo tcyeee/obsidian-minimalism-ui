@@ -6,6 +6,7 @@ import { uiDoc } from '../core/appDom';
 import { t } from '../core/i18n';
 import { openPluginSettings } from '../core/obsidianCommands';
 import { getDailyNotesFolder } from '../core/utils';
+import { matchSidebarRule } from './sidebarFilter';
 import { VIEW_TYPE_NOTE_CARD } from '../note-card/NoteCardView';
 
 // Obsidian 内部 workspace-item 树的最小结构约定（官方类型声明里没有 children/insertChild 等）。
@@ -128,11 +129,11 @@ export class LeftSidebarManager {
 	private unsatisfiableTypes = new Set<string>();
 	private lastDesiredKey = '';
 
-	// slotKey → 最近一次被摘掉前的 getViewState().state。home / diary / other 三套 profile
-	// 可各配不同 slot 列表：切换 profile 时不在新 profile 里的面板会被第 4 步整个 detach 掉，
-	// 其持有的状态（如笔记卡片绑定的笔记路径）随之丢失——Obsidian 的 workspace.json 持久化
-	// 只在应用退出/刷新时生效，救不了这种纯内存里的 profile 切换。detachLeaf 摘之前在此留一份
-	// 底，第 3 步新建同类型 leaf 时原样传回 setViewState，使切回该 profile 时能恢复原状态。
+	// slotKey → 最近一次被摘掉前的 getViewState().state。每条筛选规则 + 默认配置都可各配不同
+	// slot 列表：命中的规则一变，不在新规则里的面板会被第 4 步整个 detach 掉，其持有的状态
+	// （如笔记卡片绑定的笔记路径）随之丢失——Obsidian 的 workspace.json 持久化只在应用退出/
+	// 刷新时生效，救不了这种纯内存里的规则切换。detachLeaf 摘之前在此留一份底，第 3 步新建
+	// 同类型 leaf 时原样传回 setViewState，使切回该规则时能恢复原状态。
 	// 对 outline/file-properties 等本就跟随 activeFile 的面板无害：第 7 步的 file-open 兜底会
 	// 立刻把它们刷新到当前文件，旧状态只是这一帧内的无害底噪。
 	private lastDetachedState = new Map<string, Record<string, unknown> | undefined>();
@@ -407,21 +408,33 @@ export class LeftSidebarManager {
 		return this.activeSlots().filter(s => s.enabled).slice(0, MAX_LEFT_SIDEBAR_SLOTS);
 	}
 
-	private activeProfileKey(): 'home' | 'diary' | 'other' {
+	// 命中优先级：首页 / 日记（固定判定，筛选条件不可改）→ 用户自定义规则（按 sidebarRules
+	// 数组顺序，筛选条件可在设置页弹窗编辑）→ 默认配置。与 SettingTab 的 tab 顺序
+	// ['home','diary',...自定义规则,'other'] 一致，是同一条优先链的两处表达。
+	private activeProfileKey(): string {
 		const settings = this.getSettings();
 		const path = this.app.workspace.getActiveFile()?.path;
 		if (path && settings.homePage.trim() && path === settings.homePage.trim()) return 'home';
 		const folder = getDailyNotesFolder(this.app);
 		if (path && folder && (path.startsWith(`${folder}/`) || path === folder)) return 'diary';
-		return 'other';
+		const file = this.app.workspace.getActiveFile() ?? null;
+		const rule = matchSidebarRule(this.app, settings.sidebarRules, file);
+		return rule?.id ?? 'other';
 	}
 
 	private activeSlots(): SidebarSlot[] {
 		const settings = this.getSettings();
-		const profile = this.activeProfileKey();
-		const slots = profile === 'home' ? settings.homeSidebarSlots
-			: profile === 'diary' ? settings.diarySidebarSlots : null;
-		return slots ?? settings.leftSidebarSlots;
+		const path = this.app.workspace.getActiveFile()?.path;
+		if (path && settings.homePage.trim() && path === settings.homePage.trim()) {
+			return settings.homeSidebarSlots ?? settings.leftSidebarSlots;
+		}
+		const folder = getDailyNotesFolder(this.app);
+		if (path && folder && (path.startsWith(`${folder}/`) || path === folder)) {
+			return settings.diarySidebarSlots ?? settings.leftSidebarSlots;
+		}
+		const file = this.app.workspace.getActiveFile() ?? null;
+		const rule = matchSidebarRule(this.app, settings.sidebarRules, file);
+		return rule?.slots ?? settings.leftSidebarSlots;
 	}
 
 	private leftSplit(): SidedockLike | null {
