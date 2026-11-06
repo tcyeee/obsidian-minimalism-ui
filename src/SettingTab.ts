@@ -1,4 +1,4 @@
-import { AbstractInputSuggest, App, Modal, PluginSettingTab, Setting, SettingDefinitionItem, SettingGroupItem, TFile, getAllTags } from 'obsidian';
+import { AbstractInputSuggest, App, Modal, PluginSettingTab, Setting, SettingDefinitionItem, SettingGroupItem, TFile, getAllTags, setIcon } from 'obsidian';
 import type MinimalismUIPlugin from '../main';
 import { t, setLang } from './core/i18n';
 import { MAX_LEFT_SIDEBAR_SLOTS, MULTI_INSTANCE_VIEW_TYPES } from './core/settings';
@@ -419,11 +419,18 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		// （LeftSidebarManager.activeSlots 按同样顺序判定：home → diary → 自定义规则 → 默认）。
 		const tabKeys = ['home', 'diary', ...this.plugin.settings.sidebarRules.map(r => r.id), 'other'];
 		for (const key of tabKeys) {
+			const isFixedKey = key === 'home' || key === 'diary' || key === 'other';
 			const tab = tabs.createEl('button', {
-				cls: `minimalism-ui-slot-profile${this.sidebarProfile === key ? ' is-active' : ''}`,
-				text: this.profileLabel(key),
-				attr: { 'aria-pressed': String(this.sidebarProfile === key) },
+				cls: `minimalism-ui-slot-profile${this.sidebarProfile === key ? ' is-active' : ''}${isFixedKey ? ' is-fixed' : ''}`,
+				attr: {
+					'aria-pressed': String(this.sidebarProfile === key),
+					...(isFixedKey ? { title: t('sidebarProfileFixedTooltip') } : {}),
+				},
 			});
+			// 固定三个 tab 前面加一个锁图标，和中间夹着的自定义规则 tab 在视觉上区分开——
+			// 不用点进去看筛选条件区才知道这三个的匹配条件是系统写死、不可编辑的。
+			if (isFixedKey) setIcon(tab.createSpan({ cls: 'minimalism-ui-slot-profile-lock' }), 'lock');
+			tab.createSpan({ cls: 'minimalism-ui-slot-profile-label', text: this.profileLabel(key) });
 			tab.addEventListener('click', () => {
 				this.sidebarProfile = key;
 				this.update();
@@ -452,8 +459,10 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		const editable = !unavailableReason;
 
 		// 自定义规则 tab：筛选条件本身在弹窗里编辑（见下方「编辑筛选条件」按钮），这里只放
-		// 名称 + 弹窗入口 + 删除——固定三个 tab 没有这一段，筛选条件对它们恒不可改。
-		if (!isFixedTab) this.renderRuleHeader(contentEl, this.sidebarProfile);
+		// 名称 + 弹窗入口 + 删除。固定三个 tab 没有名称/弹窗，但同样占一行「筛选条件」展示其
+		// 系统写死的匹配条件——与自定义规则并排对照，才看得出这三个为什么没有编辑入口。
+		if (isFixedTab) this.renderFixedProfileHeader(contentEl, this.sidebarProfile);
+		else this.renderRuleHeader(contentEl, this.sidebarProfile);
 
 		// 新增行默认选中：优先经典三面板，其次任意未占用的已注册 view。
 		const preferred = ['outline', 'file-properties', 'localgraph'];
@@ -489,6 +498,20 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				});
 			}
 		});
+	}
+
+	/** 固定三个 tab（首页/日记/默认）顶部的「筛选条件」展示行：只读文案 + 锁图标，无编辑入口。 */
+	private renderFixedProfileHeader(parentEl: HTMLElement, key: string): void {
+		const condition = key === 'home' ? t('sidebarProfileHomeCondition')
+			: key === 'diary' ? t('sidebarProfileDiaryCondition')
+			: t('sidebarProfileOtherCondition');
+		new Setting(parentEl)
+			.setName(t('ruleConditions'))
+			.setDesc(condition)
+			.addExtraButton(btn => btn
+				.setIcon('lock')
+				.setTooltip(t('sidebarProfileFixedTooltip'))
+				.setDisabled(true));
 	}
 
 	/** 自定义规则 tab 顶部的名称 + 筛选条件弹窗入口 + 删除；固定三个 tab 不会调这个方法。 */
