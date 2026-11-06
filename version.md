@@ -5,6 +5,22 @@
 
 ---
 
+## Version 1.3.31
+
+- Added: a "Show in file manager" action in the status bar note popover, next to "Open with default app"
+- Added: left sidebar panels now support adding multiple independently-bound note cards to the same profile (or across home/diary/other profiles), each pinned to its own note
+- Fixed: the left ribbon now stays hidden even after Obsidian's own "Toggle ribbon" command (palette/hotkey/context menu) flips the native setting back on
+- Fixed: the left sidebar panel editor in settings now opens on the Home tab by default instead of Default
+- Internal: reworked an unbound-method lint warning in the status bar's config access by using a function-typed property instead of a method-shorthand signature, with no effect on runtime behavior
+
+- 新增：状态栏笔记弹出面板新增"在文件管理器中打开"操作，与"使用默认软件打开"并列
+- 新增：左侧栏面板现支持在同一 profile（或跨 home/diary/other 多套 profile）中添加多张各自独立绑定笔记的笔记卡片
+- 修复：即使在触发 Obsidian 原生的"切换功能按钮"命令（命令面板/快捷键/右键菜单）将原生开关重新打开后，左侧功能按钮栏仍保持隐藏
+- 修复：设置页中的左侧栏面板编辑器现在默认打开"首页"标签，而不是"默认"标签
+- 内部修复：通过函数类型属性替代方法简写签名，修复了状态栏配置访问中的 unbound-method lint 警告，不影响运行时行为
+
+---
+
 ## Version 1.3.30
 
 - Fixed: the note-card sidebar panel no longer stays permanently blank with no way to rebind when first rendered with no bound file (fresh panel, or a restart that couldn't resolve the saved path)
