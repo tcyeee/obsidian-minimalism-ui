@@ -1513,6 +1513,12 @@ body.minimalism-ui-rsb-icon-dragging {
 }
 
 .minimalism-ui-slot-profile {
+	display: flex;
+	align-items: center;
+	/* Obsidian 的按钮基础样式默认把 flex 内容居中（justify-content: center），这里显式
+	   覆盖成靠左——否则图标+文字这一对 flex 子项会整体居中，不跟其它未改样式前靠左的 tab 对齐。 */
+	justify-content: flex-start;
+	gap: 6px;
 	width: 100%;
 	padding: 8px 10px;
 	text-align: left;
@@ -1521,8 +1527,6 @@ body.minimalism-ui-rsb-icon-dragging {
 	background: transparent;
 	box-shadow: none;
 	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 .minimalism-ui-slot-profile.is-active {
@@ -1530,7 +1534,29 @@ body.minimalism-ui-rsb-icon-dragging {
 	background: var(--background-modifier-active-hover);
 }
 
+.minimalism-ui-slot-profile-label {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* 固定三个 tab（首页/日记/默认）前的锁图标：常驻可见，颜色跟随按钮文字色，
+   不需要额外高亮——它标记的是「类型固定」，不是状态。 */
+.minimalism-ui-slot-profile-lock {
+	display: inline-flex;
+	flex-shrink: 0;
+	color: var(--text-faint);
+}
+
+.minimalism-ui-slot-profile-lock svg {
+	width: 12px;
+	height: 12px;
+}
+
 .minimalism-ui-slot-profile-add {
+	/* 「+」没有图标+文字这对 flex 子项，仍然是纯文本，覆盖回居中——不受上面固定三个
+	   tab 改靠左对齐的影响。 */
+	justify-content: center;
 	text-align: center;
 	color: var(--text-faint);
 }

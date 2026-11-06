@@ -307,6 +307,10 @@ var translations = {
     sidebarProfileOther: "\u9ED8\u8BA4",
     sidebarProfileHomeUnavailable: "\u8BF7\u5148\u5728\u4E0A\u65B9\u8BBE\u7F6E\u9996\u9875\uFF0C\u914D\u7F6E\u9996\u9875\u9762\u677F\u3002",
     sidebarProfileDiaryUnavailable: "\u8BF7\u5148\u542F\u7528 Obsidian \u6838\u5FC3\u63D2\u4EF6\u300C\u65E5\u8BB0\u300D\uFF0C\u518D\u914D\u7F6E\u65E5\u8BB0\u9762\u677F\u3002",
+    sidebarProfileFixedTooltip: "\u7CFB\u7EDF\u56FA\u5B9A\u7C7B\u578B\uFF0C\u7B5B\u9009\u6761\u4EF6\u4E0D\u53EF\u4FEE\u6539",
+    sidebarProfileHomeCondition: "\u56FA\u5B9A\u6761\u4EF6\uFF1A\u5F53\u524D\u7B14\u8BB0\u5C31\u662F\u4E0A\u65B9\u8BBE\u7F6E\u7684\u9996\u9875\u3002",
+    sidebarProfileDiaryCondition: "\u56FA\u5B9A\u6761\u4EF6\uFF1A\u5F53\u524D\u7B14\u8BB0\u4F4D\u4E8E\u65E5\u8BB0\u6587\u4EF6\u5939\u5185\u3002",
+    sidebarProfileOtherCondition: "\u56FA\u5B9A\u6761\u4EF6\uFF1A\u4EE5\u4E0A\u6761\u4EF6\u53CA\u81EA\u5B9A\u4E49\u89C4\u5219\u90FD\u672A\u547D\u4E2D\u65F6\u7684\u9ED8\u8BA4\u9762\u677F\u914D\u7F6E\u3002",
     sidebarEmptyHint: "\u5DE6\u4FA7\u680F\u8FD8\u6CA1\u6709\u9762\u677F\uFF0C{link}\u5373\u53EF\u6DFB\u52A0\u5927\u7EB2\u3001\u5C5E\u6027\u3001\u672C\u5730\u5173\u7CFB\u56FE\u7B49\u9762\u677F\u3002",
     sidebarEmptyHintLink: "\u524D\u5F80\u300C\u5DE6\u4FA7\u8FB9\u680F\u6837\u5F0F\u300D\u8BBE\u7F6E",
     addPanel: "\u6DFB\u52A0\u9762\u677F",
@@ -426,6 +430,10 @@ var translations = {
     sidebarProfileOther: "Default",
     sidebarProfileHomeUnavailable: "Set the home page above before configuring its panels.",
     sidebarProfileDiaryUnavailable: "Enable Obsidian\u2019s Daily notes core plugin before configuring its panels.",
+    sidebarProfileFixedTooltip: "Built-in type \u2014 its filter condition can\u2019t be changed",
+    sidebarProfileHomeCondition: "Fixed condition: the current note is the home page set above.",
+    sidebarProfileDiaryCondition: "Fixed condition: the current note is inside the daily notes folder.",
+    sidebarProfileOtherCondition: "Fixed condition: the default panels used when nothing else above matches.",
     sidebarEmptyHint: "No panels in the left sidebar yet \u2014 {link} to add panels like Outline, Properties, or Local Graph.",
     sidebarEmptyHintLink: "open Left sidebar settings",
     addPanel: "Add panel",
@@ -5926,11 +5934,16 @@ var MinimalismUISettingTab = class extends import_obsidian15.PluginSettingTab {
     const contentEl = workspaceEl.createDiv({ cls: "minimalism-ui-slot-content" });
     const tabKeys = ["home", "diary", ...this.plugin.settings.sidebarRules.map((r) => r.id), "other"];
     for (const key of tabKeys) {
+      const isFixedKey = key === "home" || key === "diary" || key === "other";
       const tab = tabs.createEl("button", {
-        cls: `minimalism-ui-slot-profile${this.sidebarProfile === key ? " is-active" : ""}`,
-        text: this.profileLabel(key),
-        attr: { "aria-pressed": String(this.sidebarProfile === key) }
+        cls: `minimalism-ui-slot-profile${this.sidebarProfile === key ? " is-active" : ""}${isFixedKey ? " is-fixed" : ""}`,
+        attr: {
+          "aria-pressed": String(this.sidebarProfile === key),
+          ...isFixedKey ? { title: t("sidebarProfileFixedTooltip") } : {}
+        }
       });
+      if (isFixedKey) (0, import_obsidian15.setIcon)(tab.createSpan({ cls: "minimalism-ui-slot-profile-lock" }), "lock");
+      tab.createSpan({ cls: "minimalism-ui-slot-profile-label", text: this.profileLabel(key) });
       tab.addEventListener("click", () => {
         this.sidebarProfile = key;
         this.update();
@@ -5952,7 +5965,8 @@ var MinimalismUISettingTab = class extends import_obsidian15.PluginSettingTab {
     const unavailableReason = this.sidebarProfile === "home" ? this.plugin.settings.homePage.trim() ? "" : t("sidebarProfileHomeUnavailable") : this.sidebarProfile === "diary" ? getDailyNotesFolder(this.app) === null ? t("sidebarProfileDiaryUnavailable") : "" : "";
     if (unavailableReason) contentEl.createDiv({ cls: "minimalism-ui-slot-notice", text: unavailableReason });
     const editable = !unavailableReason;
-    if (!isFixedTab) this.renderRuleHeader(contentEl, this.sidebarProfile);
+    if (isFixedTab) this.renderFixedProfileHeader(contentEl, this.sidebarProfile);
+    else this.renderRuleHeader(contentEl, this.sidebarProfile);
     const preferred = ["outline", "file-properties", "localgraph"];
     const nextFree = (_b = preferred.filter((tp) => options.some((o) => o.type === tp)).find(isAvailable)) != null ? _b : (_a = options.find((o) => isAvailable(o.type))) == null ? void 0 : _a.type;
     if (atLimit) {
@@ -5979,6 +5993,11 @@ var MinimalismUISettingTab = class extends import_obsidian15.PluginSettingTab {
         });
       }
     });
+  }
+  /** 固定三个 tab（首页/日记/默认）顶部的「筛选条件」展示行：只读文案 + 锁图标，无编辑入口。 */
+  renderFixedProfileHeader(parentEl, key) {
+    const condition = key === "home" ? t("sidebarProfileHomeCondition") : key === "diary" ? t("sidebarProfileDiaryCondition") : t("sidebarProfileOtherCondition");
+    new import_obsidian15.Setting(parentEl).setName(t("ruleConditions")).setDesc(condition).addExtraButton((btn) => btn.setIcon("lock").setTooltip(t("sidebarProfileFixedTooltip")).setDisabled(true));
   }
   /** 自定义规则 tab 顶部的名称 + 筛选条件弹窗入口 + 删除；固定三个 tab 不会调这个方法。 */
   renderRuleHeader(parentEl, ruleId) {
