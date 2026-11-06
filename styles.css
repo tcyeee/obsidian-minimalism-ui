@@ -155,14 +155,14 @@ body.minimalism-ui-mac-sidebar .workspace-split.mod-left-split > .workspace-tabs
 /* ── 左侧 ribbon（活动栏）结构样式 ─────────────────────────────────────
    ribbon 紧贴左侧边栏：去掉默认右边框形成的缝隙，与侧边栏融为一体。
    背景色与图标色属主题专属，见 theme/<主题>/<主题>.css。
-   display:none !important 是防御性兜底：main.ts 的 applyRibbon() 只在插件加载/保存设置时
-   写 showRibbon=false，而 Obsidian 自带 app:toggle-ribbon 命令（命令面板/快捷键/右键菜单都能
-   触发）可随时把它改回 true，JS 不会实时感知。原生显隐规则（.workspace-ribbon{display:flex}
-   与 body:not(.show-ribbon) 的 display:none）都不带 !important，这条规则无论 showRibbon
-   是 true 还是 false 都能压过去，确保 ribbon 始终隐藏。 */
+   display:none 是防御性兜底：main.ts 的 applyRibbon() 只在插件加载/保存设置时写
+   showRibbon=false，而 Obsidian 自带 app:toggle-ribbon 命令（命令面板/快捷键/右键菜单都能
+   触发）可随时把它改回 true，JS 不会实时感知。这条规则的选择器优先级（0,4,1）已高于原生
+   显隐规则 .workspace-ribbon{display:flex}（0,1,0）与 body:not(.show-ribbon) 的
+   display:none（0,2,1），无需 !important 即可无论 showRibbon 是 true 还是 false 都压过去。 */
 body.minimalism-ui-mac-sidebar .workspace-ribbon.side-dock-ribbon:is(.mod-left, .mod-primary) {
 	border-right: none;
-	display: none !important;
+	display: none;
 }
 
 /* ribbon 顶部留白：Obsidian 用 margin-top: var(--header-height) 把图标区下推，
