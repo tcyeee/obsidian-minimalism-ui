@@ -1,10 +1,210 @@
-import { AbstractInputSuggest, App, PluginSettingTab, Setting, SettingDefinitionItem, SettingGroupItem, TFile } from 'obsidian';
+import { AbstractInputSuggest, App, Modal, PluginSettingTab, Setting, SettingDefinitionItem, SettingGroupItem, TFile, getAllTags } from 'obsidian';
 import type MinimalismUIPlugin from '../main';
 import { t, setLang } from './core/i18n';
 import { MAX_LEFT_SIDEBAR_SLOTS, MULTI_INSTANCE_VIEW_TYPES } from './core/settings';
-import type { SidebarSlot } from './core/settings';
+import type { SidebarSlot, SidebarRule, SidebarCondition, SidebarConditionField, SidebarConditionOperator } from './core/settings';
 import { getDailyNotesFolder } from './core/utils';
 import { VIEW_TYPE_NOTE_CARD } from './note-card/NoteCardView';
+
+// 字段 → 该字段下有意义的操作符子集（如 path/folder 没有"是否为空"，因为文件路径恒非空）。
+const OPERATORS_BY_FIELD: Record<SidebarConditionField, SidebarConditionOperator[]> = {
+	path: ['is', 'is-not', 'contains', 'not-contains', 'starts-with'],
+	folder: ['is', 'is-not', 'contains', 'not-contains', 'starts-with'],
+	tag: ['is', 'is-not', 'contains', 'not-contains', 'is-empty', 'is-not-empty'],
+	property: ['is', 'is-not', 'contains', 'not-contains', 'starts-with', 'is-empty', 'is-not-empty'],
+};
+
+function fieldLabel(field: SidebarConditionField): string {
+	switch (field) {
+		case 'path': return t('conditionFieldPath');
+		case 'folder': return t('conditionFieldFolder');
+		case 'tag': return t('conditionFieldTag');
+		case 'property': return t('conditionFieldProperty');
+	}
+}
+
+function operatorLabel(op: SidebarConditionOperator): string {
+	switch (op) {
+		case 'is': return t('conditionOperatorIs');
+		case 'is-not': return t('conditionOperatorIsNot');
+		case 'contains': return t('conditionOperatorContains');
+		case 'not-contains': return t('conditionOperatorNotContains');
+		case 'starts-with': return t('conditionOperatorStartsWith');
+		case 'is-empty': return t('conditionOperatorIsEmpty');
+		case 'is-not-empty': return t('conditionOperatorIsNotEmpty');
+	}
+}
+
+function describeCondition(cond: SidebarCondition): string {
+	const field = cond.field === 'property' ? (cond.property || t('conditionFieldProperty')) : fieldLabel(cond.field);
+	if (cond.operator === 'is-empty' || cond.operator === 'is-not-empty') return `${field} ${operatorLabel(cond.operator)}`;
+	return `${field} ${operatorLabel(cond.operator)} ${cond.value ?? ''}`;
+}
+
+function summarizeConditions(conditions: SidebarCondition[]): string {
+	if (conditions.length === 0) return t('ruleConditionsEmpty');
+	return conditions.map(describeCondition).join(` ${t('conditionJoinerAnd')} `);
+}
+
+function vaultPropertyNames(app: App): string[] {
+	const names = new Set<string>();
+	for (const file of app.vault.getMarkdownFiles()) {
+		const fm = app.metadataCache.getFileCache(file)?.frontmatter;
+		if (!fm) continue;
+		for (const key of Object.keys(fm)) {
+			// Obsidian 往 frontmatter 缓存对象里混入了一个内部字段记录文本区间，不是真实属性。
+			if (key === 'position') continue;
+			names.add(key);
+		}
+	}
+	return Array.from(names).sort();
+}
+
+function vaultTagNames(app: App): string[] {
+	const names = new Set<string>();
+	for (const file of app.vault.getMarkdownFiles()) {
+		const cache = app.metadataCache.getFileCache(file);
+		if (!cache) continue;
+		for (const tag of getAllTags(cache) ?? []) names.add(tag.replace(/^#/, ''));
+	}
+	return Array.from(names).sort();
+}
+
+// ─── 筛选条件弹窗 ───────────────────────────────────────────────────────────────
+// 自定义规则的筛选条件在弹窗里编辑（固定三个 tab——首页/日记/默认——没有这个入口，
+// 它们的匹配逻辑写死在 LeftSidebarManager 里，不接受用户编辑）。弹窗内部用自己的
+// render() 做局部重渲染，不触发外层 SettingTab.update()；只有关闭时才通过 onDismiss
+// 回调通知外层刷新一次（tab 文案 + 「筛选条件」摘要）。
+
+class SidebarConditionModal extends Modal {
+	constructor(
+		app: App,
+		private rule: SidebarRule,
+		private persist: () => void | Promise<void>,
+		private onDismiss: () => void,
+	) {
+		super(app);
+	}
+
+	onOpen(): void {
+		this.setTitle(t('ruleConditions'));
+		this.render();
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+		this.onDismiss();
+	}
+
+	private render(): void {
+		this.contentEl.empty();
+
+		const header = new Setting(this.contentEl)
+			.setDesc(this.rule.conditions.length === 0 ? t('ruleConditionsEmptyHint') : '');
+		header.addButton(btn => {
+			btn.setButtonText(t('addCondition'));
+			btn.setCta();
+			btn.onClick(() => {
+				this.rule.conditions.push({ field: 'property', operator: 'is', value: '' });
+				void this.persist();
+				this.render();
+			});
+		});
+
+		const listEl = this.contentEl.createDiv({ cls: 'minimalism-ui-condition-list' });
+		if (this.rule.conditions.length > 0) {
+			const propertyNames = vaultPropertyNames(this.app);
+			const tagNames = vaultTagNames(this.app);
+			this.rule.conditions.forEach((_, index) => this.renderRow(listEl, index, propertyNames, tagNames));
+		}
+	}
+
+	private renderRow(listEl: HTMLElement, index: number, propertyNames: string[], tagNames: string[]): void {
+		const cond = this.rule.conditions[index];
+		const row = listEl.createDiv({ cls: 'minimalism-ui-condition-row' });
+
+		const fieldSelect = row.createEl('select', { cls: 'dropdown minimalism-ui-condition-field' });
+		(['path', 'folder', 'tag', 'property'] as SidebarConditionField[]).forEach(field => {
+			fieldSelect.createEl('option', { value: field, text: fieldLabel(field) });
+		});
+		fieldSelect.value = cond.field;
+
+		let propertyInput: HTMLInputElement | null = null;
+		if (cond.field === 'property') {
+			const listId = 'minimalism-ui-property-suggestions';
+			propertyInput = row.createEl('input', {
+				cls: 'minimalism-ui-condition-property',
+				attr: { type: 'text', placeholder: t('conditionPropertyPlaceholder'), list: listId },
+			});
+			propertyInput.value = cond.property ?? '';
+			this.fillDatalist(listId, propertyNames);
+			propertyInput.addEventListener('change', () => {
+				cond.property = propertyInput!.value.trim();
+				void this.persist();
+			});
+		}
+
+		const operatorSelect = row.createEl('select', { cls: 'dropdown minimalism-ui-condition-operator' });
+		const valueInput = row.createEl('input', {
+			cls: 'minimalism-ui-condition-value',
+			attr: { type: 'text', placeholder: t('conditionValuePlaceholder') },
+		});
+		if (cond.field === 'tag') {
+			const listId = 'minimalism-ui-tag-suggestions';
+			valueInput.setAttribute('list', listId);
+			this.fillDatalist(listId, tagNames);
+		}
+		const updateValueVisibility = () => {
+			const hide = operatorSelect.value === 'is-empty' || operatorSelect.value === 'is-not-empty';
+			valueInput.toggleClass('is-hidden', hide);
+		};
+		for (const op of OPERATORS_BY_FIELD[cond.field]) {
+			operatorSelect.createEl('option', { value: op, text: operatorLabel(op) });
+		}
+		operatorSelect.value = OPERATORS_BY_FIELD[cond.field].includes(cond.operator)
+			? cond.operator : OPERATORS_BY_FIELD[cond.field][0];
+		valueInput.value = cond.value ?? '';
+		updateValueVisibility();
+
+		fieldSelect.addEventListener('change', () => {
+			cond.field = fieldSelect.value as SidebarConditionField;
+			if (cond.field !== 'property') delete cond.property;
+			if (!OPERATORS_BY_FIELD[cond.field].includes(cond.operator)) cond.operator = OPERATORS_BY_FIELD[cond.field][0];
+			// 换字段会改变是否需要属性名输入框 / 标签建议列表这类行内结构，整行重渲染最简单。
+			void this.persist();
+			this.render();
+		});
+		operatorSelect.addEventListener('change', () => {
+			cond.operator = operatorSelect.value as SidebarConditionOperator;
+			updateValueVisibility();
+			void this.persist();
+		});
+		valueInput.addEventListener('change', () => {
+			cond.value = valueInput.value;
+			void this.persist();
+		});
+
+		const removeBtn = row.createEl('button', {
+			cls: 'minimalism-ui-slot-remove clickable-icon',
+			text: '✕',
+			attr: { 'aria-label': t('removeCondition') },
+		});
+		removeBtn.addEventListener('click', () => {
+			this.rule.conditions.splice(index, 1);
+			void this.persist();
+			this.render();
+		});
+	}
+
+	// 属性名 / 标签输入框的 <datalist> 建议列表：按 id 幂等创建，每次渲染都重新填充内容。
+	private fillDatalist(id: string, values: string[]): void {
+		const doc = this.contentEl.ownerDocument;
+		const existing = doc.getElementById(id);
+		const list = existing ?? doc.body.createEl('datalist', { attr: { id } });
+		list.empty();
+		for (const value of values) list.createEl('option', { value });
+	}
+}
 
 // ─── File Suggester ───────────────────────────────────────────────────────────
 
@@ -156,16 +356,26 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 			});
 	}
 
-	// ── 左侧栏面板列表（用户添加任意 view，最多 4 个，可拖拽排序）──────────────
+	// ── 左侧栏面板列表（首页 / 日记 / 默认三个固定 tab + 用户自定义规则 tab）────
 
 	// 拖拽排序进行中的源行下标；drop 时读取，结束即清空。
 	private slotDragIndex: number | null = null;
-	private sidebarProfile: 'home' | 'diary' | 'other' = 'home';
+	// 'home' / 'diary' / 'other' 三个固定、不可改筛选条件的 tab，或某条 sidebarRules[].id。
+	private sidebarProfile = 'home';
+
+	private profileLabel(key: string): string {
+		if (key === 'home') return t('sidebarProfileHome');
+		if (key === 'diary') return t('sidebarProfileDiary');
+		if (key === 'other') return t('sidebarProfileOther');
+		return this.plugin.settings.sidebarRules.find(r => r.id === key)?.name || t('sidebarRuleUnnamed');
+	}
 
 	private profileOverride(): SidebarSlot[] | null {
 		const s = this.plugin.settings;
-		return this.sidebarProfile === 'home' ? s.homeSidebarSlots
-			: this.sidebarProfile === 'diary' ? s.diarySidebarSlots : s.leftSidebarSlots;
+		if (this.sidebarProfile === 'home') return s.homeSidebarSlots;
+		if (this.sidebarProfile === 'diary') return s.diarySidebarSlots;
+		if (this.sidebarProfile === 'other') return s.leftSidebarSlots;
+		return s.sidebarRules.find(r => r.id === this.sidebarProfile)?.slots ?? null;
 	}
 
 	private displayedSlots(): SidebarSlot[] {
@@ -174,9 +384,14 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 	}
 
 	private setProfileSlots(slots: SidebarSlot[] | null): void {
-		if (this.sidebarProfile === 'home') this.plugin.settings.homeSidebarSlots = slots;
-		else if (this.sidebarProfile === 'diary') this.plugin.settings.diarySidebarSlots = slots;
-		else this.plugin.settings.leftSidebarSlots = slots ?? [];
+		const s = this.plugin.settings;
+		if (this.sidebarProfile === 'home') s.homeSidebarSlots = slots;
+		else if (this.sidebarProfile === 'diary') s.diarySidebarSlots = slots;
+		else if (this.sidebarProfile === 'other') s.leftSidebarSlots = slots ?? [];
+		else {
+			const rule = s.sidebarRules.find(r => r.id === this.sidebarProfile);
+			if (rule) rule.slots = slots ?? [];
+		}
 	}
 
 	private async persistSlots(): Promise<void> {
@@ -199,20 +414,35 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 		const workspaceEl = sectionEl.createDiv({ cls: 'minimalism-ui-slot-workspace' });
 		const tabs = workspaceEl.createDiv({ cls: 'minimalism-ui-slot-profiles' });
 		const contentEl = workspaceEl.createDiv({ cls: 'minimalism-ui-slot-content' });
-		const profileLabels: Record<typeof this.sidebarProfile, string> = {
-			home: t('sidebarProfileHome'), diary: t('sidebarProfileDiary'), other: t('sidebarProfileOther'),
-		};
-		for (const profile of ['home', 'diary', 'other'] as const) {
+
+		// 固定三个 tab（首页/日记/默认，筛选条件不可改）+ 用户自定义规则 tab，顺序即命中优先级
+		// （LeftSidebarManager.activeSlots 按同样顺序判定：home → diary → 自定义规则 → 默认）。
+		const tabKeys = ['home', 'diary', ...this.plugin.settings.sidebarRules.map(r => r.id), 'other'];
+		for (const key of tabKeys) {
 			const tab = tabs.createEl('button', {
-				cls: `minimalism-ui-slot-profile${this.sidebarProfile === profile ? ' is-active' : ''}`,
-				text: profileLabels[profile],
-				attr: { 'aria-pressed': String(this.sidebarProfile === profile) },
+				cls: `minimalism-ui-slot-profile${this.sidebarProfile === key ? ' is-active' : ''}`,
+				text: this.profileLabel(key),
+				attr: { 'aria-pressed': String(this.sidebarProfile === key) },
 			});
 			tab.addEventListener('click', () => {
-				this.sidebarProfile = profile;
+				this.sidebarProfile = key;
 				this.update();
 			});
 		}
+		const addTab = tabs.createEl('button', {
+			cls: 'minimalism-ui-slot-profile minimalism-ui-slot-profile-add',
+			text: '+',
+			attr: { 'aria-label': t('addRule') },
+		});
+		addTab.addEventListener('click', async () => {
+			const id = `rule-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+			this.plugin.settings.sidebarRules.push({ id, name: '', conditions: [], slots: [] });
+			this.sidebarProfile = id;
+			await this.plugin.saveSettings();
+			this.update();
+		});
+
+		const isFixedTab = this.sidebarProfile === 'home' || this.sidebarProfile === 'diary' || this.sidebarProfile === 'other';
 		const unavailableReason = this.sidebarProfile === 'home'
 			? (this.plugin.settings.homePage.trim() ? '' : t('sidebarProfileHomeUnavailable'))
 			: this.sidebarProfile === 'diary'
@@ -220,17 +450,29 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				: '';
 		if (unavailableReason) contentEl.createDiv({ cls: 'minimalism-ui-slot-notice', text: unavailableReason });
 		const editable = !unavailableReason;
+
+		// 自定义规则 tab：筛选条件本身在弹窗里编辑（见下方「编辑筛选条件」按钮），这里只放
+		// 名称 + 弹窗入口 + 删除——固定三个 tab 没有这一段，筛选条件对它们恒不可改。
+		if (!isFixedTab) this.renderRuleHeader(contentEl, this.sidebarProfile);
+
 		// 新增行默认选中：优先经典三面板，其次任意未占用的已注册 view。
 		const preferred = ['outline', 'file-properties', 'localgraph'];
 		const nextFree = preferred.filter(tp => options.some(o => o.type === tp)).find(isAvailable)
 			?? options.find(o => isAvailable(o.type))?.type;
 
-		const header = new Setting(contentEl)
-			.setName(t('leftSidebarPanels'))
-			.setDesc(atLimit
-				? t('leftSidebarPanelsFull')
-				: t('leftSidebarPanelsDesc').replace('{profile}', profileLabels[this.sidebarProfile]));
-		header.addButton(btn => {
+		if (atLimit) {
+			new Setting(contentEl).setDesc(t('leftSidebarPanelsFull'));
+		}
+
+		const listEl = contentEl.createDiv({ cls: 'minimalism-ui-slot-list' });
+		if (slots.length === 0 && editable) {
+			listEl.createDiv({ cls: 'minimalism-ui-slot-empty', text: t('leftSidebarPanelsEmpty') });
+		} else if (slots.length > 0) {
+			slots.forEach((_, index) => this.renderSlotRow(listEl, index, options, editable));
+		}
+
+		const footer = new Setting(contentEl);
+		footer.addButton(btn => {
 			btn.setButtonText(t('addPanel'));
 			if (!editable || atLimit || !nextFree) {
 				btn.setDisabled(true);
@@ -247,13 +489,54 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				});
 			}
 		});
+	}
 
-		const listEl = contentEl.createDiv({ cls: 'minimalism-ui-slot-list' });
-		if (slots.length === 0 && editable) {
-			listEl.createDiv({ cls: 'minimalism-ui-slot-empty', text: t('leftSidebarPanelsEmpty') });
-		} else if (slots.length > 0) {
-			slots.forEach((_, index) => this.renderSlotRow(listEl, index, options, editable));
-		}
+	/** 自定义规则 tab 顶部的名称 + 筛选条件弹窗入口 + 删除；固定三个 tab 不会调这个方法。 */
+	private renderRuleHeader(parentEl: HTMLElement, ruleId: string): void {
+		const rule = this.plugin.settings.sidebarRules.find(r => r.id === ruleId);
+		if (!rule) return;
+
+		new Setting(parentEl)
+			.setName(t('ruleName'))
+			.addText(text => {
+				text.setPlaceholder(t('ruleNamePlaceholder')).setValue(rule.name);
+				text.inputEl.addEventListener('change', () => {
+					rule.name = text.inputEl.value.trim();
+					void this.plugin.saveSettings();
+					this.update(); // tab 文案跟着刷新
+				});
+			})
+			.addExtraButton(btn => btn
+				.setIcon('trash-2')
+				.setTooltip(t('removeRule'))
+				.onClick(async () => {
+					const rules = this.plugin.settings.sidebarRules;
+					const idx = rules.findIndex(r => r.id === ruleId);
+					if (idx < 0) return;
+					const [removed] = rules.splice(idx, 1);
+					// 规则里的笔记卡片一并清掉持久化绑定，同面板列表删除笔记卡片 slot 时的逻辑。
+					for (const slot of removed.slots) {
+						if (slot.viewType === VIEW_TYPE_NOTE_CARD) delete this.plugin.settings.noteCardBindings[slot.id];
+					}
+					this.sidebarProfile = 'other';
+					await this.plugin.saveSettings();
+					await this.plugin.applyMacSidebarLayout({ revealNewPanels: true });
+					this.update();
+				}));
+
+		new Setting(parentEl)
+			.setName(t('ruleConditions'))
+			.setDesc(summarizeConditions(rule.conditions))
+			.addButton(btn => btn
+				.setButtonText(t('editConditions'))
+				.onClick(() => {
+					new SidebarConditionModal(
+						this.app,
+						rule,
+						() => this.plugin.saveSettings(),
+						() => this.update(),
+					).open();
+				}));
 	}
 
 	private renderSlotRow(
@@ -427,9 +710,17 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 						this.configureLeftSidebarSlots(setting.settingEl);
 					},
 				},
-				{ name: t('showVaultProfile'), render: (setting) => this.configureShowVaultProfile(setting) },
-				{ name: t('showRightSidebarButton'), render: (setting) => this.configureShowRightSidebarButton(setting) },
 			]),
+			// 底部设置区域 / 右侧栏按钮单独成一个组，与上方的面板配置保持间距。
+			{
+				type: 'group',
+				visible: () => !this.isCollapsed('appearance'),
+				cls: 'minimalism-ui-sidebar-secondary-group',
+				items: [
+					{ name: t('showVaultProfile'), render: (setting) => this.configureShowVaultProfile(setting) },
+					{ name: t('showRightSidebarButton'), render: (setting) => this.configureShowRightSidebarButton(setting) },
+				],
+			},
 
 			...this.section('advanced', t('headingAdvanced'), [
 				{ name: t('navAnimation'), render: (setting) => this.configureNavAnimation(setting) },

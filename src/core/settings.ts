@@ -22,6 +22,33 @@ export interface SidebarSlot {
 // 上限：整个列表最多 4 项。
 export const MAX_LEFT_SIDEBAR_SLOTS = 4;
 
+// 左侧栏规则的一条筛选条件。字段与操作符的笛卡尔积里有些组合没有意义（如 path 配
+// contains），具体哪些可用由 SettingTab 的下拉联动控制，这里的类型本身不做收窄。
+export type SidebarConditionField = 'path' | 'folder' | 'tag' | 'property';
+export type SidebarConditionOperator =
+	| 'is' | 'is-not' | 'contains' | 'not-contains' | 'starts-with' | 'is-empty' | 'is-not-empty';
+
+export interface SidebarCondition {
+	field: SidebarConditionField;
+	// field === 'property' 时填 frontmatter 属性名；其它 field 不使用。
+	property?: string;
+	operator: SidebarConditionOperator;
+	// is-empty / is-not-empty 不需要 value。
+	value?: string;
+}
+
+// 左侧栏的一条筛选规则：按 conditions（纯 AND，空列表视为永不命中）匹配当前笔记，
+// 命中则用这条规则的 slots 取代默认的 leftSidebarSlots。整个 sidebarRules 数组的
+// 顺序即命中优先级，第一条命中为准。
+export interface SidebarRule {
+	// 稳定 id，同 SidebarSlot.id 的生成方式：`rule-<时间戳>-<随机后缀>`。
+	id: string;
+	// 用户自定义名称，规则列表 / 面板配置区展示用。
+	name: string;
+	conditions: SidebarCondition[];
+	slots: SidebarSlot[];
+}
+
 // 允许在同一个 slot 列表（甚至跨 home/diary/other 多套列表）里重复出现多份的 view type。
 // 目前仅笔记卡片：每一份各自独立绑定一篇笔记，靠 SidebarSlot.id 区分彼此——其它工具类面板
 // （outline/properties/关系图……）全局只反映 activeFile，多份毫无意义，故不开放。这是 schema
@@ -47,9 +74,15 @@ export interface MinimalismUISettings {
 	// 左侧栏面板列表。用户在设置页添加 / 删除 / 拖拽排序，最多 4 项；顺序即纵向 split 中
 	// 自上而下的顺序。默认空 = 空白侧栏。
 	leftSidebarSlots: SidebarSlot[];
-	// null 表示跟随 leftSidebarSlots（默认）；数组表示该类别的独立配置。
+	// null 表示跟随 leftSidebarSlots（默认）；数组表示该固定 profile 的独立配置。这两个 profile
+	// 的筛选条件（笔记路径 === homePage / 落在日记文件夹下）写死在 LeftSidebarManager 里，不接受
+	// 用户编辑——用户能改的只有下面它们各自的面板内容，以及额外加 sidebarRules 这种自定义规则。
 	homeSidebarSlots: SidebarSlot[] | null;
 	diarySidebarSlots: SidebarSlot[] | null;
+	// 用户自定义的筛选规则：按数组顺序排在 home/diary 固定判定之后、leftSidebarSlots 默认配置
+	// 之前，当前笔记命中第一条规则即用该规则的 slots。规则数量不设上限（不同于每条规则内部
+	// slots 仍受 MAX_LEFT_SIDEBAR_SLOTS）。
+	sidebarRules: SidebarRule[];
 	ribbonPanelExpanded: boolean;
 	hideTabBar: boolean;
 	disableNoteTabs: boolean;
@@ -114,6 +147,7 @@ export const DEFAULT_SETTINGS: MinimalismUISettings = {
 	leftSidebarSlots: DEFAULT_LEFT_SIDEBAR_SLOTS.map(s => ({ ...s })),
 	homeSidebarSlots: null,
 	diarySidebarSlots: null,
+	sidebarRules: [],
 	// 默认展开：首次安装即可看到 ribbon 图标
 	ribbonPanelExpanded: true,
 	hideTabBar: true,
