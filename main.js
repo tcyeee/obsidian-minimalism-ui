@@ -27,7 +27,7 @@ __export(main_exports, {
   default: () => MinimalismUIPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian16 = require("obsidian");
+var import_obsidian17 = require("obsidian");
 
 // src/core/settings.ts
 var MAX_LEFT_SIDEBAR_SLOTS = 4;
@@ -996,7 +996,9 @@ var LeafCache = class {
   /** 用当前所有 root leaf 初始化队列，最近活跃的 leaf 排到队尾。 */
   seed() {
     this.queue = [];
-    this.app.workspace.iterateRootLeaves((leaf) => this.queue.push(leaf));
+    this.app.workspace.iterateRootLeaves((leaf) => {
+      this.queue.push(leaf);
+    });
     const mostRecent = this.app.workspace.getMostRecentLeaf();
     if (mostRecent) this.touch(mostRecent);
   }
@@ -1015,7 +1017,9 @@ var LeafCache = class {
     if (!active) return;
     this.touch(active);
     const rootLeaves = [];
-    this.app.workspace.iterateRootLeaves((l) => rootLeaves.push(l));
+    this.app.workspace.iterateRootLeaves((l) => {
+      rootLeaves.push(l);
+    });
     const rootLeafSet = new Set(rootLeaves);
     this.queue = this.queue.filter((l) => rootLeafSet.has(l));
     const tracked = new Set(this.queue);
@@ -1111,6 +1115,9 @@ var SinglePageEngine = class {
     // 触发路径：关闭 A→需重开前驱 B 时先建空白 leaf 顶位，用户在 B 加载完成前又按了一次 CMD+W，
     // 此时活动 leaf 正是那个还没有文件的空白 leaf，会同时满足"待关闭"和"可复用的空白 leaf"。
     this.closingLeaf = null;
+    // 批量收拢期间置位：跳过 detachRootLeaf 的可视位交接，见 runWithoutDetachSideEffects。
+    // （另一半副作用——重开面包屑前一页——由既有的 isReusingLeaf 一并关掉。）
+    this.slotHandoverSuppressed = false;
     // layout-change 兜底：把任何新冒出来的 root leaf 纳入 detach 补丁（见 apply 中的注释）
     this.layoutChangeHandler = null;
     this.renameHandler = null;
@@ -1406,8 +1413,40 @@ var SinglePageEngine = class {
   // 销毁 root leaf 的唯一出口（detach 补丁只经由这里调用原始 detach）。
   // 先保证不变量成立，再执行真正的 detach。
   detachRootLeaf(leaf, original) {
-    if (this.isHoldingViewSlot(leaf)) this.handOverViewSlot(leaf);
+    if (!this.slotHandoverSuppressed && this.isHoldingViewSlot(leaf)) this.handOverViewSlot(leaf);
     original();
+  }
+  /**
+   * 在回调期间把 root leaf 的 detach 还原成"纯粹销毁"，供插件内部的**批量收拢**使用
+   * （{@link SingleTabGroupGuard} 合并分屏/弹窗、{@link StartupTabCleanup} 启动收拢、
+   * resetToHomePage）。detach 补丁平时为"用户关掉当前笔记"做两件额外的事，这两件对批量收拢
+   * 来说恰好都是反效果：
+   *
+   *   · **接替者重开**（nav.onTabClosing + activateOrOpenFile）—— 关一篇笔记要平移到面包屑
+   *     前一页，必要时重新打开它。批量收拢时这会边关边开，leaf 数量根本降不下来。
+   *   · **可视位交接**（handOverViewSlot）—— 在被关 leaf 所属标签组里新建一个空白 leaf 顶位，
+   *     使该组永不为空。而收拢要的恰恰是让外组彻底空掉、由 Obsidian 回收。两者相撞会死循环：
+   *     摘空外组 → 交接又补出新 leaf → layout-change 上再看到多组 → 再摘再补，每轮都新建 leaf。
+   *     主区左右分屏时必然触发，表现为 Obsidian 卡死，且爆炸后的布局会被存进 workspace.json
+   *     使重启复现。
+   *
+   * 代价是活动 leaf 可能随之消失，故调用方有义务在收拢结束后自己把 activeLeaf 放到留存的
+   * leaf 上，不要把接替者的选择权留给 Obsidian 的 updateLayout（见上方不变量说明）。
+   *
+   * 回调必须是**同步**的：isReusingLeaf 同时被 getLeaf 拦截与一次性 openFile 拦截器读取，
+   * 跨 await 置位会让期间真实的用户导航绕过去重。
+   */
+  runWithoutDetachSideEffects(fn) {
+    const previousReusing = this.isReusingLeaf;
+    const previousHandover = this.slotHandoverSuppressed;
+    this.isReusingLeaf = true;
+    this.slotHandoverSuppressed = true;
+    try {
+      return fn();
+    } finally {
+      this.isReusingLeaf = previousReusing;
+      this.slotHandoverSuppressed = previousHandover;
+    }
   }
   // 复用一个已存在的空白 leaf（无文件、未处于 pending 拦截中）而非总是新开 tab，与
   // openHomePage() 的 canReuse 判断同一套逻辑。onTabClosing 关闭最后一篇笔记后落到 home
@@ -1789,29 +1828,32 @@ var SinglePageEngine = class {
         others.push(l);
       }
     });
-    this.isReusingLeaf = true;
-    try {
+    this.runWithoutDetachSideEffects(() => {
       for (const l of others) l.detach();
-    } finally {
-      this.isReusingLeaf = false;
-    }
+    });
+    if (homeLeaf) this.app.workspace.setActiveLeaf(homeLeaf, { focus: true });
     this.nav.reset(path);
     (_a = this.navChangeListener) == null ? void 0 : _a.call(this, homeLeaf);
   }
 };
 
 // src/single-page/SingleTabGroupGuard.ts
-var SingleTabGroupGuard = class {
-  constructor(app, getSettings, onLeafCreated) {
+var _SingleTabGroupGuard = class _SingleTabGroupGuard {
+  constructor(app, getSettings, onLeafCreated, withoutDetachSideEffects = (fn) => fn()) {
     this.app = app;
     this.getSettings = getSettings;
     this.onLeafCreated = onLeafCreated;
+    this.withoutDetachSideEffects = withoutDetachSideEffects;
     this.handler = null;
     this.isEnforcing = false;
+    this.burstStartedAt = 0;
+    this.burstCount = 0;
   }
   apply() {
     this.remove();
     if (!this.getSettings().disableNoteTabs) return;
+    this.burstStartedAt = 0;
+    this.burstCount = 0;
     this.handler = () => this.enforce();
     this.app.workspace.on("layout-change", this.handler);
     this.enforce();
@@ -1847,6 +1889,7 @@ var SingleTabGroupGuard = class {
       if (leaf === active) activeRoot = leaf;
     });
     if (groups.size <= 1) return;
+    if (this.tripBreaker()) return;
     const inMainWindow = (leaf) => leaf.getContainer() === rootSplit;
     let primaryGroup = null;
     if (activeRoot && inMainWindow(activeRoot)) {
@@ -1863,34 +1906,172 @@ var SingleTabGroupGuard = class {
     this.isEnforcing = true;
     try {
       const ws = this.app.workspace;
-      const existing = /* @__PURE__ */ new Set();
+      const existing = /* @__PURE__ */ new Map();
       for (const leaf of groups.get(primaryGroup)) {
         const key = this.dedupKey(leaf);
-        if (key) existing.add(key);
+        if (key && !existing.has(key)) existing.set(key, leaf);
       }
+      let activeTarget = null;
       let index = (_b = (_a = primaryGroup.children) == null ? void 0 : _a.length) != null ? _b : 0;
-      for (const [group, leaves] of groups) {
-        if (group === primaryGroup) continue;
-        for (const leaf of leaves) {
-          const li = leaf;
-          const key = this.dedupKey(leaf);
-          if (key && existing.has(key)) {
+      this.withoutDetachSideEffects(() => {
+        for (const [group, leaves] of groups) {
+          if (group === primaryGroup) continue;
+          for (const leaf of leaves) {
+            const li = leaf;
+            const key = this.dedupKey(leaf);
+            const duplicate = key ? existing.get(key) : void 0;
+            if (duplicate) {
+              if (leaf === active) activeTarget = duplicate;
+              li.detach();
+              continue;
+            }
+            const vs = li.getViewState();
+            const newLeaf = ws.createLeafInParent(primaryGroup, index++);
+            void newLeaf.setViewState(vs).then(() => {
+              var _a2;
+              return (_a2 = this.onLeafCreated) == null ? void 0 : _a2.call(this, newLeaf);
+            });
+            if (key) existing.set(key, newLeaf);
+            if (leaf === active) activeTarget = newLeaf;
             li.detach();
-            continue;
           }
-          const vs = li.getViewState();
-          const newLeaf = ws.createLeafInParent(primaryGroup, index++);
-          void newLeaf.setViewState(vs).then(() => {
-            var _a2;
-            return (_a2 = this.onLeafCreated) == null ? void 0 : _a2.call(this, newLeaf);
-          });
-          if (key) existing.add(key);
-          li.detach();
         }
-      }
+      });
+      this.restoreActiveLeaf(primaryGroup, activeRoot, activeTarget);
     } finally {
       this.isEnforcing = false;
     }
+  }
+  /**
+   * 把活动 leaf 显式钉回主组。两个必须：
+   *   · 停用了可视位交接，原活动 leaf 可能已随外组一起销毁 —— 不能把接替者的选择权留给
+   *     Obsidian 的 updateLayout（它会挑"左邻 tab"，即一篇不相干的旧笔记）；
+   *   · createLeafInParent 内部会把每个新建 leaf 设为活动 leaf，不纠正的话用户会被甩到最后
+   *     一个被搬过来的页面上，而不是停在自己原本看的那一页。
+   */
+  restoreActiveLeaf(primaryGroup, activeRoot, activeTarget) {
+    var _a, _b;
+    const children = (_a = primaryGroup.children) != null ? _a : [];
+    const stayed = activeRoot && activeRoot.parent === primaryGroup ? activeRoot : null;
+    const target = (_b = activeTarget != null ? activeTarget : stayed) != null ? _b : children[children.length - 1];
+    if (target) this.app.workspace.setActiveLeaf(target, { focus: true });
+  }
+  // 见 MERGE_BURST_LIMIT 上方的熔断器说明。返回 true 表示已熔断，调用方立即放弃本轮合并。
+  tripBreaker() {
+    const now = Date.now();
+    if (now - this.burstStartedAt > _SingleTabGroupGuard.MERGE_BURST_WINDOW_MS) {
+      this.burstStartedAt = now;
+      this.burstCount = 0;
+    }
+    if (++this.burstCount <= _SingleTabGroupGuard.MERGE_BURST_LIMIT) return false;
+    console.error("[minimalism-ui] single tab group merge did not converge; guard disabled to keep Obsidian responsive");
+    this.remove();
+    return true;
+  }
+};
+// 熔断器。合并本应一两轮就收敛（变成单组后 enforce 快速返回），短时间内反复合并只能说明出现
+// 了未知的「摘空后又冒出新组」回路。绝不能任它跑下去：每轮都新建 leaf，Obsidian 会直接卡死，
+// 而爆炸后的布局又被存进 workspace.json 导致重启复现 —— 用户只能手删插件目录才能恢复。
+// 触发后停掉监听、保留现场并报错，Obsidian 仍可正常使用（最多是主区留着分屏）。
+_SingleTabGroupGuard.MERGE_BURST_LIMIT = 24;
+_SingleTabGroupGuard.MERGE_BURST_WINDOW_MS = 2e3;
+var SingleTabGroupGuard = _SingleTabGroupGuard;
+
+// src/single-page/SplitDisabler.ts
+var import_obsidian3 = require("obsidian");
+var SplitDisabler = class {
+  constructor(app, getSettings) {
+    this.app = app;
+    this.getSettings = getSettings;
+    this.originalCanSplit = null;
+    this.originalGetDropDirection = null;
+  }
+  apply() {
+    this.remove();
+    if (!this.getSettings().disableNoteTabs) return;
+    this.disableNativeSplit();
+    this.patchDropDirection();
+  }
+  remove() {
+    if (this.originalCanSplit) {
+      Object.defineProperty(import_obsidian3.Platform, "canSplit", this.originalCanSplit);
+      this.originalCanSplit = null;
+    }
+    if (this.originalGetDropDirection) {
+      this.app.workspace.getDropDirection = this.originalGetDropDirection;
+      this.originalGetDropDirection = null;
+    }
+  }
+  // canSplit 在 Platform 对象上是一个字面量 getter（可配置），改写后 remove() 能按原描述符还原。
+  // 拿不到描述符（Obsidian 换了实现）时静默跳过：第 2 道封锁与 SingleTabGroupGuard 仍在。
+  disableNativeSplit() {
+    const descriptor = Object.getOwnPropertyDescriptor(import_obsidian3.Platform, "canSplit");
+    if (!(descriptor == null ? void 0 : descriptor.configurable)) return;
+    this.originalCanSplit = descriptor;
+    Object.defineProperty(import_obsidian3.Platform, "canSplit", {
+      get: () => false,
+      configurable: true,
+      enumerable: descriptor.enumerable
+    });
+  }
+  patchDropDirection() {
+    const ws = this.app.workspace;
+    if (typeof ws.getDropDirection !== "function") return;
+    const original = ws.getDropDirection.bind(ws);
+    this.originalGetDropDirection = ws.getDropDirection;
+    ws.getDropDirection = (evt, rect, exclude, target) => {
+      if (this.isNoteArea(target)) return "center";
+      return original(evt, rect, exclude, target);
+    };
+  }
+  // 落点是否属于"笔记区"（任一窗口的主编辑区）。判定方式与 Obsidian 拖拽代码本身一致：
+  // 取落点所属的根容器，只要不是左/右侧边栏就视为笔记区——弹出窗口的主区同样需要收口。
+  isNoteArea(target) {
+    var _a;
+    const root = (_a = target == null ? void 0 : target.getRoot) == null ? void 0 : _a.call(target);
+    if (!root) return false;
+    return root !== this.app.workspace.leftSplit && root !== this.app.workspace.rightSplit;
+  }
+};
+
+// src/single-page/StartupTabCleanup.ts
+var StartupTabCleanup = class {
+  constructor(app, getSettings, engine) {
+    this.app = app;
+    this.getSettings = getSettings;
+    this.engine = engine;
+  }
+  async run() {
+    if (!this.getSettings().disableNoteTabs) return;
+    if (this.getSettings().homePage) {
+      await this.engine.resetToHomePage();
+      return;
+    }
+    this.keepOnlyMostRecent();
+  }
+  // 没设首页：保留上次会话停留的那一页（workspace 恢复完即 getMostRecentLeaf），关掉其余。
+  // 它若是空视图（上次退出时就停在空页），退而保留第一个有内容的 leaf——否则会把用户所有笔记
+  // 都关掉却只留一张空白页。
+  keepOnlyMostRecent() {
+    var _a, _b;
+    const leaves = [];
+    this.app.workspace.iterateRootLeaves((leaf) => {
+      leaves.push(leaf);
+    });
+    if (leaves.length <= 1) return;
+    const recent = this.app.workspace.getMostRecentLeaf();
+    const keep = (_b = (_a = recent && leaves.includes(recent) && this.hasContent(recent) ? recent : null) != null ? _a : leaves.find((leaf) => this.hasContent(leaf))) != null ? _b : leaves[0];
+    this.engine.runWithoutDetachSideEffects(() => {
+      for (const leaf of leaves) if (leaf !== keep) leaf.detach();
+    });
+    this.app.workspace.setActiveLeaf(keep, { focus: true });
+    this.engine.ensureNavSeeded();
+  }
+  // deferred（恢复出、尚未实例化）的 leaf 只有 getViewState() 可读，view 实例还不在。
+  hasContent(leaf) {
+    var _a;
+    const viewState = leaf.getViewState();
+    return !!((_a = viewState.state) == null ? void 0 : _a.file) || !!viewState.type && viewState.type !== "empty";
   }
 };
 
@@ -2077,10 +2258,10 @@ var EmptyViewButtonManager = class {
 };
 
 // src/layout/DragBarManager.ts
-var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 
 // src/layout/BreadcrumbRenderer.ts
-var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 
 // src/core/utils.ts
 function getDailyNotesFolder(app) {
@@ -2263,7 +2444,7 @@ var BreadcrumbRenderer = class {
   // 再剥前缀,避免直接对完整路径 slice 导致连文件夹名 / 扩展名一起被截。
   nameForFilePath(p) {
     const f = this.app.vault.getAbstractFileByPath(p);
-    if (f instanceof import_obsidian3.TFile) return this.stripName(f.basename);
+    if (f instanceof import_obsidian4.TFile) return this.stripName(f.basename);
     const base = p.split("/").pop().replace(/\.md$/, "");
     return this.stripName(base);
   }
@@ -2336,7 +2517,7 @@ var BreadcrumbRenderer = class {
     item.className = isCurrent ? "minimalism-ui-breadcrumb-item is-current" : "minimalism-ui-breadcrumb-item is-clickable";
     if (withHomeIcon) {
       const icon = item.createSpan({ cls: "minimalism-ui-breadcrumb-home-icon" });
-      (0, import_obsidian3.setIcon)(icon, "house");
+      (0, import_obsidian4.setIcon)(icon, "house");
     }
     item.appendText(name);
     if (!isCurrent) {
@@ -2367,7 +2548,7 @@ var _DragBarManager = class _DragBarManager {
     // 监测左侧栏展开/收起:ResizeObserver 在侧栏拖拽/折叠时会持续触发(见 SidebarLayoutManager),
     // 比 layout-change 更及时,确保收起瞬间面包屑就右移让位。
     this.leftSplitObserver = null;
-    this.isMac = import_obsidian4.Platform.isMacOS;
+    this.isMac = import_obsidian5.Platform.isMacOS;
     this.breadcrumb = new BreadcrumbRenderer(
       app,
       getSettings,
@@ -2401,7 +2582,7 @@ var _DragBarManager = class _DragBarManager {
     this.backBtn = createSpan();
     this.backBtn.className = "minimalism-ui-drag-bar-nav-btn";
     this.backBtn.setAttribute("aria-label", t("navBack"));
-    (0, import_obsidian4.setIcon)(this.backBtn, "arrow-left");
+    (0, import_obsidian5.setIcon)(this.backBtn, "arrow-left");
     this.backBtn.addEventListener("click", () => {
       var _a;
       if ((_a = this.backBtn) == null ? void 0 : _a.hasClass("is-disabled")) return;
@@ -2411,7 +2592,7 @@ var _DragBarManager = class _DragBarManager {
     this.forwardBtn = createSpan();
     this.forwardBtn.className = "minimalism-ui-drag-bar-nav-btn";
     this.forwardBtn.setAttribute("aria-label", t("navForward"));
-    (0, import_obsidian4.setIcon)(this.forwardBtn, "arrow-right");
+    (0, import_obsidian5.setIcon)(this.forwardBtn, "arrow-right");
     this.forwardBtn.addEventListener("click", () => {
       var _a;
       if ((_a = this.forwardBtn) == null ? void 0 : _a.hasClass("is-disabled")) return;
@@ -2524,7 +2705,7 @@ _DragBarManager.TRAFFIC_LIGHT_SAFE_WIDTH = 80;
 var DragBarManager = _DragBarManager;
 
 // src/layout/LeftSidebarManager.ts
-var import_obsidian8 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 
 // src/core/obsidianCommands.ts
 function patchExecuteCommand(app, onExecuted) {
@@ -2568,7 +2749,7 @@ function openPluginSettings(app, sectionTitle) {
 }
 
 // src/layout/sidebarFilter.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 function folderAncestors(file) {
   const parts = file.path.split("/");
   parts.pop();
@@ -2585,7 +2766,7 @@ function fieldValues(app, cond, file) {
       return folderAncestors(file);
     case "tag": {
       const cache = app.metadataCache.getFileCache(file);
-      const tags = cache && (0, import_obsidian5.getAllTags)(cache) || [];
+      const tags = cache && (0, import_obsidian6.getAllTags)(cache) || [];
       return tags.map((tag) => tag.replace(/^#/, ""));
     }
     case "property": {
@@ -2634,11 +2815,11 @@ function matchSidebarRule(app, rules, file) {
 }
 
 // src/note-card/NoteCardView.ts
-var import_obsidian7 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 
 // src/note-card/NoteSuggestModal.ts
-var import_obsidian6 = require("obsidian");
-var NoteSuggestModal = class extends import_obsidian6.FuzzySuggestModal {
+var import_obsidian7 = require("obsidian");
+var NoteSuggestModal = class extends import_obsidian7.FuzzySuggestModal {
   constructor(app, onChoose) {
     super(app);
     this.onChoose = onChoose;
@@ -2657,7 +2838,7 @@ var NoteSuggestModal = class extends import_obsidian6.FuzzySuggestModal {
 
 // src/note-card/NoteCardView.ts
 var VIEW_TYPE_NOTE_CARD = "minimalism-ui-note-card";
-var NoteCardView = class extends import_obsidian7.ItemView {
+var NoteCardView = class extends import_obsidian8.ItemView {
   constructor(leaf, persist) {
     super(leaf);
     this.persist = persist;
@@ -2689,7 +2870,7 @@ var NoteCardView = class extends import_obsidian7.ItemView {
     );
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
-        if (this.boundFile && oldPath === this.boundFile.path && file instanceof import_obsidian7.TFile) {
+        if (this.boundFile && oldPath === this.boundFile.path && file instanceof import_obsidian8.TFile) {
           this.boundFile = file;
           void this.render();
         }
@@ -2721,7 +2902,7 @@ var NoteCardView = class extends import_obsidian7.ItemView {
     if (s && typeof s.slotId === "string" && s.slotId) this.slotId = s.slotId;
     const path = s && "file" in s ? s.file : this.slotId ? this.persist.getLastFile(this.slotId) : null;
     const restored = path ? this.app.vault.getAbstractFileByPath(path) : null;
-    this.boundFile = restored instanceof import_obsidian7.TFile ? restored : null;
+    this.boundFile = restored instanceof import_obsidian8.TFile ? restored : null;
     await this.render();
     await super.setState(state, result);
   }
@@ -2740,7 +2921,7 @@ var NoteCardView = class extends import_obsidian7.ItemView {
     const key = `${this.boundFile.path}\0${content}`;
     if (key === this.lastRenderedKey) return;
     const target = createDiv({ cls: "markdown-rendered" });
-    await import_obsidian7.MarkdownRenderer.render(this.app, content, target, this.boundFile.path, this);
+    await import_obsidian8.MarkdownRenderer.render(this.app, content, target, this.boundFile.path, this);
     if (token !== this.renderToken) return;
     this.contentEl.empty();
     this.contentEl.appendChild(target);
@@ -3273,9 +3454,9 @@ var LeftSidebarManager = class {
   // 一个 leftSplit 直接子节点对应的 leaf：child 本身是 leaf，或 child 是只含一个 leaf 的 tab 组。
   leafOfGroup(group) {
     if (!group || typeof group !== "object") return null;
-    if (group instanceof import_obsidian8.WorkspaceLeaf) return group;
+    if (group instanceof import_obsidian9.WorkspaceLeaf) return group;
     const kids = group.children;
-    if (Array.isArray(kids) && kids.length === 1 && kids[0] instanceof import_obsidian8.WorkspaceLeaf) {
+    if (Array.isArray(kids) && kids.length === 1 && kids[0] instanceof import_obsidian9.WorkspaceLeaf) {
       return kids[0];
     }
     return null;
@@ -3416,7 +3597,7 @@ var LeftSidebarManager = class {
     host.classList.add(EMPTY_HINT_CLASS);
     this.hintedEmptyStateEl = host;
     if (!host.querySelector(`:scope > .${EMPTY_HINT_ICON_CLASS}`)) {
-      (0, import_obsidian8.setIcon)(host.createDiv({ cls: EMPTY_HINT_ICON_CLASS, prepend: true }), "panel-left");
+      (0, import_obsidian9.setIcon)(host.createDiv({ cls: EMPTY_HINT_ICON_CLASS, prepend: true }), "panel-left");
     }
     const textEl = (_a = host.querySelector(`:scope > .${EMPTY_HINT_TEXT_CLASS}`)) != null ? _a : host.createEl("p", { cls: EMPTY_HINT_TEXT_CLASS });
     textEl.empty();
@@ -3635,7 +3816,7 @@ var PropertyKeyResizer = class {
 };
 
 // src/layout/RibbonPanelManager.ts
-var import_obsidian9 = require("obsidian");
+var import_obsidian10 = require("obsidian");
 var RibbonPanelManager = class {
   constructor(getSettings, saveSettings) {
     this.getSettings = getSettings;
@@ -3684,7 +3865,7 @@ var RibbonPanelManager = class {
     const expanded = this.getSettings().ribbonPanelExpanded;
     if (!expanded) this.panel.classList.add("is-collapsed");
     this.toggleBtn = createDiv({ cls: "minimalism-ui-ribbon-toggle clickable-icon" });
-    (0, import_obsidian9.setIcon)(this.toggleBtn, expanded ? "chevron-down" : "chevron-up");
+    (0, import_obsidian10.setIcon)(this.toggleBtn, expanded ? "chevron-down" : "chevron-up");
     this.toggleBtn.addEventListener("click", () => this.toggle());
     vaultActions.prepend(this.toggleBtn);
   }
@@ -3716,13 +3897,13 @@ var RibbonPanelManager = class {
     const s = this.getSettings();
     s.ribbonPanelExpanded = !s.ribbonPanelExpanded;
     this.panel.classList.toggle("is-collapsed", !s.ribbonPanelExpanded);
-    (0, import_obsidian9.setIcon)(this.toggleBtn, s.ribbonPanelExpanded ? "chevron-down" : "chevron-up");
+    (0, import_obsidian10.setIcon)(this.toggleBtn, s.ribbonPanelExpanded ? "chevron-down" : "chevron-up");
     void this.saveSettings();
   }
 };
 
 // src/layout/EditorStatusManager.ts
-var import_obsidian10 = require("obsidian");
+var import_obsidian11 = require("obsidian");
 var LOCK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
 var LOCK_SVG_EL = new DOMParser().parseFromString(LOCK_SVG, "image/svg+xml").documentElement;
 var EditorStatusManager = class {
@@ -3748,7 +3929,7 @@ var EditorStatusManager = class {
   }
   updateState() {
     if (!this.statusBarItem) return;
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian10.MarkdownView);
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian11.MarkdownView);
     const isReading = (view == null ? void 0 : view.getState().mode) === "preview";
     this.statusBarItem.toggleClass("is-reading", isReading);
     if (isReading) {
@@ -3774,7 +3955,7 @@ var EditorStatusManager = class {
 };
 
 // src/layout/StatusBarMenuManager.ts
-var import_obsidian11 = require("obsidian");
+var import_obsidian12 = require("obsidian");
 var TRIGGER_ICON = "ellipsis-vertical";
 var DYNAMIC_WIDTH_CSS_CLASS = "minimalism-dynamic-width";
 var POPOVER_CLASS = "minimalism-ui-status-popover";
@@ -3802,7 +3983,7 @@ var StatusBarMenuManager = class {
     this.remove();
     this.statusBarItem = this.plugin.addStatusBarItem();
     this.statusBarItem.addClass("minimalism-ui-status-menu");
-    (0, import_obsidian11.setIcon)(this.statusBarItem, TRIGGER_ICON);
+    (0, import_obsidian12.setIcon)(this.statusBarItem, TRIGGER_ICON);
     this.statusBarItem.setAttribute("aria-label", t("statusBarMenuLabel"));
     this.statusBarItem.setAttribute("data-tooltip-position", "top");
     this.statusBarItem.setAttribute("tabindex", "0");
@@ -3912,7 +4093,7 @@ var StatusBarMenuManager = class {
     var _a, _b;
     if (!this.popoverEl) return;
     this.popoverEl.empty();
-    const leaf = (_b = (_a = this.app.workspace.getActiveViewOfType(import_obsidian11.MarkdownView)) == null ? void 0 : _a.leaf) != null ? _b : null;
+    const leaf = (_b = (_a = this.app.workspace.getActiveViewOfType(import_obsidian12.MarkdownView)) == null ? void 0 : _a.leaf) != null ? _b : null;
     const file = this.app.workspace.getActiveFile();
     this.renderModeSegment(this.popoverEl, leaf);
     this.popoverEl.createDiv({ cls: "minimalism-ui-status-popover-divider" });
@@ -3953,7 +4134,7 @@ var StatusBarMenuManager = class {
           tabindex: disabled ? "-1" : "0"
         }
       });
-      (0, import_obsidian11.setIcon)(btn, opt.icon);
+      (0, import_obsidian12.setIcon)(btn, opt.icon);
       return { btn, opt };
     });
     const updateActiveState = () => {
@@ -4047,10 +4228,10 @@ var StatusBarMenuManager = class {
   renderDynamicWidthRow(container, file) {
     const row = container.createDiv({ cls: "minimalism-ui-status-popover-row is-static" });
     const iconEl = row.createDiv({ cls: "minimalism-ui-status-popover-row-icon" });
-    (0, import_obsidian11.setIcon)(iconEl, "move-horizontal");
+    (0, import_obsidian12.setIcon)(iconEl, "move-horizontal");
     row.createSpan({ cls: "minimalism-ui-status-popover-row-label", text: t("statusBarMenuDynamicWidth") });
     const toggleEl = row.createDiv();
-    new import_obsidian11.ToggleComponent(toggleEl).setValue(this.hasDynamicWidth(file)).setDisabled(!file).onChange((value) => {
+    new import_obsidian12.ToggleComponent(toggleEl).setValue(this.hasDynamicWidth(file)).setDisabled(!file).onChange((value) => {
       if (!file) return;
       void this.setDynamicWidth(file, value);
     });
@@ -4078,7 +4259,7 @@ var StatusBarMenuManager = class {
         else delete fm.cssclasses;
       });
     } catch (err) {
-      new import_obsidian11.Notice(t("statusBarMenuDynamicWidthFailed"));
+      new import_obsidian12.Notice(t("statusBarMenuDynamicWidthFailed"));
       console.error("[minimalism-ui] toggle dynamic width failed", err);
     }
   }
@@ -4089,7 +4270,7 @@ var StatusBarMenuManager = class {
       attr: { role: "menuitem", tabindex: opts.disabled ? "-1" : "0" }
     });
     const iconEl = row.createDiv({ cls: "minimalism-ui-status-popover-row-icon" });
-    (0, import_obsidian11.setIcon)(iconEl, opts.icon);
+    (0, import_obsidian12.setIcon)(iconEl, opts.icon);
     row.createSpan({ cls: "minimalism-ui-status-popover-row-label", text: opts.label });
     if (opts.disabled) return;
     row.addEventListener("click", (e) => {
@@ -4106,12 +4287,12 @@ var StatusBarMenuManager = class {
   // Obsidian 内置的"导出为 PDF"命令（不在公开类型声明里，见 core/obsidianCommands.ts）。
   exportToPdf() {
     const ok = executeCommandById(this.app, "workspace:export-pdf");
-    if (!ok) new import_obsidian11.Notice(t("statusBarMenuExportPdfFailed"));
+    if (!ok) new import_obsidian12.Notice(t("statusBarMenuExportPdfFailed"));
   }
   // 桌面端（isDesktopOnly）用 Electron shell 调起系统默认程序打开文件的绝对路径。
   openWithDefaultApp(file) {
     const adapter = this.app.vault.adapter;
-    if (!(adapter instanceof import_obsidian11.FileSystemAdapter)) return;
+    if (!(adapter instanceof import_obsidian12.FileSystemAdapter)) return;
     const fullPath = adapter.getFullPath(file.path);
     const req = uiWin().require;
     if (!req) return;
@@ -4122,7 +4303,7 @@ var StatusBarMenuManager = class {
   // showItemInFolder 而非 openPath。
   showInFolder(file) {
     const adapter = this.app.vault.adapter;
-    if (!(adapter instanceof import_obsidian11.FileSystemAdapter)) return;
+    if (!(adapter instanceof import_obsidian12.FileSystemAdapter)) return;
     const fullPath = adapter.getFullPath(file.path);
     const req = uiWin().require;
     if (!req) return;
@@ -4134,20 +4315,20 @@ var StatusBarMenuManager = class {
     const leftSplit = (_a = this.app.workspace.leftSplit) != null ? _a : null;
     const leftRow = container.createDiv({ cls: "minimalism-ui-status-popover-row is-static" });
     const leftIcon = leftRow.createDiv({ cls: "minimalism-ui-status-popover-row-icon" });
-    (0, import_obsidian11.setIcon)(leftIcon, "panel-left");
+    (0, import_obsidian12.setIcon)(leftIcon, "panel-left");
     leftRow.createSpan({ cls: "minimalism-ui-status-popover-row-label", text: t("statusBarMenuToggleLeftSidebar") });
     const leftToggleEl = leftRow.createDiv();
-    this.leftSidebarToggle = new import_obsidian11.ToggleComponent(leftToggleEl).setValue(leftSplit ? !leftSplit.collapsed : false).setDisabled(!leftSplit).onChange((value) => {
+    this.leftSidebarToggle = new import_obsidian12.ToggleComponent(leftToggleEl).setValue(leftSplit ? !leftSplit.collapsed : false).setDisabled(!leftSplit).onChange((value) => {
       if (this.syncingToggles || !leftSplit) return;
       if (value) leftSplit.expand();
       else leftSplit.collapse();
     });
     const rightRow = container.createDiv({ cls: "minimalism-ui-status-popover-row is-static" });
     const rightIcon = rightRow.createDiv({ cls: "minimalism-ui-status-popover-row-icon" });
-    (0, import_obsidian11.setIcon)(rightIcon, "panel-right");
+    (0, import_obsidian12.setIcon)(rightIcon, "panel-right");
     rightRow.createSpan({ cls: "minimalism-ui-status-popover-row-label", text: t("statusBarMenuToggleRightSidebar") });
     const rightToggleEl = rightRow.createDiv();
-    this.rightSidebarToggle = new import_obsidian11.ToggleComponent(rightToggleEl).setValue(this.rsbLauncher.getVisible()).onChange((value) => {
+    this.rightSidebarToggle = new import_obsidian12.ToggleComponent(rightToggleEl).setValue(this.rsbLauncher.getVisible()).onChange((value) => {
       if (this.syncingToggles) return;
       this.rsbLauncher.setVisible(value);
     });
@@ -4178,7 +4359,7 @@ function createModalButtonRow(contentEl, opts) {
   const confirmBtn = buttonRow.createEl("button", { text: opts.confirmLabel, cls: opts.confirmCls });
   confirmBtn.addEventListener("click", opts.onConfirm);
 }
-var RenameModal = class extends import_obsidian11.Modal {
+var RenameModal = class extends import_obsidian12.Modal {
   constructor(app, file) {
     super(app);
     this.file = file;
@@ -4219,12 +4400,12 @@ var RenameModal = class extends import_obsidian11.Modal {
       return;
     }
     const parentPath = (_a = this.file.parent) == null ? void 0 : _a.path;
-    const newPath = (0, import_obsidian11.normalizePath)(parentPath ? `${parentPath}/${trimmed}.${this.file.extension}` : `${trimmed}.${this.file.extension}`);
+    const newPath = (0, import_obsidian12.normalizePath)(parentPath ? `${parentPath}/${trimmed}.${this.file.extension}` : `${trimmed}.${this.file.extension}`);
     try {
       await this.app.fileManager.renameFile(this.file, newPath);
       this.close();
     } catch (err) {
-      new import_obsidian11.Notice(t("renameModalFailed"));
+      new import_obsidian12.Notice(t("renameModalFailed"));
       console.error("[minimalism-ui] rename failed", err);
     }
   }
@@ -4232,7 +4413,7 @@ var RenameModal = class extends import_obsidian11.Modal {
     this.contentEl.empty();
   }
 };
-var ConfirmDeleteModal = class extends import_obsidian11.Modal {
+var ConfirmDeleteModal = class extends import_obsidian12.Modal {
   constructor(app, file) {
     super(app);
     this.file = file;
@@ -4247,7 +4428,7 @@ var ConfirmDeleteModal = class extends import_obsidian11.Modal {
       onCancel: () => this.close(),
       onConfirm: () => {
         this.app.fileManager.trashFile(this.file).then(() => this.close()).catch((err) => {
-          new import_obsidian11.Notice(t("deleteModalFailed"));
+          new import_obsidian12.Notice(t("deleteModalFailed"));
           console.error("[minimalism-ui] delete failed", err);
         });
       }
@@ -4354,10 +4535,10 @@ var MermaidZoomManager = class {
 };
 
 // src/right-sidebar/RightSidebarButtonManager.ts
-var import_obsidian13 = require("obsidian");
+var import_obsidian14 = require("obsidian");
 
 // src/right-sidebar/RightSidebarViewStack.ts
-var import_obsidian12 = require("obsidian");
+var import_obsidian13 = require("obsidian");
 var DEFAULT_MANAGED_LEFT_VIEW_TYPES = /* @__PURE__ */ new Set(["outline", "localgraph", "file-properties"]);
 var DEFAULT_ICON = "panel-right";
 var STACK_ICON_CLASS = "minimalism-ui-rsb-stack-icon";
@@ -4593,7 +4774,7 @@ var RightSidebarViewStack = class {
           }
         });
         stowEl.toggleClass(STOW_ICON_EXPANDED_CLASS, this.stowExpanded);
-        (0, import_obsidian12.setIcon)(stowEl, STOW_ICON_GLYPH);
+        (0, import_obsidian13.setIcon)(stowEl, STOW_ICON_GLYPH);
         stowEl.addEventListener("click", (e) => {
           e.stopPropagation();
           this.dispatchIconClick(() => this.toggleStowExpanded());
@@ -4613,7 +4794,7 @@ var RightSidebarViewStack = class {
       iconEl.toggleClass(STACK_ICON_ACTIVE_CLASS, leaf === this.activeLeaf);
       iconEl.toggleClass(STACK_ICON_HIDDEN_CLASS, !this.stowExpanded && idx < stowIndex);
       iconEl.toggleClass(STACK_ICON_STOWED_CLASS, idx < stowIndex);
-      (0, import_obsidian12.setIcon)(iconEl, leaf.getIcon());
+      (0, import_obsidian13.setIcon)(iconEl, leaf.getIcon());
       iconEl.addEventListener("click", (e) => {
         e.stopPropagation();
         this.dispatchIconClick(() => this.selectLeaf(leaf));
@@ -4684,7 +4865,7 @@ var RightSidebarViewStack = class {
     (_a = this.contentEl) == null ? void 0 : _a.empty();
     (_b = this.contentEl) == null ? void 0 : _b.appendChild(viewEl);
     this.mountedLeaf = leaf;
-    if (this.buttonEl) (0, import_obsidian12.setIcon)(this.buttonEl, leaf.getIcon());
+    if (this.buttonEl) (0, import_obsidian13.setIcon)(this.buttonEl, leaf.getIcon());
     this.notifyResize(leaf);
   }
   showEmpty() {
@@ -4692,7 +4873,7 @@ var RightSidebarViewStack = class {
     this.restoreMounted();
     (_a = this.contentEl) == null ? void 0 : _a.empty();
     (_b = this.contentEl) == null ? void 0 : _b.createDiv({ cls: EMPTY_CLASS, text: t("rightSidebarPanelEmpty") });
-    if (this.buttonEl) (0, import_obsidian12.setIcon)(this.buttonEl, DEFAULT_ICON);
+    if (this.buttonEl) (0, import_obsidian13.setIcon)(this.buttonEl, DEFAULT_ICON);
   }
   // 虚拟滚动视图（文件树 / 搜索 / 标签 / 反链）在 DOM 被裸搬进悬浮面板后不会自动重新
   // measure，需显式骗一次宽度变化触发完整重排（详见 LeafMountService.notifyResize）。
@@ -5083,7 +5264,7 @@ var RightSidebarButtonManager = class {
       cls: PIN_CLASS,
       attr: { "aria-label": t(this.isPinned ? "rightSidebarPanelUnpin" : "rightSidebarPanelPin") }
     });
-    (0, import_obsidian13.setIcon)(this.pinEl, PIN_ICON);
+    (0, import_obsidian14.setIcon)(this.pinEl, PIN_ICON);
     this.pinEl.toggleClass(PIN_ACTIVE_CLASS, this.isPinned);
     this.pinEl.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -5093,7 +5274,7 @@ var RightSidebarButtonManager = class {
       cls: EXPAND_CLASS,
       attr: { "aria-label": t("rightSidebarPanelExpand") }
     });
-    (0, import_obsidian13.setIcon)(this.expandEl, EXPAND_ICON);
+    (0, import_obsidian14.setIcon)(this.expandEl, EXPAND_ICON);
     this.expandEl.addEventListener("click", (e) => {
       e.stopPropagation();
       void this.viewStack.openMountedInMainArea().then((ok) => {
@@ -5110,7 +5291,7 @@ var RightSidebarButtonManager = class {
       cls: BUTTON_CLASS,
       attr: { "aria-label": t("rightSidebarButtonLabel") }
     });
-    (0, import_obsidian13.setIcon)(this.buttonEl, DEFAULT_ICON2);
+    (0, import_obsidian14.setIcon)(this.buttonEl, DEFAULT_ICON2);
     this.buttonEl.addEventListener("click", (e) => {
       e.stopPropagation();
       this.setStackExpanded(false);
@@ -5328,7 +5509,7 @@ var NoteCardManager = class {
 };
 
 // src/onboarding/OnboardingManager.ts
-var import_obsidian14 = require("obsidian");
+var import_obsidian15 = require("obsidian");
 var PANEL_CLASS2 = "minimalism-ui-onboarding";
 var ALL_DONE_HIDE_DELAY = 2500;
 var EXIT_DURATION = 320;
@@ -5338,8 +5519,8 @@ function hasIndexNote(app) {
 function homeNoteHasLink(app, settings) {
   const path = settings.homePage.trim();
   if (!path) return false;
-  const file = app.vault.getAbstractFileByPath((0, import_obsidian14.normalizePath)(path));
-  if (!(file instanceof import_obsidian14.TFile)) return false;
+  const file = app.vault.getAbstractFileByPath((0, import_obsidian15.normalizePath)(path));
+  if (!(file instanceof import_obsidian15.TFile)) return false;
   const links = app.metadataCache.resolvedLinks[file.path];
   return links != null && Object.keys(links).length > 0;
 }
@@ -5350,7 +5531,7 @@ var TASKS = [
   { label: "onboardingGoBack", commandId: "app:go-back" },
   { label: "onboardingGoForward", commandId: "app:go-forward" }
 ];
-var MOD_SYMBOLS = import_obsidian14.Platform.isMacOS ? { Mod: "\u2318", Ctrl: "\u2303", Meta: "\u2318", Alt: "\u2325", Shift: "\u21E7" } : { Mod: "Ctrl", Ctrl: "Ctrl", Meta: "Win", Alt: "Alt", Shift: "Shift" };
+var MOD_SYMBOLS = import_obsidian15.Platform.isMacOS ? { Mod: "\u2318", Ctrl: "\u2303", Meta: "\u2318", Alt: "\u2325", Shift: "\u21E7" } : { Mod: "Ctrl", Ctrl: "Ctrl", Meta: "Win", Alt: "Alt", Shift: "Shift" };
 var MOD_ORDER = ["Ctrl", "Alt", "Shift", "Meta", "Mod"];
 var KEY_LABELS = {
   ArrowLeft: "\u2190",
@@ -5579,14 +5760,16 @@ var FirstRunCleanup = class {
   }
   async run() {
     const leaves = [];
-    this.app.workspace.iterateRootLeaves((leaf) => leaves.push(leaf));
+    this.app.workspace.iterateRootLeaves((leaf) => {
+      leaves.push(leaf);
+    });
     for (let i = 1; i < leaves.length; i++) leaves[i].detach();
     await this.markDone();
   }
 };
 
 // src/SettingTab.ts
-var import_obsidian15 = require("obsidian");
+var import_obsidian16 = require("obsidian");
 var OPERATORS_BY_FIELD = {
   path: ["is", "is-not", "contains", "not-contains", "starts-with"],
   folder: ["is", "is-not", "contains", "not-contains", "starts-with"],
@@ -5652,11 +5835,11 @@ function vaultTagNames(app) {
   for (const file of app.vault.getMarkdownFiles()) {
     const cache = app.metadataCache.getFileCache(file);
     if (!cache) continue;
-    for (const tag of (_a = (0, import_obsidian15.getAllTags)(cache)) != null ? _a : []) names.add(tag.replace(/^#/, ""));
+    for (const tag of (_a = (0, import_obsidian16.getAllTags)(cache)) != null ? _a : []) names.add(tag.replace(/^#/, ""));
   }
   return Array.from(names).sort();
 }
-var SidebarConditionModal = class extends import_obsidian15.Modal {
+var SidebarConditionModal = class extends import_obsidian16.Modal {
   constructor(app, rule, persist, onDismiss) {
     super(app);
     this.rule = rule;
@@ -5673,7 +5856,7 @@ var SidebarConditionModal = class extends import_obsidian15.Modal {
   }
   render() {
     this.contentEl.empty();
-    const header = new import_obsidian15.Setting(this.contentEl).setDesc(this.rule.conditions.length === 0 ? t("ruleConditionsEmptyHint") : "");
+    const header = new import_obsidian16.Setting(this.contentEl).setDesc(this.rule.conditions.length === 0 ? t("ruleConditionsEmptyHint") : "");
     header.addButton((btn) => {
       btn.setButtonText(t("addCondition"));
       btn.setCta();
@@ -5769,7 +5952,7 @@ var SidebarConditionModal = class extends import_obsidian15.Modal {
     for (const value of values) list.createEl("option", { value });
   }
 };
-var FileSuggest = class extends import_obsidian15.AbstractInputSuggest {
+var FileSuggest = class extends import_obsidian16.AbstractInputSuggest {
   constructor() {
     super(...arguments);
     this.onPickCb = null;
@@ -5791,7 +5974,7 @@ var FileSuggest = class extends import_obsidian15.AbstractInputSuggest {
     this.close();
   }
 };
-var MinimalismUISettingTab = class extends import_obsidian15.PluginSettingTab {
+var MinimalismUISettingTab = class extends import_obsidian16.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     // ── 左侧栏面板列表（首页 / 日记 / 默认三个固定 tab + 用户自定义规则 tab）────
@@ -5942,7 +6125,7 @@ var MinimalismUISettingTab = class extends import_obsidian15.PluginSettingTab {
           ...isFixedKey ? { title: t("sidebarProfileFixedTooltip") } : {}
         }
       });
-      if (isFixedKey) (0, import_obsidian15.setIcon)(tab.createSpan({ cls: "minimalism-ui-slot-profile-lock" }), "lock");
+      if (isFixedKey) (0, import_obsidian16.setIcon)(tab.createSpan({ cls: "minimalism-ui-slot-profile-lock" }), "lock");
       tab.createSpan({ cls: "minimalism-ui-slot-profile-label", text: this.profileLabel(key) });
       tab.addEventListener("click", () => {
         this.sidebarProfile = key;
@@ -5970,7 +6153,7 @@ var MinimalismUISettingTab = class extends import_obsidian15.PluginSettingTab {
     const preferred = ["outline", "file-properties", "localgraph"];
     const nextFree = (_b = preferred.filter((tp) => options.some((o) => o.type === tp)).find(isAvailable)) != null ? _b : (_a = options.find((o) => isAvailable(o.type))) == null ? void 0 : _a.type;
     if (atLimit) {
-      new import_obsidian15.Setting(contentEl).setDesc(t("leftSidebarPanelsFull"));
+      new import_obsidian16.Setting(contentEl).setDesc(t("leftSidebarPanelsFull"));
     }
     const listEl = contentEl.createDiv({ cls: "minimalism-ui-slot-list" });
     if (slots.length === 0 && editable) {
@@ -5978,7 +6161,7 @@ var MinimalismUISettingTab = class extends import_obsidian15.PluginSettingTab {
     } else if (slots.length > 0) {
       slots.forEach((_, index) => this.renderSlotRow(listEl, index, options, editable));
     }
-    const footer = new import_obsidian15.Setting(contentEl);
+    const footer = new import_obsidian16.Setting(contentEl);
     footer.addButton((btn) => {
       btn.setButtonText(t("addPanel"));
       if (!editable || atLimit || !nextFree) {
@@ -5997,13 +6180,13 @@ var MinimalismUISettingTab = class extends import_obsidian15.PluginSettingTab {
   /** 固定三个 tab（首页/日记/默认）顶部的「筛选条件」展示行：只读文案 + 锁图标，无编辑入口。 */
   renderFixedProfileHeader(parentEl, key) {
     const condition = key === "home" ? t("sidebarProfileHomeCondition") : key === "diary" ? t("sidebarProfileDiaryCondition") : t("sidebarProfileOtherCondition");
-    new import_obsidian15.Setting(parentEl).setName(t("ruleConditions")).setDesc(condition).addExtraButton((btn) => btn.setIcon("lock").setTooltip(t("sidebarProfileFixedTooltip")).setDisabled(true));
+    new import_obsidian16.Setting(parentEl).setName(t("ruleConditions")).setDesc(condition).addExtraButton((btn) => btn.setIcon("lock").setTooltip(t("sidebarProfileFixedTooltip")).setDisabled(true));
   }
   /** 自定义规则 tab 顶部的名称 + 筛选条件弹窗入口 + 删除；固定三个 tab 不会调这个方法。 */
   renderRuleHeader(parentEl, ruleId) {
     const rule = this.plugin.settings.sidebarRules.find((r) => r.id === ruleId);
     if (!rule) return;
-    new import_obsidian15.Setting(parentEl).setName(t("ruleName")).addText((text) => {
+    new import_obsidian16.Setting(parentEl).setName(t("ruleName")).addText((text) => {
       text.setPlaceholder(t("ruleNamePlaceholder")).setValue(rule.name);
       text.inputEl.addEventListener("change", () => {
         rule.name = text.inputEl.value.trim();
@@ -6023,7 +6206,7 @@ var MinimalismUISettingTab = class extends import_obsidian15.PluginSettingTab {
       await this.plugin.applyMacSidebarLayout({ revealNewPanels: true });
       this.update();
     }));
-    new import_obsidian15.Setting(parentEl).setName(t("ruleConditions")).setDesc(summarizeConditions(rule.conditions)).addButton((btn) => btn.setButtonText(t("editConditions")).onClick(() => {
+    new import_obsidian16.Setting(parentEl).setName(t("ruleConditions")).setDesc(summarizeConditions(rule.conditions)).addButton((btn) => btn.setButtonText(t("editConditions")).onClick(() => {
       new SidebarConditionModal(
         this.app,
         rule,
@@ -6189,7 +6372,7 @@ var MinimalismUISettingTab = class extends import_obsidian15.PluginSettingTab {
 };
 
 // main.ts
-var MinimalismUIPlugin = class extends import_obsidian16.Plugin {
+var MinimalismUIPlugin = class extends import_obsidian17.Plugin {
   constructor() {
     super(...arguments);
     // 所有功能单元，统一用于卸载，避免逐个手写 remove() 时遗漏。
@@ -6208,7 +6391,13 @@ var MinimalismUIPlugin = class extends import_obsidian16.Plugin {
     this.fontLoader = new FontLoader(settings);
     this.themeLoader = new ThemeLoader(settings);
     this.engine = new SinglePageEngine(this.app, settings);
-    this.tabGroupGuard = new SingleTabGroupGuard(this.app, settings, (leaf) => this.engine.adoptLeaf(leaf));
+    this.splitDisabler = new SplitDisabler(this.app, settings);
+    this.tabGroupGuard = new SingleTabGroupGuard(
+      this.app,
+      settings,
+      (leaf) => this.engine.adoptLeaf(leaf),
+      (fn) => this.engine.runWithoutDetachSideEffects(fn)
+    );
     this.pinManager = new PinManager(this.app, settings);
     this.homePage = new HomePageManager(this.app, settings, this.engine);
     this.emptyViewButton = new EmptyViewButtonManager(this.app, settings, this.engine);
@@ -6242,6 +6431,7 @@ var MinimalismUIPlugin = class extends import_obsidian16.Plugin {
       }
     });
     this.onboarding = new OnboardingManager(this.app, settings, () => this.saveData(this.settings));
+    this.startupCleanup = new StartupTabCleanup(this.app, settings, this.engine);
     this.firstRunCleanup = new FirstRunCleanup(this.app, async () => {
       this.settings.firstRunCleanupDone = true;
       await this.saveData(this.settings);
@@ -6251,6 +6441,7 @@ var MinimalismUIPlugin = class extends import_obsidian16.Plugin {
       this.fontLoader,
       this.themeLoader,
       this.engine,
+      this.splitDisabler,
       this.tabGroupGuard,
       this.pinManager,
       this.homePage,
@@ -6275,6 +6466,7 @@ var MinimalismUIPlugin = class extends import_obsidian16.Plugin {
     this.sidebarSuggestFocus.apply();
     this.propertyKeyResizer.apply();
     this.pinManager.apply();
+    this.splitDisabler.apply();
     this.engine.apply();
     this.editorStatus.apply();
     this.mermaidZoom.apply();
@@ -6289,7 +6481,7 @@ var MinimalismUIPlugin = class extends import_obsidian16.Plugin {
       this.emptyViewButton.apply();
       this.tabGroupGuard.apply();
       if (!this.settings.firstRunCleanupDone) void this.firstRunCleanup.run();
-      void this.homePage.openHomePageOnStartup();
+      void this.startupCleanup.run().then(() => this.homePage.openHomePageOnStartup());
       void this.leftSidebar.apply();
       this.responsiveSidebar.apply();
       this.ribbonPanel.apply();
@@ -6372,6 +6564,7 @@ var MinimalismUIPlugin = class extends import_obsidian16.Plugin {
     this.bodyClasses.apply();
     this.applyRibbon();
     this.pinManager.apply();
+    this.splitDisabler.apply();
     this.engine.apply();
     this.tabGroupGuard.apply();
     this.dragBar.apply();

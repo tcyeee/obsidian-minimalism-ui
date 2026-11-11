@@ -117,6 +117,9 @@ export class SinglePageEngine {
 	// 触发路径：关闭 A→需重开前驱 B 时先建空白 leaf 顶位，用户在 B 加载完成前又按了一次 CMD+W，
 	// 此时活动 leaf 正是那个还没有文件的空白 leaf，会同时满足"待关闭"和"可复用的空白 leaf"。
 	private closingLeaf: WorkspaceLeaf | null = null;
+	// 批量收拢期间置位：跳过 detachRootLeaf 的可视位交接，见 runWithoutDetachSideEffects。
+	// （另一半副作用——重开面包屑前一页——由既有的 isReusingLeaf 一并关掉。）
+	private slotHandoverSuppressed = false;
 	// layout-change 兜底：把任何新冒出来的 root leaf 纳入 detach 补丁（见 apply 中的注释）
 	private layoutChangeHandler: (() => void) | null = null;
 	private renameHandler: ((file: TAbstractFile, oldPath: string) => void) | null = null;
@@ -506,8 +509,41 @@ export class SinglePageEngine {
 	// 销毁 root leaf 的唯一出口（detach 补丁只经由这里调用原始 detach）。
 	// 先保证不变量成立，再执行真正的 detach。
 	private detachRootLeaf(leaf: WorkspaceLeaf, original: () => void): void {
-		if (this.isHoldingViewSlot(leaf)) this.handOverViewSlot(leaf);
+		if (!this.slotHandoverSuppressed && this.isHoldingViewSlot(leaf)) this.handOverViewSlot(leaf);
 		original();
+	}
+
+	/**
+	 * 在回调期间把 root leaf 的 detach 还原成"纯粹销毁"，供插件内部的**批量收拢**使用
+	 * （{@link SingleTabGroupGuard} 合并分屏/弹窗、{@link StartupTabCleanup} 启动收拢、
+	 * resetToHomePage）。detach 补丁平时为"用户关掉当前笔记"做两件额外的事，这两件对批量收拢
+	 * 来说恰好都是反效果：
+	 *
+	 *   · **接替者重开**（nav.onTabClosing + activateOrOpenFile）—— 关一篇笔记要平移到面包屑
+	 *     前一页，必要时重新打开它。批量收拢时这会边关边开，leaf 数量根本降不下来。
+	 *   · **可视位交接**（handOverViewSlot）—— 在被关 leaf 所属标签组里新建一个空白 leaf 顶位，
+	 *     使该组永不为空。而收拢要的恰恰是让外组彻底空掉、由 Obsidian 回收。两者相撞会死循环：
+	 *     摘空外组 → 交接又补出新 leaf → layout-change 上再看到多组 → 再摘再补，每轮都新建 leaf。
+	 *     主区左右分屏时必然触发，表现为 Obsidian 卡死，且爆炸后的布局会被存进 workspace.json
+	 *     使重启复现。
+	 *
+	 * 代价是活动 leaf 可能随之消失，故调用方有义务在收拢结束后自己把 activeLeaf 放到留存的
+	 * leaf 上，不要把接替者的选择权留给 Obsidian 的 updateLayout（见上方不变量说明）。
+	 *
+	 * 回调必须是**同步**的：isReusingLeaf 同时被 getLeaf 拦截与一次性 openFile 拦截器读取，
+	 * 跨 await 置位会让期间真实的用户导航绕过去重。
+	 */
+	runWithoutDetachSideEffects<T>(fn: () => T): T {
+		const previousReusing = this.isReusingLeaf;
+		const previousHandover = this.slotHandoverSuppressed;
+		this.isReusingLeaf = true;
+		this.slotHandoverSuppressed = true;
+		try {
+			return fn();
+		} finally {
+			this.isReusingLeaf = previousReusing;
+			this.slotHandoverSuppressed = previousHandover;
+		}
 	}
 
 	// 复用一个已存在的空白 leaf（无文件、未处于 pending 拦截中）而非总是新开 tab，与
@@ -1006,14 +1042,13 @@ export class SinglePageEngine {
 			}
 		});
 
-		// 关闭其余 tab。置 isReusingLeaf 豁免 detach 补丁的 nav.onTabClosing 通知——这是插件内部
-		// 收拢而非用户关 tab；detach 同步执行，期间不会触发 openFile 拦截，标志可安全短暂置位。
-		this.isReusingLeaf = true;
-		try {
+		// 关闭其余 tab：这是插件内部收拢而非用户关 tab，detach 只许销毁，不许重开接替者、
+		// 也不许补空白顶位（首页已在上面激活）。见 runWithoutDetachSideEffects。
+		this.runWithoutDetachSideEffects(() => {
 			for (const l of others) l.detach();
-		} finally {
-			this.isReusingLeaf = false;
-		}
+		});
+		// 收拢后把活动 leaf 明确钉回首页：停用交接后 Obsidian 的 updateLayout 可能自行从别处挑接替者。
+		if (homeLeaf) this.app.workspace.setActiveLeaf(homeLeaf, { focus: true });
 
 		// 导航历史 / 面包屑重置为仅首页，并立即刷新面包屑。
 		this.nav.reset(path);

@@ -19,7 +19,8 @@ export class FirstRunCleanup {
 
 	async run() {
 		const leaves: WorkspaceLeaf[] = [];
-		this.app.workspace.iterateRootLeaves((leaf) => leaves.push(leaf));
+		// 回调返回真值会**中断** iterateLeaves，而 push() 返回数组长度（恒为真），故必须用块体。
+		this.app.workspace.iterateRootLeaves((leaf) => { leaves.push(leaf); });
 		// 保留第一个，关闭其余；少于两个时无需收拢。detach 同步完成，故先于随后的首页逻辑。
 		for (let i = 1; i < leaves.length; i++) leaves[i].detach();
 		await this.markDone();

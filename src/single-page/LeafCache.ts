@@ -24,7 +24,8 @@ export class LeafCache {
 	/** 用当前所有 root leaf 初始化队列，最近活跃的 leaf 排到队尾。 */
 	seed() {
 		this.queue = [];
-		this.app.workspace.iterateRootLeaves(leaf => this.queue.push(leaf));
+		// 块体不可省：回调返回真值会中断 iterateLeaves，而 push() 返回的长度恒为真。
+		this.app.workspace.iterateRootLeaves(leaf => { this.queue.push(leaf); });
 		const mostRecent = this.app.workspace.getMostRecentLeaf();
 		if (mostRecent) this.touch(mostRecent);
 	}
@@ -47,7 +48,8 @@ export class LeafCache {
 		this.touch(active);
 
 		const rootLeaves: WorkspaceLeaf[] = [];
-		this.app.workspace.iterateRootLeaves(l => rootLeaves.push(l));
+		// 块体不可省，理由同 seed()。
+		this.app.workspace.iterateRootLeaves(l => { rootLeaves.push(l); });
 		const rootLeafSet = new Set(rootLeaves);
 		// 移除队列中已不存在于 workspace 的 leaf
 		this.queue = this.queue.filter(l => rootLeafSet.has(l));
