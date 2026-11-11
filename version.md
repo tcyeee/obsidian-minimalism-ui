@@ -5,6 +5,22 @@
 
 ---
 
+## Version 1.3.32
+
+- Added: user-defined sidebar panel profiles — switch the left sidebar's panel set based on path, folder, tag, or property conditions, evaluated after the fixed home/diary profiles and before the default one
+- Added: the built-in home, diary, and default sidebar panel profiles now show a lock icon and a read-only "fixed condition" row, since their match rules are hard-coded and cannot be edited like custom rule tabs
+- Fixed: Single-Page Mode no longer loops when a split layout is created — native split creation is disabled, drag-and-drop is normalized, and existing splits/popouts are merged safely while preserving the active note
+- Changed: refined the plugin description and keywords for easier discovery in Obsidian's community plugin browser
+- Internal: dropped a redundant type assertion and an unnecessary `!important` flagged by Obsidian's submission review
+
+- 新增：用户自定义的侧栏面板 profile——根据路径、文件夹、标签或属性条件切换左侧栏的面板组合，评估顺序在固定的首页/日记 profile 之后、默认 profile 之前
+- 新增：内置的首页、日记、默认侧栏面板 profile 现在会显示锁形图标和只读的"固定条件"行，因为它们的匹配规则是硬编码的，无法像自定义规则标签那样编辑
+- 修复：单页模式下创建分屏布局不再导致循环——禁用了原生分屏创建、规范化了编辑器拖放行为，并在保留当前笔记的前提下安全合并已有的分屏/弹出窗口布局
+- 调整：优化了插件描述和关键词，便于在 Obsidian 社区插件市场中被发现
+- 内部修复：移除了 Obsidian 官方提审反馈中标记的一处多余类型断言和一处不必要的 `!important`
+
+---
+
 ## Version 1.3.31
 
 - Added: a "Show in file manager" action in the status bar note popover, next to "Open with default app"
