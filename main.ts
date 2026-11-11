@@ -7,6 +7,8 @@ import { ThemeLoader } from './src/core/ThemeLoader';
 import { BodyClassController } from './src/core/BodyClassController';
 import { SinglePageEngine } from './src/single-page/SinglePageEngine';
 import { SingleTabGroupGuard } from './src/single-page/SingleTabGroupGuard';
+import { SplitDisabler } from './src/single-page/SplitDisabler';
+import { StartupTabCleanup } from './src/single-page/StartupTabCleanup';
 import { PinManager } from './src/tabs/PinManager';
 import { HomePageManager } from './src/single-page/HomePageManager';
 import { EmptyViewButtonManager } from './src/single-page/EmptyViewButtonManager';
@@ -40,6 +42,7 @@ export default class MinimalismUIPlugin extends Plugin {
 	private themeLoader: ThemeLoader;
 	private engine: SinglePageEngine;
 	private tabGroupGuard: SingleTabGroupGuard;
+	private splitDisabler: SplitDisabler;
 	private pinManager: PinManager;
 	private homePage: HomePageManager;
 	private emptyViewButton: EmptyViewButtonManager;
@@ -55,8 +58,9 @@ export default class MinimalismUIPlugin extends Plugin {
 	private rightSidebarButton: RightSidebarButtonManager;
 	private noteCard: NoteCardManager;
 	private onboarding: OnboardingManager;
-	// 一次性首次启用收拢；无持久副作用，不进 features[]。
+	// 两个一次性启动收拢；无持久副作用，不进 features[]。
 	private firstRunCleanup: FirstRunCleanup;
+	private startupCleanup: StartupTabCleanup;
 
 	// 所有功能单元，统一用于卸载，避免逐个手写 remove() 时遗漏。
 	private features: Feature[] = [];
@@ -75,7 +79,13 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.fontLoader = new FontLoader(settings);
 		this.themeLoader = new ThemeLoader(settings);
 		this.engine = new SinglePageEngine(this.app, settings);
-		this.tabGroupGuard = new SingleTabGroupGuard(this.app, settings, (leaf) => this.engine.adoptLeaf(leaf));
+		this.splitDisabler = new SplitDisabler(this.app, settings);
+		this.tabGroupGuard = new SingleTabGroupGuard(
+			this.app,
+			settings,
+			(leaf) => this.engine.adoptLeaf(leaf),
+			(fn) => this.engine.runWithoutDetachSideEffects(fn),
+		);
 		this.pinManager = new PinManager(this.app, settings);
 		this.homePage = new HomePageManager(this.app, settings, this.engine);
 		this.emptyViewButton = new EmptyViewButtonManager(this.app, settings, this.engine);
@@ -114,6 +124,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			},
 		});
 		this.onboarding = new OnboardingManager(this.app, settings, () => this.saveData(this.settings));
+		this.startupCleanup = new StartupTabCleanup(this.app, settings, this.engine);
 		this.firstRunCleanup = new FirstRunCleanup(this.app, async () => {
 			this.settings.firstRunCleanupDone = true;
 			await this.saveData(this.settings);
@@ -124,6 +135,7 @@ export default class MinimalismUIPlugin extends Plugin {
 			this.fontLoader,
 			this.themeLoader,
 			this.engine,
+			this.splitDisabler,
 			this.tabGroupGuard,
 			this.pinManager,
 			this.homePage,
@@ -150,6 +162,9 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.sidebarSuggestFocus.apply();
 		this.propertyKeyResizer.apply();
 		this.pinManager.apply();
+		// 必须在 onLayoutReady 之前：插件加载早于 workspace.loadLayout()，而 SplitDisabler 关掉的
+		// Platform.canSplit 正是 Obsidian 反序列化布局时把 root 里的多个标签组压平成一个的开关。
+		this.splitDisabler.apply();
 		this.engine.apply();
 		this.editorStatus.apply();
 		this.mermaidZoom.apply();
@@ -168,8 +183,10 @@ export default class MinimalismUIPlugin extends Plugin {
 			this.tabGroupGuard.apply();
 			// 首次启用：先把主区残留的多余标签页/分屏收成一个，再让首页逻辑在干净状态上运行。
 			if (!this.settings.firstRunCleanupDone) void this.firstRunCleanup.run();
-			// 启动专用入口：主区域已由 workspace 恢复出笔记时不跳首页，只把首页钉进面包屑。
-			void this.homePage.openHomePageOnStartup();
+			// 单页模式的启动兜底：先把主区收拢成单独一页（设了首页留首页，否则留上次停留的那页），
+			// 化解 workspace.json 里存量的分屏 / 多标签布局。非单页模式下 run() 空转。
+			// 接着是启动专用的首页入口：主区域已由 workspace 恢复出笔记时不跳首页，只把首页钉进面包屑。
+			void this.startupCleanup.run().then(() => this.homePage.openHomePageOnStartup());
 			void this.leftSidebar.apply();
 			// 窗口宽度自适应收起左侧栏：依赖 leftSplit 与窗口尺寸就绪。
 			this.responsiveSidebar.apply();
@@ -287,6 +304,7 @@ export default class MinimalismUIPlugin extends Plugin {
 		this.bodyClasses.apply();
 		this.applyRibbon();
 		this.pinManager.apply();
+		this.splitDisabler.apply();
 		this.engine.apply();
 		this.tabGroupGuard.apply();
 		this.dragBar.apply();
