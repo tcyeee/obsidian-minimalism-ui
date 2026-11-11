@@ -28,7 +28,8 @@ function fieldValues(app: App, cond: SidebarCondition, file: TFile): FieldValue 
 		}
 		case 'property': {
 			if (!cond.property) return [];
-			const value = app.metadataCache.getFileCache(file)?.frontmatter?.[cond.property];
+			const frontmatter: Record<string, unknown> | undefined = app.metadataCache.getFileCache(file)?.frontmatter;
+			const value = frontmatter?.[cond.property];
 			if (value == null) return [];
 			return Array.isArray(value) ? value.map(v => String(v)) : [String(value)];
 		}

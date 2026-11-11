@@ -255,6 +255,9 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 			headingEl.empty();
 			headingEl.className = 'setting-item setting-item-heading minimalism-ui-collapsible-heading'
 				+ (this.isCollapsed(key) ? ' minimalism-ui-collapsible-heading-collapsed' : '');
+			// 标记原生 setting-items 包裹层，供 CSS 摘掉它给标题行套的圆角灰底
+			// （直接打标记而非用 :has() 选择器，避免 :has 的大范围选择器失效性能开销）
+			headingEl.parentElement?.classList.add('minimalism-ui-collapsible-heading-wrapper');
 			const nameEl = headingEl.createDiv({ cls: 'setting-item-info' })
 				.createDiv({ cls: 'setting-item-name' });
 			nameEl.createSpan({ cls: 'minimalism-ui-section-arrow' });
@@ -441,12 +444,14 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 			text: '+',
 			attr: { 'aria-label': t('addRule') },
 		});
-		addTab.addEventListener('click', async () => {
-			const id = `rule-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-			this.plugin.settings.sidebarRules.push({ id, name: '', conditions: [], slots: [] });
-			this.sidebarProfile = id;
-			await this.plugin.saveSettings();
-			this.update();
+		addTab.addEventListener('click', () => {
+			void (async () => {
+				const id = `rule-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+				this.plugin.settings.sidebarRules.push({ id, name: '', conditions: [], slots: [] });
+				this.sidebarProfile = id;
+				await this.plugin.saveSettings();
+				this.update();
+			})();
 		});
 
 		const isFixedTab = this.sidebarProfile === 'home' || this.sidebarProfile === 'diary' || this.sidebarProfile === 'other';

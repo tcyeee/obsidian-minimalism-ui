@@ -2758,7 +2758,7 @@ function folderAncestors(file) {
   return ancestors;
 }
 function fieldValues(app, cond, file) {
-  var _a, _b;
+  var _a;
   switch (cond.field) {
     case "path":
       return [file.path];
@@ -2771,7 +2771,8 @@ function fieldValues(app, cond, file) {
     }
     case "property": {
       if (!cond.property) return [];
-      const value = (_b = (_a = app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter) == null ? void 0 : _b[cond.property];
+      const frontmatter = (_a = app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
+      const value = frontmatter == null ? void 0 : frontmatter[cond.property];
       if (value == null) return [];
       return Array.isArray(value) ? value.map((v) => String(v)) : [String(value)];
     }
@@ -5992,9 +5993,11 @@ var MinimalismUISettingTab = class extends import_obsidian16.PluginSettingTab {
   // 不做整体重渲染——分组内容的显隐交给下面 group 定义的 visible 谓词。
   renderSectionHeading(key, title) {
     return (setting) => {
+      var _a;
       const headingEl = setting.settingEl;
       headingEl.empty();
       headingEl.className = "setting-item setting-item-heading minimalism-ui-collapsible-heading" + (this.isCollapsed(key) ? " minimalism-ui-collapsible-heading-collapsed" : "");
+      (_a = headingEl.parentElement) == null ? void 0 : _a.classList.add("minimalism-ui-collapsible-heading-wrapper");
       const nameEl = headingEl.createDiv({ cls: "setting-item-info" }).createDiv({ cls: "setting-item-name" });
       nameEl.createSpan({ cls: "minimalism-ui-section-arrow" });
       nameEl.createSpan({ text: title });
@@ -6137,12 +6140,14 @@ var MinimalismUISettingTab = class extends import_obsidian16.PluginSettingTab {
       text: "+",
       attr: { "aria-label": t("addRule") }
     });
-    addTab.addEventListener("click", async () => {
-      const id = `rule-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      this.plugin.settings.sidebarRules.push({ id, name: "", conditions: [], slots: [] });
-      this.sidebarProfile = id;
-      await this.plugin.saveSettings();
-      this.update();
+    addTab.addEventListener("click", () => {
+      void (async () => {
+        const id = `rule-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        this.plugin.settings.sidebarRules.push({ id, name: "", conditions: [], slots: [] });
+        this.sidebarProfile = id;
+        await this.plugin.saveSettings();
+        this.update();
+      })();
     });
     const isFixedTab = this.sidebarProfile === "home" || this.sidebarProfile === "diary" || this.sidebarProfile === "other";
     const unavailableReason = this.sidebarProfile === "home" ? this.plugin.settings.homePage.trim() ? "" : t("sidebarProfileHomeUnavailable") : this.sidebarProfile === "diary" ? getDailyNotesFolder(this.app) === null ? t("sidebarProfileDiaryUnavailable") : "" : "";

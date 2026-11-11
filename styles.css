@@ -1748,8 +1748,10 @@ body.is-mac.minimalism-ui-mac-sidebar .titlebar-button-container.mod-left {
 	padding-left: 0;
 }
 
-/* 原生 setting-items 卡片包裹层会给标题行套一个独立的圆角灰底，这里单独摘掉 */
-.setting-items:has(> .minimalism-ui-collapsible-heading) {
+/* 原生 setting-items 卡片包裹层会给标题行套一个独立的圆角灰底，这里单独摘掉。
+   不用 :has(> .minimalism-ui-collapsible-heading)：:has 会触发大范围选择器失效，有明显性能开销；
+   改为在 SettingTab.ts 渲染标题时直接给这个包裹层打 marker class。 */
+.setting-items.minimalism-ui-collapsible-heading-wrapper {
 	background-color: transparent;
 }
 

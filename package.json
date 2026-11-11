@@ -1,7 +1,7 @@
 {
   "name": "minimalism-ui",
   "version": "1.3.32",
-  "description": "Minimal, Typora-style writing UI for Obsidian — hides distractions, keeps the sidebar focused on note status, and puts all attention on your content. Clean, zen, distraction-free interface.",
+  "description": "Minimal, Typora-style writing UI — hides distractions, keeps the sidebar focused on note status, and puts all attention on your content. Clean, zen, distraction-free interface.",
   "main": "main.js",
   "scripts": {
     "dev": "node scripts/generate-theme-assets.mjs && node esbuild.config.mjs",
