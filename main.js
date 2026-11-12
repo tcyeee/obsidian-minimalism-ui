@@ -3358,6 +3358,7 @@ var LeftSidebarManager = class {
           continue;
         }
         if (this.unsatisfiableTypes.has(key)) continue;
+        this.reclaimOrphanLeaf(key, slot.viewType);
         const leaf = this.app.workspace.getLeftLeaf(true);
         if (!leaf) continue;
         try {
@@ -3498,6 +3499,20 @@ var LeftSidebarManager = class {
     const type = this.viewTypeOf(leaf);
     if (!type) return "";
     return this.slotKeyFor(type, this.slotIdOfLeaf(leaf));
+  }
+  // 全局找一个 slotKey 匹配、但不在左侧栏内的游离 leaf（孤儿），摘掉它（复用 detachLeaf，
+  // 顺带把 state 缓存进 lastDetachedState）。单实例 view type 的 slotKey 就是裸 viewType，
+  // 故 getLeavesOfType(viewType) 范围内只要 leafSlotKey 对上就一定是它；MULTI_INSTANCE
+  // 类型靠 leafSlotKey 里带的 slotId 进一步筛选，不会误收别的 slot.id 的孤儿。
+  // 找不到就什么都不做——下面照旧走 getLeftLeaf(true) 新建。
+  reclaimOrphanLeaf(key, viewType) {
+    const leftRoot = this.app.workspace.leftSplit;
+    for (const leaf of this.app.workspace.getLeavesOfType(viewType)) {
+      if (leaf.getRoot() === leftRoot) continue;
+      if (this.leafSlotKey(leaf) !== key) continue;
+      this.detachLeaf(leaf);
+      return;
+    }
   }
   // 把一个 leaf 连同（若因此清空的）tab 组一起摘掉，不留半初始化条目。摘之前留一份
   // state 底（见 lastDetachedState 字段注释），按 slotKey 存，供同一 slot 日后重建时找回。
