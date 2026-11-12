@@ -719,6 +719,15 @@ body.minimalism-ui-has-home .minimalism-ui-drag-bar-count {
 	display: flex;
 }
 
+/* obsidian-skillflow 插件自己的状态栏图标：其菜单项已被吸收进下面的
+   .minimalism-ui-status-popover（见 StatusBarMenuManager 的 appendSkillflowRows），
+   避免状态栏出现两个相似的"更多操作"入口。用 CSS 隐藏而非一次性调 JS 方法，是因为 skillflow
+   的这个图标节点会在它自己每次 onload() 时整个重建；CSS 规则不关心节点何时被重建，
+   本插件被禁用时规则随插件样式一起卸载，图标也就自动恢复可见。 */
+.skillflow-status-bar-icon {
+	display: none;
+}
+
 /* 状态栏"操作菜单"入口图标 */
 .minimalism-ui-status-menu {
 	display: flex;
@@ -789,6 +798,7 @@ body.minimalism-ui-has-home .minimalism-ui-drag-bar-count {
 	margin: 4px 0;
 }
 
+
 /* 列表行：重命名/删除（可点击）与左右侧栏（末尾带开关） */
 .minimalism-ui-status-popover-row {
 	display: flex;
@@ -825,6 +835,19 @@ body.minimalism-ui-has-home .minimalism-ui-drag-bar-count {
 
 .minimalism-ui-status-popover-row-label {
 	flex: 1;
+}
+
+/* 行尾小标签——标出这一行是吸收自另一个插件（如 skillflow）的菜单项，与本插件原生
+   的行区分开；row-label 已经 flex: 1 撑满剩余空间，标签自然贴在行最右侧。 */
+.minimalism-ui-status-popover-row-tag {
+	flex-shrink: 0;
+	padding: 2px 6px;
+	border-radius: 4px;
+	font-size: 10px;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	color: var(--text-faint);
+	background: var(--background-modifier-hover);
 }
 
 /* 左/右侧栏行：末尾是开关，行本身不是可点击整体（避免 :has() 选择器的性能开销，
