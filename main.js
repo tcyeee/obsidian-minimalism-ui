@@ -3972,6 +3972,32 @@ var EditorStatusManager = class {
 
 // src/layout/StatusBarMenuManager.ts
 var import_obsidian12 = require("obsidian");
+
+// src/layout/SkillFlowIntegration.ts
+var SKILLFLOW_PLUGIN_ID = "skillflow";
+var SkillFlowIntegration = class {
+  constructor(app) {
+    this.app = app;
+  }
+  getPlugin() {
+    var _a, _b;
+    const plugins = (_a = this.app.plugins) == null ? void 0 : _a.plugins;
+    return (_b = plugins == null ? void 0 : plugins[SKILLFLOW_PLUGIN_ID]) != null ? _b : null;
+  }
+  // 取不到（未装/旧版本/运行时报错）统一返回空数组，调用方据此判断是否渲染这一段。
+  async getRows() {
+    const plugin = this.getPlugin();
+    if (!(plugin == null ? void 0 : plugin.getStatusBarMenuGroups)) return [];
+    try {
+      return await plugin.getStatusBarMenuGroups();
+    } catch (err) {
+      console.error("[minimalism-ui] failed to read skillflow status bar menu groups", err);
+      return [];
+    }
+  }
+};
+
+// src/layout/StatusBarMenuManager.ts
 var TRIGGER_ICON = "ellipsis-vertical";
 var DYNAMIC_WIDTH_CSS_CLASS = "minimalism-dynamic-width";
 var POPOVER_CLASS = "minimalism-ui-status-popover";
@@ -3994,6 +4020,10 @@ var StatusBarMenuManager = class {
     // 否则 refreshSidebarToggles → setValue → onChange → collapse/expand → 状态变化 → refreshSidebarToggles 无限递归。
     this.syncingToggles = false;
     this.resizeEventRef = null;
+    // renderContent() 里"侧边栏行"和"插件设置行"之间的分割线；skillflow 菜单项异步到达时
+    // （见 appendSkillflowRows）插在它前面，天然复用它作为"skillflow 段 -> 设置行"的分割线。
+    this.preSettingsDivider = null;
+    this.skillflow = new SkillFlowIntegration(app);
   }
   apply() {
     this.remove();
@@ -4051,6 +4081,7 @@ var StatusBarMenuManager = class {
     this.renderContent();
     this.positionPopover();
     (_a = this.popoverEl.querySelector('[tabindex="0"]')) == null ? void 0 : _a.focus();
+    void this.appendSkillflowRows(this.popoverEl);
     this.outsideClickHandler = (e) => {
       const path = e.composedPath();
       if (this.popoverEl && path.includes(this.popoverEl)) return;
@@ -4081,6 +4112,7 @@ var StatusBarMenuManager = class {
     this.popoverEl = null;
     this.leftSidebarToggle = null;
     this.rightSidebarToggle = null;
+    this.preSettingsDivider = null;
   }
   // 优先在触发图标正上方展开；但触发图标可能被 DragBarManager 挪到顶部拖拽栏（此时
   // rect.top 很小，上方空间不够），这种情况下自动改为向下展开——用实测的面板高度
@@ -4116,8 +4148,38 @@ var StatusBarMenuManager = class {
     this.renderFileRows(this.popoverEl, file);
     this.popoverEl.createDiv({ cls: "minimalism-ui-status-popover-divider" });
     this.renderSidebarRows(this.popoverEl);
-    this.popoverEl.createDiv({ cls: "minimalism-ui-status-popover-divider" });
+    this.preSettingsDivider = this.popoverEl.createDiv({ cls: "minimalism-ui-status-popover-divider" });
     this.renderPluginSettingsRow(this.popoverEl);
+  }
+  // ─── skillflow 菜单项吸收（见 SkillFlowIntegration） ──────────────────────
+  // skillflow 的用户 Skills 列表要读 vault，不能同步拿到；面板先按原有内容秒开，这段到达后
+  // 再插入、重新定位。popoverEl 以参数形式传入并在结果到达时与 this.popoverEl 比对，防止
+  // 面板已被关闭或重新打开成另一实例时，这次迟到的渲染插进错误的 DOM 里。
+  async appendSkillflowRows(popoverEl) {
+    const groups = (await this.skillflow.getRows()).filter((rows) => rows.length > 0);
+    if (groups.length === 0) return;
+    if (this.popoverEl !== popoverEl || !this.preSettingsDivider) return;
+    const section = popoverEl.createDiv();
+    popoverEl.insertBefore(section, this.preSettingsDivider);
+    section.createDiv({ cls: "minimalism-ui-status-popover-divider" });
+    groups.forEach((rows, index) => {
+      if (index > 0) section.createDiv({ cls: "minimalism-ui-status-popover-divider" });
+      for (const row of rows) {
+        this.createActionRow(section, {
+          icon: row.icon,
+          label: row.label,
+          disabled: false,
+          // 标出这一行是吸收自 skillflow 插件的菜单项，不是本插件原生功能；
+          // 标签文案跟插件名走，不做 i18n。
+          tag: "skillflow",
+          onClick: () => {
+            row.onClick();
+            this.close();
+          }
+        });
+      }
+    });
+    this.positionPopover();
   }
   // ─── 笔记三态切换（分段控件） ───────────────────────────────────────────
   // mode:'source' 时 source 理应是显式 boolean，但留一道兜底：Obsidian 默认即 Live Preview，
@@ -4288,6 +4350,7 @@ var StatusBarMenuManager = class {
     const iconEl = row.createDiv({ cls: "minimalism-ui-status-popover-row-icon" });
     (0, import_obsidian12.setIcon)(iconEl, opts.icon);
     row.createSpan({ cls: "minimalism-ui-status-popover-row-label", text: opts.label });
+    if (opts.tag) row.createSpan({ cls: "minimalism-ui-status-popover-row-tag", text: opts.tag });
     if (opts.disabled) return;
     row.addEventListener("click", (e) => {
       e.stopPropagation();

@@ -4,6 +4,7 @@ import { Feature } from '../core/Feature';
 import { t } from '../core/i18n';
 import { executeCommandById, openPluginSettings } from '../core/obsidianCommands';
 import { uiDoc, uiWin } from '../core/appDom';
+import { SkillFlowIntegration } from './SkillFlowIntegration';
 
 // Electron 的 shell 模块：桌面端渲染进程可通过 window.require 拿到（isDesktopOnly 插件），
 // 用于调起系统默认程序打开文件；不引入 @types/electron，只声明用到的这一个方法。
@@ -34,6 +35,10 @@ type NoteMode = 'locked' | 'edit' | 'source';
  *   3. 左侧边栏（workspace.leftSplit）的显示/隐藏，以及右下角悬浮框（minimalism-ui-rsb-launcher，
  *      即 showRightSidebarButton 设置）的显示/隐藏，用 Obsidian 原生 ToggleComponent（与 Settings 页
  *      一致的开关样式），保持主题一致、不关闭面板。
+ *   4. 若检测到 obsidian-skillflow 插件（且版本够新），吸收它的状态栏菜单项，避免状态栏
+ *      出现两个相似的"更多操作"入口——取数逻辑在 SkillFlowIntegration.getRows() / 本类的
+ *      appendSkillflowRows() 里，没装或装了旧版本时自动退化成空操作。skillflow 自己图标的
+ *      隐藏是声明式的 CSS 规则（见 styles.css 的 `.skillflow-status-bar-icon`），不在这里。
  *
  * 面板挂在主窗口 body（uiDoc().body），优先定位于触发图标正上方展开；若图标被 DragBarManager
  * 挪到顶部拖拽栏、上方空间不足，positionPopover() 会自动改为向下展开（见其注释）。
@@ -54,6 +59,10 @@ export class StatusBarMenuManager implements Feature {
 	// 否则 refreshSidebarToggles → setValue → onChange → collapse/expand → 状态变化 → refreshSidebarToggles 无限递归。
 	private syncingToggles = false;
 	private resizeEventRef: EventRef | null = null;
+	private skillflow: SkillFlowIntegration;
+	// renderContent() 里"侧边栏行"和"插件设置行"之间的分割线；skillflow 菜单项异步到达时
+	// （见 appendSkillflowRows）插在它前面，天然复用它作为"skillflow 段 -> 设置行"的分割线。
+	private preSettingsDivider: HTMLElement | null = null;
 
 	constructor(
 		private app: App,
@@ -61,7 +70,9 @@ export class StatusBarMenuManager implements Feature {
 		// 右下角悬浮框（minimalism-ui-rsb-launcher）的显隐——即 showRightSidebarButton 设置的读写；
 		// setVisible 内部会保存设置并触发 RightSidebarButtonManager 重新 apply（注入/拆除 DOM）。
 		private rsbLauncher: { getVisible(): boolean; setVisible(visible: boolean): void },
-	) {}
+	) {
+		this.skillflow = new SkillFlowIntegration(app);
+	}
 
 	apply(): void {
 		this.remove();
@@ -131,6 +142,9 @@ export class StatusBarMenuManager implements Feature {
 		// 键盘用户打开后焦点停在状态栏图标上，主动挪到第一个可交互项，否则 Tab 键从这里
 		// 出发要先走完文档其它节点才能绕回这个刚出现的面板。
 		this.popoverEl.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
+		// 不 await：面板先按已有内容秒开，skillflow 菜单项（若有）稍后插入并重新定位，
+		// 不拖慢这次 open() 本身。
+		void this.appendSkillflowRows(this.popoverEl);
 
 		this.outsideClickHandler = (e: MouseEvent) => {
 			const path = e.composedPath();
@@ -164,6 +178,7 @@ export class StatusBarMenuManager implements Feature {
 		this.popoverEl = null;
 		this.leftSidebarToggle = null;
 		this.rightSidebarToggle = null;
+		this.preSettingsDivider = null;
 	}
 
 	// 优先在触发图标正上方展开；但触发图标可能被 DragBarManager 挪到顶部拖拽栏（此时
@@ -207,8 +222,40 @@ export class StatusBarMenuManager implements Feature {
 		this.renderFileRows(this.popoverEl, file);
 		this.popoverEl.createDiv({ cls: 'minimalism-ui-status-popover-divider' });
 		this.renderSidebarRows(this.popoverEl);
-		this.popoverEl.createDiv({ cls: 'minimalism-ui-status-popover-divider' });
+		// skillflow 菜单项异步到达时（见 appendSkillflowRows）插在这条分割线之前；取不到
+		// 时这条分割线原地留下，效果等同于今天的"侧边栏行 -> 设置行"分割线，面板外观不变。
+		this.preSettingsDivider = this.popoverEl.createDiv({ cls: 'minimalism-ui-status-popover-divider' });
 		this.renderPluginSettingsRow(this.popoverEl);
+	}
+
+	// ─── skillflow 菜单项吸收（见 SkillFlowIntegration） ──────────────────────
+
+	// skillflow 的用户 Skills 列表要读 vault，不能同步拿到；面板先按原有内容秒开，这段到达后
+	// 再插入、重新定位。popoverEl 以参数形式传入并在结果到达时与 this.popoverEl 比对，防止
+	// 面板已被关闭或重新打开成另一实例时，这次迟到的渲染插进错误的 DOM 里。
+	private async appendSkillflowRows(popoverEl: HTMLElement): Promise<void> {
+		const groups = (await this.skillflow.getRows()).filter((rows) => rows.length > 0);
+		if (groups.length === 0) return;
+		if (this.popoverEl !== popoverEl || !this.preSettingsDivider) return;
+
+		const section = popoverEl.createDiv();
+		popoverEl.insertBefore(section, this.preSettingsDivider);
+		section.createDiv({ cls: 'minimalism-ui-status-popover-divider' });
+		groups.forEach((rows, index) => {
+			if (index > 0) section.createDiv({ cls: 'minimalism-ui-status-popover-divider' });
+			for (const row of rows) {
+				this.createActionRow(section, {
+					icon: row.icon,
+					label: row.label,
+					disabled: false,
+					// 标出这一行是吸收自 skillflow 插件的菜单项，不是本插件原生功能；
+					// 标签文案跟插件名走，不做 i18n。
+					tag: 'skillflow',
+					onClick: () => { row.onClick(); this.close(); },
+				});
+			}
+		});
+		this.positionPopover();
 	}
 
 	// ─── 笔记三态切换（分段控件） ───────────────────────────────────────────
@@ -383,7 +430,9 @@ export class StatusBarMenuManager implements Feature {
 
 	private createActionRow(
 		container: HTMLElement,
-		opts: { icon: string; label: string; disabled: boolean; warning?: boolean; onClick: () => void },
+		// tag：行尾的小标签（如 "skillflow"），标出这一行其实是吸收自另一个插件的菜单项，
+		// 与本插件原生的行区分开；原生行不传这个字段。
+		opts: { icon: string; label: string; disabled: boolean; warning?: boolean; tag?: string; onClick: () => void },
 	): void {
 		const cls = ['minimalism-ui-status-popover-row', opts.warning ? 'is-warning' : '', opts.disabled ? 'is-disabled' : '']
 			.filter(Boolean).join(' ');
@@ -394,6 +443,7 @@ export class StatusBarMenuManager implements Feature {
 		const iconEl = row.createDiv({ cls: 'minimalism-ui-status-popover-row-icon' });
 		setIcon(iconEl, opts.icon);
 		row.createSpan({ cls: 'minimalism-ui-status-popover-row-label', text: opts.label });
+		if (opts.tag) row.createSpan({ cls: 'minimalism-ui-status-popover-row-tag', text: opts.tag });
 		if (opts.disabled) return;
 		row.addEventListener('click', (e) => {
 			e.stopPropagation();
