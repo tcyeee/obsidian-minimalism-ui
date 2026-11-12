@@ -5,6 +5,14 @@
 
 ---
 
+## Version 1.3.34
+
+- Fixed: switching between left sidebar profiles (home/diary/rules) no longer strands orphaned leaves from the right-sidebar launcher panel, which previously accumulated as duplicate icons in the launcher over time
+
+- 修复：在左侧栏 profile（首页/日记/规则）之间切换时，不再残留来自右侧栏启动面板的孤立 leaf，此前这些孤立 leaf 会在启动面板中逐渐累积成重复图标
+
+---
+
 ## Version 1.3.33
 
 - Added: user-defined sidebar panel profiles — switch the left sidebar's panel set based on path, folder, tag, or property conditions, evaluated after the fixed home/diary profiles and before the default one
