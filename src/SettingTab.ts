@@ -698,6 +698,17 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 				}));
 	}
 
+	private configureSkillflowMenuMerge(setting: Setting): void {
+		setting.setName(t('skillflowMenuMerge'))
+			.setDesc(t('skillflowMenuMergeDesc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableSkillflowMenuMerge)
+				.onChange(async v => {
+					this.plugin.settings.enableSkillflowMenuMerge = v;
+					await this.plugin.saveSettings();
+				}));
+	}
+
 	private configureFilenamePrefixLength(setting: Setting): void {
 		setting.setName(t('filenamePrefixLength'))
 			.setDesc(t('filenamePrefixLengthDesc'))
@@ -752,6 +763,7 @@ export class MinimalismUISettingTab extends PluginSettingTab {
 
 			...this.section('advanced', t('headingAdvanced'), [
 				{ name: t('navAnimation'), render: (setting) => this.configureNavAnimation(setting) },
+				{ name: t('skillflowMenuMerge'), render: (setting) => this.configureSkillflowMenuMerge(setting) },
 				{ name: t('filenamePrefixManual'), render: (setting) => this.configureFilenamePrefixManual(setting) },
 				// 仅当手动隐藏开启时才显示长度设置。
 				{

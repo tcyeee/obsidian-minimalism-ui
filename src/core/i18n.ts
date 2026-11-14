@@ -101,6 +101,9 @@ const translations = {
 		filenamePrefixLength: '指定时间戳前缀长度',
 		filenamePrefixLengthDesc: '隐藏文件名开头的时间戳前缀，如隐藏 "202604111230-test" 前 13 个字符，在导航栏中显示为 test（0 = 不隐藏，最多 20）。',
 
+		skillflowMenuMerge: '合并 SkillFlow 菜单',
+		skillflowMenuMergeDesc: '将 SkillFlow 插件的状态栏菜单项合并进本插件的操作菜单。关闭后恢复显示 SkillFlow 自己的状态栏图标。',
+
 		graphView: '关系图',
 		localGraph: '本地关系图',
 
@@ -239,6 +242,9 @@ const translations = {
 		filenamePrefixManualDesc: 'When off, automatically follows the timestamp format configured in Obsidian\'s "Unique note creator" core plugin to strip the prefix (and the separator after it) — no setup needed. When on, manually specify the length to hide below.',
 		filenamePrefixLength: 'Timestamp prefix length',
 		filenamePrefixLengthDesc: 'Hide the timestamp prefix at the start of a filename. E.g. hide the first 13 characters of "202604111230-test" so it shows as "test" in the navigation (0 = off, max 20).',
+
+		skillflowMenuMerge: 'Merge SkillFlow menu',
+		skillflowMenuMergeDesc: "Merge the SkillFlow plugin's status bar menu items into this plugin's action menu. When off, SkillFlow's own status bar icon is shown again.",
 
 		graphView: 'Graph view',
 		localGraph: 'Local Graph',

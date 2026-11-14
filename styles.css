@@ -723,8 +723,10 @@ body.minimalism-ui-has-home .minimalism-ui-drag-bar-count {
    .minimalism-ui-status-popover（见 StatusBarMenuManager 的 appendSkillflowRows），
    避免状态栏出现两个相似的"更多操作"入口。用 CSS 隐藏而非一次性调 JS 方法，是因为 skillflow
    的这个图标节点会在它自己每次 onload() 时整个重建；CSS 规则不关心节点何时被重建，
-   本插件被禁用时规则随插件样式一起卸载，图标也就自动恢复可见。 */
-.skillflow-status-bar-icon {
+   本插件被禁用时规则随插件样式一起卸载，图标也就自动恢复可见。
+   只在 body 带 minimalism-ui-skillflow-merge（即「合并 skillflow 菜单」开关开启，见
+   BodyClassController）时才隐藏——关掉这个开关后 skillflow 自己的图标恢复可见。 */
+body.minimalism-ui-skillflow-merge .skillflow-status-bar-icon {
 	display: none;
 }
 

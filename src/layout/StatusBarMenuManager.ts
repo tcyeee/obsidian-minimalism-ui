@@ -37,8 +37,10 @@ type NoteMode = 'locked' | 'edit' | 'source';
  *      一致的开关样式），保持主题一致、不关闭面板。
  *   4. 若检测到 obsidian-skillflow 插件（且版本够新），吸收它的状态栏菜单项，避免状态栏
  *      出现两个相似的"更多操作"入口——取数逻辑在 SkillFlowIntegration.getRows() / 本类的
- *      appendSkillflowRows() 里，没装或装了旧版本时自动退化成空操作。skillflow 自己图标的
- *      隐藏是声明式的 CSS 规则（见 styles.css 的 `.skillflow-status-bar-icon`），不在这里。
+ *      appendSkillflowRows() 里，没装或装了旧版本时自动退化成空操作。这一整段行为受设置页
+ *      Advanced 分区的 enableSkillflowMenuMerge 开关控制（appendSkillflowRows() 开头判断），
+ *      关闭时不再吸收菜单项，skillflow 自己图标的隐藏（声明式 CSS 规则，见 styles.css 的
+ *      `.skillflow-status-bar-icon`）也随 BodyClassController 同步解除。
  *
  * 面板挂在主窗口 body（uiDoc().body），优先定位于触发图标正上方展开；若图标被 DragBarManager
  * 挪到顶部拖拽栏、上方空间不足，positionPopover() 会自动改为向下展开（见其注释）。
@@ -234,6 +236,7 @@ export class StatusBarMenuManager implements Feature {
 	// 再插入、重新定位。popoverEl 以参数形式传入并在结果到达时与 this.popoverEl 比对，防止
 	// 面板已被关闭或重新打开成另一实例时，这次迟到的渲染插进错误的 DOM 里。
 	private async appendSkillflowRows(popoverEl: HTMLElement): Promise<void> {
+		if (!this.plugin.settings.enableSkillflowMenuMerge) return;
 		const groups = (await this.skillflow.getRows()).filter((rows) => rows.length > 0);
 		if (groups.length === 0) return;
 		if (this.popoverEl !== popoverEl || !this.preSettingsDivider) return;
