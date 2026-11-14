@@ -13,6 +13,7 @@ const BODY_CLASSES = [
 	'minimalism-ui-has-home',
 	'minimalism-ui-hide-vault-profile',
 	'minimalism-ui-lang-zh',
+	'minimalism-ui-skillflow-merge',
 ] as const;
 
 /**
@@ -45,6 +46,10 @@ export class BodyClassController implements Feature {
 		// 不再靠插件自家 class——原生 body:not(.show-ribbon) 的 display:none 盖不过去。
 		// 解析后的语言（auto/zh/en → zh/en），驱动注入式分区标题（大纲/属性）的中文化
 		cls.toggle('minimalism-ui-lang-zh', getLang() === 'zh');
+		// 关闭"合并 skillflow 菜单"开关时，恢复显示 skillflow 自己的状态栏图标
+		// （见 styles.css 的 .skillflow-status-bar-icon；菜单项本身是否吸收由
+		// StatusBarMenuManager.appendSkillflowRows 直接读设置判断，不靠这个 class）。
+		cls.toggle('minimalism-ui-skillflow-merge', s.enableSkillflowMenuMerge);
 	}
 
 	remove() {

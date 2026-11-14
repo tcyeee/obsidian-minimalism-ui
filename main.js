@@ -52,6 +52,7 @@ var DEFAULT_SETTINGS = {
   // 高级功能（文件名前缀）默认关闭
   filenamePrefixManual: false,
   filenamePrefixLength: 0,
+  enableSkillflowMenuMerge: true,
   // 默认 100px，与历史固定列宽一致
   propertyKeyWidth: 100,
   language: "auto",
@@ -375,6 +376,8 @@ var translations = {
     filenamePrefixManualDesc: "\u5173\u95ED\u65F6\u81EA\u52A8\u8DDF\u968F Obsidian\u300C\u552F\u4E00\u7B14\u8BB0\u521B\u5EFA\u5668\u300D\u914D\u7F6E\u7684\u65F6\u95F4\u6233\u683C\u5F0F\u5265\u79BB\u524D\u7F00\uFF08\u542B\u5176\u540E\u7684\u5206\u9694\u7B26\uFF09\uFF0C\u65E0\u9700\u8BBE\u7F6E\uFF1B\u5F00\u542F\u540E\u6539\u4E3A\u4E0B\u65B9\u624B\u52A8\u6307\u5B9A\u8981\u9690\u85CF\u7684\u4F4D\u6570\u3002",
     filenamePrefixLength: "\u6307\u5B9A\u65F6\u95F4\u6233\u524D\u7F00\u957F\u5EA6",
     filenamePrefixLengthDesc: '\u9690\u85CF\u6587\u4EF6\u540D\u5F00\u5934\u7684\u65F6\u95F4\u6233\u524D\u7F00\uFF0C\u5982\u9690\u85CF "202604111230-test" \u524D 13 \u4E2A\u5B57\u7B26\uFF0C\u5728\u5BFC\u822A\u680F\u4E2D\u663E\u793A\u4E3A test\uFF080 = \u4E0D\u9690\u85CF\uFF0C\u6700\u591A 20\uFF09\u3002',
+    skillflowMenuMerge: "\u5408\u5E76 SkillFlow \u83DC\u5355",
+    skillflowMenuMergeDesc: "\u5C06 SkillFlow \u63D2\u4EF6\u7684\u72B6\u6001\u680F\u83DC\u5355\u9879\u5408\u5E76\u8FDB\u672C\u63D2\u4EF6\u7684\u64CD\u4F5C\u83DC\u5355\u3002\u5173\u95ED\u540E\u6062\u590D\u663E\u793A SkillFlow \u81EA\u5DF1\u7684\u72B6\u6001\u680F\u56FE\u6807\u3002",
     graphView: "\u5173\u7CFB\u56FE",
     localGraph: "\u672C\u5730\u5173\u7CFB\u56FE",
     navBack: "\u540E\u9000",
@@ -498,6 +501,8 @@ var translations = {
     filenamePrefixManualDesc: `When off, automatically follows the timestamp format configured in Obsidian's "Unique note creator" core plugin to strip the prefix (and the separator after it) \u2014 no setup needed. When on, manually specify the length to hide below.`,
     filenamePrefixLength: "Timestamp prefix length",
     filenamePrefixLengthDesc: 'Hide the timestamp prefix at the start of a filename. E.g. hide the first 13 characters of "202604111230-test" so it shows as "test" in the navigation (0 = off, max 20).',
+    skillflowMenuMerge: "Merge SkillFlow menu",
+    skillflowMenuMergeDesc: "Merge the SkillFlow plugin's status bar menu items into this plugin's action menu. When off, SkillFlow's own status bar icon is shown again.",
     graphView: "Graph view",
     localGraph: "Local Graph",
     navBack: "Back",
@@ -561,7 +566,8 @@ var BODY_CLASSES = [
   "minimalism-ui-note-style",
   "minimalism-ui-has-home",
   "minimalism-ui-hide-vault-profile",
-  "minimalism-ui-lang-zh"
+  "minimalism-ui-lang-zh",
+  "minimalism-ui-skillflow-merge"
 ];
 var BodyClassController = class {
   constructor(getSettings) {
@@ -579,6 +585,7 @@ var BodyClassController = class {
     cls.toggle("minimalism-ui-has-home", !!s.homePage);
     cls.toggle("minimalism-ui-hide-vault-profile", !s.showVaultProfile);
     cls.toggle("minimalism-ui-lang-zh", getLang() === "zh");
+    cls.toggle("minimalism-ui-skillflow-merge", s.enableSkillflowMenuMerge);
   }
   remove() {
     uiDoc().body.classList.remove(...BODY_CLASSES);
@@ -4156,6 +4163,7 @@ var StatusBarMenuManager = class {
   // 再插入、重新定位。popoverEl 以参数形式传入并在结果到达时与 this.popoverEl 比对，防止
   // 面板已被关闭或重新打开成另一实例时，这次迟到的渲染插进错误的 DOM 里。
   async appendSkillflowRows(popoverEl) {
+    if (!this.plugin.settings.enableSkillflowMenuMerge) return;
     const groups = (await this.skillflow.getRows()).filter((rows) => rows.length > 0);
     if (groups.length === 0) return;
     if (this.popoverEl !== popoverEl || !this.preSettingsDivider) return;
@@ -6394,6 +6402,12 @@ var MinimalismUISettingTab = class extends import_obsidian16.PluginSettingTab {
       this.refreshDomState();
     }));
   }
+  configureSkillflowMenuMerge(setting) {
+    setting.setName(t("skillflowMenuMerge")).setDesc(t("skillflowMenuMergeDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableSkillflowMenuMerge).onChange(async (v) => {
+      this.plugin.settings.enableSkillflowMenuMerge = v;
+      await this.plugin.saveSettings();
+    }));
+  }
   configureFilenamePrefixLength(setting) {
     setting.setName(t("filenamePrefixLength")).setDesc(t("filenamePrefixLengthDesc")).addText((text) => {
       text.inputEl.type = "number";
@@ -6442,6 +6456,7 @@ var MinimalismUISettingTab = class extends import_obsidian16.PluginSettingTab {
       },
       ...this.section("advanced", t("headingAdvanced"), [
         { name: t("navAnimation"), render: (setting) => this.configureNavAnimation(setting) },
+        { name: t("skillflowMenuMerge"), render: (setting) => this.configureSkillflowMenuMerge(setting) },
         { name: t("filenamePrefixManual"), render: (setting) => this.configureFilenamePrefixManual(setting) },
         // 仅当手动隐藏开启时才显示长度设置。
         {

@@ -91,6 +91,9 @@ export interface MinimalismUISettings {
 	homePage: string;
 	filenamePrefixManual: boolean;
 	filenamePrefixLength: number;
+	// 是否把 skillflow 插件的状态栏菜单项合并进本插件的菜单面板（见 SkillFlowIntegration）。
+	// 关闭后 StatusBarMenuManager 不再吸收它的菜单项，skillflow 自己的状态栏图标也不再被隐藏。
+	enableSkillflowMenuMerge: boolean;
 	// 侧边栏 Properties 的 label（key）列宽，单位 px；由拖拽右边缘把手实时调整，全局共享、跨重启持久化。
 	propertyKeyWidth: number;
 	language: 'auto' | 'zh' | 'en';
@@ -158,6 +161,7 @@ export const DEFAULT_SETTINGS: MinimalismUISettings = {
 	// 高级功能（文件名前缀）默认关闭
 	filenamePrefixManual: false,
 	filenamePrefixLength: 0,
+	enableSkillflowMenuMerge: true,
 	// 默认 100px，与历史固定列宽一致
 	propertyKeyWidth: 100,
 	language: 'auto',
