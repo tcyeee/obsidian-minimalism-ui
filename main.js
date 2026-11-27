@@ -70,6 +70,7 @@ var DEFAULT_SETTINGS = {
   rightSidebarStackOrder: [],
   rightSidebarStowExpanded: false,
   rightSidebarLastActiveView: "",
+  rightSidebarClosedViewTypes: [],
   noteCardBindings: {}
 };
 
@@ -108,15 +109,15 @@ var LeafMountService = class {
    * 空 / 半初始化 leaf 一并 detach，不留垃圾条目；若该组因此清空，重置 sharedParent。
    */
   async ensureAllToolViewsExist(opts) {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e;
     const ws = this.app.workspace;
     let sharedParent = opts.findSharedParent();
     for (const type of this.allRegisteredToolViewTypes(opts.excludedViewTypes)) {
-      if (this.app.workspace.getLeavesOfType(type).length > 0) continue;
+      if (((_a = opts.shouldSkipViewType) == null ? void 0 : _a.call(opts, type)) || this.app.workspace.getLeavesOfType(type).length > 0) continue;
       let leaf = null;
       try {
         if (sharedParent) {
-          const index = (_b = (_a = sharedParent.children) == null ? void 0 : _a.length) != null ? _b : 0;
+          const index = (_c = (_b = sharedParent.children) == null ? void 0 : _b.length) != null ? _c : 0;
           leaf = ws.createLeafInParent(sharedParent, index);
         } else {
           leaf = opts.createFallbackLeaf();
@@ -127,7 +128,7 @@ var LeafMountService = class {
       } catch (err) {
         console.error(`[minimalism-ui] probing view type "${type}" failed, skipping`, err);
         leaf == null ? void 0 : leaf.detach();
-        if (sharedParent && ((_d = (_c = sharedParent.children) == null ? void 0 : _c.length) != null ? _d : 0) === 0) {
+        if (sharedParent && ((_e = (_d = sharedParent.children) == null ? void 0 : _d.length) != null ? _e : 0) === 0) {
           sharedParent = null;
         }
       }
@@ -346,6 +347,7 @@ var translations = {
     showRightSidebarButtonDesc: "\u5728\u53F3\u4E0B\u89D2\u663E\u793A\u4E00\u4E2A\u60AC\u6D6E\u6309\u94AE\uFF0C\u7528\u4E8E\u5C55\u5F00/\u6536\u8D77\u53F3\u4FA7\u8FB9\u680F\uFF08\u4F9B\u4F9D\u8D56\u53F3\u4FA7\u680F\u7684\u63D2\u4EF6\uFF0C\u5982 AI \u5BF9\u8BDD\u63D2\u4EF6\u4F7F\u7528\uFF09\u3002",
     rightSidebarButtonLabel: "\u53F3\u4FA7\u8FB9\u680F",
     rightSidebarPanelEmpty: "\u53F3\u4FA7\u8FB9\u680F\u6682\u65E0\u5185\u5BB9",
+    rightSidebarPanelClose: "\u5173\u95ED\u5F53\u524D\u9762\u677F",
     rightSidebarPanelPin: "\u56FA\u5B9A\u9762\u677F\uFF08\u5931\u7126/Esc \u4E0D\u518D\u5173\u95ED\uFF09",
     rightSidebarPanelUnpin: "\u53D6\u6D88\u56FA\u5B9A",
     rightSidebarPanelExpand: "\u5728\u4E3B\u533A\u6253\u5F00",
@@ -471,6 +473,7 @@ var translations = {
     showRightSidebarButtonDesc: "Show a floating button in the bottom-right corner to expand/collapse the right sidebar (for plugins that need it, e.g. AI chat plugins).",
     rightSidebarButtonLabel: "Right sidebar",
     rightSidebarPanelEmpty: "Nothing in the right sidebar yet",
+    rightSidebarPanelClose: "Close current panel",
     rightSidebarPanelPin: "Pin panel (stays open on blur/Esc)",
     rightSidebarPanelUnpin: "Unpin",
     rightSidebarPanelExpand: "Open in main area",
@@ -4638,15 +4641,17 @@ var STACK_ICON_HIDDEN_CLASS = "minimalism-ui-rsb-stack-icon-hidden";
 var STACK_ICON_STOWED_CLASS = "minimalism-ui-rsb-stack-icon-stowed";
 var STOW_KEY = "minimalism-ui-rsb-stow";
 var RightSidebarViewStack = class {
-  constructor(app, getSettings, save, leafMount) {
+  constructor(app, getSettings, save, leafMount, detachLeaf) {
     this.app = app;
     this.getSettings = getSettings;
     this.save = save;
     this.leafMount = leafMount;
+    this.detachLeaf = detachLeaf;
     this.stackEl = null;
     this.contentEl = null;
     this.buttonEl = null;
     this.iconDrag = null;
+    this.isDetachingLeaf = false;
     // 每次 apply() 只做一次全量探测（见 ensureAllToolViewsExist），避免每次开面板都重复扫描/创建。
     this.hasProbedAllViewTypes = false;
     // 当前挂进 contentEl 的 leaf，及其原本所在的位置（用于切走/卸载时移回）。
@@ -4704,6 +4709,42 @@ var RightSidebarViewStack = class {
   getMountedLeaf() {
     return this.mountedLeaf;
   }
+  closeCurrentLeaf() {
+    var _a, _b, _c;
+    const leaf = (_a = this.mountedLeaf) != null ? _a : this.activeLeaf;
+    if (!leaf || this.isDetachingLeaf) return;
+    const closedType = this.keyOf(leaf);
+    const order = this.computeRenderOrder();
+    const afterCurrent = order.indexOf(leaf) + 1;
+    const visible = new Set(this.stowExpanded ? order : order.slice(order.indexOf(STOW_KEY) + 1));
+    const candidates = [...order.slice(afterCurrent), ...order.slice(0, afterCurrent)];
+    this.isDetachingLeaf = true;
+    try {
+      if (this.mountedLeaf === leaf) this.restoreMounted();
+      this.detachLeaf(leaf);
+    } catch (err) {
+      console.error("[minimalism-ui] failed to close right sidebar view", err);
+    } finally {
+      this.isDetachingLeaf = false;
+    }
+    const remaining = this.collectSwitchableLeaves();
+    if (remaining.includes(leaf)) {
+      this.refreshStack(remaining);
+      return;
+    }
+    const survivors = new Set(remaining);
+    const orderedSurvivors = candidates.filter((item) => item !== STOW_KEY && survivors.has(item));
+    this.activeLeaf = (_c = (_b = orderedSurvivors.find((item) => visible.has(item))) != null ? _b : orderedSurvivors[0]) != null ? _c : null;
+    const settings = this.getSettings();
+    const closedTypes = settings.rightSidebarClosedViewTypes;
+    const sameTypeStillOpen = remaining.some((item) => this.keyOf(item) === closedType);
+    if (!sameTypeStillOpen && !closedTypes.includes(closedType)) {
+      settings.rightSidebarClosedViewTypes = [...closedTypes, closedType];
+    }
+    this.refreshStack(remaining);
+    settings.rightSidebarLastActiveView = this.activeLeaf ? this.keyOf(this.activeLeaf) : "";
+    void this.save();
+  }
   // 把当前挂载的视图在主编辑区新开一个真实标签页。右侧栏原 leaf 不动——用 getViewState()
   // 克隆一份状态到新 leaf（等于复制，而非搬迁），故堆叠里的图标依旧在。先 restoreMounted()
   // 把被搬进面板的 containerEl 还回隐藏的右侧栏，避免后续 setViewState 触发的重渲染误伤它。
@@ -4745,6 +4786,7 @@ var RightSidebarViewStack = class {
   async ensureAllToolViewsExist() {
     await this.leafMount.ensureAllToolViewsExist({
       excludedViewTypes: this.getManagedLeftViewTypes(),
+      shouldSkipViewType: (type) => this.getSettings().rightSidebarClosedViewTypes.includes(type),
       findSharedParent: () => this.findExistingRightSidebarParent(),
       createFallbackLeaf: () => this.app.workspace.getRightLeaf(true)
     });
@@ -4777,10 +4819,9 @@ var RightSidebarViewStack = class {
       if (!present.has(leaf)) this.instanceKeyToLeaf.delete(key);
     }
   }
-  refreshStack() {
-    if (!this.stackEl) return;
-    const leaves = this.collectSwitchableLeaves();
-    this.syncLeafOrder(leaves);
+  refreshStack(leaves) {
+    if (!this.stackEl || this.isDetachingLeaf) return;
+    this.syncLeafOrder(leaves != null ? leaves : this.collectSwitchableLeaves());
     if (this.leafOrder.length === 0) {
       this.activeLeaf = null;
       this.stackEl.empty();
@@ -4942,15 +4983,18 @@ var RightSidebarViewStack = class {
     void this.showLeaf(leaf);
   }
   async showLeaf(leaf) {
-    var _a, _b;
-    if (this.mountedLeaf === leaf) return;
-    this.restoreMounted();
-    if (leaf.isDeferred) await leaf.loadIfDeferred();
+    const contentEl = this.contentEl;
+    if (!contentEl || this.mountedLeaf === leaf) return;
+    if (leaf.isDeferred) {
+      await leaf.loadIfDeferred();
+      if (this.contentEl !== contentEl || this.activeLeaf !== leaf || this.mountedLeaf === leaf) return;
+    }
     const viewEl = leaf.view.containerEl;
     if (!viewEl.parentElement) return;
+    this.restoreMounted();
     this.mountedOriginal = { parent: viewEl.parentElement, nextSibling: viewEl.nextSibling };
-    (_a = this.contentEl) == null ? void 0 : _a.empty();
-    (_b = this.contentEl) == null ? void 0 : _b.appendChild(viewEl);
+    contentEl.empty();
+    contentEl.appendChild(viewEl);
     this.mountedLeaf = leaf;
     if (this.buttonEl) (0, import_obsidian13.setIcon)(this.buttonEl, leaf.getIcon());
     this.notifyResize(leaf);
@@ -5170,13 +5214,13 @@ var LAUNCHER_CLASS = "minimalism-ui-rsb-launcher";
 var BUTTON_CLASS = "minimalism-ui-rsb-button";
 var PANEL_CLASS = "minimalism-ui-rsb-panel";
 var OPEN_CLASS = "minimalism-ui-rsb-panel-open";
+var PANEL_ACTIONS_VISIBLE_CLASS = "minimalism-ui-rsb-panel-actions-visible";
 var BUTTON_ACTIVE_CLASS = "minimalism-ui-rsb-button-active";
 var SURFACE_CLASS = "minimalism-ui-rsb-surface";
+var CLOSE_CLASS = "minimalism-ui-rsb-close";
 var PIN_CLASS = "minimalism-ui-rsb-pin";
-var PIN_HINT_CLASS = "minimalism-ui-rsb-pin-hint";
 var PIN_ACTIVE_CLASS = "minimalism-ui-rsb-pin-active";
 var EXPAND_CLASS = "minimalism-ui-rsb-expand";
-var EXPAND_HINT_CLASS = "minimalism-ui-rsb-expand-hint";
 var EXPAND_HIDDEN_CLASS = "minimalism-ui-rsb-expand-hidden";
 var EXPAND_ICON = "arrow-up-right";
 var RESIZE_HANDLE_CLASS = "minimalism-ui-rsb-resize-handle";
@@ -5191,14 +5235,14 @@ var MIN_HEIGHT = 220;
 var MAX_HEIGHT = 800;
 var VIEWPORT_MARGIN_X = 40;
 var VIEWPORT_MARGIN_Y = 92;
-var PIN_HOVER_ZONE_PX = 40;
+var PANEL_ACTIONS_HOVER_ZONE_PX = 40;
 var PIN_ICON = "pin";
 var STACK_AUTO_EXPAND_DELAY = 500;
 var STACK_AUTO_COLLAPSE_DELAY = 2e3;
 var STACK_HOVER_LEAVE_DELAY = 300;
 var TOGGLE_RIGHT_SIDEBAR_COMMAND_ID = "app:toggle-right-sidebar";
 var RightSidebarButtonManager = class {
-  constructor(app, getSettings, save, leafMount) {
+  constructor(app, getSettings, save, leafMount, detachLeaf) {
     this.app = app;
     this.getSettings = getSettings;
     this.save = save;
@@ -5257,21 +5301,17 @@ var RightSidebarButtonManager = class {
       if (!this.isOpen) return;
       if (this.stackExpanded) this.scheduleAutoCollapse(STACK_HOVER_LEAVE_DELAY);
     };
-    // 鼠标距面板顶边 PIN_HOVER_ZONE_PX 以内时探出 pin 按钮；已 pin 住的话本就常驻显示
-    // （由 PIN_ACTIVE_CLASS 控制），这里只管未 pin 时的悬浮提示态。
+    // 鼠标靠近顶边时显示顶部按钮；固定状态下 pin 按钮常驻。
     this.onPanelMouseMove = (e) => {
-      var _a, _b;
       if (!this.panelEl) return;
       const rect = this.panelEl.getBoundingClientRect();
-      const nearTop = e.clientY - rect.top <= PIN_HOVER_ZONE_PX;
-      if (!this.isPinned) (_a = this.pinEl) == null ? void 0 : _a.toggleClass(PIN_HINT_CLASS, nearTop);
+      const nearTop = e.clientY - rect.top <= PANEL_ACTIONS_HOVER_ZONE_PX;
       this.syncExpandVisibility();
-      (_b = this.expandEl) == null ? void 0 : _b.toggleClass(EXPAND_HINT_CLASS, nearTop);
+      this.panelEl.toggleClass(PANEL_ACTIONS_VISIBLE_CLASS, nearTop);
     };
     this.onPanelMouseLeave = () => {
-      var _a, _b;
-      (_a = this.pinEl) == null ? void 0 : _a.removeClass(PIN_HINT_CLASS);
-      (_b = this.expandEl) == null ? void 0 : _b.removeClass(EXPAND_HINT_CLASS);
+      var _a;
+      (_a = this.panelEl) == null ? void 0 : _a.removeClass(PANEL_ACTIONS_VISIBLE_CLASS);
     };
     // ─── 拖拽调整面板尺寸 ───────────────────────────────────────────────────
     this.onResizePointerDown = (e) => {
@@ -5310,7 +5350,7 @@ var RightSidebarButtonManager = class {
         void this.save();
       }
     };
-    this.viewStack = new RightSidebarViewStack(app, getSettings, save, leafMount);
+    this.viewStack = new RightSidebarViewStack(app, getSettings, save, leafMount, detachLeaf);
     this.iconDrag = new RightSidebarIconDrag(this.viewStack, getSettings, save, () => this.suppressOutsideClickOnce());
     this.viewStack.bindIconDrag(this.iconDrag);
   }
@@ -5347,6 +5387,17 @@ var RightSidebarButtonManager = class {
     this.contentEl = this.surfaceEl.createDiv({ cls: CONTENT_CLASS });
     this.resizeHandleEl = this.surfaceEl.createDiv({ cls: RESIZE_HANDLE_CLASS });
     this.resizeHandleEl.addEventListener("pointerdown", this.onResizePointerDown);
+    const closeButton = this.panelEl.createEl("button", {
+      cls: CLOSE_CLASS,
+      attr: { type: "button", "aria-label": t("rightSidebarPanelClose") }
+    });
+    (0, import_obsidian14.setIcon)(closeButton, "x");
+    closeButton.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.viewStack.closeCurrentLeaf();
+      this.syncExpandVisibility();
+      this.showStack();
+    });
     this.pinEl = this.panelEl.createDiv({
       cls: PIN_CLASS,
       attr: { "aria-label": t(this.isPinned ? "rightSidebarPanelUnpin" : "rightSidebarPanelPin") }
@@ -5448,28 +5499,23 @@ var RightSidebarButtonManager = class {
     }
   }
   close() {
-    var _a, _b;
+    var _a, _b, _c;
     this.isOpen = false;
     this.clearStackTimers();
     this.setStackExpanded(false);
     (_a = this.panelEl) == null ? void 0 : _a.removeClass(OPEN_CLASS);
-    (_b = this.buttonEl) == null ? void 0 : _b.removeClass(BUTTON_ACTIVE_CLASS);
+    (_b = this.panelEl) == null ? void 0 : _b.removeClass(PANEL_ACTIONS_VISIBLE_CLASS);
+    (_c = this.buttonEl) == null ? void 0 : _c.removeClass(BUTTON_ACTIVE_CLASS);
   }
   setStackExpanded(expanded) {
     var _a;
     this.stackExpanded = expanded;
     (_a = this.stackEl) == null ? void 0 : _a.toggleClass(STACK_EXPANDED_CLASS, expanded);
   }
-  // 堆叠从隐藏变为可见的唯一入口：500ms 自动亮相定时器、悬浮唤出都走这里。
-  // 亮相当下鼠标没停在 launcher 上才排"首次亮相"的 2s 自动收起——否则等 mouseleave
-  // 再排（见 onLauncherMouseLeave，用的是更短的 300ms），避免鼠标正停在上面时
-  // 列表突然从指针底下收走。
+  // 展开图标列表后重新计时。鼠标停在 launcher 上时，等移出后再收起。
   showStack() {
+    this.clearStackTimers();
     this.setStackExpanded(true);
-    if (this.autoCollapseTimer !== null) {
-      window.clearTimeout(this.autoCollapseTimer);
-      this.autoCollapseTimer = null;
-    }
     if (!this.isHovering) this.scheduleAutoCollapse(STACK_AUTO_COLLAPSE_DELAY);
   }
   scheduleAutoCollapse(delayMs) {
@@ -6518,7 +6564,13 @@ var MinimalismUIPlugin = class extends import_obsidian17.Plugin {
     this.ribbonPanel = new RibbonPanelManager(settings, () => this.saveSettings());
     this.editorStatus = new EditorStatusManager(this.app, this);
     this.mermaidZoom = new MermaidZoomManager(this.app);
-    this.rightSidebarButton = new RightSidebarButtonManager(this.app, settings, () => this.saveData(this.settings), this.leafMount);
+    this.rightSidebarButton = new RightSidebarButtonManager(
+      this.app,
+      settings,
+      () => this.saveData(this.settings),
+      this.leafMount,
+      (leaf) => this.pinManager.forceDetachLeaf(leaf)
+    );
     this.noteCard = new NoteCardManager(this, settings, () => this.saveSettings());
     this.rightSidebarButton.setManagedLeftViewTypesProvider(() => this.leftSidebar.getOwnedViewTypes());
     this.statusBarMenu = new StatusBarMenuManager(this.app, this, {
