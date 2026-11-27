@@ -21,6 +21,8 @@ export interface EnsureToolViewsOptions {
 	 * 例如右侧栏会排除已被左侧栏 slot 占用的 view type，避免同一 view 同时出现在两处。
 	 */
 	excludedViewTypes?: ReadonlySet<string>;
+	// 探测期间可能有视图被用户关闭，每次创建前重新判断。
+	shouldSkipViewType?: (type: string) => boolean;
 	/**
 	 * 返回一个已存在的、可作为新建 leaf 归属的 tab 组（`WorkspaceParent`），或 null。
 	 * 新探测出的 leaf 会并入同一组，而不是各自 split 一块新分屏。
@@ -66,7 +68,7 @@ export class LeafMountService {
 		let sharedParent: unknown = opts.findSharedParent();
 
 		for (const type of this.allRegisteredToolViewTypes(opts.excludedViewTypes)) {
-			if (this.app.workspace.getLeavesOfType(type).length > 0) continue;
+			if (opts.shouldSkipViewType?.(type) || this.app.workspace.getLeavesOfType(type).length > 0) continue;
 			let leaf: WorkspaceLeaf | null = null;
 			try {
 				if (sharedParent) {

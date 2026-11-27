@@ -67,6 +67,7 @@ export class RightSidebarViewStack {
 	private contentEl: HTMLElement | null = null;
 	private buttonEl: HTMLElement | null = null;
 	private iconDrag: RightSidebarIconDrag | null = null;
+	private isDetachingLeaf = false;
 
 	// 每次 apply() 只做一次全量探测（见 ensureAllToolViewsExist），避免每次开面板都重复扫描/创建。
 	private hasProbedAllViewTypes = false;
@@ -100,6 +101,7 @@ export class RightSidebarViewStack {
 		private getSettings: () => MinimalismUISettings,
 		private save: () => Promise<void>,
 		private leafMount: LeafMountService,
+		private detachLeaf: (leaf: WorkspaceLeaf) => void,
 	) {}
 
 	// Phase 1 起由 main.ts 接线：让"左侧栏独占哪些 view type"成为两模块的单一事实源。
@@ -138,6 +140,48 @@ export class RightSidebarViewStack {
 
 	getMountedLeaf(): WorkspaceLeaf | null {
 		return this.mountedLeaf;
+	}
+
+	closeCurrentLeaf() {
+		const leaf = this.mountedLeaf ?? this.activeLeaf;
+		if (!leaf || this.isDetachingLeaf) return;
+
+		const closedType = this.keyOf(leaf);
+		const order = this.computeRenderOrder();
+		const afterCurrent = order.indexOf(leaf) + 1;
+		const visible = new Set(this.stowExpanded ? order : order.slice(order.indexOf(STOW_KEY) + 1));
+		const candidates = [...order.slice(afterCurrent), ...order.slice(0, afterCurrent)];
+
+		this.isDetachingLeaf = true;
+		try {
+			// 先归还视图 DOM，再让 Obsidian 执行原生关闭。layout-change 统一在关闭后处理。
+			if (this.mountedLeaf === leaf) this.restoreMounted();
+			this.detachLeaf(leaf);
+		} catch (err: unknown) {
+			console.error('[minimalism-ui] failed to close right sidebar view', err);
+		} finally {
+			this.isDetachingLeaf = false;
+		}
+
+		const remaining = this.collectSwitchableLeaves();
+		if (remaining.includes(leaf)) {
+			this.refreshStack(remaining);
+			return;
+		}
+
+		const survivors = new Set(remaining);
+		const orderedSurvivors = candidates.filter((item): item is WorkspaceLeaf => item !== STOW_KEY && survivors.has(item));
+		this.activeLeaf = orderedSurvivors.find(item => visible.has(item)) ?? orderedSurvivors[0] ?? null;
+
+		const settings = this.getSettings();
+		const closedTypes = settings.rightSidebarClosedViewTypes;
+		const sameTypeStillOpen = remaining.some(item => this.keyOf(item) === closedType);
+		if (!sameTypeStillOpen && !closedTypes.includes(closedType)) {
+			settings.rightSidebarClosedViewTypes = [...closedTypes, closedType];
+		}
+		this.refreshStack(remaining);
+		settings.rightSidebarLastActiveView = this.activeLeaf ? this.keyOf(this.activeLeaf) : '';
+		void this.save();
 	}
 
 	// 把当前挂载的视图在主编辑区新开一个真实标签页。右侧栏原 leaf 不动——用 getViewState()
@@ -186,6 +230,7 @@ export class RightSidebarViewStack {
 	async ensureAllToolViewsExist() {
 		await this.leafMount.ensureAllToolViewsExist({
 			excludedViewTypes: this.getManagedLeftViewTypes(),
+			shouldSkipViewType: (type) => this.getSettings().rightSidebarClosedViewTypes.includes(type),
 			findSharedParent: () => this.findExistingRightSidebarParent(),
 			createFallbackLeaf: () => this.app.workspace.getRightLeaf(true),
 		});
@@ -223,10 +268,9 @@ export class RightSidebarViewStack {
 		}
 	}
 
-	refreshStack() {
-		if (!this.stackEl) return;
-		const leaves = this.collectSwitchableLeaves();
-		this.syncLeafOrder(leaves);
+	refreshStack(leaves?: WorkspaceLeaf[]) {
+		if (!this.stackEl || this.isDetachingLeaf) return;
+		this.syncLeafOrder(leaves ?? this.collectSwitchableLeaves());
 
 		if (this.leafOrder.length === 0) {
 			this.activeLeaf = null;
@@ -401,16 +445,21 @@ export class RightSidebarViewStack {
 	}
 
 	private async showLeaf(leaf: WorkspaceLeaf) {
-		if (this.mountedLeaf === leaf) return;
-		this.restoreMounted();
+		const contentEl = this.contentEl;
+		if (!contentEl || this.mountedLeaf === leaf) return;
 
-		if (leaf.isDeferred) await leaf.loadIfDeferred();
+		if (leaf.isDeferred) {
+			await leaf.loadIfDeferred();
+			if (this.contentEl !== contentEl || this.activeLeaf !== leaf || this.mountedLeaf === leaf) return;
+		}
+
 		const viewEl = leaf.view.containerEl;
 		if (!viewEl.parentElement) return;
 
+		this.restoreMounted();
 		this.mountedOriginal = { parent: viewEl.parentElement, nextSibling: viewEl.nextSibling };
-		this.contentEl?.empty();
-		this.contentEl?.appendChild(viewEl);
+		contentEl.empty();
+		contentEl.appendChild(viewEl);
 		this.mountedLeaf = leaf;
 
 		if (this.buttonEl) setIcon(this.buttonEl, leaf.getIcon());

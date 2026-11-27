@@ -1,4 +1,4 @@
-import { App, setIcon } from 'obsidian';
+import { App, setIcon, WorkspaceLeaf } from 'obsidian';
 import { MinimalismUISettings } from '../core/settings';
 import { LeafMountService } from '../core/LeafMountService';
 import { Feature } from '../core/Feature';
@@ -13,13 +13,13 @@ const LAUNCHER_CLASS = 'minimalism-ui-rsb-launcher';
 const BUTTON_CLASS = 'minimalism-ui-rsb-button';
 const PANEL_CLASS = 'minimalism-ui-rsb-panel';
 const OPEN_CLASS = 'minimalism-ui-rsb-panel-open';
+const PANEL_ACTIONS_VISIBLE_CLASS = 'minimalism-ui-rsb-panel-actions-visible';
 const BUTTON_ACTIVE_CLASS = 'minimalism-ui-rsb-button-active';
 const SURFACE_CLASS = 'minimalism-ui-rsb-surface';
+const CLOSE_CLASS = 'minimalism-ui-rsb-close';
 const PIN_CLASS = 'minimalism-ui-rsb-pin';
-const PIN_HINT_CLASS = 'minimalism-ui-rsb-pin-hint';
 const PIN_ACTIVE_CLASS = 'minimalism-ui-rsb-pin-active';
 const EXPAND_CLASS = 'minimalism-ui-rsb-expand';
-const EXPAND_HINT_CLASS = 'minimalism-ui-rsb-expand-hint';
 const EXPAND_HIDDEN_CLASS = 'minimalism-ui-rsb-expand-hidden';
 const EXPAND_ICON = 'arrow-up-right';
 const RESIZE_HANDLE_CLASS = 'minimalism-ui-rsb-resize-handle';
@@ -38,8 +38,8 @@ const MAX_HEIGHT = 800;
 const VIEWPORT_MARGIN_X = 40;
 const VIEWPORT_MARGIN_Y = 92;
 
-// 鼠标距面板顶边多近算"顶部区域"，命中时探出 pin 按钮（未 pin 住时）。
-const PIN_HOVER_ZONE_PX = 40;
+// 鼠标进入距面板顶边 40px 的区域时，显示顶部按钮。
+const PANEL_ACTIONS_HOVER_ZONE_PX = 40;
 const PIN_ICON = 'pin';
 
 // 面板打开后堆叠自动亮相的延迟，及亮相后（未被悬浮打断时）自动收起前的停留时长。
@@ -58,8 +58,8 @@ const TOGGLE_RIGHT_SIDEBAR_COMMAND_ID = 'app:toggle-right-sidebar';
  * RightSidebarButtonManager — 右下角悬浮按钮，展开一个悬浮面板承载右侧边栏（及左侧栏里
  * 未被合并管理的"外来" leaf，如手动加入的 File Explorer/Tags/Search）的视图。
  *
- * 右侧边栏本身仍在（styles.css 用 body.minimalism-ui-mac-sidebar 纯 CSS 隐藏，
- * 内部 leaf/view 从未被拆除）。切视图不再靠面板内部的 tab 栏，而是按钮左侧一叠
+ * 右侧边栏本身仍在（styles.css 用 body.minimalism-ui-mac-sidebar 隐藏）。切视图
+ * 使用按钮左侧一叠
  * 圆形图标（收起时层叠、点击展开成一排）：收起态最靠近按钮（最上层）的图标即当前
  * 展示的视图；展开后点选任意一个即完成切换，选中项重新收起时会挪到最靠近按钮的位置。
  *
@@ -69,8 +69,9 @@ const TOGGLE_RIGHT_SIDEBAR_COMMAND_ID = 'app:toggle-right-sidebar';
  * 委托给 `RightSidebarIconDrag`。三者共用同一套 DOM 节点（stackEl/contentEl/buttonEl），
  * 本类在 inject() 时创建，通过 viewStack.mount() 交接。
  *
- * 图标堆叠的显隐是计时器 + 悬浮共同驱动的，跟"点击展开"无关：
+ * 图标列表的展开和收起时机：
  *   - 面板一打开就排 500ms 定时器，到点后堆叠从按钮下方向左滑出（showStack）；
+ *   - 点击顶部 × 切换视图时立即展开列表，显示新的选中项；
  *   - 每次堆叠变为可见，只要鼠标当下不在 launcher 上，就顺带排一个 2s 定时器，
  *     到点自动收回到按钮下方、被按钮完全遮挡（不是老版本"层叠但仍露头"的收起态）；
  *   - 鼠标悬浮在 launcher（按钮或已展开的堆叠）上会清掉/暂停这个 2s 倒计时，移开后
@@ -84,11 +85,11 @@ const TOGGLE_RIGHT_SIDEBAR_COMMAND_ID = 'app:toggle-right-sidebar';
  *
  * Pin：panelEl 不再自己裁剪溢出，真正的圆角/背景/裁剪挪到内层 surfaceEl，
  * 好让 pin 按钮（挂在 panelEl 上，绝对定位）探出面板右上角之外。鼠标移到面板
- * 顶部一小段区域内时探出（mousemove 判 clientY 距顶边距离，见 PIN_HOVER_ZONE_PX），
+ * 顶部一小段区域内时探出（见 PANEL_ACTIONS_HOVER_ZONE_PX），
  * 移出面板则收回；点击后切到"常驻显示"的 pinned 态并写入设置（跨重启持久化，
  * 因此关闭面板再打开、甚至重载插件后 pin 状态都还在）。
- * pinned 时 outsideClickHandler / keydownHandler 的关闭分支直接跳过——失焦、Esc
- * 都不再关闭面板，唯一出口是再次点击右下角悬浮按钮（toggle 不受 pinned 影响）。
+ * pinned 时 outsideClickHandler / keydownHandler 的关闭分支直接跳过。右下角悬浮按钮
+ * 仍可主动关闭浮层，顶部 × 关闭当前视图并显示下一项。
  */
 export class RightSidebarButtonManager implements Feature {
 	private launcherEl: HTMLElement | null = null;
@@ -136,8 +137,9 @@ export class RightSidebarButtonManager implements Feature {
 		private getSettings: () => MinimalismUISettings,
 		private save: () => Promise<void>,
 		leafMount: LeafMountService,
+		detachLeaf: (leaf: WorkspaceLeaf) => void,
 	) {
-		this.viewStack = new RightSidebarViewStack(app, getSettings, save, leafMount);
+		this.viewStack = new RightSidebarViewStack(app, getSettings, save, leafMount, detachLeaf);
 		this.iconDrag = new RightSidebarIconDrag(this.viewStack, getSettings, save, () => this.suppressOutsideClickOnce());
 		this.viewStack.bindIconDrag(this.iconDrag);
 	}
@@ -184,6 +186,18 @@ export class RightSidebarButtonManager implements Feature {
 		this.contentEl = this.surfaceEl.createDiv({ cls: CONTENT_CLASS });
 		this.resizeHandleEl = this.surfaceEl.createDiv({ cls: RESIZE_HANDLE_CLASS });
 		this.resizeHandleEl.addEventListener('pointerdown', this.onResizePointerDown);
+
+		const closeButton = this.panelEl.createEl('button', {
+			cls: CLOSE_CLASS,
+			attr: { type: 'button', 'aria-label': t('rightSidebarPanelClose') },
+		});
+		setIcon(closeButton, 'x');
+		closeButton.addEventListener('click', (e) => {
+			e.stopPropagation();
+			this.viewStack.closeCurrentLeaf();
+			this.syncExpandVisibility();
+			this.showStack();
+		});
 
 		this.pinEl = this.panelEl.createDiv({
 			cls: PIN_CLASS,
@@ -269,7 +283,7 @@ export class RightSidebarButtonManager implements Feature {
 				|| (this.launcherEl != null && path.includes(this.launcherEl))
 				|| (this.panelEl != null && path.includes(this.panelEl));
 			if (insidePanel) return;
-			// pin 住之后失焦（点击面板外）不再关闭，唯一出口是再点一次悬浮按钮（toggle，见 open/close）。
+			// pin 住之后点击面板外不再关闭。
 			if (this.isPinned) return;
 			this.close();
 		};
@@ -338,6 +352,7 @@ export class RightSidebarButtonManager implements Feature {
 		this.clearStackTimers();
 		this.setStackExpanded(false);
 		this.panelEl?.removeClass(OPEN_CLASS);
+		this.panelEl?.removeClass(PANEL_ACTIONS_VISIBLE_CLASS);
 		this.buttonEl?.removeClass(BUTTON_ACTIVE_CLASS);
 	}
 
@@ -346,16 +361,10 @@ export class RightSidebarButtonManager implements Feature {
 		this.stackEl?.toggleClass(STACK_EXPANDED_CLASS, expanded);
 	}
 
-	// 堆叠从隐藏变为可见的唯一入口：500ms 自动亮相定时器、悬浮唤出都走这里。
-	// 亮相当下鼠标没停在 launcher 上才排"首次亮相"的 2s 自动收起——否则等 mouseleave
-	// 再排（见 onLauncherMouseLeave，用的是更短的 300ms），避免鼠标正停在上面时
-	// 列表突然从指针底下收走。
+	// 展开图标列表后重新计时。鼠标停在 launcher 上时，等移出后再收起。
 	private showStack() {
+		this.clearStackTimers();
 		this.setStackExpanded(true);
-		if (this.autoCollapseTimer !== null) {
-			window.clearTimeout(this.autoCollapseTimer);
-			this.autoCollapseTimer = null;
-		}
 		if (!this.isHovering) this.scheduleAutoCollapse(STACK_AUTO_COLLAPSE_DELAY);
 	}
 
@@ -401,20 +410,17 @@ export class RightSidebarButtonManager implements Feature {
 		if (this.stackExpanded) this.scheduleAutoCollapse(STACK_HOVER_LEAVE_DELAY);
 	};
 
-	// 鼠标距面板顶边 PIN_HOVER_ZONE_PX 以内时探出 pin 按钮；已 pin 住的话本就常驻显示
-	// （由 PIN_ACTIVE_CLASS 控制），这里只管未 pin 时的悬浮提示态。
+	// 鼠标靠近顶边时显示顶部按钮；固定状态下 pin 按钮常驻。
 	private onPanelMouseMove = (e: MouseEvent) => {
 		if (!this.panelEl) return;
 		const rect = this.panelEl.getBoundingClientRect();
-		const nearTop = e.clientY - rect.top <= PIN_HOVER_ZONE_PX;
-		if (!this.isPinned) this.pinEl?.toggleClass(PIN_HINT_CLASS, nearTop);
+		const nearTop = e.clientY - rect.top <= PANEL_ACTIONS_HOVER_ZONE_PX;
 		this.syncExpandVisibility();
-		this.expandEl?.toggleClass(EXPAND_HINT_CLASS, nearTop);
+		this.panelEl.toggleClass(PANEL_ACTIONS_VISIBLE_CLASS, nearTop);
 	};
 
 	private onPanelMouseLeave = () => {
-		this.pinEl?.removeClass(PIN_HINT_CLASS);
-		this.expandEl?.removeClass(EXPAND_HINT_CLASS);
+		this.panelEl?.removeClass(PANEL_ACTIONS_VISIBLE_CLASS);
 	};
 
 	// 面板里没有挂载任何视图（空态）时把「在主区打开」按钮整个藏掉——没有东西可搬。

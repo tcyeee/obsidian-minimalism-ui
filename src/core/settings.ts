@@ -124,6 +124,8 @@ export interface MinimalismUISettings {
 	// 跨重启持久化，使下次打开面板时默认展示这一项，而不是 activeLeaf 缺失时随意回退到
 	// leafOrder 里最早发现的那个。空字符串表示尚无记录（沿用原有回退逻辑）。
 	rightSidebarLastActiveView: string;
+	// 用户主动关掉最后一份实例的视图类型，跳过启动时的自动创建。
+	rightSidebarClosedViewTypes: string[];
 	// 每张笔记卡片当前绑定的笔记路径，按 SidebarSlot.id 存（null = 未绑定）。
 	//
 	// 这是笔记卡片绑定状态的第三层持久化，与另外两层各自堵一个不同的失效窗口（NoteCardView /
@@ -179,5 +181,6 @@ export const DEFAULT_SETTINGS: MinimalismUISettings = {
 	rightSidebarStackOrder: [],
 	rightSidebarStowExpanded: false,
 	rightSidebarLastActiveView: '',
+	rightSidebarClosedViewTypes: [],
 	noteCardBindings: {},
 };
